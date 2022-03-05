@@ -9,15 +9,6 @@
 
 namespace green_potential {
 
-#ifdef HAS_NO_CUDA
-  #define __global__
-  #define __restrict__
-  #define __device__
-  #define __shared__
-  #define __unroll__
-  #define __host__
-#endif // HAS_NO_CUDA
-
     template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Potential( // GPU kernel, must be launched with <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef HAS_NO_CUDA
@@ -104,9 +95,9 @@ namespace green_potential {
             if (imaginary) {
                 // V-E has an imaginary part V_Im = -E_imag
                 // then explicitly:
-                //    Vpsi_Re = V_Re * psi_Re - V_Im * psi_Im
-                //    Vpsi_Im = V_Re * psi_Im + V_im * psi_Re
-                vpsi += V_imag * psi[inzb][1 - reim][spin*64 + i64][j64]; // ToDo: check the sign again!
+                //    Vpsi_Re = V_Re * psi_Re - V_Im * psi_Im = V_Re * psi_Re + E_imag * psi_Im (reim=0)
+                //    Vpsi_Im = V_Re * psi_Im + V_im * psi_Re = V_Re * psi_Im - E_imag * psi_Re (reim=0)
+                vpsi += V_imag * psi[inzb][1 - reim][spin*64 + i64][j64];
             } // imaginary
 
             if (2 == Noco && icube >= 0) { // the other spin component is (1 - spin)

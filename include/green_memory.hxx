@@ -18,7 +18,7 @@
   inline void __syncthreads(void) {} // dummy
 #endif // HAS_NO_CUDA      
 
-#define DEBUG
+// #define DEBUG
 
   template <typename T>
   T* get_memory(size_t const size=1, int const echo=0, char const *const name="") {
@@ -40,7 +40,7 @@
       d = new T[size];
 #endif // HAS_CUDA
 
-#if 1 // def DEBUG
+#ifdef DEBUG
       std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)d);
 #endif // DEBUG
 
@@ -49,9 +49,9 @@
 
 
   template <typename T>
-  void _free_memory(T* &d, char const *const name="") {
+  void _free_memory(T* & d, char const *const name="") {
       if (nullptr != d) {
-#if 1 // def DEBUG
+#ifdef DEBUG
           std::printf("# free_memory %s at %p\n", name, (void*)d);
 #endif // DEBUG
 
@@ -65,9 +65,9 @@
   } // free_memory
 
 #define free_memory(PTR) _free_memory(PTR, #PTR)
-  
+
   template <typename real_t=float>
-  inline char const* real_t_name() { return (8 == sizeof(real_t)) ? "double" : "float"; } 
+  inline char const* real_t_name() { return (8 == sizeof(real_t)) ? "double" : "float"; }
 
   //
   // Memory layout for Green function and atomic projection coefficients

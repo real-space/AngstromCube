@@ -54,7 +54,7 @@ endif
 
 .PHONY: clean allclean
 clean:
-	-rm -f *.o *~ *.d *.a
+	-rm -f *.o *.so *~ *.d *.a
 
 allclean: clean
 	-rm -f ${EXECUTABLE}

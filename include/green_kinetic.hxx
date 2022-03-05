@@ -178,7 +178,11 @@ namespace green_kinetic {
       finite_difference_plan_t& operator= (finite_difference_plan_t const & rhs) = delete; // move assignment
 
       ~finite_difference_plan_t() {
-          std::printf("# destruct %s, pointers= %p and %p\n", __func__, (void*)fd_list, (void*)prefix); std::fflush(stdout);
+#ifdef  DEBUG
+          std::printf("# destruct %s, pointers= %p and %p\n", 
+                      __func__, (void*)fd_list, (void*)prefix);
+          std::fflush(stdout);
+#endif // DEBUG
           free_memory(fd_list);
           free_memory(prefix);
       } // destructor
@@ -189,10 +193,6 @@ namespace green_kinetic {
   }; // class finite_difference_plan_t
 
   
-#ifdef HAS_NO_CUDA
-  #define __global__
-  #define __restrict__
-#endif // HAS_NO_CUDA
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
     void __global__ Laplace8th( // GPU kernel, must be launched with <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>

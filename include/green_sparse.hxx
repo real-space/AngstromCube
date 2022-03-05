@@ -13,7 +13,7 @@
 #include "green_memory.hxx" // get_memory, free_memory
 #include "simple_stats.hxx" // ::Stats<>
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef  DEBUG
   #define debug_printf(...) std::printf(__VA_ARGS__)

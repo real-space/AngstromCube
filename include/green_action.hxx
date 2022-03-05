@@ -28,6 +28,9 @@
     typedef size_t cudaStream_t;
 #endif // HAS_TFQMRGPU
 
+// #define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
+#define debug_printf(...)
+
 namespace green_action {
 
   typedef struct {
@@ -36,11 +39,18 @@ namespace green_action {
       int32_t gid; // global identifier
       int32_t ia; // local atom index
       int16_t shifts[3]; // periodic image shifts
-      uint8_t nc; // number of coefficients
+      uint8_t nc; // number of coefficients, uint8_t sufficient up to numax=9 --> 220 coefficients
       int8_t numax; // SHO basis size
   } atom_t; // 48 Byte
 
+  typedef struct {
+      double pos[3]; // position
+      float  oneoversqrtsigma; // Gaussian spread, 1/sqrt(sigma)
+      int8_t shifts[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
+      int8_t lmax; // SHO basis size
+  } atom_image_t; // 32 Byte
 
+  
   struct plan_t {
 
       // members needed for the usage with tfQMRgpu
@@ -85,30 +95,32 @@ namespace green_action {
       uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
+      float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences
       double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
       int32_t*  veff_index = nullptr; // [nRows] indirection list
-      uint32_t natoms = 0;
+
+      uint32_t number_of_contributing_atoms = 0;
       double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
-      uint32_t natom_images = 0;
-      uint32_t* ApcStart = nullptr; // [natom_images + 1]
-      atom_t* atom_data = nullptr; // [natom_images]
+
+      uint32_t natom_images  = 0;
+      uint32_t* ApcStart     = nullptr; // [natom_images + 1]
+      atom_t* atom_data      = nullptr; // [natom_images]
       double (*AtomPos)[3+1] = nullptr; // [natom_images]
-      int8_t* AtomLmax = nullptr; // [natom_images]
-      float  (*CubePos)[3+1] = nullptr; // [nRows]
+      int8_t* AtomLmax       = nullptr; // [natom_images]
+
       double *grid_spacing = nullptr; // [3+1]
-      int32_t number_of_contributing_atoms = 0;
       bool noncollinear_spin = false;
 
       green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
       green_sparse::sparse_t<>   sparse_SHOadd;
 
       plan_t() {
-          std::printf("# default constructor for %s\n", __func__); std::fflush(stdout);
+          debug_printf("# default constructor for %s\n", __func__);
       } // constructor
 
       ~plan_t() {
-          std::printf("# destruct %s\n", __func__); std::fflush(stdout);
+          debug_printf("# destruct %s\n", __func__);
           free_memory(ApcStart);
           free_memory(RowStart);
           free_memory(rowindx);
@@ -153,14 +165,14 @@ namespace green_action {
         : p(plan), apc(nullptr), aac(nullptr)
       {
           assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
-          std::printf("# construct %s\n", __func__); std::fflush(stdout);
+          debug_printf("# construct %s\n", __func__);
           char* buffer{nullptr};
           take_memory(buffer);
           assert(nullptr != plan);
       } // constructor
 
       ~action_t() {
-          std::printf("# destruct %s\n", __func__); std::fflush(stdout);
+          debug_printf("# destruct %s\n", __func__);
           free_memory(apc);
 //        free_memory(aac); // currently not used
       } // destructor

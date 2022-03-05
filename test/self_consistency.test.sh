@@ -23,14 +23,14 @@ exe=../src/a43
 # printf " 1 \n#cell 8 8 8 i i i \n" > $base.xyz
 # echo "C  0 0 0" >> $base.xyz
 
-# base=scf.methane
-# printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
-# dist=0.63
-# echo "C  0 0 0"                 >> $base.xyz
-# echo "H   -$dist -$dist -$dist" >> $base.xyz
-# echo "H    $dist  $dist -$dist" >> $base.xyz
-# echo "H    $dist -$dist  $dist" >> $base.xyz
-# echo "H   -$dist  $dist  $dist" >> $base.xyz
+base=scf.methane
+printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
+dist=0.63
+echo "C  0 0 0"                 >> $base.xyz
+echo "H   -$dist -$dist -$dist" >> $base.xyz
+echo "H    $dist  $dist -$dist" >> $base.xyz
+echo "H    $dist -$dist  $dist" >> $base.xyz
+echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
 # printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
@@ -44,16 +44,14 @@ exe=../src/a43
 # echo "C  0 0 -0.525" >> $base.xyz
 # echo "C  0 0  0.775" >> $base.xyz
 
-base=scf.AlP
+# base=scf.AlP
 # printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $base.xyz
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $base.xyz
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $base.xyz
 # printf " 2 \n#cell 21.167 21.167 21.167 i i i \n" > $base.xyz
-printf " 2 \n#cell 8.0 8.0 8.0 i i i \n" > $base.xyz
-echo "Al   0 0 -1.058354499" >> $base.xyz
-echo "P    0 0  1.058354499" >> $base.xyz
-# echo "Al   0 0 -2.0" >> $base.xyz
-# echo "P    0 0  2.0" >> $base.xyz
+# printf " 2 \n#cell 8.0 8.0 8.0 i i i \n" > $base.xyz
+# echo "Al   0 0 -1.058354499" >> $base.xyz
+# echo "P    0 0  1.058354499" >> $base.xyz
 
 # base=scf.Al2
 # printf " 2 \n#cell 8.0 8.0 4.0 p p p \n" > $base.xyz

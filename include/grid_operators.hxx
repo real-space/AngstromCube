@@ -22,7 +22,7 @@
   #include "control.hxx" // ::get
 #endif // DEVEL
 
-#define DEBUG
+// #define DEBUG
 
 namespace grid_operators {
 
@@ -221,7 +221,7 @@ namespace grid_operators {
         double const xyzZins[] // data layout [na][8], collection of different quantities
       , int const na // number of atoms
       , int const stride // typically stride=8
-      , real_space::grid_t const & gc // we need cell info here and grid spacing (for the grid_offset)
+      , real_space::grid_t const & gc // we need cell info here (for periodic_images) and grid spacing (for grid_offset)
       , int const echo=9
       , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
       , float const rcut=18 // sho_projection usually ends at 9*sigma
@@ -239,7 +239,6 @@ namespace grid_operators {
       assert(stride >= 7);
       std::vector<atom_image::sho_atom_t> a(na);
       for (int ia = 0; ia < na; ++ia) {
-          double const *apos = &xyzZins[ia*stride + 0];
           double pos[3];
           for (int d = 0; d < 3; ++d) {
               pos[d] =    grid_offset[d] + xyzZins[ia*stride + d];
@@ -254,6 +253,7 @@ namespace grid_operators {
           a[ia].set_image_positions(pos, n_periodic_images, &image_positions, &image_indices);
 
           char Symbol[4]; chemical_symbol::get(Symbol, Z);
+          double const *apos = &xyzZins[ia*stride + 0];
           if (echo > 3) std::printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
               Symbol, apos[0]*Ang, apos[1]*Ang, apos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
           if (echo > 3) std::printf("# %s %s %g %g %g (rel) has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
@@ -425,14 +425,14 @@ namespace grid_operators {
           if (echo > 1) std::printf("# %s done\n\n", __func__);
       } // construct_dense_operator
 
-      int write_to_file(
+      int write_to_file( // TODO: could be moved out of the templated class
             int const echo=0
           , char const *const fileformat="xml" // or "json"
           , double const energy_min_max_Fermi[3]=nullptr
           , char const *filename=nullptr // filename, nullptr: use a default name
           , char const *pathname="."
       ) {
-#ifdef DEVEL
+#ifdef  DEVEL
           char file_name_buffer[512];
           if (nullptr == filename) {
               std::snprintf(file_name_buffer, 511, "%s/%s.%s", pathname, "Hmt", fileformat);
@@ -484,6 +484,7 @@ namespace grid_operators {
               std::fprintf(f, "  </sho_atoms>\n");
 
               std::fprintf(f, "  <spacing x=\"%.17f\" y=\"%.17f\" z=\"%.17f\"/>\n", grid.h[0], grid.h[1], grid.h[2]);
+              std::fprintf(f, "  <boundary x=\"%d\" y=\"%d\" z=\"%d\"/>\n", grid.boundary_condition(0), grid.boundary_condition(1), grid.boundary_condition(2));
               std::fprintf(f, "  <potential nx=\"%d\" ny=\"%d\" nz=\"%d\">", grid[0], grid[1], grid[2]);
               for (int izyx = 0; izyx < grid.all(); ++izyx) {
                   if (0 == (izyx & 3)) std::fprintf(f, "\n    ");
@@ -536,6 +537,7 @@ namespace grid_operators {
               std::fprintf(f, "  }\n"); // close sho_atoms
 
               std::fprintf(f, " ,\"spacing\": [%.17f, %.17f, %.17f]\n", grid.h[0], grid.h[1], grid.h[2]);
+              std::fprintf(f, " ,\"boundary\": [%d, %d, %d]\n", grid.boundary_condition(0), grid.boundary_condition(1), grid.boundary_condition(2));
               std::fprintf(f, " ,\"potential\": {\n"); // open potential
               std::fprintf(f, "    \"grid\": [%d, %d, %d]\n", grid[0], grid[1], grid[2]);
               std::fprintf(f, "   ,\"values\":");

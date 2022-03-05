@@ -84,9 +84,9 @@ namespace green_dyadic {
         return R2_projection; // as float
     } // Hermite_polynomials_1D
 
-    
+
     int constexpr Lmax_default=7; // reduce this to lower the GPU register and shared memory usage
-    
+
     template <typename real_t, int R1C2=2, int Noco=1, int Lmax=Lmax_default>
     void __global__ SHOprj( // launch SHOprj<real_t,R1C2,Noco> <<< {nrhs, natoms, 1}, {Noco*64, Noco, R1C2} >>> (...);
 #ifdef HAS_NO_CUDA
@@ -656,8 +656,8 @@ namespace green_dyadic {
 
     template <typename real_t, int R1C2=2, int Noco=1, int n64=64>
     size_t SHOmul_driver(
-          real_t         (*const __restrict__ aac)[R1C2][Noco][Noco*n64] // result
-        , real_t   const (*const __restrict__ apc)[R1C2][Noco][Noco*n64] // input
+          real_t         (*const __restrict__ aac)[R1C2][Noco][Noco*n64] // result,  atom addition coefficients
+        , real_t   const (*const __restrict__ apc)[R1C2][Noco][Noco*n64] // input, atom projection coefficients
         , double   const (*const *const __restrict__ AtomMatrices)
         , uint32_t const (*const __restrict__ AtomStarts)
         , int8_t   const (*const __restrict__ AtomLmax)
@@ -668,7 +668,7 @@ namespace green_dyadic {
         assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
 
         if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {nrhs=%d, natoms=%d, 1}, {%d, %d, 1} >>>\n",
-                            __func__, real_t_name<real_t>(), R1C2, Noco, n64, nrhs, natoms, Noco*64, Noco);
+                            __func__, real_t_name<real_t>(), R1C2, Noco, n64, nrhs, natoms, Noco*n64, Noco);
         SHOmul<real_t,R1C2,Noco,n64> // launch <<< {nrhs, natoms, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
             <<< dim3(nrhs, natoms, 1), dim3(Noco*n64, Noco, 1) >>> (

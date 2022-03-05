@@ -313,9 +313,9 @@ namespace self_consistency {
       char const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
-      char const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32;
+      char const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32; // {'f', 'g'}
 
-      char const occupation_method = *control::get("fermi.level", "exact") | 32; // {"exact", "linearized"}
+      char const occupation_method = *control::get("fermi.level", "exact") | 32; // {'e':"exact", 'l':"linearized"}
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);

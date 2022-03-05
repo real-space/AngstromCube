@@ -22,19 +22,20 @@
 namespace green_input {
 
   inline status_t load_Hamiltonian(
-        int ng[3] // number of grid points
-      , double hg[3] // grid spacing
+        int ng[3] // numbers of grid points
+      , int bc[3] // boundary conditions
+      , double hg[3] // grid spacings
       , std::vector<double> & Veff
       , int & natoms
       , std::vector<double> & xyzZinso
       , std::vector<std::vector<double>> & atom_mat
+      , char const *const filename="Hmt.xml"
       , int const echo=0 // log-level
   ) {
 #ifndef HAS_RAPIDXML
       warn("Unable to load_Hamiltonian when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #else  // HAS_RAPIDXML
-      char const *filename = "Hmt.xml";
       rapidxml::file<> infile(filename);
 
       rapidxml::xml_document<> doc;
@@ -52,7 +53,7 @@ namespace green_input {
           auto const sho_atoms = xml_reading::find_child(grid_Hamiltonian, "sho_atoms", echo);
           if (sho_atoms) {
               auto const number = xml_reading::find_attribute(sho_atoms, "number", "0", echo);
-              if (echo > 5) std::printf("# found number=%s\n", number);
+              if (echo > 1) std::printf("# expect %s sho_atoms\n", number);
               natoms = std::atoi(number);
               xyzZinso.resize(natoms*8);
               atom_mat.resize(natoms);
@@ -118,10 +119,20 @@ namespace green_input {
               auto const value = xml_reading::find_attribute(spacing, axyz);
               if (*value != '\0') {
                   hg[d] = std::atof(value);
-                  if (echo > 5) std::printf("# h%s = %.15g\n", axyz, hg[d]);
+                  if (echo > 3) std::printf("# h%s = %.15g\n", axyz, hg[d]);
               } // value != ""
           } // d
 
+          auto const boundary = xml_reading::find_child(grid_Hamiltonian, "boundary", echo);
+          for (int d = 0; d < 3; ++d) {
+              char axyz[] = {0, 0}; axyz[0] = 'x' + d; // "x", "y", "z"
+              auto const value = xml_reading::find_attribute(boundary, axyz);
+              if (*value != '\0') {
+                  bc[d] = std::atoi(value);
+                  if (echo > 3) std::printf("# BC%s = %d\n", axyz, bc[d]);
+              } // value != ""
+          } // d
+          
           auto const potential = xml_reading::find_child(grid_Hamiltonian, "potential", echo);
           if (potential) {
               for (int d = 0; d < 3; ++d) {
@@ -134,7 +145,7 @@ namespace green_input {
               } // d
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               Veff = xml_reading::read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
-              if (echo > 5) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
+              if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
                   Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
               assert(Veff.size() == ng[2]*ng[1]*ng[0]);
           } else warn("grid_Hamiltonian has no potential in file %s", filename);

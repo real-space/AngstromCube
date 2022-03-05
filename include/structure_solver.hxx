@@ -5,6 +5,10 @@
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
 
+
+// #define DEBUG
+
+
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2, align<n>
 
@@ -16,7 +20,7 @@
 #include "control.hxx" // ::get
 
 #include "debug_tools.hxx" // ::read_from_file
-#include "debug_output.hxx" // dump_to_file
+#include "debug_output.hxx" // dump_to_file, here
 
 #include "atom_image.hxx"// ::sho_atom_t
 #include "grid_operators.hxx" // ::grid_operator_t
@@ -36,13 +40,6 @@
 #include "complex_tools.hxx" // complex_name
 
 #include "status.hxx" // status_t
-
-#define DEBUG
-#ifdef  DEBUG
-    #include "debug_output.hxx" // here
-#else  // DEBUG
-    #define here
-#endif // DEBUG
 
 namespace structure_solver {
   

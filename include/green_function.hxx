@@ -17,7 +17,7 @@
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
-#include "green_action.hxx" // ::plan_t, ::action_t, atom_t
+#include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 
@@ -78,11 +78,12 @@ namespace green_function {
 
   inline status_t construct_Green_function(
         green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-      , int const ng[3] // number of grid points of the unit cell in with the potential is defined
+      , int const ng[3] // numbers of grid points of the unit cell in with the potential is defined
+      , int const boundary_condition[3] // boundary conditions
       , double const hg[3] // grid spacings
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
-      , std::vector<std::vector<double>> const & atom_mat // atomic hamiltonian and overlap matrix
+      , std::vector<std::vector<double>> const & atom_mat // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
       , int const echo=0 // log-level
       , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
       , int const Noco=1
@@ -102,13 +103,13 @@ namespace green_function {
 
       assert(Veff.size() == ng[Z]*ng[Y]*ng[X]);
 
-//    view3D<block4<double>> Vtot_blocks(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X]);
       size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
 
       // regroup effective potential into blocks of 4x4x4
       assert(1 == Noco || 2 == Noco);
       p.noncollinear_spin = (2 == Noco);
       p.Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo, "Veff"); // in managed memory
+        // IDEA: we could allocate (1+n_all_Veff_blocks) and then have veff_index unsigned and an average outside potential inp.Veff[0][:]
       { // scope: reorder Veff into block-structured p.Veff
 
           for (size_t k = 0; k < n_all_Veff_blocks*Noco*Noco*64; ++k) {
@@ -255,6 +256,7 @@ namespace green_function {
           if (echo > 0) std::printf("# truncation radius %g, search within %g %s\n", rtrunc*Ang, rtrunc_plus*Ang, _Ang);
           if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
+          double h[] = {hg[0], hg[1], hg[2]}; // customized grid spacing, we may need a customized p.grid_spacing for the potential as well
           int16_t itr[3]; // 16bit, range [-32768, 32767] should be enough
           for (int d = 0; d < 3; ++d) {
               // how many blocks around the source block do we need to check
@@ -265,6 +267,22 @@ namespace green_function {
               min_target_coords[d] = min_source_coords[d] - internal_global_offset[d] - itr[d];
               max_target_coords[d] = max_source_coords[d] - internal_global_offset[d] + itr[d];
               num_target_coords[d] = max_target_coords[d] + 1 - min_target_coords[d];
+
+              char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x'+d);
+              auto const scale_h = control::get(keyword, 1.);
+              if (scale_h >= 0) {
+                  h[d] = hg[d]*scale_h;
+                  if (echo > 1 && 1 != scale_h) std::printf("# scale grid spacing in %c-direction for truncation from %g to %g %s\n", 'x'+d, hg[d]*Ang, h[d]*Ang, _Ang);
+              }
+              if (0 == boundary_condition[d]) {
+              } else {
+                  // periodic boundary conditions
+                  if (2*rtrunc > cell[d] && h[d] > 0) {
+                      warn("truncation sphere does not fit cell in %c-direction, better use +%s=0 to deactivate truncation", 'x'+d, keyword);
+                      // TODO: in general, the following algorithm is only suitable for isolated boundary conditions
+                  }
+              }
+              
           } // d
           auto const product_target_blocks = size_t(num_target_coords[Z])*
                                              size_t(num_target_coords[Y])*
@@ -304,7 +322,7 @@ namespace green_function {
                       assert(target_coords[d] <= max_target_coords[d]);
                   } // d
                   // d2 is the distance^2 of the block centers
-                  double const d2 = pow2(bx*4*hg[X]) + pow2(by*4*hg[Y]) + pow2(bz*4*hg[Z]);
+                  double const d2 = pow2(bx*4*h[X]) + pow2(by*4*h[Y]) + pow2(bz*4*h[Z]);
 
                   int nci{0}; // init number of corners inside
                   if (d2 < r2trunc_plus) { // potentially inside, check all 8 or 27 corner cases
@@ -315,9 +333,9 @@ namespace green_function {
                           // i = i4 - j4 --> i in [-3, 3],
                           //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
                           //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
-                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) { double const d2z = pow2((bz*4 + iz)*hg[Z]);
-                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) { double const d2y = pow2((by*4 + iy)*hg[Y]) + d2z;
-                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) { double const d2c = pow2((bx*4 + ix)*hg[X]) + d2y;
+                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) { double const d2z = pow2((bz*4 + iz)*h[Z]);
+                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) { double const d2y = pow2((by*4 + iy)*h[Y]) + d2z;
+                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) { double const d2c = pow2((bx*4 + ix)*h[X]) + d2y;
 #if 0
                               if (0 == iRHS && (d2c < r2trunc) && echo > 17) {
                                   std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
@@ -477,7 +495,9 @@ namespace green_function {
                       for (int32_t inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
                           auto const iCol = p.colindx[inz];
                           for (int d = 0; d < 3; ++d) {
-                              p.target_minus_source[inz][d] = p.target_coords[iRow][d] - p.source_coords[iCol][d]; // ToDo: with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
+                              auto const diff = p.target_coords[iRow][d] - p.source_coords[iCol][d]; // ToDo: with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
+                              assert(std::abs(diff) <= 32767); // because of int16_t
+                              p.target_minus_source[inz][d] = diff;
                           } // d
                           p.target_minus_source[inz][3] = 0; // not used
                           p.rowindx[inz] = iRow;
@@ -486,6 +506,7 @@ namespace green_function {
                       if (1) { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
                           int32_t mod[3];
                           for (int d = 0; d < 3; ++d) {
+                              // treatment for periodic geometries
                               mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
                               mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
                           } // d
@@ -536,7 +557,7 @@ namespace green_function {
           // transfer grid spacing into managed GPU memory
           p.grid_spacing = get_memory<double>(4, echo, "grid_spacing");
           set(p.grid_spacing, 3, hg);
-          p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projection stops
+          p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
 
       } // scope
 
@@ -548,6 +569,7 @@ namespace green_function {
 
       int const natoms = atom_mat.size();
       if (echo > 2) std::printf("\n#\n# %s: Start atom part, %d atoms\n#\n", __func__, natoms);
+      assert(xyzZinso.size() == natoms*8);
 
       // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
       double max_projection_radius{0};
@@ -568,11 +590,10 @@ namespace green_function {
           int iimage[3];
           size_t nimages{1};
           for (int d = 0; d < 3; ++d) { // parallel
-              iimage[d] = std::ceil(radius/cell[d]);  // for periodic boundary conditions
-              iimage[d] = 0;                          // for isolated boundary conditions
+              iimage[d] = std::ceil(radius/cell[d]);         // for periodic boundary conditions
+              if (0 == boundary_condition[d]) iimage[d] = 0; // for isolated boundary conditions
               nimages *= (iimage[d] + 1 + iimage[d]);
           } // d
-          warn("used isolated boundary conditions for the generation of %ld atom images", nimages);
           auto const natom_images = natoms*nimages;
           if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k images total\n",
                                         iimage[X], iimage[Y], iimage[Z], nimages*.001);
@@ -706,23 +727,24 @@ namespace green_function {
                                     nai, natom_images, nai/(natom_images*.01));
           auto const napc = ApcStart[nai];
 
-          if (echo > 3) std::printf("# sparse %g (%.2f %%) of dense %g\n", sparse, sparse/(dense*.01), dense);
+          if (echo > 3) std::printf("# sparse %g (%.2f %%) of dense %g\n", sparse, sparse/(std::max(1., dense)*.01), dense);
 
           if (echo > 3) std::printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
                                     nc_stats.mean(), nc_stats.dev(), nc_stats.min(), nc_stats.max());
 
           if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*.001, napc/double(nai));
           // projection coefficients for the non-local PAW operations are stored
-          // as std::complex<real_t> apc[napc][nRHSs][Noco][Noco*64] or real_t apc[napc][nRHSs][2][Noco][Noco*64] on the GPU
+          // as real_t apc[napc*nRHSs][R1C2][Noco][Noco*64] on the GPU
           if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
-                                                  napc*nRHSs*2.*64.*sizeof(float)*GByte, _GByte);
+                                                        napc*nRHSs*2.*pow2(Noco)*64.*sizeof(float)*GByte, _GByte);
 
           p.natom_images = nai;
           assert(nai == p.natom_images); // verify
 
           { // scope: set up sparse tables
               using ::green_sparse::sparse_t;
-              
+
+              // planning for the addition of sparse SHO projectors times dense coefficients operation
               p.sparse_SHOadd = sparse_t<>(imags, false, "sparse_SHOadd", echo);
               // sparse_SHOadd: rows == Green function rows, cols == atom images
               if (echo > 29) {
@@ -732,8 +754,8 @@ namespace green_function {
                   printf_vector(" %d", p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
               } // echo
               imags.resize(0); // release host memory
-             
 
+              // planning for the contraction of sparse Green function times sparse SHO projectors
               std::vector<std::vector<std::vector<uint32_t>>> vvv(p.nCols);
               for (uint16_t irhs = 0; irhs < p.nCols; ++irhs) {
                   vvv[irhs].resize(nai);
@@ -851,20 +873,22 @@ namespace green_function {
 
   inline status_t test_Green_function(int const echo=0) {
       int    ng[3] = {0, 0, 0}; // grid sizes
+      int    bc[3] = {0, 0, 0}; // boundary conditions
       double hg[3] = {1, 1, 1}; // grid spacings
       std::vector<double> Veff(0); // local potential
       int natoms{0}; // number of atoms
       std::vector<double> xyzZinso(0); // atom info
       std::vector<std::vector<double>> atom_mat(0); // non-local potential
 
-      auto const stat = green_input::load_Hamiltonian(ng, hg, Veff, natoms, xyzZinso, atom_mat, echo);
+      auto const *const filename = control::get("green_function.hamiltonian.file", "Hmt.xml");
+      auto const stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
           return stat;
       } // stat
 
       green_action::plan_t p;
-      return construct_Green_function(p, ng, hg, Veff, xyzZinso, atom_mat, echo);
+      return construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, atom_mat, echo);
   } // test_Green_function
 
   inline status_t all_tests(int const echo=0) {
