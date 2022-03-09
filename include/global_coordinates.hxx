@@ -16,7 +16,7 @@ namespace global_coordinates {
   // Negative values are allowed as input but will be folded back into the positive range.
 
   inline int64_t get(int32_t x, int32_t y, int32_t z) {
-      // interleaved bit pattern of the lowest 21 bits to 63 bits
+      // interleave bit pattern of the lowest 21 bits to 63 bits
       int64_t i63{0};
       for (int b21 = 0; b21 < 21; ++b21) {
           int32_t const i3 = (x & 0x1) + 2*(y & 0x1) + 4*(z & 0x1);
@@ -28,9 +28,7 @@ namespace global_coordinates {
   } // get
 
   template <typename int_t>
-  inline int64_t get(int_t const xyz[3]) {
-      return get(xyz[0], xyz[1], xyz[2]);
-  } // get
+  inline int64_t get(int_t const xyz[3]) { return get(xyz[0], xyz[1], xyz[2]); }
 
   inline status_t get(uint32_t xyz[3], int64_t i63) {
       // retrieve global_coordinates from i63 identifyer

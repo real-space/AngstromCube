@@ -109,7 +109,8 @@ namespace green_action {
       double (*AtomPos)[3+1] = nullptr; // [natom_images]
       int8_t* AtomLmax       = nullptr; // [natom_images]
 
-      double *grid_spacing = nullptr; // [3+1]
+      double *grid_spacing       = nullptr; // [3+1]
+      double *grid_spacing_trunc = nullptr; // [3]
       bool noncollinear_spin = false;
 
       green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
@@ -133,6 +134,7 @@ namespace green_action {
           free_memory(atom_mat);
           free_memory(atom_data);
           free_memory(grid_spacing);
+          free_memory(grid_spacing_trunc);
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
               fd_plan[dd].~finite_difference_plan_t();
           } // dd
@@ -365,7 +367,7 @@ namespace green_action {
           float const inner_radius2       = pow2(p->r_Vconfinement);
           float const potential_prefactor = p->Vconfinement;
 
-          double const *const hg = p->grid_spacing; // abbreviation
+          double const *const hg = p->grid_spacing_trunc; // abbreviation
 
           simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
 
@@ -474,7 +476,7 @@ namespace green_action {
       {
           // start with the potential, assign y to initial values
           green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
-              p->veff_index, p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
+              p->veff_index, p->rowindx, p->target_minus_source, p->grid_spacing_trunc, nnzbY);
 
           // add the kinetic energy expressions
           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
@@ -516,6 +518,7 @@ namespace green_action {
           { action_t<double,2,2> action(&plan); }
       } // destruct plan
       std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
+      std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
       std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(plan_t));
       return 0;
   } // test_construction_and_destruction

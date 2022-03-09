@@ -56,7 +56,7 @@ namespace green_function {
               x[0][0][0][i] = 0; // init x
           } // i
           
-          bool const toy = control::get("green_function.benchmark.toy", 1.);
+          bool const toy = control::get("green_function.benchmark.toy", 0.);
 
           // benchmark the action
           for (int iteration = 0; iteration < n_iterations; ++iteration) {
@@ -172,9 +172,11 @@ namespace green_function {
               for (int ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
               for (int iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
               for (int ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-                  int const ibxyz[] = {ibx, iby, ibz, 0};
+                  int const ibxyz[] = {ibx + n_original_Veff_blocks[X]/2,
+                                       iby + n_original_Veff_blocks[Y]/2,
+                                       ibz + n_original_Veff_blocks[Z]/2, 0};
                   set(global_source_coords[iRHS], 4, ibxyz);
-                  p.global_source_indices[iRHS] = global_coordinates::get(ibx, iby, ibz);
+                  p.global_source_indices[iRHS] = global_coordinates::get(ibxyz);
                   for (int d = 0; d < 3; ++d) {
                       int32_t const rhs_coord = global_source_coords(iRHS,d);
                       center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d];
@@ -383,7 +385,7 @@ namespace green_function {
                       // list in detail
                       for (int nci = 0; nci <= max_nci; ++nci) {
                           if (hist[nci] > 0) {
-                              std::printf("# RHS has%9.3f k cases with %d corners inside, d2 stats: %g +/- %g in [%g, %g] Bohr^2\n",
+                              std::printf("# RHS has%9.3f k cases with %2d corners inside, d2 stats: %g +/- %g in [%g, %g] Bohr^2\n",
                                   hist[nci]*.001, nci, stats_d2[nci].mean(), stats_d2[nci].dev(), stats_d2[nci].min(), stats_d2[nci].max());
                               total_checked += hist[nci];
                           } // hist[nci] > 0
@@ -558,6 +560,9 @@ namespace green_function {
           p.grid_spacing = get_memory<double>(4, echo, "grid_spacing");
           set(p.grid_spacing, 3, hg);
           p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
+
+          p.grid_spacing_trunc = get_memory<double>(3, echo, "grid_spacing_trunc");
+          set(p.grid_spacing_trunc, 3, h); // customized grid spacings used for the construction of the truncation sphere
 
       } // scope
 
@@ -844,7 +849,7 @@ namespace green_function {
 
       } // scope "Atom part"
 
-      int const n_iterations = control::get("green_function.benchmark.iterations", -1.); 
+      int const n_iterations = control::get("green_function.benchmark.iterations", 1.); 
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
       if (n_iterations < 0) {
           if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);

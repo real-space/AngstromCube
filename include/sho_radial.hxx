@@ -25,6 +25,10 @@ namespace sho_radial {
 
       // recursion relation of the radial SHO coefficients:
       // a_0 = 1, a_{k+1} = (k-nrn)/((k+1)*(ell+k+3/2)) a_k
+      //
+      // These are the coefficients of the generalized/associated 
+      // Laguerre/Sonin polynomials L_{n}^{(\alpha)}(x)
+      // with n = nrn, \alpha = ell + 1/2, x = r^2
 
       poly[0] = factor;
       for (int k = 0; k < nrn; ++k) {

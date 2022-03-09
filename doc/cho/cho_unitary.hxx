@@ -12,7 +12,6 @@
 // #include "status.hxx" // status_t
 typedef int status_t;
 
-// #include "sho_tools.hxx" // ::n2HO, ::SHO_order_t, ::order_*
 // #include "recorded_warnings.hxx" // warn
 #define warn std::printf
 

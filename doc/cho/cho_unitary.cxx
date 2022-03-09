@@ -8,6 +8,7 @@
 #include <cstdlib> // std::abs
 #include <cassert> // assert
 
+// #include "status.hxx" // status_t
 typedef int status_t;
 
 #include "cho_unitary.hxx"

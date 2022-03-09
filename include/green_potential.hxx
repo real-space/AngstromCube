@@ -23,7 +23,7 @@ namespace green_potential {
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb]
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int     const nnzb // number of all blocks to be treated
-        , float   const rcut2 // cutoff radius^2 for the confinement potential
+        , float   const rcut2 // cutoff radius^2 for the confinement potential, negative for no confinement
         , real_t  const E_real // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t  const E_imag // imaginary part of the energy parameter
     ) {
