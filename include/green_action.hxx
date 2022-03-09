@@ -56,7 +56,7 @@ namespace green_action {
       // members needed for the usage with tfQMRgpu
     
       // for the inner products and axpy/xpay
-      std::vector<uint16_t> colindx; // [nnzbX], must be a std::vector since nnzbX is derived from colindx.size()
+      std::vector<uint16_t> colindx; // [nnzb], must be a std::vector since nnzb is derived from colindx.size()
       memWindow_t colindxwin; // column indices in GPU memory
 
       // for the matrix-matrix subtraction Y -= B:
@@ -92,11 +92,11 @@ namespace green_action {
 
       green_kinetic::finite_difference_plan_t fd_plan[3];
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
-      uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
+      uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
       float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float
-      int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences
+      int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
       double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
       int32_t*  veff_index = nullptr; // [nRows] indirection list
 
@@ -115,6 +115,7 @@ namespace green_action {
 
       green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
       green_sparse::sparse_t<>   sparse_SHOadd;
+//    green_sparse::sparse_t<uint16_t> sparse_Green;
 
       plan_t() {
           debug_printf("# default constructor for %s\n", __func__);
@@ -204,12 +205,12 @@ namespace green_action {
       bool has_preconditioner() const { return false; }
 
       double toy_multiply( // returns the number of flops performed
-            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzbY][2][LM][LM]
-          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzbX][2][LM][LM]
+            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
+          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
           , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
-          , uint32_t const nnzbY // == nnzbX, number of nonzero blocks, typically colIndex.size()
+          , uint32_t const nnzb // == nnzb, number of nonzero blocks, typically colIndex.size()
           , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
-          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzbX
+          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzb
           , cudaStream_t const streamId=0 // CUDA stream to run on
           , bool const precondition=false
       )
@@ -258,7 +259,7 @@ namespace green_action {
       //                  }
 
           // clear y
-          for (size_t inz = 0; inz < nnzbY; ++inz) {
+          for (size_t inz = 0; inz < nnzb; ++inz) {
               for (int cij = 0; cij < R1C2*LM*LM; ++cij) {
                   y[inz][0][0][cij] = 0;
               } // cij
@@ -463,12 +464,12 @@ namespace green_action {
       
       
       double multiply( // returns the number of flops performed
-            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzbY][2][LM][LM]
-          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzbX][2][LM][LM]
+            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
+          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
           , uint16_t const (*const __restrict colIndex) // column indices in device memory
-          , uint32_t const nnzbY // == nnzbX, number of nonzero blocks, typically colIndex.size()
+          , uint32_t const nnzb // number of nonzero blocks, typically colIndex.size()
           , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
-          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzbX
+          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzb
           , cudaStream_t const streamId=0 // CUDA stream to run on
           , bool const precondition=false
       )
@@ -476,15 +477,15 @@ namespace green_action {
       {
           // start with the potential, assign y to initial values
           green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
-              p->veff_index, p->rowindx, p->target_minus_source, p->grid_spacing_trunc, nnzbY);
+              p->veff_index, p->rowindx, p->target_minus_source, p->grid_spacing_trunc, nnzb);
 
           // add the kinetic energy expressions
           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
-              p->grid_spacing, 4, nnzbY);
+              p->grid_spacing, 4, nnzb);
 
           // add the non-local potential using the dyadic action of project + add
           green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->AtomLmax, p->ApcStart, p->natom_images,
-              p->sparse_SHOprj, p->sparse_SHOadd, p->rowindx, colIndex, p->CubePos, p->grid_spacing, nnzbY, p->nCols);
+              p->sparse_SHOprj, p->AtomMatrices, p->sparse_SHOadd, p->rowindx, colIndex, p->CubePos, p->grid_spacing, nnzb, p->nCols);
 
           return 0; // no flops performed so far
       } // multiply

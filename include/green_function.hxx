@@ -406,33 +406,33 @@ namespace green_function {
 
           // eval the histogram
           size_t nall{0};
-          size_t nnz{0}; // number of non-zero BSR entries
+          size_t nnzb{0}; // number of non-zero BSR entries
           for (int n = 0; n <= nRHSs; ++n) {
               nall += hist[n];
-              nnz  += hist[n]*n;
+              nnzb  += hist[n]*n;
           } // n
           if (echo > 5) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
           assert(nall == product_target_blocks); // sanity check
 
           p.nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
           if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
-                               "average %.1f per source block\n", nnz*.001, nnz/double(nRHSs));
+                               "average %.1f per source block\n", nnzb*.001, nnzb/double(nRHSs));
           if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n", 
               p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001);
 
-          assert(nnz < (uint64_t(1) << 32) && "the integer type or RowStart is uint32_t!");
+          assert(nnzb < (uint64_t(1) << 32) && "the integer type or RowStart is uint32_t!");
 
           // resize BSR tables: (Block-compressed Sparse Row format)
           if (echo > 3) { std::printf("# memory of Green function is %.6f %s (float, twice for double)\n",
-                              nnz*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
-          p.colindx.resize(nnz);
-          p.rowindx  = get_memory<uint32_t>(nnz, echo, "rowindx");
+                              nnzb*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
+          p.colindx.resize(nnzb);
+          p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
           p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
           p.RowStart[0] = 0;
           p.veff_index = get_memory<int32_t>(p.nRows, echo, "veff_index"); // indirection list for the local potential
           set(p.veff_index, p.nRows, -1); // init as non-existing
           p.target_coords = get_memory<int16_t[3+1]>(p.nRows, echo, "target_coords");
-          p.target_minus_source = get_memory<int16_t[3+1]>(nnz, echo, "target_minus_source");
+          p.target_minus_source = get_memory<int16_t[3+1]>(nnzb, echo, "target_minus_source");
           p.CubePos = get_memory<float[3+1]>(p.nRows, echo, "CubePos");
 
           p.global_target_indices.resize(p.nRows);
@@ -520,7 +520,7 @@ namespace green_function {
                   } // n > 0
               }}} // idx
               assert(p.nRows == iRow);
-              assert(nnz == p.RowStart[p.nRows]);
+              assert(nnzb == p.RowStart[p.nRows]);
               std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.dev(), st.min(), st.max());
           } // scope
           column_indices.clear(); // not needed beyond this point
@@ -543,8 +543,8 @@ namespace green_function {
           } // echo
 
           // Green function is stored sparse 
-          // as std::complex<real_t> green[nnz][64][64] 
-          // or real_t green[nnz][2][64][64] for the GPU;
+          // as std::complex<real_t> green[nnzb][64][64] 
+          // or real_t green[nnzb][2][64][64] for the GPU;
 
           for (int dd = 0; dd < 3; ++dd) { // derivate direction
               // create lists for the finite-difference derivatives
@@ -586,7 +586,7 @@ namespace green_function {
       if (echo > 3) std::printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
 
 
-      p.ApcStart = nullptr;
+      p.ApcStart = nullptr; // warning, this should be allocated with at least 1 element containing a 0
       p.natom_images = 0;
       { // scope:
           SimpleTimer atom_list_timer(__FILE__, __LINE__, "Atom part");
@@ -612,9 +612,6 @@ namespace green_function {
 
           std::vector<std::vector<uint32_t>> cubes; // stores the row indices of Green function rows
           cubes.reserve(natom_images); // maximum (needs 24 Byte per atom image)
-          
-          std::vector<std::vector<uint32_t>> imags; // stores the indices of atom images
-          imags.resize(p.nRows);
 
           size_t iai{0};
           for (int z = -iimage[Z]; z <= iimage[Z]; ++z) { // serial
@@ -676,8 +673,7 @@ namespace green_function {
                               } // 0 == ntb
 
                               cubes[iai].push_back(icube); // enlist
-                              assert(cubes[iai][ntb] == icube); // check
-                              imags[icube].push_back(iai); // also set up the transpose
+                              assert(cubes[iai][ntb] == icube); // check if enlisting worked
 
                               ++ntb;
                               assert(cubes[iai].size() == ntb);
@@ -734,10 +730,10 @@ namespace green_function {
 
           if (echo > 3) std::printf("# sparse %g (%.2f %%) of dense %g\n", sparse, sparse/(std::max(1., dense)*.01), dense);
 
-          if (echo > 3) std::printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
-                                    nc_stats.mean(), nc_stats.dev(), nc_stats.min(), nc_stats.max());
+          if (echo > 3) std::printf("# number of coefficients per image average %.1f +/- %.1f in [%g, %g]\n",
+                                            nc_stats.mean(), nc_stats.dev(), nc_stats.min(), nc_stats.max());
 
-          if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*.001, napc/double(nai));
+          if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*1e-3, napc/double(nai));
           // projection coefficients for the non-local PAW operations are stored
           // as real_t apc[napc*nRHSs][R1C2][Noco][Noco*64] on the GPU
           if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
@@ -750,36 +746,46 @@ namespace green_function {
               using ::green_sparse::sparse_t;
 
               // planning for the addition of sparse SHO projectors times dense coefficients operation
-              p.sparse_SHOadd = sparse_t<>(imags, false, "sparse_SHOadd", echo);
-              // sparse_SHOadd: rows == Green function rows, cols == atom images
-              if (echo > 29) {
-                  std::printf("# sparse_SHOadd.rowStart(%p)= ", (void*)p.sparse_SHOadd.rowStart());
-                  printf_vector(" %d", p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows());
-                  std::printf("# sparse_SHOadd.colIndex(%p)= ", (void*)p.sparse_SHOadd.colIndex());
-                  printf_vector(" %d", p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
-              } // echo
-              imags.resize(0); // release host memory
-
+              auto const nnzb = p.RowStart[p.nRows];
+              std::vector<std::vector<uint32_t>> vv_add(nnzb);
               // planning for the contraction of sparse Green function times sparse SHO projectors
-              std::vector<std::vector<std::vector<uint32_t>>> vvv(p.nCols);
+              std::vector<std::vector<std::vector<uint32_t>>> vvv_prj(p.nCols);
               for (uint16_t irhs = 0; irhs < p.nCols; ++irhs) {
-                  vvv[irhs].resize(nai);
+                  vvv_prj[irhs].resize(nai);
               } // irhs
+
               for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
                   for (uint32_t itb = 0; itb < cubes[iai].size(); ++itb) {
                       auto const iRow = cubes[iai][itb];
                       for (auto inzb = p.RowStart[iRow]; inzb < p.RowStart[iRow + 1]; ++inzb) {
                           auto const irhs = p.colindx[inzb];
                           assert(irhs < p.nCols);
-                          vvv[irhs][iai].push_back(inzb);
+                          vvv_prj[irhs][iai].push_back(inzb);
+                          vv_add[inzb].push_back(iai);
                       } // inzb
                   } // itb
               } // iai
+
+              p.sparse_SHOadd = sparse_t<>(vv_add, false, "sparse_SHOadd", echo);
+              // sparse_SHOadd: rows == Green function non-zero elements, cols == atom images
+              if (echo > 22) {
+                  std::printf("# sparse_SHOadd.rowStart(%p)[%d + 1]= ", (void*)p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows());
+                  printf_vector(" %d", p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows() + 1);
+                  std::printf("# sparse_SHOadd.colIndex(%p)[%d]= ", (void*)p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
+                  printf_vector(" %d", p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
+              } else if (echo > 5) {
+                  std::printf("# sparse_SHOadd has %d rows, %ld columns and %d nonzeros\n", p.sparse_SHOadd.nRows(), nai, p.sparse_SHOadd.nNonzeros());
+              } // echo
+
               p.sparse_SHOprj = get_memory<sparse_t<>>(p.nCols, echo, "sparse_SHOprj");
+              size_t nops{0};
               for (uint16_t irhs = 0; irhs < p.nCols; ++irhs) {
                   char name[32]; std::snprintf(name, 31, "sparse_SHOprj[irhs=%i]", irhs);
-                  p.sparse_SHOprj[irhs] = sparse_t<>(vvv[irhs], false, name, echo);
+                  p.sparse_SHOprj[irhs] = sparse_t<>(vvv_prj[irhs], false, name, echo);
+                  // sparse_SHOprj: rows == atom images, cols == Green function non-zero elements
+                  nops += p.sparse_SHOprj[irhs].nNonzeros();
               } // irhs
+              if (echo > 5) std::printf("# sparse_SHOprj has %d*%ld rows, %d columns and %ld nonzeros\n", nRHSs,nai, nnzb, nops);
 
           } // scope: set up sparse tables
 
