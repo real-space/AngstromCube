@@ -83,7 +83,7 @@ namespace green_function {
       , double const hg[3] // grid spacings
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
-      , std::vector<std::vector<double>> const & atom_mat // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
+      , std::vector<std::vector<double>> const & AtomMatrices // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
       , int const echo=0 // log-level
       , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
       , int const Noco=1
@@ -572,7 +572,7 @@ namespace green_function {
 
 
 
-      int const natoms = atom_mat.size();
+      int const natoms = AtomMatrices.size();
       if (echo > 2) std::printf("\n#\n# %s: Start atom part, %d atoms\n#\n", __func__, natoms);
       assert(xyzZinso.size() == natoms*8);
 
@@ -818,28 +818,29 @@ namespace green_function {
               set(p.AtomPos[iai], 3, atom_data[iai].pos);
               p.AtomPos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
               p.AtomLmax[iai] = atom_data[iai].numax; // SHO basis size
+              if (echo > 0) std::printf("# atom image #%d has lmax= %d\n", iai, p.AtomLmax[iai]);
               // ToDo: transfer a list of numax for each atom image to GPU memory
           } // copy into GPU memory
 
           // get memory for the matrices and fill
-          p.atom_mat = get_memory<double*>(nac, echo, "atom_mat");
+          p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
           for (int iac = 0; iac < nac; ++iac) { // parallel
               int const ia = global_atom_index[iac];
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-              char name[32]; std::snprintf(name, 31, "atom_mat[iac=%d/ia=%d]", iac, ia);
-              p.atom_mat[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
-              set(p.atom_mat[iac], Noco*Noco*2*nc*nc, 0.0); // clear
+              char name[32]; std::snprintf(name, 31, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
+              p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
+              set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
               // fill this with matrix values
-              assert(2*nc*nc <= atom_mat[iac].size());
+              assert(2*nc*nc <= AtomMatrices[iac].size());
               // use MPI communication to find values in atom owner processes
-              auto const hmt = atom_mat[ia].data();
+              auto const hmt = AtomMatrices[ia].data();
               auto const ovl = hmt + nc*nc;
               for (int i = 0; i < nc; ++i) {
                   for (int j = 0; j < nc; ++j) {
                       int const ij = i*nc + j;
-                      p.atom_mat[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
-                      p.atom_mat[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
+                      p.AtomMatrices[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
+                      p.AtomMatrices[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
                   } // j
               } // i
           } // iac
@@ -883,17 +884,17 @@ namespace green_function {
       std::vector<double> Veff(0); // local potential
       int natoms{0}; // number of atoms
       std::vector<double> xyzZinso(0); // atom info
-      std::vector<std::vector<double>> atom_mat(0); // non-local potential
+      std::vector<std::vector<double>> AtomMatrices(0); // non-local potential
 
       auto const *const filename = control::get("green_function.hamiltonian.file", "Hmt.xml");
-      auto const stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, filename, echo - 5);
+      auto const stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
           return stat;
       } // stat
 
       green_action::plan_t p;
-      return construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, atom_mat, echo);
+      return construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
   } // test_Green_function
 
   inline status_t all_tests(int const echo=0) {

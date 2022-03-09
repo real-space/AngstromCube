@@ -101,7 +101,7 @@ namespace green_action {
       int32_t*  veff_index = nullptr; // [nRows] indirection list
 
       uint32_t number_of_contributing_atoms = 0;
-      double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
+      double **AtomMatrices = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
 
       uint32_t natom_images  = 0;
       uint32_t* ApcStart     = nullptr; // [natom_images + 1]
@@ -130,8 +130,8 @@ namespace green_action {
           free_memory(target_minus_source);
           free_memory(Veff);
           free_memory(veff_index);
-          if (atom_mat) for (int iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(atom_mat[iac]);
-          free_memory(atom_mat);
+          if (AtomMatrices) for (int iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(AtomMatrices[iac]);
+          free_memory(AtomMatrices);
           free_memory(atom_data);
           free_memory(grid_spacing);
           free_memory(grid_spacing_trunc);
@@ -331,7 +331,7 @@ namespace green_action {
       //                for (k64 < 64) // vector parallel
       //                {
       //                    aac[apc_start[iai] + iprj][iRHS][complex][k64] +=
-      //                    atom_matrix[ia[iai]][iprj][jprj][complex] *
+      //                    AtomMatricesrix[ia[iai]][iprj][jprj][complex] *
       //                    apc[apc_start[iai] + jprj][iRHS][complex][k64];
       //                 }
       //                 // with indirection list ia[iai]
