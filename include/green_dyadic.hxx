@@ -97,7 +97,8 @@ namespace green_dyadic {
         , green_sparse::sparse_t<> const (*const __restrict__ sparse)
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
-        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
+        , uint32_t const (*const __restrict__ RowIndexCube) // row index of the Green function as a function of the non-zero index
+        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used, CubePos[rowIndex][0:3]
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
     )
       // Compute the projection coefficients of wave/Green functions with atom-centered SHO-bases
@@ -165,7 +166,8 @@ namespace green_dyadic {
 
             __syncthreads();
 
-            auto const icube = ColIndexCubes[bsr]; // non-zero index of the Green function
+            auto const inzb = ColIndexCubes[bsr]; // non-zero index of the Green function
+            auto const icube = RowIndexCube[inzb]; // row index of the Green function
 
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
@@ -210,7 +212,7 @@ namespace green_dyadic {
                                 auto const d2xyz = xi_squared[0][x] + d2yz;
                                 if (d2xyz < 0) {
                                     int const xyz = (z*4 + y)*4 + x;
-                                    real_t const ps = Psi[icube][reim][spin*64 + xyz][j]; // load from global memory
+                                    real_t const ps = Psi[inzb][reim][spin*64 + xyz][j]; // load from global memory
                                     for (int ix = 0; ix <= lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
                                         auto const Hx = H1D[ix][0][x]; // load Hx from shared memory
                                         ax[ix] += ps * Hx; // FMA: 2 flop * 4**3 * (L+1)
@@ -267,6 +269,7 @@ namespace green_dyadic {
         , green_sparse::sparse_t<> const (*const __restrict__ sparse)
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
+        , uint32_t const (*const __restrict__ RowIndexCube) // row index of the Green function as a function of the non-zero index
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
         , int      const natoms // number of atom images
@@ -282,7 +285,7 @@ namespace green_dyadic {
 #else  // HAS_NO_CUDA
               (   dim3(nrhs, natoms, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA
-               Cpr, Psi, sparse, AtomPos, AtomLmax, CubePos, hGrid);
+               Cpr, Psi, sparse, AtomPos, AtomLmax, RowIndexCube, CubePos, hGrid);
 
         return 0;
     } // SHOprj_driver
@@ -693,6 +696,7 @@ namespace green_dyadic {
         , uint32_t const natoms
         , green_sparse::sparse_t<> const (*const __restrict__ sparse_SHOprj)
         , green_sparse::sparse_t<> const &                    sparse_SHOadd
+        , uint32_t const (*const __restrict__ RowIndexCubes) // Green functions rowIndex[nnzbX]
         , uint16_t const (*const __restrict__ ColIndexCubes) // Green functions colIndex[nnzbX]
         , float    const (*const __restrict__ CubePos)[3+1] // cube positions +alignment
         , double   const (*const __restrict__ hGrid) // grid spacings + projection radius
@@ -706,7 +710,7 @@ namespace green_dyadic {
         auto const natomcoeffs = AtomStarts[natoms];
         if (echo > 6) std::printf("# %s<%s> R1C2=%d Noco=%d natoms=%d nrhs=%d ncoeffs=%d\n", __func__, real_t_name<real_t>(), R1C2, Noco, natoms, nrhs, natomcoeffs);
 
-        nops += SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, sparse_SHOprj, AtomPos, AtomLmax, CubePos, hGrid, natoms, nrhs, echo);
+        nops += SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, sparse_SHOprj, AtomPos, AtomLmax, RowIndexCubes, CubePos, hGrid, natoms, nrhs, echo);
         
         // ToDo: in the future, natom_images and natoms can be different. Then, we need an extra step of accumulating the projection coefficients
         //       with the corresponding phases and, after SHOmul, distributing the addition coefficients to the images with the inverse phases.        
@@ -793,13 +797,14 @@ namespace green_dyadic {
       auto AtomPos       = get_memory<double[3+1]>(natoms, echo, "AtomPos");      set(AtomPos[0], 3, 0.0); AtomPos[0][3] = 1./std::sqrt(sigma);
       auto AtomLmax      = get_memory<int8_t>(natoms, echo, "AtomLmax");          set(AtomLmax, natoms, int8_t(2));
       auto AtomStarts    = get_memory<uint32_t>(natoms + 1, echo, "AtomStarts");  for(int ia = 0; ia <= natoms; ++ia) AtomStarts[ia] = ia*10;
+      auto RowIndexCubes = get_memory<uint32_t>(nnzbX, echo, "ColIndexCubes");    set(RowIndexCubes, nnzbX, uint32_t(0));
       auto CubePos       = get_memory<float[3+1]>(1, echo, "CubePos");            set(CubePos[0], 4, 0.f);
       auto hGrid         = get_memory<double>(3+1, echo, "hGrid");                set(hGrid, 3, 0.25);          hGrid[3] = 6.2832;
       // see if these drivers compile and can be executed without segfaults
       std::printf("# here %s:%d\n", __func__, __LINE__);
-      SHOprj_driver<real_t,R1C2,Noco>(apc, psi, sparse_SHOprj, AtomPos, AtomLmax, CubePos, hGrid, natoms, nrhs, echo);
+      SHOprj_driver<real_t,R1C2,Noco>(apc, psi, sparse_SHOprj, AtomPos, AtomLmax, RowIndexCubes, CubePos, hGrid, natoms, nrhs, echo);
       SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), ColIndexCubes, CubePos, hGrid, nnzbX, nrhs, echo);
-      multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, sparse_SHOadd, ColIndexCubes, CubePos, hGrid, nnzbX, nrhs, echo);
+      multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, sparse_SHOadd, RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzbX, nrhs, echo);
       free_memory(ColIndexCubes);
       free_memory(sparse_SHOprj);
       free_memory(CubePos);

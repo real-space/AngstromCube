@@ -484,7 +484,7 @@ namespace green_action {
 
           // add the non-local potential using the dyadic action of project + add
           green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->AtomLmax, p->ApcStart, p->natom_images,
-              p->sparse_SHOprj, p->sparse_SHOadd, colIndex, p->CubePos, p->grid_spacing, nnzbY, p->nCols);
+              p->sparse_SHOprj, p->sparse_SHOadd, p->rowindx, colIndex, p->CubePos, p->grid_spacing, nnzbY, p->nCols);
 
           return 0; // no flops performed so far
       } // multiply
