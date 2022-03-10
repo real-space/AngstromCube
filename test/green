@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+### this is a run script that makes sure that the binary is up to date with the sources before running the executable
+exe=../green/green
+echo "#" $exe "$@"
+
+echo -n "# " ## comment out "make: Nothing to be done for `all'."
+(cd ../green/ && make -j) && $exe "$@"
