@@ -183,8 +183,8 @@ namespace green_kinetic {
                       __func__, (void*)fd_list, (void*)prefix);
           std::fflush(stdout);
 #endif // DEBUG
-          free_memory(fd_list);
-          free_memory(prefix);
+          if (fd_list) free_memory(fd_list);
+          if (prefix)  free_memory(prefix);
       } // destructor
 
       uint32_t size() const { return n_lists; } // number of lists

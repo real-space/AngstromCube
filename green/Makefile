@@ -1,4 +1,3 @@
-SYSTEM ?= zam044
 
 ## Check whether CUDA compiler is available
 ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
@@ -21,7 +20,7 @@ OBJECTS = \
 
 .PHONY: clean allclean
 clean:
-	-rm -f *.o *.so *~ *.d *.a
+	-rm -f *.o *~ *.d
 
 allclean: clean
 	-rm -f ${EXECUTABLE}
@@ -33,14 +32,12 @@ CXX    = g++
 INC ?=
 INC += -I../include
 INC += -I../external
-# INC += -I/usr/local/cuda/include
 
 
 ERRFLAGS =
 FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
-FEAFLAGS += -D HAS_NO_CUDA
 FEAFLAGS += -D HAS_RAPIDXML
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
@@ -59,8 +56,6 @@ OPTFLAGS = -O0
 OPTFLAGS += -g -pedantic -Wall
 # gcc-options
 # OPTFLAGS += -Wno-sign-compare -Wno-format -Wno-format-security
-### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
-
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread
@@ -74,26 +69,19 @@ CUOPTFLAGS += -O3 --use_fast_math
 
 ## verbose assembler
 CUOPTFLAGS +=  -Xptxas -v
+CUOPTFLAGS += --expt-relaxed-constexpr
 
 # for profiling
 CUOPTFLAGS += -lineinfo
 ifdef ENABLE_GPU
+	INC += -I/usr/local/cuda/include
 	FEAFLAGS += -DUSE_NVTX
-	LDFLAGS  += -rdynamic -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt
+	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt  #-rdynamic
+else
+	FEAFLAGS += -D HAS_NO_CUDA
 endif
 
 EXTFLAGS ?=
-
-ifeq ($(SYSTEM),zam044)
-	EXTFLAGS += -D HAS_NO_MKL
-	EXTFLAGS += -D HAS_FFTW
-	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
-	LDFLAGS += -lfftw3
-else
-	## eq ($(THISMACHINE), "zam054")
-	### works with g++ on zam054 (JSC workstation)
-	LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread 
-endif
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 
@@ -123,16 +111,16 @@ ${EXECUTABLE}: ${OBJECTS}
 
 %.o:%.c %.d
 	${CC} ${CCFLAGS} ${INC} -c $<
-%.o:%.cxx %.d
-	${CXX} ${CXXFLAGS} ${INC} -c $<
 %.o:%.cu %.d
 	${CU} ${CUFLAGS} ${INC} -c $<
+%.o:%.cxx %.d
+	${CXX} ${CXXFLAGS} ${INC} -c $<
 
 %.d:%.c
 	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:%.cxx
-	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 %.d:%.cu
 	${CXX} ${CFLAGS} ${INC} -MM $^ -MF $@
+%.d:%.cxx
+	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 
 -include ${DEP}

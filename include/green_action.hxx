@@ -25,7 +25,9 @@
 #else  // HAS_TFQMRGPU
     #include <utility> // std::pair<T>
     typedef std::pair<size_t,size_t> memWindow_t;
-    typedef size_t cudaStream_t;
+    #ifdef HAS_NO_CUDA
+        typedef size_t cudaStream_t;
+    #endif // HAS_NO_CUDA
 #endif // HAS_TFQMRGPU
 
 // #define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }

@@ -7,6 +7,7 @@
 #include <utility> // std::swap //, ::move
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf, ::snprintf
+#include <complex> // std::complex
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer

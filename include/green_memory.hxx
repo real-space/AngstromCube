@@ -45,18 +45,18 @@
       } // echo
 #endif // DEBUG
 
-      T* d{nullptr};
+      T* ptr{nullptr};
 #ifdef  HAS_CUDA
-      cuCheck(cudaMallocManaged(&d, size*sizeof(T)));
+      cuCheck(cudaMallocManaged(&ptr, size*sizeof(T)));
 #else  // HAS_CUDA
-      d = new T[size];
+      ptr = new T[size];
 #endif // HAS_CUDA
 
 #ifdef DEBUG
       std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)d);
 #endif // DEBUG
 
-      return d;
+      return ptr;
   } // get_memory
 
 

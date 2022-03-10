@@ -9,6 +9,14 @@
 #include "green_sparse.hxx" // ::sparse_t<>
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 
+#ifndef HAS_NO_CUDA
+    #include <cuda/std/complex> // std::complex
+    #define std__complex cuda::std::complex
+#else
+    #include <complex> // std::complex
+    #define std__complex std::complex
+#endif // HAS_NO_CUDA
+
 namespace green_dyadic {
 
 
@@ -110,7 +118,6 @@ namespace green_dyadic {
         assert(R1C2    == blockDim.z);
 
         int const nrhs   = gridDim.x;
-        int const natoms = gridDim.y;
 
         __shared__ double hgrid[3+1]; // grid spacings
 
@@ -120,6 +127,7 @@ namespace green_dyadic {
         int const irhs  = blockIdx.x;  // in [0, nrhs)
 #else  // HAS_NO_CUDA
         set(hgrid, 4, hGrid);
+        int const natoms = gridDim.y;
         for (int iatom = 0; iatom < natoms; ++iatom)
         for (int irhs  = 0; irhs < nrhs; ++irhs)
 #endif // HAS_NO_CUDA
@@ -195,8 +203,7 @@ namespace green_dyadic {
                 if (d2z < 0) {
 
                     real_t byx[sho_tools::n2HO(Lmax)];
-                    __unroll__
-                    for (int iyx = 0; iyx < sho_tools::n2HO(Lmax); ++iyx) { // loop over the combined index of ix and iy
+                    for (int iyx = 0; iyx < sho_tools::n2HO(lmax); ++iyx) { // loop over the combined index of ix and iy
                         byx[iyx] = 0; // init
                     } // iyx
 
@@ -205,12 +212,11 @@ namespace green_dyadic {
                         if (d2yz < 0) {
 
                             real_t ax[Lmax + 1];
-                            __unroll__
-                            for (int ix = 0; ix <= Lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
+                            for (int ix = 0; ix <= lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
                                 ax[ix] = 0; // init
                             } // ix
 
-                            __unroll__
+                            // __unroll__
                             for (int x = 0; x < 4; ++x) { // loop over real-space grid in x-direction
                                 auto const d2xyz = xi_squared[0][x] + d2yz;
                                 if (d2xyz < 0) {
@@ -266,7 +272,7 @@ namespace green_dyadic {
     } // SHOprj
 
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t SHOprj_driver(
+    size_t __host__ SHOprj_driver(
           real_t         (*const __restrict__ Cpr)[R1C2][Noco   ][Noco*64] // result: projection coefficients
         , real_t   const (*const __restrict__ Psi)[R1C2][Noco*64][Noco*64] // input: Green function
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
@@ -366,11 +372,11 @@ namespace green_dyadic {
         { // thread loops
 
         real_t czyx[4][4][4]; // get 64 accumulator registers --> 128 registers when real_t==double
-        __unroll__
+        // __unroll__
         for (int z = 0; z < 4; ++z) {
-            __unroll__
+            // __unroll__
             for (int y = 0; y < 4; ++y) {
-                __unroll__
+                // __unroll__
                 for (int x = 0; x < 4; ++x) {
                     czyx[z][y][x] = 0; // init accumulator registers
                 } // x
@@ -413,9 +419,9 @@ namespace green_dyadic {
             for (int iz = 0; iz <= lmax; ++iz) { // executes (Lmax + 1) times
 
                 real_t byx[4][4]; // get 16 accumulator registers --> 32 registers if double
-                __unroll__
+                // __unroll__
                 for (int y = 0; y < 4; ++y) {
-                    __unroll__
+                    // __unroll__
                     for (int x = 0; x < 4; ++x) {
                         byx[y][x] = 0; // init
                     } // x
@@ -428,17 +434,17 @@ namespace green_dyadic {
                     for (int ix = 0; ix <= lmax - iz - iy; ++ix) { // executes (Lmax + 1)*(Lmax + 2)*(Lmax + 3)/6 times
                         real_t const ca = Cad[(a0 + sho)*nrhs + irhs][reim][spin][j]; // load Noco*64 numbers from global memory
                         ++sho;
-                        __unroll__
+                        // __unroll__
                         for (int x = 0; x < 4; ++x) {
                             real_t const Hx = H1D[ix][0][x]; // load Hx from shared memory
                             ax[x] += Hx * ca; // FMA: 2 flop * 4 * (Lmax + 1)*(Lmax + 2)*(Lmax + 3)/6
                         } // x
                     } // ix
 
-                    __unroll__
+                    // __unroll__
                     for (int y = 0; y < 4; ++y) {
                         real_t const Hy = H1D[iy][1][y]; // load Hy from shared memory
-                        __unroll__
+                        // __unroll__
                         for (int x = 0; x < 4; ++x) {
                             byx[y][x] += Hy * ax[x]; // FMA: 2 flop * 4**2 * (Lmax + 1)*(Lmax + 2)/2
                         } // x
@@ -447,16 +453,16 @@ namespace green_dyadic {
                 } // iy
 
                 int64_t mask_atom{0}; // occupy 2 GPU registers
-                __unroll__
+                // __unroll__
                 for (int z = 0; z < 4; ++z) {
                     real_t const Hz = H1D[iz][2][z]; // load Hz from shared memory
                     auto const d2z = xi_squared[2][z] - R2_proj;
                     if (d2z < 0) {
-                        __unroll__
+                        // __unroll__
                         for (int y = 0; y < 4; ++y) {
                             auto const d2yz = xi_squared[1][y] + d2z;
                             if (d2yz < 0) {
-                                __unroll__
+                                // __unroll__
                                 for (int x = 0; x < 4; ++x) {
                                     auto const d2xyz = xi_squared[0][x] + d2yz;
                                     if (d2xyz < 0) {
@@ -499,7 +505,7 @@ namespace green_dyadic {
 
 
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t SHOadd_driver(
+    size_t __host__ SHOadd_driver(
           real_t         (*const __restrict__ Psi)[R1C2][Noco*64][Noco*64] // result: Green functions to modify
         , real_t   const (*const __restrict__ Cad)[R1C2][Noco   ][Noco*64] // input: addition coefficients
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
@@ -595,7 +601,6 @@ namespace green_dyadic {
     {
         assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
         int const nrhs   = gridDim.x;
-        int const natoms = gridDim.y;
         assert(1       ==  gridDim.z);
         assert(Noco*n64== blockDim.x);
         assert(Noco    == blockDim.y);
@@ -605,6 +610,7 @@ namespace green_dyadic {
         int const iatom = blockIdx.y;
         int const irhs  = blockIdx.x;
 #else  // HAS_NO_CUDA
+        int const natoms = gridDim.y;
         for (int iatom = 0; iatom < natoms; ++iatom)
         for (int irhs = 0; irhs < nrhs; ++irhs)
 #endif // HAS_NO_CUDA
@@ -640,15 +646,15 @@ namespace green_dyadic {
                     // matrix layout: AtomMat[Noco*Noco*R1C2*nSHO*nSHO]
                     assert(2 == R1C2); // is complex
                     int constexpr Im = R1C2 - 1; // index for imaginary part
-                    std::complex<double> cad = 0;
+                    std__complex<double> cad = 0;
                     for (int spjn = 0; spjn < Noco; ++spjn) {
                         for (int aj = 0; aj < nSHO; ++aj) {
                             // load projection coefficient
-                            auto const cpr = std::complex<double>(
+                            auto const cpr = std__complex<double>(
                                        apc[(a0 + aj)*nrhs + irhs][Re][spjn][ivec],
                                        apc[(a0 + aj)*nrhs + irhs][Im][spjn][ivec]);
                             // load matrix element
-                            auto const am = std::complex<double>(
+                            auto const am = std__complex<double>(
                                        AtomMat[(((spin*Noco + spjn)*R1C2 + 0)*nSHO + ai)*nSHO + aj],
                                        AtomMat[(((spin*Noco + spjn)*R1C2 + 1)*nSHO + ai)*nSHO + aj]);
                             cad += am * cpr;
@@ -666,7 +672,7 @@ namespace green_dyadic {
     } // SHOmul
 
     template <typename real_t, int R1C2=2, int Noco=1, int n64=64>
-    size_t SHOmul_driver(
+    size_t __host__ SHOmul_driver(
           real_t         (*const __restrict__ aac)[R1C2][Noco][Noco*n64] // result,  atom addition coefficients
         , real_t   const (*const __restrict__ apc)[R1C2][Noco][Noco*n64] // input, atom projection coefficients
         , double   const (*const *const __restrict__ AtomMatrices)
@@ -694,7 +700,7 @@ namespace green_dyadic {
 
 
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t multiply(
+    size_t __host__ multiply(
           real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result,  modified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
         , real_t         (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // projection coefficients     [natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]

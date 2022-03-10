@@ -1,0 +1,21 @@
+### executable
+green
+
+### objects
+*.o
+
+### shared objects
+*.so
+
+### static libraries
+*.a
+
+### dependency files
+*.d
+
+### input files and output logging files
+*.dat
+
+### jupyter files
+.ipynb_checkpoints/*
+
