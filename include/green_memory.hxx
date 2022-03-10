@@ -7,6 +7,18 @@
   #define __shared__
   #define __unroll__
   #define __host__
+#else
+  #include <cuda.h> // dim3, cudaMallocManaged, cudaFree, cudaSuccess, cudaError, cudaGetErrorString, cudaStream_t
+
+    __host__ inline
+    void __cudaSafeCall(cudaError err, const char *file, const int line, char const *call=nullptr) { // Actual check function
+        if (cudaSuccess != err) {
+            std::fprintf(stderr, "[ERROR] CUDA call%s%s at %s:%d\n%s\n", call?" to ":"", call, file, line, cudaGetErrorString(err));
+            exit(0);
+        }
+    } // __cudaSafeCall
+    #define cuCheck(err) __cudaSafeCall((err), __FILE__, __LINE__, #err) // Syntactic sugar to enhance output
+
 #endif // HAS_NO_CUDA
 
 #ifdef HAS_NO_CUDA
@@ -35,7 +47,7 @@
 
       T* d{nullptr};
 #ifdef  HAS_CUDA
-      CCheck(cudaMallocManaged(&d, size*sizeof(T)));
+      cuCheck(cudaMallocManaged(&d, size*sizeof(T)));
 #else  // HAS_CUDA
       d = new T[size];
 #endif // HAS_CUDA
@@ -56,7 +68,7 @@
 #endif // DEBUG
 
 #ifdef  HAS_CUDA
-          CCheck(cudaFree(d));
+          cuCheck(cudaFree(d));
 #else  // HAS_CUDA
           delete[] d;
 #endif // HAS_CUDA

@@ -1,76 +1,20 @@
 
 #ifndef NO_UNIT_TESTS
-  #include "exchange_correlation.hxx" // ::all_tests
-  #include "spherical_harmonics.hxx" // ::all_tests
-  #include "conjugate_gradients.hxx" // ::all_tests
-  #include "potential_generator.hxx" // ::all_tests
-  #include "hermite_polynomial.hxx" // ::all_tests
   #include "global_coordinates.hxx" // ::all_tests
-  #include "radial_eigensolver.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
-  #include "fermi_distribution.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
-  #include "finite_difference.hxx" // ::all_tests
-  #include "radial_integrator.hxx" // ::all_tests
-  #include "geometry_analysis.hxx" // ::all_tests
-  #include "density_generator.hxx" // ::all_tests
-  #include "fourier_transform.hxx" // ::all_tests
-  #include "iterative_poisson.hxx" // ::all_tests
-  #include "self_consistency.hxx" // ::all_tests
-  #include "radial_potential.hxx" // ::all_tests
-  #include "bessel_transform.hxx" // ::all_tests
-  #include "parallel_domains.hxx" // ::all_tests
-  #include "structure_solver.hxx" // ::all_tests
-  #include "scattering_test.hxx" // ::all_tests
-  #include "davidson_solver.hxx" // ::all_tests
-  #include "chemical_symbol.hxx" // ::all_tests
-  #include "linear_operator.hxx" // ::all_tests
-  #include "sho_hamiltonian.hxx" // ::all_tests
-  #include "fourier_poisson.hxx" // ::all_tests
-  #include "solid_harmonics.hxx" // ::all_tests
-  #include "bisection_tools.hxx" // ::all_tests
   #include "green_potential.hxx" // ::all_tests
   #include "green_function.hxx" // ::all_tests
-  #include "poisson_solver.hxx" // ::all_tests
-  #include "brillouin_zone.hxx" // ::all_tests
-  #include "sho_projection.hxx" // ::all_tests
-  #include "shift_boundary.hxx" // ::all_tests
-  #include "linear_algebra.hxx" // ::all_tests
-  #include "grid_operators.hxx" // ::all_tests
-  #include "dense_operator.hxx" // ::all_tests
-  #include "element_config.hxx" // ::all_tests
-  #include "complex_tools.hxx" // ::all_tests
-  #include "vector_layout.hxx" // ::all_tests
-  #include "sho_potential.hxx" // ::all_tests
   #include "green_kinetic.hxx" // ::all_tests
-  #include "pawxml_import.hxx" // ::all_tests
   #include "green_sparse.hxx" // ::all_tests
   #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
-  #include "mpi_parallel.hxx" // ::all_tests
-  #include "angular_grid.hxx" // ::all_tests
-  #include "pseudo_tools.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
-  #include "sigma_config.hxx" // ::all_tests
-  #include "dense_solver.hxx" // ::all_tests
-  #include "json_reading.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
-  #include "simple_math.hxx" // ::all_tests
-  #include "sho_overlap.hxx" // ::all_tests
-  #include "radial_grid.hxx" // ::all_tests
-  #include "single_atom.hxx" // ::all_tests
   #include "inline_math.hxx" // ::all_tests
-  #include "sho_unitary.hxx" // ::all_tests
-  #include "plane_wave.hxx" // ::all_tests
-  #include "atom_image.hxx" // ::all_tests
-  #include "real_space.hxx" // ::all_tests
-  #include "multi_grid.hxx" // ::all_tests
-  #include "sho_radial.hxx" // ::all_tests
   #include "sho_tools.hxx" // ::all_tests
-  #include "sho_basis.hxx" // ::all_tests
-  #include "atom_core.hxx" // ::all_tests
   #include "data_view.hxx" // ::all_tests
   #include "control.hxx" // ::all_tests
 #endif // not NO_UNIT_TESTS
@@ -123,101 +67,27 @@
                   results.push_back(std::make_tuple(module_name, stat, time));      \
               }                                                                     \
           } // add_module_test
-
+          
           if (chapters) std::printf("\n\n\n\n#\n# general modules\n#\n\n\n\n");
           add_module_test(control);
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
           add_module_test(simple_timer);
-          add_module_test(json_reading);
-          add_module_test(xml_reading);
-          add_module_test(data_view);
-
-          if (chapters) std::printf("\n\n\n\n#\n# math modules\n#\n\n\n\n");
           add_module_test(inline_math);
-          add_module_test(simple_math);
-          add_module_test(complex_tools);
-          add_module_test(linear_algebra);
-          add_module_test(bisection_tools);
-          add_module_test(solid_harmonics);
-          add_module_test(finite_difference);
-          add_module_test(hermite_polynomial);
-          add_module_test(spherical_harmonics);
-          add_module_test(angular_grid);
-
-          if (chapters) std::printf("\n\n\n\n#\n# input modules\n#\n\n\n\n");
-          add_module_test(chemical_symbol);
-          add_module_test(boundary_condition);
-          add_module_test(geometry_analysis);
-          add_module_test(shift_boundary);
+          add_module_test(data_view);
+          add_module_test(xml_reading);
           add_module_test(unit_system);
-          add_module_test(real_space);
-
-          if (chapters) std::printf("\n\n\n\n#\n# parallelization modules\n#\n\n\n\n");
-          add_module_test(mpi_parallel);
-          add_module_test(parallel_domains);
+          add_module_test(boundary_condition);
           add_module_test(global_coordinates);
-
-          if (chapters) std::printf("\n\n\n\n#\n# electrostatics modules\n#\n\n\n\n");
-          add_module_test(multi_grid);
-          add_module_test(fourier_transform);
-          add_module_test(fourier_poisson);
-          add_module_test(radial_potential);
-          add_module_test(iterative_poisson);
-          add_module_test(poisson_solver);
-
-          if (chapters) std::printf("\n\n\n\n#\n# radial modules\n#\n\n\n\n");
-          add_module_test(radial_grid);
-          add_module_test(radial_integrator);
-          add_module_test(radial_eigensolver);
-          add_module_test(atom_core);
-          add_module_test(sigma_config);
-          add_module_test(pseudo_tools);
-          add_module_test(bessel_transform);
-          add_module_test(scattering_test);
-          add_module_test(single_atom);
-          add_module_test(pawxml_import);
-
-          if (chapters) std::printf("\n\n\n\n#\n# SHO-specific modules\n#\n\n\n\n");
           add_module_test(sho_tools);
-          add_module_test(sho_unitary);
-          add_module_test(sho_overlap);
-          add_module_test(sho_projection);
-          add_module_test(sho_potential);
-          add_module_test(sho_radial);
-          add_module_test(sho_basis);
-          add_module_test(sho_hamiltonian);
 
-          if (chapters) std::printf("\n\n\n\n#\n# Hamiltonian modules\n#\n\n\n\n");
-          add_module_test(atom_image);
-          add_module_test(plane_wave);
-          add_module_test(grid_operators);
+          if (chapters) std::printf("\n\n\n\n#\n# Green function modules\n#\n\n\n\n");
           add_module_test(green_sparse);
           add_module_test(green_function);
           add_module_test(green_kinetic);
           add_module_test(green_potential);
           add_module_test(green_dyadic);
           add_module_test(green_action);
-
-          if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
-          add_module_test(conjugate_gradients);
-          add_module_test(davidson_solver);
-          add_module_test(dense_solver);
-          add_module_test(structure_solver);
-
-          if (chapters) std::printf("\n\n\n\n#\n# DFT-specific modules\n#\n\n\n\n");
-          add_module_test(brillouin_zone);
-          add_module_test(fermi_distribution);
-          add_module_test(exchange_correlation);
-          add_module_test(potential_generator);
-          add_module_test(density_generator);
-          add_module_test(self_consistency);
-
-          if (chapters) std::printf("\n\n\n\n#\n# inactive modules\n#\n\n\n\n");
-          add_module_test(vector_layout);
-          add_module_test(linear_operator);
-          add_module_test(dense_operator);
-          add_module_test(element_config);
 
 #undef    add_module_test
 
