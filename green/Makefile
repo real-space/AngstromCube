@@ -111,16 +111,16 @@ ${EXECUTABLE}: ${OBJECTS}
 
 %.o:%.c %.d
 	${CC} ${CCFLAGS} ${INC} -c $<
-%.o:%.cu %.d
-	${CU} ${CUFLAGS} ${INC} -c $<
 %.o:%.cxx %.d
 	${CXX} ${CXXFLAGS} ${INC} -c $<
+%.o:%.cu %.d
+	${CU} ${CUFLAGS} ${INC} -c $<
 
 %.d:%.c
 	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:%.cu
-	${CXX} ${CFLAGS} ${INC} -MM $^ -MF $@
 %.d:%.cxx
 	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
+%.d:%.cu
+	${CXX} ${CFLAGS} ${INC} -MM $^ -MF $@
 
 -include ${DEP}
