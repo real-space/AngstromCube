@@ -18,7 +18,7 @@ namespace green_potential {
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input Green function
         , double  const (*const __restrict__ Vloc)[64] // local potential, Vloc[iloc*Noco*Noco][4*4*4]
         , int32_t const (*const __restrict__ iloc_of_inzb) // translation from inzb to iloc
-        , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb]
+        , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb][0:2]
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int     const nnzb // number of all blocks to be treated
         , float   const rcut2 // cutoff radius^2 for the confinement potential, negative for no confinement
@@ -67,7 +67,7 @@ namespace green_potential {
 
         for (int inzb = inz0; inzb < nnzb; inzb += gridDim.y) { // grid-stride loop on y-blocks
 
-            real_t Vconfine = 0;
+            real_t Vconfine = 0; // non-const
 #ifdef  CONFINEMENT_POTENTIAL
             if (rcut2 >= 0.f) {
                 int constexpr n4 = 4;
@@ -128,7 +128,7 @@ namespace green_potential {
         } // inzb
 
         } // thread loops and block loop
-        
+
     } // Potential
 
     template <typename real_t, int R1C2=2, int Noco=1>
@@ -144,6 +144,13 @@ namespace green_potential {
         , real_t   const E_real=0 // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t   const E_imag=0 // imaginary part of the energy parameter
     ) {
+        
+        
+        if (1) {
+            std::printf("# %s<%s,R1C2=%d,Noco=%d> Vpsi=%p, psi=%p, Vloc=%p, vloc_index=%p, shift=%p, hxyz=%p, nnzb=%d, rcut2=%.f, E=(%g, %g)\n",
+                           __func__, (4 == sizeof(real_t))?"float":"double", R1C2, Noco, (void*)Vpsi, (void*)psi,
+                           (void*)Vloc, (void*)vloc_index, (void*)shift, (void*)hxyz, nnzb, rcut2, E_real, E_imag);
+        } // echo
 
         Potential<real_t,R1C2,Noco>
 #ifndef HAS_NO_CUDA
@@ -166,9 +173,10 @@ namespace green_potential {
       auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
       auto Vloc = get_memory<double[64]>(1*Noco*Noco);
       auto vloc_index = get_memory<int32_t>(1);         vloc_index[0] = 0;
-      auto shift = get_memory<int16_t[3+1]>(1);         set(shift[0], 4, int16_t(0));
-      auto hGrid = get_memory<double>(3+1);             set(hGrid, 4, 1.);
+      auto shift = get_memory<int16_t[3+1]>(1);         set(shift[0], 3+1, int16_t(0));
+      auto hGrid = get_memory<double>(3+1);             set(hGrid, 3+1, 1.);
       int const nnzb = 1;
+
       multiply<real_t,R1C2,Noco>(psi, psi, Vloc, vloc_index, shift, hGrid, nnzb, 16.f);
 
       free_memory(hGrid);

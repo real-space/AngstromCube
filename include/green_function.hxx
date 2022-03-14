@@ -123,7 +123,7 @@ namespace green_function {
               int const ibxyz[] = {ibx, iby, ibz};
               auto const Veff_index = index3D(n_original_Veff_blocks, ibxyz);
               for (int i4z = 0; i4z < 4; ++i4z) {
-              for (int i4y = 0; i4y < 4; ++i4y) { // grid point index in [0, 4) loops
+              for (int i4y = 0; i4y < 4; ++i4y) { // grid point index in [0, 4) loops, parallel
               for (int i4x = 0; i4x < 4; ++i4x) {
                   int const i64 = (i4z*4 + i4y)*4 + i4x;
                   size_t const izyx = (size_t(ibz*4 + i4z)
