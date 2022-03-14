@@ -283,17 +283,19 @@ namespace green_dyadic {
         , uint32_t const (*const __restrict__ RowIndexCube) // row index of the Green function as a function of the non-zero index
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
-        , int      const nrhs // number of block columns in the Green function
+        , int      const nrhs // number of block columns in the Green function, max due to data type 2^16, due to GPU launch 2^16-1
         , int const echo=0
     ) {
 
+        // TODO we will need to modify the kernel and launch {natoms, nrhs, 1} if natoms >= 2^16
+        dim3 const gridDim(nrhs, natoms, 1), blockDim(Noco*64, Noco, R1C2);
         if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {nrhs=%d, natoms=%d, 1}, {%d, %d, %d} >>>\n",
                             __func__, real_t_name<real_t>(), R1C2, Noco, nrhs, natoms, Noco*64, Noco, R1C2);
         SHOprj<real_t,R1C2,Noco> // launch <<< {nrhs, natoms, 1}, {Noco*64, Noco, R1C2} >>>
 #ifndef HAS_NO_CUDA
-              <<< dim3(nrhs, natoms, 1), dim3(Noco*64, Noco, R1C2) >>> (
+              <<< gridDim, blockDim >>> (
 #else  // HAS_NO_CUDA
-              (   dim3(nrhs, natoms, 1), dim3(Noco*64, Noco, R1C2),
+                ( gridDim, blockDim,
 #endif // HAS_NO_CUDA
                Cpr, Psi, sparse, AtomPos, AtomLmax, AtomStarts, RowIndexCube, CubePos, hGrid);
 
@@ -521,14 +523,15 @@ namespace green_dyadic {
         , int      const nrhs // == number of columns in the Green function
         , int const echo=0
     ) {
-      
+
+        dim3 const gridDim(nnzb, 1, 1), blockDim(Noco*64, Noco, R1C2);
         if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {nnzb=%d, 1, 1}, {%d, %d, %d} >>>\n",
                             __func__, real_t_name<real_t>(), R1C2, Noco, nnzb, Noco*64, Noco, R1C2);
         SHOadd<real_t,R1C2,Noco> // launch {nnzb, 1, 1}, {Noco*64, Noco, R1C2} >>>
 #ifndef HAS_NO_CUDA
-              <<< dim3(nnzb, 1, 1), dim3(Noco*64, Noco, R1C2) >>> (
+              <<< gridDim, blockDim >>> (
 #else  // HAS_NO_CUDA
-              (   dim3(nnzb, 1, 1), dim3(Noco*64, Noco, R1C2),
+                ( gridDim, blockDim,
 #endif // HAS_NO_CUDA
                Psi, Cad, RowStartCubes, ColIndexAtoms, RowIndexCubes, ColIndexCubes, AtomPos, AtomLmax, AtomStarts, CubePos, hGrid, nrhs);
               
@@ -684,13 +687,15 @@ namespace green_dyadic {
     ) {
         assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
 
+        // TODO we will need to modify the kernel and launch {natoms, nrhs, 1} if natoms >= 2^16
+        dim3 const gridDim(nrhs, natoms, 1), blockDim(Noco*n64, Noco, 1);
         if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {nrhs=%d, natoms=%d, 1}, {%d, %d, 1} >>>\n",
                             __func__, real_t_name<real_t>(), R1C2, Noco, n64, nrhs, natoms, Noco*n64, Noco);
         SHOmul<real_t,R1C2,Noco,n64> // launch <<< {nrhs, natoms, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
-            <<< dim3(nrhs, natoms, 1), dim3(Noco*n64, Noco, 1) >>> (
+            <<< gridDim, blockDim >>> (
 #else //  HAS_NO_CUDA
-           (    dim3(nrhs, natoms, 1), dim3(Noco*n64, Noco, 1),
+           (    gridDim, blockDim,
 #endif // HAS_NO_CUDA
             aac, apc, AtomMatrices, AtomLmax, AtomStarts);
 
