@@ -15,11 +15,9 @@ namespace green_potential {
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
           real_t        (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] //
-        , double  const (*const __restrict__ Vloc)[64] // local potential, Vloc[icube*Noco*Noco][4*4*4]
-        , int32_t const (*const __restrict__ CubeIndex) // translation from inzb to itrg, with uint16_t, we can cover a radius of 25 blocks, with signed integers, we can use -1 to indicate that no potential needs to be loaded
-        , uint32_t const (*const __restrict__ rowIndex) // rowIndex[inzb]
-//      , uint16_t const (*const __restrict__ colIndex) // colIndex[inzb]
+        , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input Green function
+        , double  const (*const __restrict__ Vloc)[64] // local potential, Vloc[iloc*Noco*Noco][4*4*4]
+        , int32_t const (*const __restrict__ iloc_of_inzb) // translation from inzb to iloc
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb]
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int     const nnzb // number of all blocks to be treated
@@ -83,9 +81,8 @@ namespace green_potential {
             } // rcut^2 >= 0
 #endif // CONFINEMENT_POTENTIAL
 
-            auto const irow  = rowIndex[inzb];
-            auto const icube = CubeIndex[irow]; // target index for the local potential
-            real_t const Vloc_diag = (icube < 0) ? 0 : Vloc[icube*Noco*Noco + spin][i64]; // ToDo: activate and find the bug where the out-of-bounds happens
+            auto const iloc = iloc_of_inzb[inzb]; // target index for the local potential, can be -1 for non-existing
+            real_t const Vloc_diag = (iloc < 0) ? 0 : Vloc[iloc*Noco*Noco + spin][i64];
 
             // gather all real-valued and spin-diagonal contributions
             real_t const Vtot = Vloc_diag + Vconfine - E_real; // diagonal part of the potential
@@ -100,7 +97,7 @@ namespace green_potential {
                 vpsi += V_imag * psi[inzb][1 - reim][spin*64 + i64][j64];
             } // imaginary
 
-            if (2 == Noco && icube >= 0) { // the other spin component is (1 - spin)
+            if (2 == Noco && iloc >= 0) { // the other spin component is (1 - spin)
                 /*                                                                   */
                 /*  this code would be correct if a noco potential had real values,  */
                 /*  however, it has 4 components (V_0, V_x, V_y, V_z)                */
@@ -123,8 +120,8 @@ namespace green_potential {
                 /*                                                                   */
                 real_t const cs = (1 - 2*(reim ^ spin)); // complex sign is -1 if (reim != spin)
 
-                vpsi += Vloc[icube*Noco*Noco + 2][i64] * psi[inzb][    reim][(1 - spin)*64 + i64][j64];    // V_x
-                vpsi += Vloc[icube*Noco*Noco + 3][i64] * psi[inzb][1 - reim][(1 - spin)*64 + i64][j64]*cs; // V_y
+                vpsi += Vloc[iloc*Noco*Noco + 2][i64] * psi[inzb][    reim][(1 - spin)*64 + i64][j64];    // V_x
+                vpsi += Vloc[iloc*Noco*Noco + 3][i64] * psi[inzb][1 - reim][(1 - spin)*64 + i64][j64]*cs; // V_y
             } // non-collinear
 
             Vpsi[inzb][reim][spin*64 + i64][j64] = vpsi; // store
@@ -139,9 +136,7 @@ namespace green_potential {
           real_t         (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , double   const (*const __restrict__ Vloc)[64] // local potential, Vloc[icube*Noco*Noco][4*4*4]
-        , int32_t  const (*const __restrict__ CubeIndex) // CubeIndex[rowIndex], -1 if Vloc does not need to be loaded
-        , uint32_t const (*const __restrict__ rowIndex) // rowIndex[inzb]
-//      , uint16_t const (*const __restrict__ colIndex) // colIndex[inzb]
+        , int32_t  const (*const __restrict__ vloc_index) // iloc_of_inzb[nnzb]
         , int16_t  const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int      const nnzb // number of all blocks to be treated
@@ -156,7 +151,7 @@ namespace green_potential {
 #else  // HAS_NO_CUDA
             (   dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA
-            Vpsi, psi, Vloc, CubeIndex, rowIndex, shift, hxyz, nnzb, rcut2, E_real, E_imag);
+            Vpsi, psi, Vloc, vloc_index, shift, hxyz, nnzb, rcut2, E_real, E_imag);
 
         return 0ul; // total number of floating point operations performed
     } // multiply potential
@@ -170,17 +165,15 @@ namespace green_potential {
   inline status_t test_multiply(int const echo=0) {
       auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
       auto Vloc = get_memory<double[64]>(1*Noco*Noco);
-      auto CubeIndex = get_memory<int32_t>(1);          CubeIndex[0] = 0;
-      auto rowIndex  = get_memory<uint32_t>(1);         rowIndex[0] = 0;
+      auto vloc_index = get_memory<int32_t>(1);         vloc_index[0] = 0;
       auto shift = get_memory<int16_t[3+1]>(1);         set(shift[0], 4, int16_t(0));
       auto hGrid = get_memory<double>(3+1);             set(hGrid, 4, 1.);
       int const nnzb = 1;
-      multiply<real_t,R1C2,Noco>(psi, psi, Vloc, CubeIndex, rowIndex, shift, hGrid, nnzb, 16.f);
+      multiply<real_t,R1C2,Noco>(psi, psi, Vloc, vloc_index, shift, hGrid, nnzb, 16.f);
 
       free_memory(hGrid);
       free_memory(shift);
-      free_memory(rowIndex);
-      free_memory(CubeIndex);
+      free_memory(vloc_index);
       free_memory(Vloc);
       free_memory(psi);
       return 0;

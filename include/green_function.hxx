@@ -430,8 +430,8 @@ namespace green_function {
           p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
           p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
           p.RowStart[0] = 0;
-          p.veff_index = get_memory<int32_t>(p.nRows, echo, "veff_index"); // indirection list for the local potential
-          set(p.veff_index, p.nRows, -1); // init as non-existing
+          p.veff_index = get_memory<int32_t>(nnzb, echo, "veff_index"); // indirection list for the local potential
+          set(p.veff_index, nnzb, -1); // init as non-existing
           p.target_coords = get_memory<int16_t[3+1]>(p.nRows, echo, "target_coords");
           p.target_minus_source = get_memory<int16_t[3+1]>(nnzb, echo, "target_minus_source");
           p.CubePos = get_memory<float[3+1]>(p.nRows, echo, "CubePos");
@@ -494,6 +494,19 @@ namespace green_function {
                               } // search
                           } // iCol valid
                       } // scope
+                      
+                      int32_t veff_index{-1};
+                      if (1) { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
+                          int32_t mod[3];
+                          for (int d = 0; d < 3; ++d) {
+                              // treatment for periodic geometries
+                              mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
+                              mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
+                          } // d
+                          auto const iloc = index3D(n_original_Veff_blocks, mod);
+                          veff_index = iloc;
+                          assert(iloc == veff_index);
+                      } // scope
 
                       for (int32_t inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
                           auto const iCol = p.colindx[inz];
@@ -504,18 +517,9 @@ namespace green_function {
                           } // d
                           p.target_minus_source[inz][3] = 0; // not used
                           p.rowindx[inz] = iRow;
+                          p.veff_index[inz] = veff_index;
                       } // inz
 
-                      if (1) { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
-                          int32_t mod[3];
-                          for (int d = 0; d < 3; ++d) {
-                              // treatment for periodic geometries
-                              mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
-                              mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
-                          } // d
-                          p.veff_index[iRow] = index3D(n_original_Veff_blocks, mod);
-                      } // scope
- 
                       // count up the number of active rows
                       ++iRow;
                   } // n > 0

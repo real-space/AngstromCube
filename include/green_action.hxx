@@ -100,7 +100,7 @@ namespace green_action {
       float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
       double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
-      int32_t*  veff_index = nullptr; // [nRows] indirection list
+      int32_t*  veff_index = nullptr; // [nnzb] indirection list
 
       uint32_t number_of_contributing_atoms = 0;
       double **AtomMatrices = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
@@ -479,7 +479,7 @@ namespace green_action {
       {
           // start with the potential, assign y to initial values
           green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
-              p->veff_index, p->rowindx, p->target_minus_source, p->grid_spacing_trunc, nnzb);
+              p->veff_index, p->target_minus_source, p->grid_spacing_trunc, nnzb);
 
           // add the kinetic energy expressions
           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
