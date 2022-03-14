@@ -218,7 +218,7 @@ namespace green_kinetic {
         // the following list gives the indices of blocks that belong to the same right hand side 
         // and are neighbors in the direction of derivation
 
-        assert(16 == gridDim.x);
+        assert(16 == gridDim.y);
         assert(1  == gridDim.z);
         assert(Noco*64 == blockDim.x);
         assert(Noco    == blockDim.y);
@@ -320,7 +320,7 @@ namespace green_kinetic {
                       c7 =      15360*norm,
                       c8 =       -735*norm;
 
-        assert(16 == gridDim.x);
+        assert(16 == gridDim.y);
         assert(1  == gridDim.z);
         assert(Noco*64 == blockDim.x);
         assert(Noco    == blockDim.y);
