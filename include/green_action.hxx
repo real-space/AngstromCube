@@ -375,13 +375,15 @@ namespace green_action {
           simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
 
           for (uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
-              real_t V[LM]; // buffer, probably best using shared memory of the SMx
-              if (p->veff_index[iRow] >= 0) {
-                  set(V, LM, p->Veff[p->veff_index[iRow]]); // load potential values through indirection list
-              } else { set(V, LM, real_t(0)); }
               auto const *const target_coords = p->target_coords[iRow];
 
               for (auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
+                
+                  real_t V[LM]; // buffer, probably best using shared memory of the SMx
+                  if (p->veff_index[inz] >= 0) {
+                      set(V, LM, p->Veff[p->veff_index[inz]]); // load potential values through indirection list
+                  } else { set(V, LM, real_t(0)); }
+
                   // apply the local effective potential to all elements in this row
                   for (int i = 0; i < LM; ++i) {
                       for (int c = 0; c < R1C2; ++c) add_product(y[inz][c][i], LM, x[inz][c][i], V); // real [and imag]
@@ -468,7 +470,7 @@ namespace green_action {
       double multiply( // returns the number of flops performed
             real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
           , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
-          , uint16_t const (*const __restrict colIndex) // column indices in device memory
+          , uint16_t const (*const __restrict colIndex) // column indices [nnzb], warning: must be in device memory
           , uint32_t const nnzb // number of nonzero blocks, typically colIndex.size()
           , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
           , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzb
@@ -484,7 +486,7 @@ namespace green_action {
           // add the kinetic energy expressions
           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
               p->grid_spacing, 4, nnzb);
-
+          
           // add the non-local potential using the dyadic action of project + add
           green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->AtomLmax, p->ApcStart, p->natom_images,
               p->sparse_SHOprj, p->AtomMatrices, p->sparse_SHOadd, p->rowindx, colIndex, p->CubePos, p->grid_spacing, nnzb, p->nCols);
