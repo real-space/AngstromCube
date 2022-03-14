@@ -422,6 +422,17 @@ namespace green_kinetic {
 
     } // Laplace16th
 
+
+
+//  NVIDIA V100 GPU:
+//   Maximum number of threads per multiprocessor:  2048
+//   Maximum number of threads per block:           1024
+//   Max dimension size of a thread block (x,y,z): (1024, 1024, 64)
+//   Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)
+//   Maximum memory pitch:                          2147483647 bytes
+
+    
+
     template <typename real_t, int R1C2=2, int Noco=1> 
     int Laplace_driver(
           real_t        (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // intent(inout)
