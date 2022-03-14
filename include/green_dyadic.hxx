@@ -348,8 +348,8 @@ namespace green_dyadic {
         if (bsr_of_inzb[inzb] >= bsr_of_inzb[inzb + 1]) return; // empty range in the sparse matrix, early return
 #endif // HAS_NO_CUDA
 
-        auto const irhs = irhs_of_inzb[inzb]; // Green function column index
         auto const irow = irow_of_inzb[inzb]; // Green function row index
+        auto const irhs = irhs_of_inzb[inzb]; // Green function column index
 
         __shared__ real_t H1D[1 + Lmax][3][4]; // non-normalized orthogonal 1-dimensional Hermite Gauss functions
         __shared__ float     xi_squared[3][4]; // distance along one Cartesian direction squared

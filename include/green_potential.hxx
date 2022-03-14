@@ -17,7 +17,7 @@ namespace green_potential {
           real_t        (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input Green function
         , double  const (*const __restrict__ Vloc)[64] // local potential, Vloc[iloc*Noco*Noco][4*4*4]
-        , int32_t const (*const __restrict__ iloc_of_inzb) // translation from inzb to iloc
+        , int32_t const (*const __restrict__ iloc_of_inzb) // translation from inzb to iloc, [inzb]
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb][0:2]
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int     const nnzb // number of all blocks to be treated

@@ -56,7 +56,10 @@ namespace green_function {
           for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
               x[0][0][0][i] = 0; // init x
           } // i
-          
+
+          auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
+          set(colIndex, nnzb, p.colindx.data()); // copy
+
           bool const toy = control::get("green_function.benchmark.toy", 0.);
 
           // benchmark the action
@@ -66,11 +69,12 @@ namespace green_function {
               if (toy) {
                   action.toy_multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
               } else {
-                  action.multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
+                  action.multiply(y, x, colIndex, nnzbX, p.nCols);
               }
               std::swap(x, y);
           } // iteration
 
+          free_memory(colIndex);
           free_memory(y);
           free_memory(x);
       } // n_iterations >= 0
