@@ -85,9 +85,13 @@ EXTFLAGS ?=
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 
-GENCODE_SM60= -gencode arch=compute_60,code=sm_60 -gencode arch=compute_60,code=compute_60
-GENCODE_SM70= -gencode arch=compute_70,code=sm_70 -gencode arch=compute_70,code=compute_70
-GENCODE_FLAGS= ${GENCODE_SM60} ${GENCODE_SM70}
+GENCODE60= -gencode arch=compute_60,code=sm_60 -gencode arch=compute_60,code=compute_60 ## for P100
+GENCODE70= -gencode arch=compute_70,code=sm_70 -gencode arch=compute_70,code=compute_70 ## for V100
+GENCODE80= -gencode arch=compute_80,code=sm_80 -gencode arch=compute_80,code=compute_80 ## for A100
+GENCODE_FLAGS=
+# GENCODE_FLAGS += ${GENCODE60}
+GENCODE_FLAGS += ${GENCODE70}
+# GENCODE_FLAGS += ${GENCODE80}
 
 CCFLAGS  = -std=gnu99 ${FLAGS}
 # K80
@@ -121,6 +125,6 @@ ${EXECUTABLE}: ${OBJECTS}
 %.d:%.cxx
 	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 %.d:%.cu
-	${CXX} ${CFLAGS} ${INC} -MM $^ -MF $@
+	${CU} ${CUFLAGS} ${INC} -MM $^ -MF $@
 
 -include ${DEP}

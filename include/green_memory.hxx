@@ -46,14 +46,14 @@
 #endif // DEBUG
 
       T* ptr{nullptr};
-#ifdef  HAS_CUDA
+#ifndef HAS_NO_CUDA
       cuCheck(cudaMallocManaged(&ptr, size*sizeof(T)));
-#else  // HAS_CUDA
+#else  // HAS_NO_CUDA
       ptr = new T[size];
-#endif // HAS_CUDA
+#endif // HAS_NO_CUDA
 
 #ifdef DEBUG
-      std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)d);
+      std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)ptr);
 #endif // DEBUG
 
       return ptr;
@@ -61,19 +61,19 @@
 
 
   template <typename T>
-  void _free_memory(T* & d, char const *const name="") {
-      if (nullptr != d) {
+  void _free_memory(T* & ptr, char const *const name="") {
+      if (nullptr != ptr) {
 #ifdef DEBUG
-          std::printf("# free_memory %s at %p\n", name, (void*)d);
+          std::printf("# free_memory %s at %p\n", name, (void*)ptr);
 #endif // DEBUG
 
-#ifdef  HAS_CUDA
-          cuCheck(cudaFree(d));
-#else  // HAS_CUDA
-          delete[] d;
-#endif // HAS_CUDA
+#ifndef HAS_NO_CUDA
+          cuCheck(cudaFree((void*)ptr));
+#else  // HAS_NO_CUDA
+          delete[] ptr;
+#endif // HAS_NO_CUDA
       } // d
-      d = nullptr;
+      ptr = nullptr;
   } // free_memory
 
 #define free_memory(PTR) _free_memory(PTR, #PTR)
