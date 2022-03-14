@@ -791,7 +791,7 @@ namespace green_function {
               size_t nops{0};
               for (uint16_t irhs = 0; irhs < p.nCols; ++irhs) {
                   char name[32]; std::snprintf(name, 31, "sparse_SHOprj[irhs=%i]", irhs);
-                  p.sparse_SHOprj[irhs] = sparse_t<>(vvv_prj[irhs], false, name, echo);
+                  p.sparse_SHOprj[irhs] = sparse_t<>(vvv_prj[irhs], false, name, echo - 2);
                   // sparse_SHOprj: rows == atom images, cols == Green function non-zero elements
                   nops += p.sparse_SHOprj[irhs].nNonzeros();
               } // irhs

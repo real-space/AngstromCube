@@ -96,7 +96,7 @@ namespace green_dyadic {
     int constexpr Lmax_default=7; // reduce this to lower the GPU register and shared memory usage
 
     template <typename real_t, int R1C2=2, int Noco=1, int Lmax=Lmax_default>
-    void __global__ SHOprj( // launch SHOprj<real_t,R1C2,Noco> <<< {nrhs, natoms, 1}, {Noco*64, Noco, R1C2} >>> (...);
+    void __global__ SHOprj( // launch SHOprj<real_t,R1C2,Noco> <<< {natoms, nrhs, 1}, {Noco*64, Noco, R1C2} >>> (...);
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
@@ -117,19 +117,19 @@ namespace green_dyadic {
         assert(Noco    == blockDim.y);
         assert(R1C2    == blockDim.z);
 
-        int const nrhs   = gridDim.x;
+        int const nrhs   = gridDim.y;
 
         __shared__ double hgrid[3+1]; // grid spacings
 
 #ifndef HAS_NO_CUDA
         if (threadIdx.x < 4) hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
-        int const iatom = blockIdx.y;  // in [0, natoms)
-        int const irhs  = blockIdx.x;  // in [0, nrhs)
+        int const irhs  = blockIdx.y;  // in [0, nrhs)
+        int const iatom = blockIdx.x;  // in [0, natoms)
 #else  // HAS_NO_CUDA
         set(hgrid, 4, hGrid);
-        int const natoms = gridDim.y;
-        for (int iatom = 0; iatom < natoms; ++iatom)
+        int const natoms = gridDim.x;
         for (int irhs  = 0; irhs < nrhs; ++irhs)
+        for (int iatom = 0; iatom < natoms; ++iatom)
 #endif // HAS_NO_CUDA
         { // block loops
 
@@ -287,11 +287,10 @@ namespace green_dyadic {
         , int const echo=0
     ) {
 
-        // TODO we will need to modify the kernel and launch {natoms, nrhs, 1} if natoms >= 2^16
-        dim3 const gridDim(nrhs, natoms, 1), blockDim(Noco*64, Noco, R1C2);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {nrhs=%d, natoms=%d, 1}, {%d, %d, %d} >>>\n",
-                            __func__, real_t_name<real_t>(), R1C2, Noco, nrhs, natoms, Noco*64, Noco, R1C2);
-        SHOprj<real_t,R1C2,Noco> // launch <<< {nrhs, natoms, 1}, {Noco*64, Noco, R1C2} >>>
+        dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*64, Noco, R1C2);
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, %d, %d} >>>\n",
+                            __func__, real_t_name<real_t>(), R1C2, Noco, natoms, nrhs, Noco*64, Noco, R1C2);
+        SHOprj<real_t,R1C2,Noco> // launch <<< {natoms, nrhs, 1}, {Noco*64, Noco, R1C2} >>>
 #ifndef HAS_NO_CUDA
               <<< gridDim, blockDim >>> (
 #else  // HAS_NO_CUDA
@@ -590,7 +589,7 @@ namespace green_dyadic {
     
     
     template <typename real_t, int R1C2=2, int Noco=1, int n64=64> // R1C2 and Noco could be function arguments instead of template parameters
-    void __global__ SHOmul( // launch SHOmul<real_t,R1C2,Noco,n64> <<< {nrhs, natoms, 1}, {Noco*n64, Noco, 1} >>>
+    void __global__ SHOmul( // launch SHOmul<real_t,R1C2,Noco,n64> <<< {natoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
@@ -603,19 +602,19 @@ namespace green_dyadic {
       // Multiply the atom-specific matrices onto the projection coefficients
     {
         assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
-        int const nrhs   = gridDim.x;
+        int const nrhs   = gridDim.y;
         assert(1       ==  gridDim.z);
         assert(Noco*n64== blockDim.x);
         assert(Noco    == blockDim.y);
         assert(1       == blockDim.z);
 
 #ifndef HAS_NO_CUDA
-        int const iatom = blockIdx.y;
-        int const irhs  = blockIdx.x;
+        int const irhs  = blockIdx.y;
+        int const iatom = blockIdx.x;
 #else  // HAS_NO_CUDA
-        int const natoms = gridDim.y;
-        for (int iatom = 0; iatom < natoms; ++iatom)
+        int const natoms = gridDim.x;
         for (int irhs = 0; irhs < nrhs; ++irhs)
+        for (int iatom = 0; iatom < natoms; ++iatom)
 #endif // HAS_NO_CUDA
         { // block loops
 
@@ -687,11 +686,10 @@ namespace green_dyadic {
     ) {
         assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
 
-        // TODO we will need to modify the kernel and launch {natoms, nrhs, 1} if natoms >= 2^16
-        dim3 const gridDim(nrhs, natoms, 1), blockDim(Noco*n64, Noco, 1);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {nrhs=%d, natoms=%d, 1}, {%d, %d, 1} >>>\n",
-                            __func__, real_t_name<real_t>(), R1C2, Noco, n64, nrhs, natoms, Noco*n64, Noco);
-        SHOmul<real_t,R1C2,Noco,n64> // launch <<< {nrhs, natoms, 1}, {Noco*n64, Noco, 1} >>>
+        dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*n64, Noco, 1);
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, %d, 1} >>>\n",
+                           __func__, real_t_name<real_t>(), R1C2, Noco, n64,  natoms, nrhs,  Noco*n64, Noco);
+        SHOmul<real_t,R1C2,Noco,n64> // launch <<< {natoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
             <<< gridDim, blockDim >>> (
 #else //  HAS_NO_CUDA
