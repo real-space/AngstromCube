@@ -143,10 +143,10 @@ namespace green_potential {
         , float    const rcut2=-1 // cutoff radius^2 for the confinement potential, -1: no confinement
         , real_t   const E_real=0 // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t   const E_imag=0 // imaginary part of the energy parameter
+        , int const echo=0
     ) {
         
-        
-        if (1) {
+        if (echo > 11) {
             std::printf("# %s<%s,R1C2=%d,Noco=%d> Vpsi=%p, psi=%p, Vloc=%p, vloc_index=%p, shift=%p, hxyz=%p, nnzb=%d, rcut2=%.f, E=(%g, %g)\n",
                            __func__, (4 == sizeof(real_t))?"float":"double", R1C2, Noco, (void*)Vpsi, (void*)psi,
                            (void*)Vloc, (void*)vloc_index, (void*)shift, (void*)hxyz, nnzb, rcut2, E_real, E_imag);
@@ -154,7 +154,7 @@ namespace green_potential {
 
         Potential<real_t,R1C2,Noco>
 #ifndef HAS_NO_CUDA
-            <<< dim3(64, 7, 1), dim3(Noco*64, Noco, R1C2) >>> ( // 7=any
+            <<< dim3(64, 7, 1), dim3(Noco*64, Noco, R1C2) >>> ( // 7=any, maybe find a function for a good choice
 #else  // HAS_NO_CUDA
             (   dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA

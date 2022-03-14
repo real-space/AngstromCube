@@ -481,7 +481,7 @@ namespace green_action {
       {
           // start with the potential, assign y to initial values
           green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
-              p->veff_index, p->target_minus_source, p->grid_spacing_trunc, nnzb, -1.f);
+              p->veff_index, p->target_minus_source, p->grid_spacing_trunc, nnzb, 16.f);
 
           // add the kinetic energy expressions
           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,

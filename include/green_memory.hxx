@@ -52,9 +52,9 @@
       ptr = new T[size];
 #endif // HAS_NO_CUDA
 
-// #ifdef DEBUG
+#ifdef DEBUG
       std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)ptr);
-// #endif // DEBUG
+#endif // DEBUG
 
       return ptr;
   } // get_memory

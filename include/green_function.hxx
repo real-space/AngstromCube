@@ -57,6 +57,7 @@ namespace green_function {
               x[0][0][0][i] = 0; // init x
           } // i
 
+          auto const nnzb = p.colindx.size();
           auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
           set(colIndex, nnzb, p.colindx.data()); // copy
 
