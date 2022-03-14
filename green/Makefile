@@ -121,6 +121,6 @@ ${EXECUTABLE}: ${OBJECTS}
 %.d:%.cxx
 	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 %.d:%.cu
-	${CXX} ${CFLAGS} ${INC} -MM $^ -MF $@
+	${CU} ${CUFLAGS} ${INC} -MM $^ -MF $@
 
 -include ${DEP}
