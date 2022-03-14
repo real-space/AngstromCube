@@ -135,6 +135,11 @@ namespace green_function {
                               *ng[Y] + size_t(iby*4 + i4y)) 
                               *ng[X] + size_t(ibx*4 + i4x); // global grid point index
                   assert(izyx < size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]));
+                  if (Noco > 1) {
+                      p.Veff[Veff_index*Noco*Noco + 3][i64] = 0; // set clear
+                      p.Veff[Veff_index*Noco*Noco + 2][i64] = 0; // set clear
+                      p.Veff[Veff_index*Noco*Noco + 1][i64] = Veff[izyx];
+                  }
                   p.Veff[Veff_index*Noco*Noco + 0][i64] = Veff[izyx]; // copy potential value
               }}} // i4
           }}} // xyz
@@ -859,6 +864,7 @@ namespace green_function {
                       p.AtomMatrices[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
                   } // j
               } // i
+              // ToDo: treat Noco components correctly
           } // iac
           p.number_of_contributing_atoms = nac;
           if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
