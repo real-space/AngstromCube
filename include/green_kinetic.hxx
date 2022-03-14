@@ -195,7 +195,7 @@ namespace green_kinetic {
   
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
-    void __global__ Laplace8th( // GPU kernel, must be launched with <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>
+    void __global__ Laplace8th( // GPU kernel, must be launched with <<< {Nrows, 16, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
@@ -231,9 +231,9 @@ namespace green_kinetic {
 #endif // HAS_NO_CUDA
         { // block loops
 
-        auto const *const list = index_list[blockIdx.y]; // abbreviate pointer
+        auto const *const list = index_list[blockIdx.x]; // abbreviate pointer
 
-        int const i16 = blockIdx.x;
+        int const i16 = blockIdx.y;
         int const i64 = (16==Stride)? i16 : ( (4==Stride)? (16*(i16 >> 2) + (i16 & 0x3)) : (4*i16) );
 
 #ifdef HAS_NO_CUDA
@@ -296,7 +296,7 @@ namespace green_kinetic {
     
 
     template <typename real_t, int R1C2=2, int Noco=1>
-    void __global__ Laplace16th( // GPU kernel, must be launched with <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>
+    void __global__ Laplace16th( // GPU kernel, must be launched with <<< {Nrows, 16, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
@@ -333,9 +333,9 @@ namespace green_kinetic {
 #endif // HAS_NO_CUDA
         { // block loops
 
-        auto const *const list = index_list[blockIdx.y]; // abbreviate pointer
+        auto const *const list = index_list[blockIdx.x]; // abbreviate pointer
 
-        int const i16 = blockIdx.x;
+        int const i16 = blockIdx.y;
         int const i64 = (16==Stride)? i16 : ( (4==Stride)? (16*(i16 >> 2) + (i16 & 0x3)) : (4*i16) );
 
 #ifdef HAS_NO_CUDA
@@ -435,7 +435,7 @@ namespace green_kinetic {
     ) {
         assert(1 == Stride || 4 == Stride || 16 == Stride);
         auto const kernel_ptr = (8 == nFD) ? Laplace16th<real_t,R1C2,Noco> : Laplace8th<real_t,R1C2,Noco>;
-        dim3 const gridDim(16, num, 1), blockDim(Noco*64, Noco, R1C2);
+        dim3 const gridDim(num, 16, 1), blockDim(Noco*64, Noco, R1C2);
         kernel_ptr // GPU kernel, must be launched with <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef HAS_NO_CUDA
                   (    gridDim, blockDim,
