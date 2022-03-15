@@ -146,7 +146,7 @@ namespace green_function {
 
           std::vector<uint32_t> AtomImageStarts(nAtomImages + 1, 0); // probably larger than needed, should call resize(nai + 1) later
           std::vector<green_action::atom_t> atom_data(nAtomImages);
-          std::vector<uint16_t> atom_ncoeff(natoms, 0); // 0: atom does not contribute
+          std::vector<int8_t> atom_numax(natoms, -1); // -1: atom does not contribute
 
           simple_stats::Stats<> nc_stats;
           double sparse{0}, dense{0}; // stats to assess how much memory can be saved using sparse storage
@@ -238,8 +238,7 @@ namespace green_function {
                   if (ntb > 0) {
                       // atom image contributes, mark in the list to have more than 0 coefficients
                       auto const nc = sho_tools::nSHO(numax); // number of coefficients for this atom
-                      atom_ncoeff[ia] = nc; // atom image does contribute, so this atom does
-                      assert(nc == atom_ncoeff[ia]); // conversion successful
+                      atom_numax[ia] = numax; // atom image does contribute, so this atom does
                       nc_stats.add(nc);
 
                       // at least one target block has an intersection with the projection sphere of this atom image
@@ -339,7 +338,7 @@ namespace green_function {
           std::vector<int32_t>  local_atom_index(natoms, -1); // translation table
           int iac{0};
           for (int ia = 0; ia < natoms; ++ia) { // serial
-              if (atom_ncoeff[ia] > 0) {
+              if (atom_numax[ia] > -1) {
                   global_atom_index[iac] = ia;
                   local_atom_index[ia] = iac;
                   ++iac;
@@ -371,16 +370,19 @@ namespace green_function {
           p.sparse_SHOsum = sparse_t<>(SHOsum, false, "SHOsum", echo);
           SHOsum.resize(0);
 
-          p.AtomStarts = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
-          p.AtomStarts[0] = 0; // init prefetch sum
 
           // get memory for the matrices and fill
           p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
+          p.AtomLmax     = get_memory<int8_t>(nai, echo, "AtomLmax"); 
+          p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
+          p.AtomStarts[0] = 0; // init prefetch sum
+
           for (int iac = 0; iac < nac; ++iac) { // parallel
               int const ia = global_atom_index[iac];
-              int const nc = atom_ncoeff[ia];
+              int const nc = sho_tools::nSHO(atom_numax[ia]);
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
               p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefect sum
+              p.AtomLmax[iac] = atom_numax[ia];
               char name[64]; std::snprintf(name, 63, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
               p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
               set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
