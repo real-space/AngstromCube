@@ -139,7 +139,7 @@ namespace green_kinetic {
           // store index starts in managed memory
           prefix = get_memory<uint32_t>(n_lists + 1); // create in GPU memory
           prefix[0] = 0; // CSR style (compressed sparse row format)
-          for (int ilist = 0; ilist < n_lists; ++ilist) {
+          for (uint32_t ilist = 0; ilist < n_lists; ++ilist) {
               uint32_t const n = list[ilist].size();
               prefix[ilist + 1] = prefix[ilist] + n;
           } // ilist

@@ -93,7 +93,7 @@ namespace green_function {
       , double const grid_spacing[3]
       , std::vector<std::vector<double>> const & AtomMatrices
       , std::vector<double> const & xyzZinso
-      , int const nRowsGreen
+      , uint32_t const nRowsGreen
       , int const nrhs
       , uint32_t const *const rowStartGreen
       , uint16_t const *const colIndexGreen
@@ -322,7 +322,7 @@ namespace green_function {
           p.sparse_SHOprj = get_memory<sparse_t<>>(nrhs, echo, "sparse_SHOprj");
           size_t nops{0};
           for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
-              char name[32]; std::snprintf(name, 31, "sparse_SHOprj[irhs=%i of %d]", irhs, nrhs);
+              char name[64]; std::snprintf(name, 63, "sparse_SHOprj[irhs=%i of %d]", irhs, nrhs);
               p.sparse_SHOprj[irhs] = sparse_t<>(SHOprj[irhs], false, name, echo - 2);
               // sparse_SHOprj: rows == atom images, cols == Green function non-zero elements
               nops += p.sparse_SHOprj[irhs].nNonzeros();
@@ -825,7 +825,7 @@ namespace green_function {
                               } // d
                               { // search inz such that p.colindx[inz] == iCol
                                   int32_t inz_found{-1};
-                                  for (int32_t inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1] && inz_found == -1; ++inz) {
+                                  for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1] && inz_found == -1; ++inz) {
                                       if (iCol == p.colindx[inz]) {
                                           inz_found = inz;
                                       }
