@@ -220,6 +220,7 @@ namespace green_action {
       {
 
           if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
+#ifdef HAS_NO_CUDA
 
       // Action of the SHO-PAW Hamiltonian H onto a trial Green function G:
       // indicies named according to H_{ij} G_{jk} = HG_{ik}
@@ -460,6 +461,8 @@ namespace green_action {
               std::printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n", stats_conf.mean(),  stats_conf.min(),  stats_conf.max());
               std::printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n", stats_outer.mean(), stats_outer.min(), stats_outer.max());
           } // echo
+
+#endif // HAS_NO_CUDA
 
           return 0; // no flops performed so far
       } // toy_multiply
