@@ -943,39 +943,38 @@ namespace green_dyadic {
         , uint16_t const (*const __restrict__ ColIndexCubes) // Green functions colIndex[nnzb]
         , float    const (*const __restrict__ CubePos)[3+1] // cube positions +alignment
         , uint32_t const nnzb // number of blocks of the Green function
-        , uint32_t const nrhs // number of block columns of the Green function
         , int const echo=0 // log-level
     ) {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
         size_t nops{0};
-
+        
         assert(p.AtomImageStarts);
         auto const natomcoeffs = p.AtomImageStarts[p.nAtomImages];
         if (echo > 6) std::printf("# %s<%s> R1C2=%d Noco=%d nAtoms=%d nAtomImages=%d nrhs=%d ncoeffs=%d\n",
-                  __func__, real_t_name<real_t>(), R1C2, Noco, p.nAtoms, p.nAtomImages, nrhs, natomcoeffs);
+                  __func__, real_t_name<real_t>(), R1C2, Noco, p.nAtoms, p.nAtomImages, p.nrhs, natomcoeffs);
 
         nops += SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.nAtomImages,
-                                                p.sparse_SHOprj, RowIndexCubes, CubePos, p.grid_spacing, nrhs, echo);
+                                                p.sparse_SHOprj, RowIndexCubes, CubePos, p.grid_spacing, p.nrhs, echo);
 
-        auto Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*nrhs, echo, "Cad"); // rectangular storage of atoms x right-hand-sides
+        auto Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*p.nrhs, echo, "Cad"); // rectangular storage of atoms x right-hand-sides
 
         auto const ncoeffs = p.AtomStarts[p.nAtoms];
         if (p.nAtomImages > p.nAtoms) {
             // we have to distinguish between atoms and their periodic images
 
-            auto cprj = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*nrhs, echo, "cprj");
+            auto cprj = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "cprj");
 
             SHOsum_driver<real_t,R1C2,Noco>(cprj, Cpr, p.AtomLmax, p.AtomStarts, p.AtomImageStarts, p.AtomImagePhase,
-                                            p.sparse_SHOsum, p.nAtoms, nrhs, true, echo); // true:collect
+                                            p.sparse_SHOsum, p.nAtoms, p.nrhs, true, echo); // true:collect
 
-            auto cadd = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*nrhs, echo, "cadd");
+            auto cadd = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "cadd");
             
-            nops += SHOmul_driver<double,R1C2,Noco>(cadd, cprj, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, nrhs, echo);
+            nops += SHOmul_driver<double,R1C2,Noco>(cadd, cprj, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, p.nrhs, echo);
 
             free_memory(cprj);
 
             SHOsum_driver<real_t,R1C2,Noco>(cadd, Cad, p.AtomLmax, p.AtomStarts, p.AtomImageStarts, p.AtomImagePhase,
-                                            p.sparse_SHOsum, p.nAtoms, nrhs, false, echo); // false:broadcast
+                                            p.sparse_SHOsum, p.nAtoms, p.nrhs, false, echo); // false:broadcast
 
             free_memory(cadd);
 
@@ -983,15 +982,15 @@ namespace green_dyadic {
             assert(p.nAtomImages == p.nAtoms); // there is at most one relevant image of each atom
             assert(natomcoeffs == ncoeffs);
 
-            nops += SHOmul_driver<real_t,R1C2,Noco>(Cad, Cpr, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, nrhs, echo);
+            nops += SHOmul_driver<real_t,R1C2,Noco>(Cad, Cpr, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, p.nrhs, echo);
 
         } // more images than atoms
 
         nops += SHOadd_driver<real_t,R1C2,Noco>(Ppsi, Cad, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, 
                                                 p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.colIndex(),
-                                                RowIndexCubes, ColIndexCubes, CubePos, p.grid_spacing, nnzb, nrhs, echo);
+                                                RowIndexCubes, ColIndexCubes, CubePos, p.grid_spacing, nnzb, p.nrhs, echo);
         free_memory(Cad);
-        
+
         return nops; // total number of floating point operations performed
     } // multiply (dyadic operations)
 
