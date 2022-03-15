@@ -156,7 +156,7 @@ namespace green_potential {
 #ifndef HAS_NO_CUDA
             <<< dim3(64, 7, 1), dim3(Noco*64, Noco, R1C2) >>> ( // 7=any, maybe find a function for a good choice
 #else  // HAS_NO_CUDA
-            (   dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
+              ( dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA
             Vpsi, psi, Vloc, vloc_index, shift, hxyz, nnzb, rcut2, E_real, E_imag);
 
