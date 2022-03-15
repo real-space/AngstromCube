@@ -48,12 +48,12 @@ namespace green_kinetic {
         // 
         //                            --> x-direction
         //        0  1  2  3  4
-        //     5  6  7  8  9 10 11
-        //    12 13 14 15 16 17 18 19
-        //    20 21 22 23 24 25 26 27
-        //    28 29 30 31 32 33 34
+        //     5  6  7  8  9 10 11        |
+        //    12 13 14 15 16 17 18 19     |
+        //    20 21 22 23 24 25 26 27     v
+        //    28 29 30 31 32 33 34        y-direction
         //       35 36 37 38 39
-        // 
+        //
         //
         //  6 x-lists:
         //    list[0] == { 0  1  2  3  4 -1 -1 -1 -1}
@@ -84,11 +84,10 @@ namespace green_kinetic {
           num[dd] = 1; // replace number of target blocks in derivative direction
           if (echo > 0) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
           simple_stats::Stats<> length_stats;
-          std::vector<std::vector<int32_t>> list;
           size_t const max_lists = nRHSs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
-          list.resize(max_lists);
+          std::vector<std::vector<int32_t>> list(max_lists);
           size_t ilist{0};
-          for (int iRHS = 0; iRHS < nRHSs; ++iRHS) {
+          for (unsigned iRHS = 0; iRHS < nRHSs; ++iRHS) {
 //                if (echo > 0) std::printf("# FD list for RHS #%i\n", iRHS);
               auto const & sparsity_RHS = sparsity_pattern[iRHS];
               for (int iz = 0; iz < num[Z]; ++iz) { //  
@@ -152,7 +151,7 @@ namespace green_kinetic {
           fd_list = get_memory<int32_t>(ntotal); // create in GPU memory
           { // scope: copy indices into managed memory
               size_t ntotal_check{0};
-              for (int ilist = 0; ilist < n_lists; ++ilist) {
+              for (uint32_t ilist = 0; ilist < n_lists; ++ilist) {
                   auto const n = list[ilist].size();
                   assert(ntotal_check == prefix[ilist]); // sanity
                   ntotal_check += n;
@@ -179,9 +178,7 @@ namespace green_kinetic {
 
       ~finite_difference_plan_t() {
 #ifdef  DEBUG
-          std::printf("# destruct %s, pointers= %p and %p\n", 
-                      __func__, (void*)fd_list, (void*)prefix);
-          std::fflush(stdout);
+          std::printf("# destruct %s, pointers= %p and %p\n", __func__, (void*)fd_list, (void*)prefix); std::fflush(stdout);
 #endif // DEBUG
           if (fd_list) free_memory(fd_list);
           if (prefix)  free_memory(prefix);
@@ -502,7 +499,7 @@ namespace green_kinetic {
             // convert fd_plan to arrays of pointers
             num[dd] = fd_plan[dd].size();
             lists[dd] = get_memory<int32_t const *>(num[dd]);
-            for (int il = 0; il < num[dd]; ++il) {
+            for (uint32_t il = 0; il < num[dd]; ++il) {
                 lists[dd][il] = fd_plan[dd].list(il);
             } // il
         } // dd
@@ -526,7 +523,7 @@ namespace green_kinetic {
       auto Tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb);
       auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb);
       auto indx = get_memory<int32_t>(nnzb + 4);
-      set(indx, nnzb + 4, -1); for (int i = 0; i < nnzb; ++i) indx[i] = i; // index list must end by a sequence {-1, -1, -1, -1}
+      set(indx, nnzb + 4, -1); for (size_t i = 0; i < nnzb; ++i) indx[i] = i; // index list must end by a sequence {-1, -1, -1, -1}
       uint32_t const num[] = {1, 1, 1};
       int const nFD4[] = {4, 4, 4}, nFD8[] = {8, 8, 8};
       double const hgrid[] = {1, 1, 1};

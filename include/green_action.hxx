@@ -16,7 +16,7 @@
 #include "green_sparse.hxx"    // ::sparse_t<,>
 #include "green_kinetic.hxx"   // ::multiply, ::finite_difference_plan_t
 #include "green_potential.hxx" // ::multiply
-#include "green_dyadic.hxx"    // ::multiply
+#include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 #include "simple_stats.hxx" // ::Stats<>
 
 #ifdef HAS_TFQMRGPU
@@ -35,7 +35,7 @@
 
 namespace green_action {
 
-  typedef struct {
+  struct atom_t {
       double pos[3]; // position
       double sigma; // Gaussian spread
       int32_t gid; // global identifier
@@ -43,16 +43,16 @@ namespace green_action {
       int16_t shifts[3]; // periodic image shifts
       uint8_t nc; // number of coefficients, uint8_t sufficient up to numax=9 --> 220 coefficients
       int8_t numax; // SHO basis size
-  } atom_t; // 48 Byte
+  }; // atom_t 48 Byte
 
-  typedef struct {
+  // this could replace AtomPos + AtomLmax in the long run
+  struct atom_image_t {
       double pos[3]; // position
       float  oneoversqrtsigma; // Gaussian spread, 1/sqrt(sigma)
       int8_t shifts[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
       int8_t lmax; // SHO basis size
-  } atom_image_t; // 32 Byte
+  }; // atom_image_t 32 Byte
 
-  
   struct plan_t {
 
       // members needed for the usage with tfQMRgpu
@@ -102,22 +102,28 @@ namespace green_action {
       double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
       int32_t*  veff_index = nullptr; // [nnzb] indirection list
 
+      double *grid_spacing_trunc = nullptr; // [3]
+      double *grid_spacing       = nullptr; // [3]
+#if 0
       uint32_t number_of_contributing_atoms = 0;
-      double **AtomMatrices = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
+      uint32_t* AacStart     = nullptr; // [number_of_contributing_atoms + 1]
+      double **AtomMatrices  = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
 
       uint32_t natom_images  = 0;
       uint32_t* ApcStart     = nullptr; // [natom_images + 1]
-      atom_t* atom_data      = nullptr; // [natom_images]
+//    atom_t* atom_data      = nullptr; // [natom_images]
       double (*AtomPos)[3+1] = nullptr; // [natom_images]
       int8_t* AtomLmax       = nullptr; // [natom_images]
 
-      double *grid_spacing       = nullptr; // [3+1]
-      double *grid_spacing_trunc = nullptr; // [3]
-      bool noncollinear_spin = false;
-
       green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
       green_sparse::sparse_t<>   sparse_SHOadd;
-//    green_sparse::sparse_t<uint16_t> sparse_Green;
+      green_sparse::sparse_t<>   sparse_SHOmul;
+      double (*AtomImagePhase)[4] = nullptr; // [natom_images]
+#endif // 0
+
+      bool noncollinear_spin = false;
+
+      green_dyadic::dyadic_plan_t dyadic_plan;
 
       plan_t() {
           debug_printf("# default constructor for %s\n", __func__);
@@ -125,7 +131,6 @@ namespace green_action {
 
       ~plan_t() {
           debug_printf("# destruct %s\n", __func__);
-          free_memory(ApcStart);
           free_memory(RowStart);
           free_memory(rowindx);
           free_memory(source_coords);
@@ -133,19 +138,24 @@ namespace green_action {
           free_memory(target_minus_source);
           free_memory(Veff);
           free_memory(veff_index);
-          if (AtomMatrices) for (int iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(AtomMatrices[iac]);
+          free_memory(CubePos);
+#if 0
+          free_memory(ApcStart);
+          free_memory(AacStart);
+          if (AtomMatrices) for (uint32_t iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(AtomMatrices[iac]);
           free_memory(AtomMatrices);
-          free_memory(atom_data);
+//        free_memory(atom_data);
           free_memory(grid_spacing);
+          free_memory(AtomPos);
+          free_memory(AtomLmax);
+          if (sparse_SHOprj) for (uint32_t icol = 0; icol < nCols; ++icol) sparse_SHOprj[icol].~sparse_t<>();
+          free_memory(sparse_SHOprj);
+          free_memory(AtomImagePhase);
+#endif
           free_memory(grid_spacing_trunc);
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
               fd_plan[dd].~finite_difference_plan_t();
           } // dd
-          free_memory(AtomPos);
-          free_memory(AtomLmax);
-          free_memory(CubePos);
-          if (sparse_SHOprj) for (int icol = 0; icol < nCols; ++icol) sparse_SHOprj[icol].~sparse_t<>();
-          free_memory(sparse_SHOprj);
       } // destructor
 
   }; // plan_t
@@ -183,7 +193,8 @@ namespace green_action {
       } // destructor
 
       void take_memory(char* &buffer) {
-          auto const natomcoeffs = p->ApcStart ? p->ApcStart[p->natom_images] : 0;
+          auto const & dp = p->dyadic_plan;
+          auto const natomcoeffs = dp.AtomImageStarts ? dp.AtomImageStarts[dp.nAtomImages] : 0;
           auto const n = size_t(natomcoeffs) * p->nCols;
           // ToDo: could be using GPU memory taking it from the buffer
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
@@ -240,10 +251,10 @@ namespace green_action {
       //                        sho_projector[jprj][j64] *
       //                        G[jnz][ri][j64][k64];
       //                    }
-          for (int iai = 0; iai < p->natom_images; ++iai) {
+//        for (int iai = 0; iai < p->natom_images; ++iai) {
               // project at position p->atom_data[iai].pos
               // into apc[(p->ApcStart[iai]:p->ApcStart[iai + 1])*p->nCols][2][64]
-          } // iai
+//        } // iai
 
       //
       //      meanwhile: kinetic energy including the local potential
@@ -482,19 +493,26 @@ namespace green_action {
       )
         // GPU implementation of green_potential, green_kinetic and green_dyadic
       {
+          assert(p);
+          double nops{0};
+          
+          if (echo > 0) std::printf("# green_action::multiply\n");
+
           // start with the potential, assign y to initial values
-          green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
-              p->veff_index, p->target_minus_source, p->grid_spacing_trunc, nnzb, 16.f);
+          nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
+                      p->veff_index, p->target_minus_source, p->grid_spacing_trunc, nnzb, 16.f);
 
           // add the kinetic energy expressions
-          green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
-              p->grid_spacing, 4, nnzb);
+          nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
+                      p->grid_spacing, 4, nnzb);
           
           // add the non-local potential using the dyadic action of project + add
-          green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->AtomLmax, p->ApcStart, p->natom_images,
-              p->sparse_SHOprj, p->AtomMatrices, p->sparse_SHOadd, p->rowindx, colIndex, p->CubePos, p->grid_spacing, nnzb, p->nCols);
+//        nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->AtomLmax, p->ApcStart, p->natom_images,
+//                    p->sparse_SHOprj, p->AtomMatrices, p->sparse_SHOadd, p->rowindx, colIndex, p->CubePos, p->grid_spacing, nnzb, p->nCols);
 
-          return 0; // no flops performed so far
+          nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan, p->rowindx, colIndex, p->CubePos, nnzb, echo);
+
+          return nops;
       } // multiply
 
       plan_t const* get_plan() { return p; }
@@ -525,9 +543,11 @@ namespace green_action {
           { action_t<double,2,1> action(&plan); }
           { action_t<double,2,2> action(&plan); }
       } // destruct plan
-      std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
-      std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
-      std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(plan_t));
+      if (echo > 0) {
+          std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
+          std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
+          std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(plan_t));
+      } // echo
       return 0;
   } // test_construction_and_destruction
 

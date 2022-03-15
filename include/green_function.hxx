@@ -18,6 +18,7 @@
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
+#include "green_dyadic.hxx" // ::dyadic_plan_t
 #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
@@ -81,6 +82,334 @@ namespace green_function {
       } // n_iterations >= 0
   } // try_action
 
+  
+  
+  
+  
+  inline status_t construct_dyadic_plan(
+        green_dyadic::dyadic_plan_t & p
+      , double const cell[3]
+      , int const boundary_condition[3]
+      , double const grid_spacing[3]
+      , std::vector<std::vector<double>> const & AtomMatrices
+      , std::vector<double> const & xyzZinso
+      , int const nRowsGreen
+      , int const nrhs
+      , uint32_t const *const rowStartGreen
+      , uint16_t const *const colIndexGreen
+      , int16_t const (*target_coords)[3+1]
+      , double const r_block_circumscribing_sphere
+      , double const max_distance_from_center
+      , double const r_trunc
+      , std::complex<double> E_param
+      , int const Noco=2
+      , int const echo=0 // verbosity
+  ) {
+          SimpleTimer timer(__FILE__, __LINE__, __func__);
+          int constexpr X=0, Y=1, Z=2;
+
+          p.nrhs = nrhs;
+    
+          // transfer grid spacing into managed GPU memory
+          p.grid_spacing = get_memory<double>(3+1, echo, "grid_spacing");
+          set(p.grid_spacing, 3, grid_spacing);
+          double const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
+          p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
+
+          int const natoms = AtomMatrices.size();
+          if (echo > 2) std::printf("\n#\n# %s for %d atoms\n#\n", __func__, natoms);
+          assert(xyzZinso.size() == natoms*8);
+
+          // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
+          double max_projection_radius{0};
+          for (int ia = 0; ia < natoms; ++ia) {
+              auto const sigma = xyzZinso[ia*8 + 6];
+              auto const projection_radius = std::max(0.0, r_proj*sigma);
+              max_projection_radius = std::max(max_projection_radius, projection_radius);
+          } // ia
+          if (echo > 3) std::printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
+
+          p.AtomImageStarts = nullptr; // warning, this should be allocated with at least 1 element containing a 0
+          p.nAtomImages = 0;
+
+          auto const radius = r_trunc + max_distance_from_center + 2*max_projection_radius + 2*r_block_circumscribing_sphere;
+          int iimage[3];
+          size_t nimages{1};
+          for (int d = 0; d < 3; ++d) { // parallel
+              iimage[d] = std::ceil(radius/cell[d]);         // for periodic boundary conditions
+              if (0 == boundary_condition[d]) iimage[d] = 0; // for isolated boundary conditions
+              nimages *= (iimage[d] + 1 + iimage[d]);
+          } // d
+          auto const nAtomImages = natoms*nimages;
+          if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k images total\n",
+                                        iimage[X], iimage[Y], iimage[Z], nimages*.001);
+
+          std::vector<uint32_t> AtomImageStarts(nAtomImages + 1, 0); // probably larger than needed, should call resize(nai + 1) later
+          std::vector<green_action::atom_t> atom_data(nAtomImages);
+          std::vector<uint16_t> atom_ncoeff(natoms, 0); // 0: atom does not contribute
+
+          simple_stats::Stats<> nc_stats;
+          double sparse{0}, dense{0}; // stats to assess how much memory can be saved using sparse storage
+
+          std::vector<std::vector<uint32_t>> cubes; // stores the row indices of Green function rows
+          cubes.reserve(nAtomImages); // maximum (needs 24 Byte per atom image)
+
+          size_t iai{0};
+          for (int z = -iimage[Z]; z <= iimage[Z]; ++z) { // serial
+          for (int y = -iimage[Y]; y <= iimage[Y]; ++y) { // serial
+          for (int x = -iimage[X]; x <= iimage[X]; ++x) { // serial
+//            if (echo > 3) std::printf("# periodic shifts  %d %d %d\n", x, y, z);
+              int const xyz_shift[] = {x, y, z};
+              for (int ia = 0; ia < natoms; ++ia) { // loop over atoms in the unit cell, serial
+                  // suggest a shifted atomic image position
+                  double atom_pos[3];
+                  for (int d = 0; d < 3; ++d) { // parallel
+                      atom_pos[d] = xyzZinso[ia*8 + d] + xyz_shift[d]*cell[d];
+                  } // d
+                  auto const atom_id = int32_t(xyzZinso[ia*8 + 4]); 
+                  auto const numax =       int(xyzZinso[ia*8 + 5]);
+                  auto const sigma =           xyzZinso[ia*8 + 6] ;
+//                   if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s\n", atom_id, atom_pos[X]*Ang, atom_pos[Y]*Ang, atom_pos[Z]*Ang, _Ang);
+
+                  double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
+                  double const r2projection = pow2(r_projection);
+//                double const r2projection_plus = pow2(r_projection + r_block_circumscribing_sphere);
+
+                  // check all target blocks if they are inside the projection radius
+                  uint32_t ntb{0}; // number of target blocks
+                  for (uint32_t icube = 0; icube < nRowsGreen; ++icube) { // loop over blocks
+                      auto const *const target_block = target_coords[icube];
+//                    double d2{0};
+//                    for (int d = 0; d < 3; ++d) { // serial
+//                        double const center_of_block = (target_block[d]*4 + 1.5)*grid_spacing[d];
+//                        d2 += pow2(center_of_block - atom_pos[d]);
+//                    } // d
+//                    if (d2 < r2projection_plus) {
+                      if (1) {
+                          // do more precise checking
+//                           if (echo > 9) std::printf("# target block #%i at %i %i %i gets corner check\n",
+//                                           icube, target_block[X], target_block[Y], target_block[Z]);
+                          int nci{0}; // number of corners inside
+                          // check 8 corners
+                          for (int iz = 0; iz < 4; iz += 3) { // parallel, reduction on nci
+                          for (int iy = 0; iy < 4; iy += 3) { // parallel, reduction on nci
+                          for (int ix = 0; ix < 4; ix += 3) { // parallel, reduction on nci
+                              int const ixyz[] = {ix, iy, iz};
+                              double d2i{0}; // init distance^2 of the grid point from the center
+                              for (int d = 0; d < 3; ++d) {
+                                  double const grid_point = (target_block[d]*4 + ixyz[d] + 0.5)*grid_spacing[d];
+                                  d2i += pow2(grid_point - atom_pos[d]);
+                              } // d
+                              if (d2i < r2projection) {
+                                  ++nci; // at least one corner of the block is inside the projection radius of this atom
+                              } // inside the projection radius
+                          }}} // ix // iy // iz
+                          // three different cases: 0, 1...7, 8
+                          if (nci > 0) {
+                              // atom image contributes
+                              if (0 == ntb) {
+                                  // this is the 1st cube to contribute
+                                  std::vector<uint32_t> cube_list(0); // create an empty vector
+                                  cubes.push_back(cube_list); // enlist the vector
+                              } // 0 == ntb
+
+                              cubes[iai].push_back(icube); // enlist
+                              assert(cubes[iai][ntb] == icube); // check if enlisting worked
+
+                              ++ntb;
+                              assert(cubes[iai].size() == ntb);
+                              int const nrhs = rowStartGreen[icube + 1] - rowStartGreen[icube];
+                              sparse += nrhs;
+                              dense  += p.nrhs; // all columns
+
+//                               if (echo > 7) std::printf("# target block #%i at %i %i %i is inside\n",
+//                                       icube, target_block[X], target_block[Y], target_block[Z]);
+                          } else { // nci
+//                               if (echo > 9) std::printf("# target block #%i at %i %i %i is outside\n",
+//                                       icube, target_block[X], target_block[Y], target_block[Z]);
+                          } // nci
+
+                      } else { // d2 < r2projection_plus
+//                           if (echo > 21) std::printf("# target block #%i at %i %i %i is far outside\n",
+//                                       icube, target_block[X], target_block[Y], target_block[Z]);
+                      } // d2 < r2projection_plus
+                  } // icube
+
+                  if (ntb > 0) {
+                      // atom image contributes, mark in the list to have more than 0 coefficients
+                      auto const nc = sho_tools::nSHO(numax); // number of coefficients for this atom
+                      atom_ncoeff[ia] = nc; // atom image does contribute, so this atom does
+                      assert(nc == atom_ncoeff[ia]); // conversion successful
+                      nc_stats.add(nc);
+
+                      // at least one target block has an intersection with the projection sphere of this atom image
+                      auto & atom = atom_data[iai];
+                      set(atom.pos, 3, atom_pos);
+                      atom.sigma = sigma;
+                      atom.gid = atom_id;
+                      atom.ia = ia; // local atom index
+                      set(atom.shifts, 3, xyz_shift);
+                      atom.nc = nc; 
+                      atom.numax = numax;
+
+//                       if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s contributes to %d target blocks\n",
+//                                                    atom_id, atom_pos[X]*Ang, atom_pos[Y]*Ang, atom_pos[Z]*Ang, _Ang, ntb);
+                      AtomImageStarts[iai + 1] = AtomImageStarts[iai] + nc;
+                      ++iai;
+
+                  } else {
+//                       if (echo > 15) std::printf("# image of atom #%i at %g %g %g %s does not contribute\n",
+//                                                     atom_id, atom_pos[X]*Ang, atom_pos[Y]*Ang, atom_pos[Z]*Ang, _Ang);
+                  } // ntb > 0
+              } // ia
+          }}} // x // y // z
+
+          auto const nai = iai; // corrected number of atomic images
+          if (echo > 3) std::printf("# %ld of %lu (%.2f %%) atom images have an overlap with projection spheres\n",
+                                    nai, nAtomImages, nai/(nAtomImages*.01));
+          auto const napc = AtomImageStarts[nai];
+
+          if (echo > 3) std::printf("# sparse %g (%.2f %%) of dense %g\n", sparse, sparse/(std::max(1., dense)*.01), dense);
+
+          if (echo > 3) std::printf("# number of coefficients per image average %.1f +/- %.1f in [%g, %g]\n",
+                                            nc_stats.mean(), nc_stats.dev(), nc_stats.min(), nc_stats.max());
+
+          if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*1e-3, napc/double(nai));
+          // projection coefficients for the non-local PAW operations are stored
+          // as real_t apc[napc*nRHSs][R1C2][Noco][Noco*64] on the GPU
+          if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
+                                                        napc*nrhs*2.*pow2(Noco)*64.*sizeof(float)*GByte, _GByte);
+
+          p.nAtomImages = nai;
+          assert(nai == p.nAtomImages); // verify
+
+          using ::green_sparse::sparse_t;
+
+          // planning for the addition of sparse SHO projectors times dense coefficients operation
+          auto const nnzb = rowStartGreen[nRowsGreen]; // number of non-zero blocks in the Green function
+          std::vector<std::vector<uint32_t>> SHOadd(nnzb);
+          // planning for the contraction of sparse Green function times sparse SHO projectors
+          std::vector<std::vector<std::vector<uint32_t>>> SHOprj(nrhs);
+          for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
+              SHOprj[irhs].resize(nai);
+          } // irhs
+
+          for (uint32_t iai = 0; iai < p.nAtomImages; ++iai) {
+              for (uint32_t itb = 0; itb < cubes[iai].size(); ++itb) {
+                  auto const iRow = cubes[iai][itb];
+                  for (auto inzb = rowStartGreen[iRow]; inzb < rowStartGreen[iRow + 1]; ++inzb) {
+                      auto const irhs = colIndexGreen[inzb];
+                      assert(irhs < nrhs);
+                      SHOprj[irhs][iai].push_back(inzb);
+                      SHOadd[inzb].push_back(iai);
+                  } // inzb
+              } // itb
+          } // iai
+          assert(cubes.size() == p.nAtomImages);
+          cubes.resize(0); // release host memory
+
+          p.sparse_SHOadd = sparse_t<>(SHOadd, false, "sparse_SHOadd", echo);
+          // sparse_SHOadd: rows == Green function non-zero elements, cols == atom images
+          if (echo > 22) {
+              std::printf("# sparse_SHOadd.rowStart(%p)[%d + 1]= ", (void*)p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows());
+              printf_vector(" %d", p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows() + 1);
+              std::printf("# sparse_SHOadd.colIndex(%p)[%d]= ", (void*)p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
+              printf_vector(" %d", p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
+          } else if (echo > 5) {
+              std::printf("# sparse_SHOadd has %d rows, %ld columns and %d nonzeros\n", p.sparse_SHOadd.nRows(), nai, p.sparse_SHOadd.nNonzeros());
+          } // echo
+          SHOadd.resize(0); // release host memory
+
+          p.sparse_SHOprj = get_memory<sparse_t<>>(nrhs, echo, "sparse_SHOprj");
+          size_t nops{0};
+          for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
+              char name[32]; std::snprintf(name, 31, "sparse_SHOprj[irhs=%i of %d]", irhs, nrhs);
+              p.sparse_SHOprj[irhs] = sparse_t<>(SHOprj[irhs], false, name, echo - 2);
+              // sparse_SHOprj: rows == atom images, cols == Green function non-zero elements
+              nops += p.sparse_SHOprj[irhs].nNonzeros();
+          } // irhs
+          if (echo > 5) std::printf("# sparse_SHOprj has %d*%ld rows, %d columns and %ld nonzeros\n", nrhs,nai, nnzb, nops);
+          SHOprj.resize(0); // release host memory
+
+          p.AtomImageStarts = get_memory<uint32_t>(nai + 1, echo, "AtomImageStarts");
+          set(p.AtomImageStarts, nai + 1, AtomImageStarts.data()); // copy into GPU memory
+
+          // get all info for the atomic matrices:
+          std::vector<int32_t> global_atom_index(natoms); // translation table
+          std::vector<int32_t>  local_atom_index(natoms, -1); // translation table
+          int iac{0};
+          for (int ia = 0; ia < natoms; ++ia) { // serial
+              if (atom_ncoeff[ia] > 0) {
+                  global_atom_index[iac] = ia;
+                  local_atom_index[ia] = iac;
+                  ++iac;
+              } // atom contributes
+          } // ia
+          int const nac = iac; // number of contributing atoms
+          global_atom_index.resize(nac);
+
+          // now store the atomic positions in GPU memory
+          p.AtomImageLmax  = get_memory<int8_t>(nai, echo, "AtomImageLmax"); 
+          p.AtomImagePos   = get_memory<double[3+1]>(nai, echo, "AtomImagePos");
+          p.AtomImagePhase = get_memory<double[4]>(nai, echo, "AtomImagePhase");
+          double const phase0[] = {1, 0, 0, 0};
+
+          std::vector<std::vector<uint32_t>> SHOsum(nac);
+
+          for (size_t iai = 0; iai < nai; ++iai) {
+              int const ia = atom_data[iai].ia;
+              int const iac = local_atom_index[ia];
+              assert(iac > -1);
+              set(p.AtomImagePos[iai], 3, atom_data[iai].pos);
+              p.AtomImagePos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
+              p.AtomImageLmax[iai] = atom_data[iai].numax; // SHO basis size
+              if (echo > 0) std::printf("# atom image #%ld has lmax= %d\n", iai, p.AtomImageLmax[iai]);
+              SHOsum[iac].push_back(uint32_t(iai));
+              set(p.AtomImagePhase[iai], 4, phase0); // TODO construct correct phases
+          } // iai, copy into GPU memory
+
+          p.sparse_SHOsum = sparse_t<>(SHOsum, false, "SHOsum", echo);
+          SHOsum.resize(0);
+
+          p.AtomStarts = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
+          p.AtomStarts[0] = 0; // init prefetch sum
+
+          // get memory for the matrices and fill
+          p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
+          for (int iac = 0; iac < nac; ++iac) { // parallel
+              int const ia = global_atom_index[iac];
+              int const nc = atom_ncoeff[ia];
+              assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
+              p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefect sum
+              char name[64]; std::snprintf(name, 63, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
+              p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
+              set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
+              // fill this with matrix values
+              assert(2*nc*nc <= AtomMatrices[iac].size());
+              // use MPI communication to find values in atom owner processes
+              auto const hmt = AtomMatrices[ia].data();
+              auto const ovl = hmt + nc*nc;
+              for (int i = 0; i < nc; ++i) {
+                  for (int j = 0; j < nc; ++j) {
+                      int const ij = i*nc + j;
+                      p.AtomMatrices[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
+                      p.AtomMatrices[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
+                  } // j
+              } // i
+              // ToDo: treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
+              //                                        component 2 and 3 == V_x and V_y
+          } // iac
+          p.nAtoms = nac;
+          if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
+
+          return 0;
+  } // construct_dyadic_plan
+  
+  
+  
+  
+  
+  
 
   inline status_t construct_Green_function(
         green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
@@ -238,7 +567,7 @@ namespace green_function {
 
       // truncation radius
       double const r_trunc = control::get("green_function.truncation.radius", 10.);
-      double const r_proj  = control::get("green_function.projection.radius", 6.); // in units of sigma
+//    double const r_proj  = control::get("green_function.projection.radius", 6.); // in units of sigma
       if (echo > 0) std::printf("# green_function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);
       p.r_truncation = std::max(0., r_trunc);
       p.r_Vconfinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
@@ -422,7 +751,7 @@ namespace green_function {
               nall += hist[n];
               nnzb  += hist[n]*n;
           } // n
-          if (echo > 5) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
+          if (echo > 7) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
           assert(nall == product_target_blocks); // sanity check
 
           p.nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
@@ -518,7 +847,7 @@ namespace green_function {
                           assert(iloc == veff_index);
                       } // scope
 
-                      for (int32_t inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
+                      for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
                           auto const iCol = p.colindx[inz];
                           for (int d = 0; d < 3; ++d) {
                               auto const diff = p.target_coords[iRow][d] - p.source_coords[iCol][d]; // ToDo: with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
@@ -572,9 +901,10 @@ namespace green_function {
           } // dd
 
           // transfer grid spacing into managed GPU memory
-          p.grid_spacing = get_memory<double>(4, echo, "grid_spacing");
-          set(p.grid_spacing, 3, hg);
-          p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
+          p.grid_spacing = get_memory<double>(3, echo, "grid_spacing");
+          set(p.grid_spacing, 3, hg); // for kinetic
+
+          // p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
 
           p.grid_spacing_trunc = get_memory<double>(3, echo, "grid_spacing_trunc");
           set(p.grid_spacing_trunc, 3, h); // customized grid spacings used for the construction of the truncation sphere
@@ -582,11 +912,7 @@ namespace green_function {
       } // scope
 
 
-
-
-
-
-
+#if 0
       int const natoms = AtomMatrices.size();
       if (echo > 2) std::printf("\n#\n# %s: Start atom part, %d atoms\n#\n", __func__, natoms);
       assert(xyzZinso.size() == natoms*8);
@@ -826,22 +1152,33 @@ namespace green_function {
           global_atom_index.resize(nac);
 
           // now store the atomic positions in GPU memory
-          p.atom_data = get_memory<green_action::atom_t>(nai, echo, "atom_data");
-          p.AtomLmax  = get_memory<int8_t>(nai, echo, "AtomLmax"); 
-          p.AtomPos   = get_memory<double[3+1]>(nai, echo, "AtomPos");
-          for (int iai = 0; iai < nai; ++iai) {
-              p.atom_data[iai] = atom_data[iai]; // copy
+          p.AtomLmax        = get_memory<int8_t>(nai, echo, "AtomLmax"); 
+          p.AtomPos         = get_memory<double[3+1]>(nai, echo, "AtomPos");
+          p.AtomImagePhase  = get_memory<double[4]>(nai, echo, "AtomImagePhase");
+          double const phase0[] = {1, 0, 0, 0};
+
+          std::vector<std::vector<uint32_t>> SHOmul(nac);
+
+          for (size_t iai = 0; iai < nai; ++iai) {
+//            p.atom_data[iai] = atom_data[iai]; // copy
               // translate index
               int const ia = atom_data[iai].ia;
               int const iac = local_atom_index[ia];
               assert(iac > -1);
-              p.atom_data[iai].ia = iac;
+//            p.atom_data[iai].ia = iac;
               set(p.AtomPos[iai], 3, atom_data[iai].pos);
               p.AtomPos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
               p.AtomLmax[iai] = atom_data[iai].numax; // SHO basis size
-              if (echo > 0) std::printf("# atom image #%d has lmax= %d\n", iai, p.AtomLmax[iai]);
-              // ToDo: transfer a list of numax for each atom image to GPU memory
+              if (echo > 0) std::printf("# atom image #%ld has lmax= %d\n", iai, p.AtomLmax[iai]);
+              SHOmul[iac].push_back(uint32_t(iai));
+              set(p.AtomImagePhase[iai], 4, phase0); // TODO construct correct phases
           } // copy into GPU memory
+
+          p.sparse_SHOmul = green_sparse::sparse_t<>(SHOmul, false, "SHOmul", echo);
+          SHOmul.resize(0);
+
+          p.AacStart = get_memory<uint32_t>(nac + 1, echo, "AacStart");
+          p.AacStart[0] = 0; // init prefetch sum
 
           // get memory for the matrices and fill
           p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
@@ -849,6 +1186,7 @@ namespace green_function {
               int const ia = global_atom_index[iac];
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
+              p.AacStart[iac + 1] = p.AacStart[iac] + nc; // create prefect sum
               char name[64]; std::snprintf(name, 63, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
               p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
               set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
@@ -864,13 +1202,25 @@ namespace green_function {
                       p.AtomMatrices[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
                   } // j
               } // i
-              // ToDo: treat Noco components correctly
+              // ToDo: treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
+              //                                        component 2 and 3 == V_x and V_y
           } // iac
           p.number_of_contributing_atoms = nac;
           if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
           assert(nac == nai && "So far, we do not distinguish between atoms and atom images");
 
       } // scope "Atom part"
+#else
+       auto const stat = construct_dyadic_plan(p.dyadic_plan
+                            , cell, boundary_condition, hg
+                            , AtomMatrices, xyzZinso
+                            , p.nRows, p.nCols, p.RowStart, p.colindx.data()
+                            , p.target_coords, r_block_circumscribing_sphere
+                            , max_distance_from_center, r_trunc
+                            , E_param, Noco
+                            , echo);
+      if (stat && echo > 0) std::printf("# construct_dyadic_plan returned status= %i\n", int(stat));
+#endif
 
       int const n_iterations = control::get("green_function.benchmark.iterations", 1.); 
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
