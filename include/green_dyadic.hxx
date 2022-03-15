@@ -950,7 +950,7 @@ namespace green_dyadic {
         
         assert(p.AtomImageStarts);
         auto const natomcoeffs = p.AtomImageStarts[p.nAtomImages];
-        if (echo > 6) std::printf("# %s<%s> R1C2=%d Noco=%d nAtoms=%d nAtomImages=%d nrhs=%d ncoeffs=%d\n",
+        if (echo > 6) std::printf("# %s<%s,R1C2=%d,Noco=%d> nAtoms=%d nAtomImages=%d nrhs=%d ncoeffs=%d\n",
                   __func__, real_t_name<real_t>(), R1C2, Noco, p.nAtoms, p.nAtomImages, p.nrhs, natomcoeffs);
 
         nops += SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.nAtomImages,
