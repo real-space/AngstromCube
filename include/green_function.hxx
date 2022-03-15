@@ -102,7 +102,7 @@ namespace green_function {
       , double const max_distance_from_center
       , double const r_trunc
       , std::complex<double> E_param
-      , int const Noco=2
+      , int const Noco
       , int const echo=0 // verbosity
   ) {
           SimpleTimer timer(__FILE__, __LINE__, __func__);
@@ -423,7 +423,7 @@ namespace green_function {
       , std::vector<std::vector<double>> const & AtomMatrices // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
       , int const echo=0 // log-level
       , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
-      , int const Noco=1
+      , int const Noco=2
   ) {
       int constexpr X=0, Y=1, Z=2;
       if (echo > 0) std::printf("\n#\n# %s(%i, %i, %i)\n#\n\n", __func__, ng[X], ng[Y], ng[Z]);
@@ -1233,16 +1233,16 @@ namespace green_function {
           if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
       } else { // n_iterations < 0
           // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
-          int const n3bit = control::get("green_function.benchmark.action", 0.);
-          switch (n3bit) {
-              case 0: try_action<float ,1,1>(p, n_iterations, echo); break; // real
-              case 1: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
-              case 3: try_action<float ,2,2>(p, n_iterations, echo); break; // non-collinear
-              case 4: try_action<double,1,1>(p, n_iterations, echo); break; // real
-              case 5: try_action<double,2,1>(p, n_iterations, echo); break; // complex
-              case 7: try_action<double,2,2>(p, n_iterations, echo); break; // non-collinear
-              default: warn("green_function.benchmark.action must be in {0, 1, 3, 4, 5, 7} but found %d", n3bit);
-          } // switch n3bit
+          int const act = control::get("green_function.benchmark.action", 0.);
+          switch (act) {
+              case 411: try_action<float ,1,1>(p, n_iterations, echo); break; // real
+              case 412: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
+              case 422: try_action<float ,2,2>(p, n_iterations, echo); break; // non-collinear
+              case 811: try_action<double,1,1>(p, n_iterations, echo); break; // real
+              case 812: try_action<double,2,1>(p, n_iterations, echo); break; // complex
+              case 822: try_action<double,2,2>(p, n_iterations, echo); break; // non-collinear
+              default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", act);
+          } // switch act
       } // n_iterations < 0
 
       return 0;

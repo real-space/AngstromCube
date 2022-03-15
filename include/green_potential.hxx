@@ -127,17 +127,19 @@ namespace green_potential {
             } // non-collinear
 
             Vpsi[inzb][reim][spin*64 + i64][j64] = vpsi; // store
+
         } // inzb
 
         } // thread loops and block loop
 
     } // Potential
 
+
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
           real_t         (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
-        , double   const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][icube][4*4*4]
+        , double   const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][iloc][4*4*4]
         , int32_t  const (*const __restrict__ vloc_index) // iloc_of_inzb[nnzb]
         , int16_t  const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
