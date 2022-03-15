@@ -99,8 +99,8 @@ namespace green_action {
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
       float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
-      double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
-      int32_t*  veff_index = nullptr; // [nnzb] indirection list
+      double  (**Veff)[64]          = nullptr; // effective potential, data layout [Noco*Noco][nRows][64]
+      int32_t*  veff_index          = nullptr; // [nnzb] indirection list
 
       double *grid_spacing_trunc = nullptr; // [3]
       double *grid_spacing       = nullptr; // [3]
@@ -136,7 +136,7 @@ namespace green_action {
           free_memory(source_coords);
           free_memory(target_coords);
           free_memory(target_minus_source);
-          free_memory(Veff);
+          for (int mag = 0; mag < 4; ++mag) free_memory(Veff[mag]);
           free_memory(veff_index);
           free_memory(CubePos);
 #if 0
@@ -393,7 +393,7 @@ namespace green_action {
                 
                   real_t V[LM]; // buffer, probably best using shared memory of the SMx
                   if (p->veff_index[inz] >= 0) {
-                      set(V, LM, p->Veff[p->veff_index[inz]]); // load potential values through indirection list
+                      set(V, LM, p->Veff[0][p->veff_index[inz]]); // load potential values through indirection list
                   } else { set(V, LM, real_t(0)); }
 
                   // apply the local effective potential to all elements in this row

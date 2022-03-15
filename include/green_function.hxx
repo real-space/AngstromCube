@@ -445,13 +445,16 @@ namespace green_function {
       // regroup effective potential into blocks of 4x4x4
       assert(1 == Noco || 2 == Noco);
       p.noncollinear_spin = (2 == Noco);
-      p.Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo, "Veff"); // in managed memory
-        // IDEA: we could allocate (1+n_all_Veff_blocks) and then have veff_index unsigned and an average outside potential inp.Veff[0][:]
-      { // scope: reorder Veff into block-structured p.Veff
-
-          for (size_t k = 0; k < n_all_Veff_blocks*Noco*Noco*64; ++k) {
-              p.Veff[0][k] = 0; // clear
+      p.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
+      for (int mag = 0; mag < 4; ++mag) p.Veff[mag] = nullptr;
+      for (int mag = 0; mag < Noco*Noco; ++mag) {
+          p.Veff[mag] = get_memory<double[64]>(n_all_Veff_blocks, echo, "Veff[mag]"); // in managed memory
+          for (size_t k = 0; k < n_all_Veff_blocks*64; ++k) {
+              p.Veff[mag][0][k] = 0; // clear
           } // k
+      } // mag
+
+      { // scope: reorder Veff into block-structured p.Veff
 
           for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
           for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, parallel
@@ -467,11 +470,11 @@ namespace green_function {
                               *ng[X] + size_t(ibx*4 + i4x); // global grid point index
                   assert(izyx < size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]));
                   if (Noco > 1) {
-                      p.Veff[Veff_index*Noco*Noco + 3][i64] = 0; // set clear
-                      p.Veff[Veff_index*Noco*Noco + 2][i64] = 0; // set clear
-                      p.Veff[Veff_index*Noco*Noco + 1][i64] = Veff[izyx];
-                  }
-                  p.Veff[Veff_index*Noco*Noco + 0][i64] = Veff[izyx]; // copy potential value
+                      p.Veff[3][Veff_index][i64] = 0; // set clear
+                      p.Veff[2][Veff_index][i64] = 0; // set clear
+                      p.Veff[1][Veff_index][i64] = Veff[izyx];
+                  } // non-collinear
+                  p.Veff[0][Veff_index][i64] = Veff[izyx]; // copy potential value
               }}} // i4
           }}} // xyz
       } // scope

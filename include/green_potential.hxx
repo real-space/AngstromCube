@@ -16,7 +16,7 @@ namespace green_potential {
 #endif // HAS_NO_CUDA
           real_t        (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input Green function
-        , double  const (*const __restrict__ Vloc)[64] // local potential, Vloc[iloc*Noco*Noco][4*4*4]
+        , double  const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][iloc][4*4*4]
         , int32_t const (*const __restrict__ iloc_of_inzb) // translation from inzb to iloc, [inzb]
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb][0:2]
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
@@ -34,7 +34,9 @@ namespace green_potential {
         assert(R1C2    == blockDim.z);
 
         bool const imaginary = ((2 == R1C2) && (0 != E_imag));
-  
+
+        // TODO load Vloc[4][iloc][i64] into shared memory
+
 #ifndef HAS_NO_CUDA
         int const inz0 = blockIdx.y;  // start of the grid-stride loop on y-blocks
         int const i64  = blockIdx.x;  // target grid point index == inner column dimension, in [0, 64)
@@ -82,7 +84,7 @@ namespace green_potential {
 #endif // CONFINEMENT_POTENTIAL
 
             auto const iloc = iloc_of_inzb[inzb]; // target index for the local potential, can be -1 for non-existing
-            real_t const Vloc_diag = (iloc < 0) ? 0 : Vloc[iloc*Noco*Noco + spin][i64];
+            real_t const Vloc_diag = (iloc < 0) ? 0 : Vloc[spin][iloc][i64];
 
             // gather all real-valued and spin-diagonal contributions
             real_t const Vtot = Vloc_diag + Vconfine - E_real; // diagonal part of the potential
@@ -107,7 +109,7 @@ namespace green_potential {
                 /*           \  V_x+i*V_y   V_0 - V_z /    \ V_x+i*V_y   V_upup /    */
                 /*                                                                   */
                 /*  however, to avoid memory accesses we store                       */
-                /*  these four combinations in Vloc[icube*4 + 0..3][i64]             */
+                /*  these four combinations in Vloc[0..3][icube][i64]                */
                 /*  Vdndn = V_1 + V_z, Vupup = V_1 - V_z, V_x and V_y                */
                 /*                                                                   */
                 /*  Explicitly:                                                      */
@@ -120,8 +122,8 @@ namespace green_potential {
                 /*                                                                   */
                 real_t const cs = (1 - 2*(reim ^ spin)); // complex sign is -1 if (reim != spin)
 
-                vpsi += Vloc[iloc*Noco*Noco + 2][i64] * psi[inzb][    reim][(1 - spin)*64 + i64][j64];    // V_x
-                vpsi += Vloc[iloc*Noco*Noco + 3][i64] * psi[inzb][1 - reim][(1 - spin)*64 + i64][j64]*cs; // V_y
+                vpsi += Vloc[2][iloc][i64] * psi[inzb][    reim][(1 - spin)*64 + i64][j64];    // V_x
+                vpsi += Vloc[3][iloc][i64] * psi[inzb][1 - reim][(1 - spin)*64 + i64][j64]*cs; // V_y
             } // non-collinear
 
             Vpsi[inzb][reim][spin*64 + i64][j64] = vpsi; // store
@@ -135,7 +137,7 @@ namespace green_potential {
     size_t multiply(
           real_t         (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
-        , double   const (*const __restrict__ Vloc)[64] // local potential, Vloc[icube*Noco*Noco][4*4*4]
+        , double   const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][icube][4*4*4]
         , int32_t  const (*const __restrict__ vloc_index) // iloc_of_inzb[nnzb]
         , int16_t  const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
@@ -177,7 +179,7 @@ namespace green_potential {
       auto hGrid = get_memory<double>(3+1);             set(hGrid, 3+1, 1.);
       int const nnzb = 1;
 
-      multiply<real_t,R1C2,Noco>(psi, psi, Vloc, vloc_index, shift, hGrid, nnzb, 16.f);
+      multiply<real_t,R1C2,Noco>(psi, psi, &Vloc, vloc_index, shift, hGrid, nnzb, 16.f);
 
       free_memory(hGrid);
       free_memory(shift);
