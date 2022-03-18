@@ -53,7 +53,8 @@ FEAFLAGS += -D DEVEL
 # OPTFLAGS = -Ofast
 # OPTFLAGS = -O2
 OPTFLAGS = -O0
-OPTFLAGS += -g -pedantic -Wall
+OPTFLAGS += -g -Wall
+# OPTFLAGS += -pedantic
 # gcc-options
 # OPTFLAGS += -Wno-sign-compare -Wno-format -Wno-format-security
 
@@ -67,8 +68,8 @@ CUOPTFLAGS += -O3 --use_fast_math
 # CUOPTFLAGS += -g -O0 -G
 # CUOPTFLAGS += -DDEBUGGPU
 
-## verbose assembler
-CUOPTFLAGS +=  -Xptxas -v
+## verbose GPU assembler
+# CUOPTFLAGS += -Xptxas -v
 CUOPTFLAGS += --expt-relaxed-constexpr
 
 # for profiling
