@@ -556,52 +556,16 @@ namespace green_kinetic {
 //         auto const ph = std::pow(std::complex<double>(0, 1), 4*phase_angle);
 //         auto cs = ph.real(), sn = ph.imag();
 
-        // purify the values for -180, -135, -90, -45, 0, 45, 90, 135 and 180 degrees
-        int const phase8 = phase_angle*8, phase12 = phase_angle*12, phase24 = phase_angle*24;
+        // purify the values for multiples of 15 degrees
+        int const phase24 = phase_angle*24;
         char const *corrected = "";
-        if (phase_angle*8 == phase8) { // exactly on the grid of 45 degree steps
-#if 0
-            if (phase8 & 0x1) { // odd
-                double const s = std::sqrt(0.5);
-                int8_t const sgn_values[4] = {1, -1, -1, 1};
-                // phase angle is -135, -45, 45 or 135 degrees
-                // phase8 is       -3   -1   1      3
-                // phase8 - 1 is   -4   -2   0      2
-                // cos must be     -s    s   s     -s
-                // sin must be     -s   -s   s      s
-                cs = sgn_values[ ((phase8 - 1) >> 1)      & 0x3]*s;
-                sn = sgn_values[(((phase8 - 1) >> 1) - 1) & 0x3]*s;
-            } else { // odd
-                int8_t const cos_values[4] = {1, 0, -1, 0};
-                // phase angle is -180, -90, 0, 90 or 180 degrees
-                // phase8 is       -4   -2   0   2     4
-                // cos must be     -1    0   1   0    -1
-                // sin must be      0   -1   0   1     0
-                cs = cos_values[ (phase8 >> 1)      & 0x3];
-                sn = cos_values[((phase8 >> 1) - 1) & 0x3];
-            } // odd
-#else  // 0
-            int8_t const sgn_values8[8] = {2, 1, 0, -1, -2, -1, 0, 1};
-            double const abs_value8 = (phase8 & 0x1) ? std::sqrt(0.5) : 0.5;
-            cs = sgn_values8[ phase8      & 0x7]*abs_value8;
-            sn = sgn_values8[(phase8 - 2) & 0x7]*abs_value8;
-#endif // 0
-            corrected = " corrected8";
-        } // else 
-        if (phase_angle*12 == phase12) { // exactly on the grid of 30 degree steps
-            int8_t const sgn_values12[12] = {2, 1, 1, 0, -1, -1, -2, -1, -1, 0, 1, 1};
-            double const abs_values12[2] = {0.5, std::sqrt(0.75)};
-            cs = sgn_values12[(phase12 + 12) % 12]*abs_values12[ phase12      & 0x1];
-            sn = sgn_values12[(phase12 +  9) % 12]*abs_values12[(phase12 - 3) & 0x1];
-            corrected = " corrected12";
-        } // else
         if (phase_angle*24 == phase24) { // exactly on the grid of 15 degree steps
             int const phase4 = (phase24 + 120) /  6;
             int const phase2 = (phase24 + 120) % 12;
             double const sh = std::sqrt(0.5), s3 = std::sqrt(3);
             double const abs_values6[7] = {0.0, (s3 - 1)*sh*.5, .5, sh, s3*.5, (s3 + 1)*sh*.5, 1.0}; // == sin(i*15degrees)
 
-            int64_t const sin_values = 0x0123456543210;
+            int64_t const sin_values = 0x0123456543210; // look-up table with 12 entries (4bit wide each)
             int const i6_sin = (sin_values >> (4*phase2)) & 0x7;
             int const i6_cos = 6 - i6_sin;
 //          std::printf("angle= %g degrees = %d * 15 degrees, ph4=%d ph2=%d i6_cos=%i i6_sin=%i\n", phase_angle*360, phase24, phase4, phase2, i6_cos, i6_sin);
@@ -610,7 +574,7 @@ namespace green_kinetic {
                       sgn_cos = 1 - ((phase4 + 1) & 0x2); // {1, -1, -1, 1}[phase4 % 4]
             sn = sgn_sin * abs_values6[i6_sin];
             cs = sgn_cos * abs_values6[i6_cos];
-            corrected = " corrected24";
+            corrected = " corrected";
         }
 // #ifdef  DEBUG
         if ('\0' != *corrected) {
@@ -716,7 +680,7 @@ namespace green_kinetic {
       int const nFD4[] = {4, 4, 4}, nFD8[] = {8, 8, 8};
       double const hgrid[] = {1, 1, 1};
       multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD4, nullptr, nnzb, echo);
-//    multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD8, nullptr, nnzb, echo);
+//    multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD8, nullptr, nnzb, echo); // SEGFAULTS
 
       // test also the periodic case (nFD4 only)
       for (int i = 0; i < 4; ++i) { indx[i] = 4 - (nnzb + i + 1); indx[4 + nnzb + i] = -(i + 1); }
@@ -736,7 +700,7 @@ namespace green_kinetic {
   inline status_t test_set_phase(int const echo=0) {
       double phase[2][2], maxdev{0};
       for (int iangle = -181; iangle <= 181; ++iangle) {
-//       for (int iangle = -180; iangle <= 180; iangle += 15) {
+//    for (int iangle = -180; iangle <= 180; iangle += 15) {
           auto const dev = set_phase(phase, iangle/360., 't', echo);
           maxdev = std::max(maxdev, dev);
       } // iangle
