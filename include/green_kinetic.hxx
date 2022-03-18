@@ -302,7 +302,7 @@ namespace green_kinetic {
         w7 = psi[ii]INDICES(3);
 
         // main loop
-        // so far ilist == 6
+        assert(5 == ilist);
         while (ii >= 0) {
             int const i0 = ii; // set central index 
             ii = list[ilist++] - 1; // get next index
@@ -444,18 +444,18 @@ namespace green_kinetic {
         wa = psi[i0]INDICES(2); // inital load
         wb = psi[i0]INDICES(3); // inital load
 
-        int i1 = list[ilist++]; // load index for the 2nd block
+        int i1 = list[ilist++] - 1; // load index for the 2nd block
         if (i1 >= 0) {
             wc = psi[i1]INDICES(0); // inital load
             wd = psi[i1]INDICES(1); // inital load
             we = psi[i1]INDICES(2); // inital load
             wf = psi[i1]INDICES(3); // inital load
         } else {
-           wc = 0; wd = 0; we = 0; wf = 0; // second block is already non-existing
+            wc = 0; wd = 0; we = 0; wf = 0; // second block is already non-existing
         } // i1 valid
 
         // main loop
-        int i2 = list[ilist++]; // get next index
+        int i2 = list[ilist++] - 1; // get next index
 
         assert(ilist == 7);
 
@@ -494,7 +494,7 @@ namespace green_kinetic {
                 FD17POINT(3,  wf, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, wa, wb, wc, wd, we, wn)
             } // ilist mod(4)
 #undef  FD17POINT
-            i0 = i1; i1 = i2; i2 = list[ilist++]; // rotate and get next index
+            i0 = i1; i1 = i2; i2 = list[ilist++] - 1; // rotate and get next index
         } // while loop
 
 #undef  INDICES
@@ -671,7 +671,7 @@ namespace green_kinetic {
 
   template <typename real_t, int R1C2=2, int Noco=1>
   inline status_t test_finite_difference(int const echo=0) {
-      size_t const nnzb = 5;
+      size_t const nnzb = 15;
       auto Tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "Tpsi");
       auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "psi");
       auto indx = get_memory<int32_t>(4 + nnzb + 4);
@@ -679,17 +679,58 @@ namespace green_kinetic {
       uint32_t const num[] = {1, 1, 1}; // number of lists
       int const nFD4[] = {4, 4, 4}, nFD8[] = {8, 8, 8};
       double const hgrid[] = {1, 1, 1};
+      // merely check if memory accesses are allowed
       multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD4, nullptr, nnzb, echo);
-//    multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD8, nullptr, nnzb, echo); // SEGFAULTS
+      multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD8, nullptr, nnzb, echo);
+
 
       // test also the periodic case (nFD4 only)
       for (int i = 0; i < 4; ++i) { indx[i] = 4 - (nnzb + i + 1); indx[4 + nnzb + i] = -(i + 1); }
-      if (echo > 7) printf_vector(" %d", indx, 4 + nnzb + 4);
+      if (echo > 7) { std::printf("# periodic indices: "); printf_vector(" %d", indx, 4 + nnzb + 4); }
+      double const phase_angle[] = {(2 == R1C2) ? -1./3. : 0.5, 0.125, 0.5}; // in units of 2*pi
+      // if we use real numbers only, phase_angle must be a multiple of 0.5
+
+      double const wave_vector[] = {-2*constants::pi*phase_angle[0]/(nnzb*4), 0, 0};
+      // set up a periodic wave in the lowest rhs
+      int const Re = 0, Im = R1C2 - 1;
+      for (size_t inzb = 0; inzb < nnzb; ++inzb) {
+          int const iz = 0, iy = 0;
+          for (int ix = 0; ix < 4; ++ix) {
+              auto const arg = wave_vector[0]*(inzb*4 + ix);
+              psi[inzb][Re][(iz*4 + iy)*4 + ix][0] = std::cos(arg);
+              psi[inzb][Im][(iz*4 + iy)*4 + ix][0] = std::sin(arg);
+          } // ix
+      } // inzb
       auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
-      double const phase_angle[] = {-1./3., 0.25, 0.5}; // in units of 2*pi
       set_phase(phase, phase_angle, 2*echo);
-      multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD4, phase, nnzb, echo);
+      uint32_t const num100[] = {1, 0, 0}; // only derive in x-direction
+      multiply<real_t,R1C2,Noco>(Tpsi, psi, num100, &indx, &indx, &indx, hgrid, nFD4, phase, nnzb, echo);
       free_memory(phase);
+
+      if (echo > 5) { // plot the wave
+          auto const t = 0.5*pow2(wave_vector[0]);
+          double dev2{0}, deva{0}, norm2{0};
+          std::printf("\n## x  Tpsi_Re Tpsi_Im  psi_Re, psi_Im:"
+              " (wave vector k= %g, k^2/2= %g)\n", wave_vector[0], t);
+          for (size_t inzb = 0; inzb < nnzb; ++inzb) {
+              int const iz = 0, iy = 0;
+              for (int ix = 0; ix < 4; ++ix) {
+                  int const i64 = (iz*4 + iy)*4 + ix;
+                  double const x = inzb*4 + ix;
+                  std::printf("%g  %g %g  %g %g\n", x,
+                        Tpsi[inzb][Re][i64][0],  Tpsi[inzb][Im][i64][0]*(2 == R1C2),
+                       t*psi[inzb][Re][i64][0], t*psi[inzb][Im][i64][0]*(2 == R1C2));
+                  for(int reim = 0; reim < R1C2; ++reim) {
+                      auto const dev = Tpsi[inzb][reim][i64][0] - t*psi[inzb][reim][i64][0]; // deviation
+                      deva  += std::abs(dev); // measure the absolute deviation
+                      dev2  += pow2(dev); // measure the square deviation
+                      norm2 += pow2(psi[inzb][reim][i64][0]);
+                  } // reim
+              } // ix
+          } // inzb
+          std::printf("\n# deviation of plane wave with wave vector k= %g is %.1e (abs) and %.1e (rms) at norm^2 %g\n",
+                                                                   wave_vector[0], deva, std::sqrt(dev2), norm2);
+      } // echo
 
       free_memory(Tpsi);
       free_memory(psi);
@@ -699,8 +740,8 @@ namespace green_kinetic {
 
   inline status_t test_set_phase(int const echo=0) {
       double phase[2][2], maxdev{0};
-      for (int iangle = -181; iangle <= 181; ++iangle) {
-//    for (int iangle = -180; iangle <= 180; iangle += 15) {
+//    for (int iangle = -181; iangle <= 181; ++iangle) {
+      for (int iangle = -180; iangle <= 180; iangle += 5) {
           auto const dev = set_phase(phase, iangle/360., 't', echo);
           maxdev = std::max(maxdev, dev);
       } // iangle
@@ -711,11 +752,11 @@ namespace green_kinetic {
       status_t stat(0);
       stat += test_set_phase(echo);
       stat += test_finite_difference<float ,1,1>(echo);
-//       stat += test_finite_difference<float ,2,1>(echo);
-//       stat += test_finite_difference<float ,2,2>(echo);
-//       stat += test_finite_difference<double,1,1>(echo);
-//       stat += test_finite_difference<double,2,1>(echo);
-//       stat += test_finite_difference<double,2,2>(echo);
+      stat += test_finite_difference<float ,2,1>(echo);
+      stat += test_finite_difference<float ,2,2>(echo);
+      stat += test_finite_difference<double,1,1>(echo);
+      stat += test_finite_difference<double,2,1>(echo);
+      stat += test_finite_difference<double,2,2>(echo);
       return stat;
   } // all_tests
 
