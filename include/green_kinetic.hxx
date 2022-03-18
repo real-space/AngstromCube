@@ -10,6 +10,7 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory
+#include "green_sparse.hxx" // ::sparse_t<>
 #include "data_view.hxx" // view3D<T>
 #include "inline_math.hxx" // set
 #include "simple_stats.hxx" // ::Stats<>
@@ -26,6 +27,128 @@
 
 namespace green_kinetic {
 
+    inline status_t finite_difference_plan(
+            green_sparse::sparse_t<int32_t> & sparse // result
+          , int const dd // direction of derivative
+          , uint16_t const num_target_coords[3]
+          , uint32_t const RowStart[]
+          , uint16_t const ColIndex[]
+          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X)
+          , std::vector<bool> const sparsity_pattern[]
+          , unsigned const nrhs=1 // number of right hand sides
+          , int const echo=0
+      )
+        // Preparation of Finite-Difference index lists
+        // 2D example: non-zero index -1 means non-existent
+        // 
+        //                            --> x-direction
+        //        0  1  2  3  4
+        //     5  6  7  8  9 10 11        |
+        //    12 13 14 15 16 17 18 19     |
+        //    20 21 22 23 24 25 26 27     v
+        //    28 29 30 31 32 33 34        y-direction
+        //       35 36 37 38 39
+        //
+        //
+        //  6 x-lists:
+        //    list[0] == { 0  0  0  0  1  2  3  4  5  0  0  0  0}
+        //    list[1] == { 0  0  0  0  6  7  8  9 10 11 12  0  0  0  0}
+        //    list[2] == { 0  0  0  0 13 14 15 16 17 18 19 20  0  0  0  0}
+        //    list[3] == { 0  0  0  0 21 22 23 24 25 26 27 28  0  0  0  0}
+        //    list[4] == { 0  0  0  0 29 30 31 32 33 34 35  0  0  0  0}
+        //    list[5] == { 0  0  0  0 36 37 38 39 40  0  0  0  0}
+        //
+        //  8 y-lists:
+        //    list[0] == { 0  0  0  0  6 13 21 29  0  0  0  0}
+        //    list[1] == { 0  0  0  0  1  7 14 22 30 36  0  0  0  0}
+        //    list[2] == { 0  0  0  0  2  8 15 23 31 37  0  0  0  0}
+        //    list[3] == { 0  0  0  0  3  9 16 24 32 38  0  0  0  0}
+        //    list[4] == { 0  0  0  0  4 10 17 25 33 39  0  0  0  0}
+        //    list[5] == { 0  0  0  0  5 11 18 26 34 40  0  0  0  0}
+        //    list[6] == { 0  0  0  0 12 19 27 35  0  0  0  0}
+        //    list[7] == { 0  0  0  0 20 28  0  0  0  0}
+        //
+        // Preparation of Finite-Difference index lists
+        // 2D example with a periodic x-direction
+        // 
+        //                            --> x-direction
+        //        0  1  2  3  4
+        //        5  6  7  8  9
+        //
+        //  2 x-lists:
+        //    list[0] == {-2 -3 -4 -5   1  2  3  4  5  -1 -2 -3 -4}
+        //    list[1] == {-7 -8 -9 -10  6  7  8  9 10  -6 -7 -8 -9}
+        //
+      {
+          int constexpr X=0, Y=1, Z=2;
+          // prepare the finite-difference sequence lists
+          char const direction = 'x' + dd;
+          assert(X == dd || Y == dd || Z == dd); 
+          int num[3];
+          set(num, 3, num_target_coords);
+          int const num_dd = num[dd];
+          num[dd] = 1; // replace number of target blocks in derivative direction
+          if (echo > 0) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
+          simple_stats::Stats<> length_stats;
+          size_t const max_lists = nrhs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
+          std::vector<std::vector<int32_t>> list(max_lists);
+          size_t ilist{0};
+          for (unsigned iRHS = 0; iRHS < nrhs; ++iRHS) {
+//                if (echo > 0) std::printf("# FD list for RHS #%i\n", iRHS);
+              auto const & sparsity_RHS = sparsity_pattern[iRHS];
+              for (int iz = 0; iz < num[Z]; ++iz) { //  
+              for (int iy = 0; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
+              for (int ix = 0; ix < num[X]; ++ix) { // 
+                  int idx[3] = {ix, iy, iz};
+                  list[ilist].resize(4, 0); // prepend {0, 0, 0, 0}
+                  list[ilist].reserve(4 + num_dd + 4); // makes push_back operation faster
+                  for (int id = 0; id < num_dd; ++id) { // loop over direction to derive
+                      idx[dd] = id; // replace index in the derivate direction
+//                    if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", iRHS, idx[X], idx[Y], idx[Z]);
+                      auto const idx3 = index3D(num_target_coords, idx);
+                      if (sparsity_RHS[idx3]) {
+                          auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
+                          assert(iRow >= 0 && "sparsity_pattern[iRHS][idx3] does not match iRow_of_coords[iz][iy][ix]");
+
+                          int32_t inz_found{-1};
+                          for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+                              if (ColIndex[inz] == iRHS) {
+                                  inz_found = inz; // store where it was found
+                                  inz = RowStart[iRow + 1]; // stop search loop
+                              } // found
+                          } // search
+                          assert(inz_found >= 0); // fails at inconsistency between sparsity_pattern and the BSR tables
+
+                          assert(ilist < max_lists);
+                          list[ilist].push_back(inz_found + 1);
+                      } // sparsity pattern
+                  } // id
+                  int const list_length = list[ilist].size();
+                  if (list_length > 4) {
+                      length_stats.add(list_length - 4);
+//                    if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n", list_length, direction, idx[X], idx[Y], idx[Z]);
+                      // add 4 end-of-sequence markers (could also be done later during the copying into device memory)
+                      for (int i = 0; i < 4; ++i) {
+                          list[ilist].push_back(0); // append {0, 0, 0, 0}
+                      } // i
+
+                      ++ilist; // create next list index
+                  } // list_length > 0
+              }}} // ixyz
+          } // iRHS
+
+          // store the number of lists
+          uint32_t const n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
+          if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
+                                n_lists, direction, n_lists/(max_lists*.01),
+                                length_stats.mean(), length_stats.dev(), length_stats.min(), length_stats.max());
+          list.resize(n_lists);
+
+          sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo);
+          return 0;
+      } // finite_difference_plan
+
+#if 0
   class finite_difference_plan_t { // ToDo: use sparse_t<int32_t> instead
   private:
       int32_t *fd_list; // block indices, in managed memory
@@ -202,7 +325,7 @@ namespace green_kinetic {
       int32_t const * list(uint32_t const i) const { assert(i < n_lists); return fd_list + prefix[i]; }
 
   }; // class finite_difference_plan_t
-
+#endif // 0
   
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
@@ -631,6 +754,7 @@ namespace green_kinetic {
         return nops;
     } // multiply (kinetic energy operator)
 
+#if 0
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
           real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
@@ -663,8 +787,45 @@ namespace green_kinetic {
         free_memory(phase);
         return nops;
    } // multiply (kinetic energy operator)
+#endif // 0
+
+    template <typename real_t, int R1C2=2, int Noco=1>
+    size_t multiply(
+          real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // 
+        , green_sparse::sparse_t<int32_t> const kinetic_plan[3]
+        , double   const hgrid[3] // grid spacing in X,Y,Z
+        , int const FD_range=4 // finite-difference stencil range (in grid points)
+        , size_t const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
+        , int const echo=0
+    ) {
+        int const nFD[] = {FD_range, FD_range, FD_range};
+        auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
+        set_phase(phase, nullptr, echo); // neutral (Gamma-point) phase factors
+        uint32_t num[3];
+        int32_t const ** lists[3];
+        for (int dd = 0; dd < 3; ++dd) {
+            // convert fd_plan to arrays of GPU pointers
+            num[dd] = kinetic_plan[dd].nRows();
+            lists[dd] = get_memory<int32_t const *>(num[dd], echo, "num[dd]");
+            auto const rowStart = kinetic_plan[dd].rowStart();
+            auto const colIndex = kinetic_plan[dd].colIndex();
+            for (uint32_t il = 0; il < num[dd]; ++il) {
+                lists[dd][il] = &colIndex[rowStart[il]];
+            } // il
+        } // dd
+
+        auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
+        
+        for (int dd = 0; dd < 3; ++dd) {
+            free_memory(lists[dd]);
+        } // dd
+        free_memory(phase);
+        return nops;
+   } // multiply (kinetic energy operator)
                   
 
+                  
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

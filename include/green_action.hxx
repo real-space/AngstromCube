@@ -93,7 +93,9 @@ namespace green_action {
       float V_confinement   = 1; // potential prefactor
       std::complex<double> E_param; // energy parameter
 
-      green_kinetic::finite_difference_plan_t fd_plan[3];
+//    green_kinetic::finite_difference_plan_t fd_plan[3];
+      green_sparse::sparse_t<int32_t> kinetic_plan[3];
+
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
       uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
@@ -127,7 +129,8 @@ namespace green_action {
           free_memory(grid_spacing_trunc);
           free_memory(grid_spacing);
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
-              fd_plan[dd].~finite_difference_plan_t();
+//            fd_plan[dd].~finite_difference_plan_t();
+              kinetic_plan[dd].~sparse_t();
           } // dd
       } // destructor
 
@@ -257,8 +260,8 @@ namespace green_action {
           auto const max_block_index = p->colindx.size();
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
 //            simple_stats::Stats<> ts;
-              auto const & fd = p->fd_plan[dd];
-              for (uint32_t il = 0; il < fd.size(); ++il) {
+              auto const & fd = p->kinetic_plan[dd];
+              for (uint32_t il = 0; il < fd.nRows(); ++il) {
 //                SimpleTimer list_timer(__FILE__, __LINE__, "FD-list", 0);
                   //
                   // Warning: this implementation of the finite-difference stencil
@@ -266,7 +269,7 @@ namespace green_action {
                   // kinetic energy stencil -0.5*[1 -2 1], but it features the same 
                   // memory traffic profile as an 8th order FD-stencil for LM=64=4*4*4.
                   //
-                  auto const *const list = fd.list(il); // we will load at least 2 indices from list
+                  auto const *const list = fd.colIndex() + fd.rowStart()[il]; // we will load at least 2 indices from list
 
                   real_t block[4][R1C2][LM][LM]; // 4 temporary blocks
 
@@ -474,9 +477,11 @@ namespace green_action {
                       p->V_confinement, pow2(p->r_confinement), echo);
 
           // add the kinetic energy expressions
-          nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
+//        nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
+//                    p->grid_spacing, 4, nnzb);
+          nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
                       p->grid_spacing, 4, nnzb);
-          
+
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
                       p->rowindx, colIndex, p->CubePos, nnzb, echo);

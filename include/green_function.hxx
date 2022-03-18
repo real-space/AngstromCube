@@ -578,7 +578,7 @@ namespace green_function {
       // confinement potential
       p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
       p.V_confinement = 1;
-      if (echo > 0) std::printf("# confinement potential %g*((r - %g)/%s)^4 %s\n", p.V_confinement*eV, p.r_confinement*Ang, _Ang, _eV);
+      if (echo > 0) std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV);
       if (echo > 0) std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV);
 
 // example:
@@ -910,12 +910,22 @@ namespace green_function {
 
           for (int dd = 0; dd < 3; ++dd) { // derivate direction
               // create lists for the finite-difference derivatives
-              p.fd_plan[dd] = green_kinetic::finite_difference_plan_t(dd
+//               p.fd_plan[dd] = green_kinetic::finite_difference_plan_t(dd
+//                 , num_target_coords
+//                 , p.RowStart, p.colindx.data()
+//                 , iRow_of_coords
+//                 , sparsity_pattern.data()
+//                 , nrhs, echo);
+              
+              auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd]
+                , dd
                 , num_target_coords
                 , p.RowStart, p.colindx.data()
                 , iRow_of_coords
                 , sparsity_pattern.data()
                 , nrhs, echo);
+              if (stat && echo > 0) std::printf("# construct_kinetic_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+
           } // dd
 
           // transfer grid spacing into managed GPU memory
