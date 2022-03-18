@@ -93,7 +93,6 @@ namespace green_action {
       float V_confinement   = 1; // potential prefactor
       std::complex<double> E_param; // energy parameter
 
-//    green_kinetic::finite_difference_plan_t fd_plan[3];
       green_sparse::sparse_t<int32_t> kinetic_plan[3];
 
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
@@ -128,10 +127,7 @@ namespace green_action {
           free_memory(CubePos);
           free_memory(grid_spacing_trunc);
           free_memory(grid_spacing);
-          for (int dd = 0; dd < 3; ++dd) { // derivative direction
-//            fd_plan[dd].~finite_difference_plan_t();
-              kinetic_plan[dd].~sparse_t();
-          } // dd
+          for (int dd = 0; dd < 3; ++dd) kinetic_plan[dd].~sparse_t();
       } // destructor
 
   }; // plan_t

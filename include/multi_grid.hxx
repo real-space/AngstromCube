@@ -514,7 +514,7 @@ namespace multi_grid {
 
       double norm2{0}, xavg{0}, ravg{0};
       real_t x_prev = x[g - 1]; // init
-      for (int i = 0; i < g; ++i) {
+      for (size_t i = 0; i < g; ++i) {
           real_t const xi = x[i];
           real_t const x_next = x[(i + 1) % g];
           
@@ -533,7 +533,7 @@ namespace multi_grid {
 
       { // scope: subtract average (necessary if all boundary_conditions are periodic)
           xavg /= g; ravg /= g;
-          for (int i = 0; i < g; ++i) {
+          for (size_t i = 0; i < g; ++i) {
               x[i] -= xavg;
               r[i] -= ravg; // in MG methods, the residual vector is used as rhs b on the next coarser level.
                             // since there, the same problem A*x==b is solved with the same boundary condition,
@@ -555,7 +555,7 @@ namespace multi_grid {
                     , char const *which=""
                     , float const tol=0
                     , int const level=0) { // for display
-      int iter;
+      unsigned iter{0};
       double rn{1}; // residual norm
       for (iter = 0; iter < maxiter && rn > tol; ++iter) {
           rn = jacobi(x, r, b, g, h);

@@ -904,19 +904,11 @@ namespace green_function {
               std::printf("# target blocks per source block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.dev(), st.min(), st.max());
           } // echo
 
-          // Green function is stored sparse 
-          // as std::complex<real_t> green[nnzb][64][64] 
-          // or real_t green[nnzb][2][64][64] for the GPU;
+          // Green function is stored sparse as real_t green[nnzb][2][Noco*64][Noco*64];
 
           for (int dd = 0; dd < 3; ++dd) { // derivate direction
+
               // create lists for the finite-difference derivatives
-//               p.fd_plan[dd] = green_kinetic::finite_difference_plan_t(dd
-//                 , num_target_coords
-//                 , p.RowStart, p.colindx.data()
-//                 , iRow_of_coords
-//                 , sparsity_pattern.data()
-//                 , nrhs, echo);
-              
               auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd]
                 , dd
                 , num_target_coords
