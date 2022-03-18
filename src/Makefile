@@ -1,4 +1,4 @@
-SYSTEM ?= zam044
+HOSTNAME := $(shell hostname)
 
 # NO_UNIT_TESTS=1
 
@@ -93,7 +93,7 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-ifeq ($(SYSTEM),zam044)
+ifeq ($(HOSTNAME),Pauls-MacBook-Pro.local)
 	EXTFLAGS += -D HAS_NO_MKL
 	EXTFLAGS += -D HAS_FFTW
 	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)

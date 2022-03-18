@@ -6,6 +6,7 @@
 #include <cassert> // assert
 #include <set> // std::set<key>
 #include <numeric> // std::iota
+#include <cstdint> // int8_t
 
 #include "plane_wave.hxx" // DensityIngredients
 
@@ -702,7 +703,7 @@ namespace plane_wave {
       view2D<double> xyzZ;
       int natoms{0};
       double cell[3] = {0, 0, 0}; 
-      int bc[3] = {-7, -7, -7};
+      int8_t bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
           stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",

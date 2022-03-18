@@ -48,7 +48,7 @@ namespace green_sparse {
           , char const *matrix_name=nullptr // name for log and debug output
           , int const echo=0 // log-level
       ) {
-          char const *name = matrix_name ? matrix_name : "constructor";
+          auto const name = matrix_name ? matrix_name : "constructor";
           if (echo > 7) std::printf("# sparse_t<ColIndex_t=%s,RowIndex_t=%s> %s\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>(), name);
           nRows_ = list.size();
           assert(list.size() == nRows_ && "RowIndex_t cannot hold number of rows");

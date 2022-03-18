@@ -21,6 +21,7 @@ namespace green_potential {
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb][0:2]
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int     const nnzb // number of all blocks to be treated
+        , float   const Vconf // prefactor for the confinement potential
         , float   const rcut2 // cutoff radius^2 for the confinement potential, negative for no confinement
         , real_t  const E_real // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t  const E_imag // imaginary part of the energy parameter
@@ -78,7 +79,7 @@ namespace green_potential {
                                 + pow2((s[1]*n4 + y)*hxyz[1])
                                 + pow2((s[2]*n4 + z)*hxyz[2]);
                 auto const d2out = real_t(d2 - rcut2);
-                Vconfine = (d2out > 0) ? pow2(d2out) : 0; // quartic confinement potential, V ~ d^4
+                Vconfine = (d2out > 0) ? Vconf*pow2(d2out) : 0; // quartic confinement potential, V ~ d^4
 //              std::printf("%.1f %.3f  %d %d %d  %d\n", d2, Vconfine, s[0], s[1], s[2], s[3]); // s[3] == source block index
             } // rcut^2 >= 0
 #endif // CONFINEMENT_POTENTIAL
@@ -144,16 +145,16 @@ namespace green_potential {
         , int16_t  const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int      const nnzb // number of all blocks to be treated
+        , std::complex<double> const E_param=0 // energy parameter, the real part could be subtracted from Vloc beforehand
+        , float    const Vconf=0  // prefactor for the confinement potential
         , float    const rcut2=-1 // cutoff radius^2 for the confinement potential, -1: no confinement
-        , real_t   const E_real=0 // real      part of the energy parameter, this could be subtracted from Vloc beforehand
-        , real_t   const E_imag=0 // imaginary part of the energy parameter
         , int const echo=0
     ) {
-        
+
         if (echo > 11) {
-            std::printf("# %s<%s,R1C2=%d,Noco=%d> Vpsi=%p, psi=%p, Vloc=%p, vloc_index=%p, shift=%p, hxyz=%p, nnzb=%d, rcut2=%.f, E=(%g, %g)\n",
+            std::printf("# %s<%s,R1C2=%d,Noco=%d> Vpsi=%p, psi=%p, Vloc=%p, vloc_index=%p, shift=%p, hxyz=%p, nnzb=%d, Vconf=%g, rcut2=%.f, E=(%g, %g)\n",
                            __func__, (4 == sizeof(real_t))?"float":"double", R1C2, Noco, (void*)Vpsi, (void*)psi,
-                           (void*)Vloc, (void*)vloc_index, (void*)shift, (void*)hxyz, nnzb, rcut2, E_real, E_imag);
+                           (void*)Vloc, (void*)vloc_index, (void*)shift, (void*)hxyz, nnzb, Vconf, rcut2, E_param.real(), E_param.imag());
         } // echo
 
         Potential<real_t,R1C2,Noco>
@@ -162,7 +163,7 @@ namespace green_potential {
 #else  // HAS_NO_CUDA
               ( dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA
-            Vpsi, psi, Vloc, vloc_index, shift, hxyz, nnzb, rcut2, E_real, E_imag);
+            Vpsi, psi, Vloc, vloc_index, shift, hxyz, nnzb, Vconf, rcut2, E_param.real(), E_param.imag());
 
         return 0ul; // total number of floating point operations performed
     } // multiply potential
@@ -181,7 +182,7 @@ namespace green_potential {
       auto hGrid = get_memory<double>(3+1);             set(hGrid, 3+1, 1.);
       int const nnzb = 1;
 
-      multiply<real_t,R1C2,Noco>(psi, psi, &Vloc, vloc_index, shift, hGrid, nnzb, 16.f);
+      multiply<real_t,R1C2,Noco>(psi, psi, &Vloc, vloc_index, shift, hGrid, nnzb);
 
       free_memory(hGrid);
       free_memory(shift);
