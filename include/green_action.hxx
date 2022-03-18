@@ -89,8 +89,9 @@ namespace green_action {
       std::vector<int64_t> global_target_indices; // [nRows]
       std::vector<int64_t> global_source_indices; // [nCols]
       double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
-      double r_Vconfinement = 9e18; // radius beyond which the confinement potential is added, in Bohr
-      double Vconfinement   = 0; // potential prefactor, in Hartree
+      float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
+      float V_confinement   = 1; // potential prefactor
+      std::complex<double> E_param; // energy parameter
 
       green_kinetic::finite_difference_plan_t fd_plan[3];
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
@@ -104,22 +105,6 @@ namespace green_action {
 
       double *grid_spacing_trunc = nullptr; // [3]
       double *grid_spacing       = nullptr; // [3]
-#if 0
-      uint32_t number_of_contributing_atoms = 0;
-      uint32_t* AacStart     = nullptr; // [number_of_contributing_atoms + 1]
-      double **AtomMatrices  = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
-
-      uint32_t natom_images  = 0;
-      uint32_t* ApcStart     = nullptr; // [natom_images + 1]
-//    atom_t* atom_data      = nullptr; // [natom_images]
-      double (*AtomPos)[3+1] = nullptr; // [natom_images]
-      int8_t* AtomLmax       = nullptr; // [natom_images]
-
-      green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
-      green_sparse::sparse_t<>   sparse_SHOadd;
-      green_sparse::sparse_t<>   sparse_SHOmul;
-      double (*AtomImagePhase)[4] = nullptr; // [natom_images]
-#endif // 0
 
       bool noncollinear_spin = false;
 
@@ -139,20 +124,8 @@ namespace green_action {
           for (int mag = 0; mag < 4; ++mag) free_memory(Veff[mag]);
           free_memory(veff_index);
           free_memory(CubePos);
-#if 0
-          free_memory(ApcStart);
-          free_memory(AacStart);
-          if (AtomMatrices) for (uint32_t iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(AtomMatrices[iac]);
-          free_memory(AtomMatrices);
-//        free_memory(atom_data);
-          free_memory(grid_spacing);
-          free_memory(AtomPos);
-          free_memory(AtomLmax);
-          if (sparse_SHOprj) for (uint32_t icol = 0; icol < nCols; ++icol) sparse_SHOprj[icol].~sparse_t<>();
-          free_memory(sparse_SHOprj);
-          free_memory(AtomImagePhase);
-#endif
           free_memory(grid_spacing_trunc);
+          free_memory(grid_spacing);
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
               fd_plan[dd].~finite_difference_plan_t();
           } // dd
@@ -237,7 +210,7 @@ namespace green_action {
       //                          or A_{ij} X_{jk} =  Y_{ik}
       //
       //      projection:
-      //      apc.set(0); // clear, WARNING: dimenision of apc in comments are not up-to-date
+      //      apc.set(0); // clear, WARNING: dimension of apc in comments are not up-to-date
       //      for (jRow < nRows) // reduction
       //        for (RowStart[jRow] <= jnz < Rowstart[jRow + 1]) // reduction
       //          for (jai < nai) // parallel (with data-reuse on Green function element)
@@ -378,8 +351,8 @@ namespace green_action {
       //        HG[...] *= (d2 < truncation_radius2)
       //    to make the truncation sphere perfectly round. inner_radius2 < truncation_radius2 assumed.
           float const truncation_radius2  = pow2(p->r_truncation);
-          float const inner_radius2       = pow2(p->r_Vconfinement);
-          float const potential_prefactor = p->Vconfinement;
+          float const inner_radius2       = pow2(p->r_confinement);
+          float const potential_prefactor = p->V_confinement;
 
           double const *const hg = p->grid_spacing_trunc; // abbreviation
 
@@ -461,7 +434,7 @@ namespace green_action {
               std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.mean()*eV, stats_Vconf.dev()*eV, _eV);
               // how many grid points do we expect?
               double const f = 4.*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
-              double const Vi = pow3(p->r_Vconfinement)*f,
+              double const Vi = pow3(p->r_confinement)*f,
                            Vo = pow3(p->r_truncation)*f;
               std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
               std::printf("# stats  inner %g conf %g outer %g grid points\n", 
@@ -496,18 +469,17 @@ namespace green_action {
           if (echo > 0) std::printf("# green_action::multiply\n");
 
           // start with the potential, assign y to initial values
-          nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
-                      p->veff_index, p->target_minus_source, p->grid_spacing_trunc, nnzb, 16.f);
+          nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff, p->veff_index,
+                      p->target_minus_source, p->grid_spacing_trunc, nnzb, p->E_param,
+                      p->V_confinement, pow2(p->r_confinement), echo);
 
           // add the kinetic energy expressions
           nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
                       p->grid_spacing, 4, nnzb);
           
           // add the non-local potential using the dyadic action of project + add
-//        nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->AtomLmax, p->ApcStart, p->natom_images,
-//                    p->sparse_SHOprj, p->AtomMatrices, p->sparse_SHOadd, p->rowindx, colIndex, p->CubePos, p->grid_spacing, nnzb, p->nCols);
-
-          nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan, p->rowindx, colIndex, p->CubePos, nnzb, echo);
+          nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
+                      p->rowindx, colIndex, p->CubePos, nnzb, echo);
 
           return nops;
       } // multiply

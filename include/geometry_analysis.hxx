@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint> // int8_t
+
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>
 
@@ -10,7 +12,7 @@ namespace geometry_analysis {
       , int & n_atoms
       , char const *filename="atoms.xyz"
       , double cell[]=nullptr
-      , int bc[]=nullptr
+      , int8_t bc[]=nullptr
       , int const echo=5
   );
 

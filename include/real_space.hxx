@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint> // uint32_t
+#include <cstdint> // uint32_t, int8_t
 #include <algorithm> // std::max
 #include <cstdio> // std::printf
 #include <cassert> // assert
@@ -21,7 +21,7 @@ namespace real_space {
   class grid_t {
   private:
       uint32_t dims[4]; // 0,1,2:real-space grid dimensions, 3:outer dim
-      int bc[3]; // boundary conditions
+      int8_t bc[3]; // boundary conditions
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
       double cell[3][4]; // cell shape (only [3][3] used)
@@ -68,10 +68,10 @@ namespace real_space {
           return stat;
       } // set
 
-      status_t set_boundary_conditions(int const bc3[3]) { set(bc, 3, bc3); return 0; }
-      status_t set_boundary_conditions(int const bcx
-                     , int const bcy=Invalid_Boundary 
-                     , int const bcz=Invalid_Boundary) {
+      status_t set_boundary_conditions(int8_t const bc3[3]) { set(bc, 3, bc3); return 0; }
+      status_t set_boundary_conditions(int8_t const bcx
+                     , int8_t const bcy=Invalid_Boundary 
+                     , int8_t const bcz=Invalid_Boundary) {
           bc[0] = bcx;
           bc[1] = (bcy == Invalid_Boundary) ? bcx : bcy;
           bc[2] = (bcz == Invalid_Boundary) ? bcx : bcz;
@@ -91,9 +91,9 @@ namespace real_space {
       inline double const * grid_spacings() const { return h; } // so far not used
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
       inline size_t all() const { return ((size_t(dims[3]) * dims[2]) * dims[1]) * dims[0]; }
-      inline int boundary_condition(int  const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
-      inline int boundary_condition(char const c) const { return boundary_condition((c|32) - 120); }
-      inline int const * boundary_conditions() const { return bc; }
+      inline int8_t boundary_condition(int  const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
+      inline int8_t boundary_condition(char const c) const { return boundary_condition((c|32) - 120); }
+      inline int8_t const * boundary_conditions() const { return bc; }
       inline int number_of_boundary_conditions(int const bc_ref=Periodic_Boundary) const { 
                     return (bc_ref == bc[0]) + (bc_ref == bc[1]) + (bc_ref == bc[2]); };
   }; // class grid_t

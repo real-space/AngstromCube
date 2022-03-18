@@ -4,6 +4,7 @@
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf
 #include <cstdlib> // std::atoi, ::atof
+#include <cstdint> // int8_t
 
 #include "status.hxx" // status_t
 
@@ -23,7 +24,7 @@ namespace green_input {
 
   inline status_t load_Hamiltonian(
         int ng[3] // numbers of grid points
-      , int bc[3] // boundary conditions
+      , int8_t bc[3] // boundary conditions
       , double hg[3] // grid spacings
       , std::vector<double> & Veff
       , int & natoms

@@ -2,6 +2,7 @@
 #include <cassert> // assert
 #include <algorithm> // std::copy, ::min, ::max
 #include <vector> // std::vector
+#include <cstdint> // int8_t
 
 #include "self_consistency.hxx"
 
@@ -68,7 +69,7 @@ namespace self_consistency {
       status_t stat(0);
 
       natoms = 0; // number of atoms
-      int bc[3]; // boundary conditions
+      int8_t bc[3]; // boundary conditions
       double cell[3]; // rectangular cell parameters
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);

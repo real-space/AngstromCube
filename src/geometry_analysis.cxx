@@ -2,7 +2,7 @@
 #include <cassert> // assert
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
-#include <cstdint> // uint8_t
+#include <cstdint> // uint8_t, int8_t
 #include <fstream> // std::ifstream
 #include <sstream> // std::sstream
 #include <string> // std::string, ::getline
@@ -40,7 +40,7 @@ namespace geometry_analysis {
       , int & n_atoms
       , char const *filename // ="atoms.xyz"
       , double cell[] // =nullptr
-      , int bc[] // =nullptr
+      , int8_t bc[] // =nullptr
       , int const echo // =5 log-level
   ) {
 
@@ -161,7 +161,7 @@ namespace geometry_analysis {
 
       BoxStructure(
             double const cell[3]
-          , int const bc[3]
+          , int8_t const bc[3]
           , double const radius
           , size_t const natoms
           , view2D<double> const & xyzZ // [natoms][4+]
@@ -479,7 +479,7 @@ namespace geometry_analysis {
         view2D<double> const & xyzZ // coordinates[natoms][4+]
       , index_t const natoms // number of atoms
       , double const cell[3] // rectangular cell extent
-      , int const bc[3] // boundary conditions
+      , int8_t const bc[3] // boundary conditions
       , int const echo=6 // log-level
   ) {
       status_t stat(0);
@@ -1069,7 +1069,7 @@ namespace geometry_analysis {
       int natoms{0};
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       double cell[3] = {0, 0, 0};
-      int bc[3] = {-7, -7, -7};
+      int8_t bc[3] = {-7, -7, -7};
       stat += read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
       if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);

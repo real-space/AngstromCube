@@ -6,7 +6,7 @@ ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
 # For reproducability compile the git key (hash) into the code
 GITKEY=$(shell git log | head -1 | sed -e 's/commit //g')
 
-# THISMACHINE := $(shell hostname)
+HOSTNAME := $(shell hostname)
 
 EXECUTABLE = green
 all: ${EXECUTABLE}

@@ -13,19 +13,19 @@
   #define warn std::printf
 #endif
 
-  int constexpr Periodic_Boundary =  1;
-  int constexpr Isolated_Boundary =  0;
-  int constexpr Mirrored_Boundary = -1;
-  int constexpr Invalid_Boundary  = -2;
+  int8_t constexpr Periodic_Boundary =  1;
+  int8_t constexpr Isolated_Boundary =  0;
+  int8_t constexpr Mirrored_Boundary = -1;
+  int8_t constexpr Invalid_Boundary  = -2;
 
 namespace boundary_condition {
 
   inline int periodic_images( // returns the number of images found
         view2D<double> & ipos // array of periodic positions (n,4)
       , double const cell[3]  // orthorhombic cell parameters
-      , int const bc[3]       // boundary condition selectors
-      , float const rcut      // truncation radius
-      , int const echo=0      // log-level
+      , int8_t const bc[3]       // boundary condition selectors
+      , float  const rcut      // truncation radius
+      , int    const echo=0      // log-level
       , view2D<int8_t> *iidx=nullptr // optional: pointer to array of indices (n,4)
   ) {
       double const cell_diagonal2 = pow2(rcut)
@@ -100,12 +100,12 @@ namespace boundary_condition {
       return ni;
   } // periodic_images
 
-  inline int fromString(
+  inline int8_t fromString(
         char const *string
       , int const echo=0
       , char const dir='?'
   ) {
-      int bc{Invalid_Boundary};
+      int8_t bc{Invalid_Boundary};
       if (nullptr != string) {
           char const first = *string;
           switch (first | 32) { // ignore case with | 32
@@ -129,8 +129,8 @@ namespace boundary_condition {
   inline status_t test_periodic_images(int const echo=0) {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       double const cell[] = {1,2,3};
-      float const rcut = 6;
-      int const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
+      float  const rcut = 6;
+      int8_t const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
       view2D<double> ipos;
       view2D<int8_t> iidx;
       auto const nai = periodic_images(ipos, cell, bc, rcut, echo, &iidx);
@@ -142,7 +142,7 @@ namespace boundary_condition {
   inline status_t test_fromString_single(char const bc_strings[][16], int const echo=0) {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
-      for (int bc = Invalid_Boundary; bc <= Periodic_Boundary; ++bc) {
+      for (int8_t bc = Invalid_Boundary; bc <= Periodic_Boundary; ++bc) {
           stat += (bc != fromString(bc_strings[bc & 0x3], echo));
       } // bc
       return stat;
