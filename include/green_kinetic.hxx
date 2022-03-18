@@ -30,6 +30,7 @@ namespace green_kinetic {
     inline status_t finite_difference_plan(
             green_sparse::sparse_t<int32_t> & sparse // result
           , int const dd // direction of derivative
+          , bool const periodic
           , uint16_t const num_target_coords[3]
           , uint32_t const RowStart[]
           , uint16_t const ColIndex[]

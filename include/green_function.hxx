@@ -89,7 +89,7 @@ namespace green_function {
   inline status_t construct_dyadic_plan(
         green_dyadic::dyadic_plan_t & p
       , double const cell[3]
-      , int8_t const boundary_condition[3]
+      , int8_t const boundary_condition[3] // 1:periodic, else:isolated
       , double const grid_spacing[3]
       , std::vector<std::vector<double>> const & AtomMatrices
       , std::vector<double> const & xyzZinso
@@ -122,23 +122,19 @@ namespace green_function {
 
           // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
           double max_projection_radius{0};
-          for (int ia = 0; ia < natoms; ++ia) {
+          for (int ia = 0; ia < natoms; ++ia) { // loop over all atoms (can be parallel with reduction)
               auto const sigma = xyzZinso[ia*8 + 6];
               auto const projection_radius = std::max(0.0, r_proj*sigma);
               max_projection_radius = std::max(max_projection_radius, projection_radius);
           } // ia
           if (echo > 3) std::printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
 
-          p.AtomImageStarts = nullptr; // warning, this should be allocated with at least 1 element containing a 0
-          p.nAtomImages = 0;
-
           auto const radius = r_trunc + max_distance_from_center + 2*max_projection_radius + 2*r_block_circumscribing_sphere;
-          int iimage[3];
+          int iimage[3]; // number of replications of the unit cell to each side
           size_t nimages{1};
           for (int d = 0; d < 3; ++d) { // parallel
-              iimage[d] = std::ceil(radius/cell[d]);         // for periodic boundary conditions
-              if (0 == boundary_condition[d]) iimage[d] = 0; // for isolated boundary conditions
-              nimages *= (iimage[d] + 1 + iimage[d]);
+              iimage[d] = (1 == boundary_condition[d]) * std::ceil(radius/cell[d]); // for periodic boundary conditions, 0 otherwise
+              nimages *= (iimage[d] + 1 + iimage[d]); // iimage images to the left and right
           } // d
           auto const nAtomImages = natoms*nimages;
           if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k images total\n",
@@ -154,7 +150,7 @@ namespace green_function {
           std::vector<std::vector<uint32_t>> cubes; // stores the row indices of Green function rows
           cubes.reserve(nAtomImages); // maximum (needs 24 Byte per atom image)
 
-          size_t iai{0};
+          size_t iai{0}; // counter for atomic images
           for (int z = -iimage[Z]; z <= iimage[Z]; ++z) { // serial
           for (int y = -iimage[Y]; y <= iimage[Y]; ++y) { // serial
           for (int x = -iimage[X]; x <= iimage[X]; ++x) { // serial
@@ -163,7 +159,7 @@ namespace green_function {
               for (int ia = 0; ia < natoms; ++ia) { // loop over atoms in the unit cell, serial
                   // suggest a shifted atomic image position
                   double atom_pos[3];
-                  for (int d = 0; d < 3; ++d) { // parallel
+                  for (int d = 0; d < 3; ++d) { // unroll
                       atom_pos[d] = xyzZinso[ia*8 + d] + xyz_shift[d]*cell[d];
                   } // d
                   auto const atom_id = int32_t(xyzZinso[ia*8 + 4]); 
@@ -180,7 +176,7 @@ namespace green_function {
                   for (uint32_t icube = 0; icube < nRowsGreen; ++icube) { // loop over blocks
                       auto const *const target_block = target_coords[icube];
 //                    double d2{0};
-//                    for (int d = 0; d < 3; ++d) { // serial
+//                    for (int d = 0; d < 3; ++d) { // unroll
 //                        double const center_of_block = (target_block[d]*4 + 1.5)*grid_spacing[d];
 //                        d2 += pow2(center_of_block - atom_pos[d]);
 //                    } // d
@@ -330,11 +326,11 @@ namespace green_function {
           p.AtomImageStarts = get_memory<uint32_t>(nai + 1, echo, "AtomImageStarts");
           set(p.AtomImageStarts, nai + 1, AtomImageStarts.data()); // copy into GPU memory
 
-          // get all info for the atomic matrices:
+          // get all info for the atomic matrices
           std::vector<int32_t> global_atom_index(natoms); // translation table
           std::vector<int32_t>  local_atom_index(natoms, -1); // translation table
           int iac{0};
-          for (int ia = 0; ia < natoms; ++ia) { // serial
+          for (int ia = 0; ia < natoms; ++ia) { // serial loop over all atoms
               if (atom_numax[ia] > -1) {
                   global_atom_index[iac] = ia;
                   local_atom_index[ia] = iac;
@@ -344,22 +340,23 @@ namespace green_function {
           int const nac = iac; // number of contributing atoms
           global_atom_index.resize(nac);
 
-          // now store the atomic positions in GPU memory
+          // store the atomic image positions in GPU memory
           p.AtomImageLmax  = get_memory<int8_t>(nai, echo, "AtomImageLmax"); 
           p.AtomImagePos   = get_memory<double[3+1]>(nai, echo, "AtomImagePos");
           p.AtomImagePhase = get_memory<double[4]>(nai, echo, "AtomImagePhase");
+          p.AtomImageShift = get_memory<int8_t[4]>(nai, echo, "AtomImageShift");
           double const phase0[] = {1, 0, 0, 0};
 
           std::vector<std::vector<uint32_t>> SHOsum(nac);
 
           for (size_t iai = 0; iai < nai; ++iai) {
               int const ia = atom_data[iai].ia;
-              int const iac = local_atom_index[ia];
-              assert(iac > -1);
+              int const iac = local_atom_index[ia]; assert(0 <= iac); assert(iac < nac);
               set(p.AtomImagePos[iai], 3, atom_data[iai].pos);
+              set(p.AtomImageShift[iai], 3, atom_data[iai].shifts); p.AtomImageShift[iai][3] = 0;
               p.AtomImagePos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
               p.AtomImageLmax[iai] = atom_data[iai].numax; // SHO basis size
-              if (echo > 0) std::printf("# atom image #%ld has lmax= %d\n", iai, p.AtomImageLmax[iai]);
+              if (echo > 9) std::printf("# atom image #%ld has lmax= %d\n", iai, p.AtomImageLmax[iai]);
               SHOsum[iac].push_back(uint32_t(iai));
               set(p.AtomImagePhase[iai], 4, phase0); // TODO construct correct phases
           } // iai, copy into GPU memory
@@ -375,7 +372,7 @@ namespace green_function {
           p.AtomStarts[0] = 0; // init prefetch sum
 
           for (int iac = 0; iac < nac; ++iac) { // parallel
-              int const ia = global_atom_index[iac];
+              auto const ia = global_atom_index[iac];
               int const nc = sho_tools::nSHO(atom_numax[ia]);
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
               p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefect sum
@@ -395,18 +392,45 @@ namespace green_function {
                       p.AtomMatrices[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
                   } // j
               } // i
-              // ToDo: treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
-              //                                        component 2 and 3 == V_x and V_y
+              // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
+              //                                       component 2 and 3 == V_x and V_y
           } // iac
           p.nAtoms = nac;
           if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
 
           return 0;
   } // construct_dyadic_plan
-  
-  
-  
-  
+
+
+  inline status_t update_phases(
+        green_dyadic::dyadic_plan_t & p
+      , double const k_point[3]
+      , int const Noco
+      , int const echo=0 // verbosity
+  ) {
+      std::complex<double> phase[3][2]; // for each direction: forward and backward phase
+      for (int d = 0; d < 3; ++d) {
+          double const arg = 2*constants::pi*k_point[d];
+          phase[d][0] = std::complex<double>(std::cos(arg), std::sin(arg));
+          phase[d][1] = std::conj(phase[d][0]); // should be the inverse if the k_point gets an imaginary part 
+      } // d
+
+      assert(p.AtomImagePhase && "AtomImagePhase must already be allocated");
+      for (uint32_t iai = 0; iai < p.nAtomImages; ++iai) {
+          std::complex<double> ph(1, 0);
+          for (int d = 0; d < 3; ++d) {
+              auto const shift = p.AtomImageShift[iai][d];
+              ph *= (shift >= 0) ? intpow(phase[d][0], shift) : intpow(phase[d][1], -shift);
+          } // d
+          set(p.AtomImagePhase[iai], 4, 0.0);
+          p.AtomImagePhase[iai][0] = ph.real();
+          p.AtomImagePhase[iai][1] = ph.imag();
+          // TODO Noco has been ignored here
+      } // iai
+
+      return 0;
+  } // update_phases
+
   
   int8_t constexpr Vacuum_Boundary = 2;
   // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
@@ -482,6 +506,18 @@ namespace green_function {
       // Cartesian cell parameters for the unit cell in which the potential is defined
       double const cell[3] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
       double const average_grid_spacing = std::cbrt(std::abs(hg[X]*hg[Y]*hg[Z]));
+      if (echo > 1) { 
+          std::printf("\n");
+          std::printf("# Cell summary:\n");
+          for (int d = 0; d < 3; ++d) {
+              std::printf("#%8d %c-points,%7d blocks, spacing%9.6f, cell_%c=%9.3f %s, boundary= %d\n",
+                  ng[d], 'x' + d, n_original_Veff_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, boundary_condition[d]);
+          } // d
+          std::printf("#%8.3f M points,%12.3f k, average%9.6f, volume=%9.1f %s^3\n",
+              ng[X]*1e-6*ng[Y]*ng[Z], n_all_Veff_blocks*1e-3, average_grid_spacing*Ang, cell[X]*cell[Y]*cell[Z]*pow3(Ang), _Ang);
+          std::printf("\n");
+      } // echo
+
 
       int32_t const MANIPULATE = control::get("MANIPULATE", 0.);
       int32_t n_source_blocks[3] = {0, 0, 0};
@@ -491,7 +527,7 @@ namespace green_function {
       } // d
       if (MANIPULATE && echo > 0) std::printf("\n# MANIPULATE=%d for n_source_blocks:\n", MANIPULATE);
       if (echo > 3) { std::printf("# n_source_blocks "); printf_vector(" %d", n_source_blocks, 3); }
-      
+
 
       // assume periodic boundary conditions and an infinite host crystal,
       // so there is no need to consider k-points
@@ -607,7 +643,7 @@ namespace green_function {
           if (echo > 0) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
           if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
-          double h[] = {hg[0], hg[1], hg[2]}; // customized grid spacing, we may need a customized p.grid_spacing for the potential as well
+          double h[] = {hg[0], hg[1], hg[2]}; // customized grid spacing used in green_potential::multiply
           int16_t itr[3]; // 16bit, range [-32768, 32767] should be enough
           for (int d = 0; d < 3; ++d) {
               // how many blocks around the source block do we need to check
@@ -619,20 +655,20 @@ namespace green_function {
               max_target_coords[d] = max_source_coords[d] - internal_global_offset[d] + itr[d];
               num_target_coords[d] = max_target_coords[d] + 1 - min_target_coords[d];
 
-              char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x'+d);
+              char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x'+d); // this feature allows also truncation ellipsoids
               auto const scale_h = control::get(keyword, 1.);
               if (scale_h >= 0) {
                   h[d] = hg[d]*scale_h;
                   if (echo > 1 && 1 != scale_h) std::printf("# scale grid spacing in %c-direction for truncation from %g to %g %s\n", 'x'+d, hg[d]*Ang, h[d]*Ang, _Ang);
-              }
-              if (0 == boundary_condition[d]) {
-              } else {
+              } // scale_h >= 0
+              if (1 == boundary_condition[d]) {
                   // periodic boundary conditions
                   if (2*rtrunc > cell[d] && h[d] > 0) {
-                      warn("truncation sphere does not fit cell in %c-direction, better use +%s=0 to deactivate truncation", 'x'+d, keyword);
+                      warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s), better use +%s=0 to deactivate truncation",
+                                              2*r_trunc*Ang, _Ang,                 'x' + d,      cell[d]*Ang, _Ang,   keyword);
                       // TODO: in general, the following algorithm is only suitable for isolated boundary conditions
                   }
-              }
+              } // periodic boundary condition
               
           } // d
           auto const product_target_blocks = size_t(num_target_coords[Z])*
@@ -911,6 +947,7 @@ namespace green_function {
               // create lists for the finite-difference derivatives
               auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd]
                 , dd
+                , (1 == boundary_condition[dd]) // is periodic?
                 , num_target_coords
                 , p.RowStart, p.colindx.data()
                 , iRow_of_coords

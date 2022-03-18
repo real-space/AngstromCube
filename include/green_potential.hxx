@@ -36,8 +36,6 @@ namespace green_potential {
 
         bool const imaginary = ((2 == R1C2) && (0 != E_imag));
 
-        // TODO load Vloc[4][iloc][i64] into shared memory
-
 #ifndef HAS_NO_CUDA
         int const inz0 = blockIdx.y;  // start of the grid-stride loop on y-blocks
         int const i64  = blockIdx.x;  // target grid point index == inner column dimension, in [0, 64)

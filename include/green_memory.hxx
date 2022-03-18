@@ -8,7 +8,7 @@
   #define __unroll__
   #define __host__
 #else
-  #include <cuda.h> // dim3, cudaMallocManaged, cudaFree, cudaSuccess, cudaError, cudaGetErrorString, cudaStream_t
+  #include <cuda.h> // dim3, cudaMallocManaged, cudaFree, cudaSuccess, cudaError, cudaGetErrorString, cudaStream_t, __syncthreads
 
     __host__ inline
     void __cudaSafeCall(cudaError err, const char *file, const int line, char const *call=nullptr) { // Actual check function

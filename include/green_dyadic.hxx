@@ -855,6 +855,7 @@ namespace green_dyadic {
       double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages]
       int8_t*   AtomImageLmax       = nullptr; // [nAtomImages]
       double  (*AtomImagePhase)[4]  = nullptr; // [nAtomImages]
+      int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages]
       uint32_t nAtomImages  = 0;
 
       double *grid_spacing   = nullptr; // [3+1] hx,hy,hz,rcut/sigma
@@ -882,6 +883,7 @@ namespace green_dyadic {
           free_memory(AtomImagePos);
           free_memory(AtomImageLmax);
           free_memory(AtomImagePhase);
+          free_memory(AtomImageShift);
           free_memory(AtomLmax);
 //        free_memory(CubePos);
           if (sparse_SHOprj) for (int32_t irhs = 0; irhs < nrhs; ++irhs) sparse_SHOprj[irhs].~sparse_t<>();
