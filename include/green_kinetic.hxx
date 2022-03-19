@@ -27,6 +27,8 @@
 
 namespace green_kinetic {
 
+    int constexpr nhalo = 4; // a maximum of 4 bocks (i.e. 16 grid points) is the range of the FD stencil.
+  
     int32_t get_inz(
             uint32_t const idx[3]
           , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
@@ -132,37 +134,32 @@ namespace green_kinetic {
 //                    if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", irhs, idx[X], idx[Y], idx[Z]);
                       auto const idx3 = index3D(num_target_coords, idx); // flat index
                       if (sparsity_rhs[idx3]) {
-//                           auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
-//                           assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
-// 
-//                           int32_t inz_found{-1};
-//                           for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-//                               if (ColIndex[inz] == irhs) {
-//                                   inz_found = inz; // store where it was found
-//                                   inz = RowStart[iRow + 1]; // stop search loop
-//                               } // found
-//                           } // search
                           auto const inz_found = get_inz(idx, iRow_of_coords, RowStart, ColIndex, irhs, 'x' + dd);
                           assert(inz_found >= 0 && "sparsity_pattern[irhs][idx3] inconsistent with iRow_of_coords[iz][iy][ix]");
 
                           if (0 == list[ilist].size()) {
-                              list[ilist].reserve(4 + num_dd + 4); // makes push_back operation faster
-                              list[ilist].resize(4, 0); // prepend {0, 0, 0, 0}
+                              list[ilist].reserve(nhalo + num_dd + nhalo); // makes push_back operation faster
+                              list[ilist].resize(nhalo, 0); // prepend {0, 0, 0, 0}
+                              // =====================================================================================================
+                              // =====================================================================================================
                               if (boundary_is_periodic) {
                                   if (0 == id) { // only when we are at the leftmost boundary
-                                      for(int ihalo = 0; ihalo < 4; ++ihalo) {
+                                      for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
                                           uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
-                                          jdx[dd] = num_target_coords[dd] - 4 + ihalo; // peridic wrap around (not correct if num_target_coords[dd] < 4)
+                                          assert(num_target_coords[dd] >= nhalo);
+                                          jdx[dd] = num_target_coords[dd] - nhalo + ihalo; // periodic wrap around
                                           auto const jdx3 = index3D(num_target_coords, jdx); // flat index
                                           if (sparsity_rhs[jdx3]) {
                                               auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
                                               if (jnz_found >= 0) {
-                                                  list[ilist][ihalo] = -(jnz_found + 1); // negative index marks that a (left) Bloch phase needs to be multiplied
+                                                  list[ilist][0 + ihalo] = -(jnz_found + 1); // negative index marks that a (left) Bloch phase needs to be multiplied
                                               } // block exists
                                           } // block exists
                                       } // ihalo
                                   } // leftmost boundary
                               } // boundary_is_periodic
+                              // =====================================================================================================
+                              // =====================================================================================================
                           } // list was empty
 
                           list[ilist].push_back(inz_found + 1); // +1 so that non-exiting elements are marked by 0
@@ -170,18 +167,21 @@ namespace green_kinetic {
                       } // sparsity pattern
                   } // id
                   int const list_length = list[ilist].size();
-                  if (list_length > 4) {
-                      length_stats.add(list_length - 4);
+                  if (list_length > nhalo) {
+                      length_stats.add(list_length - nhalo);
 //                    if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n", list_length, direction, idx[X], idx[Y], idx[Z]);
-                      // add 4 end-of-sequence markers
-                      for (int ihalo = 0; ihalo < 4; ++ihalo) {
+                      // add nhalo end-of-sequence markers
+                      for (int ihalo = 0; ihalo < nhalo; ++ihalo) {
                           list[ilist].push_back(0); // append {0, 0, 0, 0} to mark the end of the derivative sequence
                       } // ihalo
+                      // =====================================================================================================
+                      // =====================================================================================================
                       if (boundary_is_periodic) {
                           if (num_target_coords[dd] - 1 == last_id) { // only when the last entry was at the rightmost boundary
-                                      for(int ihalo = 0; ihalo < 4; ++ihalo) {
+                                      for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
                                           uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
-                                          jdx[dd] = ihalo; // peridic wrap around (not correct if num_target_coords[dd] < 4)
+                                          assert(num_target_coords[dd] >= nhalo);
+                                          jdx[dd] = ihalo; // periodic wrap around
                                           auto const jdx3 = index3D(num_target_coords, jdx); // flat index
                                           if (sparsity_rhs[jdx3]) {
                                               auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
@@ -192,6 +192,9 @@ namespace green_kinetic {
                                       } // ihalo
                           } // rightmost boundary
                       } // boundary_is_periodic
+                      // =====================================================================================================
+                      // =====================================================================================================
+                      assert(list_length + 4 == list[ilist].size());
 
                       ++ilist; // create next list index
                   } // list_length > 0

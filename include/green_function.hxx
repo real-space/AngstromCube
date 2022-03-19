@@ -23,6 +23,9 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 
+// #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
+//int8_t constexpr Isolated_Boundary = 0, Periodic_Boundary = 1;
+
 /*
  *  ToDo plan:
  *    Implement CPU version of SHOprj and SHOadd
@@ -89,7 +92,7 @@ namespace green_function {
   inline status_t construct_dyadic_plan(
         green_dyadic::dyadic_plan_t & p
       , double const cell[3]
-      , int8_t const boundary_condition[3] // 1:periodic, else:isolated
+      , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
       , std::vector<std::vector<double>> const & AtomMatrices
       , std::vector<double> const & xyzZinso
@@ -133,7 +136,7 @@ namespace green_function {
           int iimage[3]; // number of replications of the unit cell to each side
           size_t nimages{1};
           for (int d = 0; d < 3; ++d) { // parallel
-              iimage[d] = (1 == boundary_condition[d]) * std::ceil(radius/cell[d]); // for periodic boundary conditions, 0 otherwise
+              iimage[d] = (Periodic_Boundary == boundary_condition[d]) * std::ceil(radius/cell[d]);
               nimages *= (iimage[d] + 1 + iimage[d]); // iimage images to the left and right
           } // d
           auto const nAtomImages = natoms*nimages;
@@ -437,6 +440,13 @@ namespace green_function {
   // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
   // even if this exceeds the isolated boundary at which potential values stop to be defined.
 
+  // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
+  // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
+  // Nevertheless, it cannot be treated like Isolated_Boundary since target block coordinates may need to be wrapped.
+
+  char const boundary_condition_name[][16] = {"isolated", "periodic", "vacuum"};
+  char const boundary_condition_shortname[][8] = {"iso", "peri", "vacu"};
+
   inline status_t construct_Green_function(
         green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
       , int const ng[3] // numbers of grid points of the unit cell in with the potential is defined
@@ -633,7 +643,7 @@ namespace green_function {
 
       double const r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
       if (echo > 0) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
-      
+
 
       // count the number of green function elements for each target block
 
@@ -647,17 +657,40 @@ namespace green_function {
           if (echo > 0) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
           if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
-          double h[] = {hg[0], hg[1], hg[2]}; // customized grid spacing used in green_potential::multiply
+          bool is_wrapped[] = {false, false, false}; // is_wrapped == true if periodic BC but truncation sphere fully within cell
+          double h[] = {hg[X], hg[Y], hg[Z]}; // customized grid spacing used in green_potential::multiply
           int16_t itr[3]; // 16bit, range [-32768, 32767] should be enough
           for (int d = 0; d < 3; ++d) {
+
               // how many blocks around the source block do we need to check
               auto const itrunc = std::floor(rtrunc_plus/(4*hg[d]));
               assert(itrunc < 32768 && "target coordinate type is int16_t!");
               itr[d] = int16_t(itrunc);
               assert(itr[d] >= 0);
+              
+              if (r_trunc >= 0) {
+                  char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x'+d); // this feature allows also truncation ellipsoids
+                  auto const scale_h = control::get(keyword, 1.);
+                  if (scale_h >= 0) {
+                      h[d] = hg[d]*scale_h;
+                      if (echo > 1 && 1 != scale_h) std::printf("# scale grid spacing in %c-direction for truncation from %g to %g %s\n", 'x'+d, hg[d]*Ang, h[d]*Ang, _Ang);
+                  } // scale_h >= 0
+                  if (Periodic_Boundary == boundary_condition[d]) {
+                      // periodic boundary conditions
+                      double const deformed_cell = h[d]*ng[d];
+                      if (2*rtrunc > deformed_cell) {
+                          if (h[d] > 0) warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s), better use +%s=0 to deactivate truncation",
+                                                                   2*rtrunc*Ang, _Ang,                 'x' + d, deformed_cell*Ang, _Ang,   keyword);
+                      } else {
+                          if (echo > 1) std::printf("# boundary condition in %c-direction is wrapped\n", 'x' + d);
+                          is_wrapped[d] = true;
+                      }
+                  } // periodic boundary condition
+              } // r_trunc >= 0
+
               min_target_coords[d] = min_global_source_coords[d] - global_internal_offset[d] - itr[d]; // vaccum BC
               max_target_coords[d] = max_global_source_coords[d] - global_internal_offset[d] + itr[d]; // vaccum BC
-              if (Vacuum_Boundary == boundary_condition[d]) {
+              if (Vacuum_Boundary == boundary_condition[d] || is_wrapped[d]) {
                   // ok, no modification necessary
               } else {
                   auto const m = n_original_Veff_blocks[d] - 1;
@@ -668,21 +701,12 @@ namespace green_function {
               assert(n_target_coords > 0);
               num_target_coords[d] = n_target_coords;
 
-              char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x'+d); // this feature allows also truncation ellipsoids
-              auto const scale_h = control::get(keyword, 1.);
-              if (scale_h >= 0) {
-                  h[d] = hg[d]*scale_h;
-                  if (echo > 1 && 1 != scale_h) std::printf("# scale grid spacing in %c-direction for truncation from %g to %g %s\n", 'x'+d, hg[d]*Ang, h[d]*Ang, _Ang);
-              } // scale_h >= 0
-              if (1 == boundary_condition[d]) {
-                  // periodic boundary conditions
-                  if (2*rtrunc > cell[d] && h[d] > 0) {
-                      warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s), better use +%s=0 to deactivate truncation",
-                                              2*r_trunc*Ang, _Ang,                 'x' + d,      cell[d]*Ang, _Ang,   keyword);
-                      // TODO: in general, the following algorithm is only suitable for isolated boundary conditions
-                  }
-              } // periodic boundary condition
           } // d
+          if (r_trunc < 0) {
+              if (echo > 1) std::printf("# truncation deactivated\n");
+          } else {
+              if (echo > 1) std::printf("# truncation beyond %d %d %d blocks\n", itr[X], itr[Y], itr[Z]);
+          }
           auto const product_target_blocks = size_t(num_target_coords[Z])*
                                              size_t(num_target_coords[Y])*
                                              size_t(num_target_coords[X]);
@@ -716,9 +740,9 @@ namespace green_function {
               for (int32_t by = -itr[Y]; by <= itr[Y]; ++by) { target_coords[Y] = source_coords[Y] + by; if (target_coords[Y] >= min_target_coords[Y] && target_coords[Y] <= max_target_coords[Y]) {
               for (int32_t bx = -itr[X]; bx <= itr[X]; ++bx) { target_coords[X] = source_coords[X] + bx; if (target_coords[X] >= min_target_coords[X] && target_coords[X] <= max_target_coords[X]) {
 
-//                int32_t const bxyz[3] = {bx, by, bz}; // block difference vector
+//                   int32_t const bxyz[3] = {bx, by, bz}; // block difference vector
 //                   for (int d = 0; d < 3; ++d) {
-//                    target_coords[d] = source_coords[d] + bxyz[d];
+//                       target_coords[d] = source_coords[d] + bxyz[d];
 //                       assert(target_coords[d] >= min_target_coords[d]);
 //                       assert(target_coords[d] <= max_target_coords[d]);
 //                   } // d
@@ -905,14 +929,26 @@ namespace green_function {
                       int32_t veff_index{-1};
                       if (1) { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
                           int32_t mod[3];
+                          bool given{true};
                           for (int d = 0; d < 3; ++d) {
-                              // treatment for periodic geometries
-                              mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
-                              mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
+                              mod[d] = global_target_coords[d];
+                              if (Periodic_Boundary == boundary_condition[d]) {
+                                  mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
+                                  mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
+                              } else {
+                                  given = given && (mod[d] >= 0 && mod[d] < n_original_Veff_blocks[d]);
+                              }
                           } // d
-                          auto const iloc = index3D(n_original_Veff_blocks, mod);
-                          veff_index = iloc;
-                          assert(iloc == veff_index);
+                          if (given) {
+                              auto const iloc = index3D(n_original_Veff_blocks, mod);
+                              veff_index = iloc;
+                              assert(iloc == veff_index);
+                          } else {
+                              assert(Vacuum_Boundary == boundary_condition[X] ||
+                                     Vacuum_Boundary == boundary_condition[Y] ||
+                                     Vacuum_Boundary == boundary_condition[Z]);
+                              veff_index = -1; // outside of the unit cell due to Vacuum_Boundary
+                          }
                       } // scope
 
                       for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {

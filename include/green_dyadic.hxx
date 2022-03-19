@@ -885,13 +885,13 @@ namespace green_dyadic {
           free_memory(AtomImagePhase);
           free_memory(AtomImageShift);
           free_memory(AtomLmax);
-//        free_memory(CubePos);
           if (sparse_SHOprj) for (int32_t irhs = 0; irhs < nrhs; ++irhs) sparse_SHOprj[irhs].~sparse_t<>();
           free_memory(sparse_SHOprj);
       } // constructor
       
       status_t consistency_check() const {
           status_t stat(0);
+          assert(nAtomImages >= nAtoms);
           auto const rowStart = sparse_SHOsum.rowStart();
           auto const colIndex = sparse_SHOsum.colIndex();
           stat += (sparse_SHOsum.nRows() != nAtoms);
