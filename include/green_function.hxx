@@ -457,6 +457,7 @@ namespace green_function {
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
+          assert(n_original_Veff_blocks[d] > 0);
           assert(ng[d] == 4*n_original_Veff_blocks[d] && "All grid dimensions must be a multiple of 4!");
           assert(n_original_Veff_blocks[d] <= (1u << 21) && "Max grid is 2^21 blocks due to global_coordinates");
       } // d
@@ -504,7 +505,8 @@ namespace green_function {
       } // scope
 
       // Cartesian cell parameters for the unit cell in which the potential is defined
-      double const cell[3] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
+      double const cell[] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
+      double const cell_volume = cell[X]*cell[Y]*cell[Z];
       double const average_grid_spacing = std::cbrt(std::abs(hg[X]*hg[Y]*hg[Z]));
       if (echo > 1) { 
           std::printf("\n");
@@ -514,7 +516,7 @@ namespace green_function {
                   ng[d], 'x' + d, n_original_Veff_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, boundary_condition[d]);
           } // d
           std::printf("#%8.3f M points,%12.3f k, average%9.6f, volume=%9.1f %s^3\n",
-              ng[X]*1e-6*ng[Y]*ng[Z], n_all_Veff_blocks*1e-3, average_grid_spacing*Ang, cell[X]*cell[Y]*cell[Z]*pow3(Ang), _Ang);
+              ng[X]*1e-6*ng[Y]*ng[Z], n_all_Veff_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
           std::printf("\n");
       } // echo
 
@@ -536,34 +538,34 @@ namespace green_function {
       // given a max distance r_trunc between source blocks and target blocks
 
       // assume that the source blocks lie compact in space
-      int32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
+      uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
-      assert(nrhs >= 0);
+
       view2D<uint32_t> global_source_coords(nrhs, 4, 0); // unsigned since they must be in [0, 2^21) anyway
       p.global_source_indices.resize(nrhs); // [nrhs]
       p.nCols = nrhs;
       double center_of_mass_RHS[] = {0, 0, 0};
       double center_of_RHSs[]     = {0, 0, 0};
-      int32_t min_source_coords[] = {0, 0, 0}; // global coordinates
-      int32_t max_source_coords[] = {0, 0, 0}; // global coordinates
-      int32_t internal_global_offset[] = {0, 0, 0};
+      int32_t min_global_source_coords[] = {0, 0, 0}; // global coordinates
+      int32_t max_global_source_coords[] = {0, 0, 0}; // global coordinates
+      int32_t global_internal_offset[] = {0, 0, 0};
       double max_distance_from_comass{0};
       double max_distance_from_center{0};
       { // scope: determine min, max, center
-          {   int irhs{0};
-              for (int ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
-              for (int iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
-              for (int ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-                  int const ibxyz[] = {ibx + n_original_Veff_blocks[X]/2,
-                                       iby + n_original_Veff_blocks[Y]/2,
-                                       ibz + n_original_Veff_blocks[Z]/2, 0};
+          {   uint32_t irhs{0};
+              for (uint32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
+              for (uint32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
+              for (uint32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
+                  uint32_t const ibxyz[] = {ibx + n_original_Veff_blocks[X]/2,
+                                            iby + n_original_Veff_blocks[Y]/2,
+                                            ibz + n_original_Veff_blocks[Z]/2, 0};
                   set(global_source_coords[irhs], 4, ibxyz);
                   p.global_source_indices[irhs] = global_coordinates::get(ibxyz);
                   for (int d = 0; d < 3; ++d) {
                       int32_t const rhs_coord = global_source_coords(irhs,d);
                       center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d];
-                      min_source_coords[d] = std::min(min_source_coords[d], rhs_coord);
-                      max_source_coords[d] = std::max(max_source_coords[d], rhs_coord);
+                      min_global_source_coords[d] = std::min(min_global_source_coords[d], rhs_coord);
+                      max_global_source_coords[d] = std::max(max_global_source_coords[d], rhs_coord);
                   } // d
                   ++irhs;
               }}} // xyz
@@ -571,22 +573,24 @@ namespace green_function {
           } // irhs
 
           for (int d = 0; d < 3; ++d) {
-              center_of_mass_RHS[d] /= std::max(1, nrhs);
-              auto const middle2 = min_source_coords[d] + max_source_coords[d];
-              internal_global_offset[d] = middle2/2;
+              center_of_mass_RHS[d] /= std::max(1, int(nrhs));
+              auto const middle2 = min_global_source_coords[d] + max_global_source_coords[d];
+              global_internal_offset[d] = middle2/2;
               center_of_RHSs[d] = ((middle2*0.5)*4 + 1.5)*hg[d];
           } // d
 
           if (echo > 0) std::printf("# internal and global coordinates differ by %d %d %d\n",
-              internal_global_offset[X], internal_global_offset[Y], internal_global_offset[Z]);
+              global_internal_offset[X], global_internal_offset[Y], global_internal_offset[Z]);
 
           p.source_coords = get_memory<int16_t[4]>(nrhs, echo, "source_coords"); // internal coordinates
           { // scope: compute also the largest distance from the center or center of mass
               double max_d2m{0}, max_d2c{0};
-              for (int irhs = 0; irhs < nrhs; ++irhs) {
+              for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
                   double d2m{0}, d2c{0};
                   for (int d = 0; d < 3; ++d) {
-                      p.source_coords[irhs][d] = global_source_coords(irhs,d) - internal_global_offset[d];
+                      int32_t const source_coord = global_source_coords(irhs,d) - global_internal_offset[d];
+                      p.source_coords[irhs][d] = source_coord;
+                      assert(source_coord == p.source_coords[irhs][d]);
                       d2m += pow2((global_source_coords(irhs,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
                       d2c += pow2((global_source_coords(irhs,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
                   } // d
@@ -633,9 +637,9 @@ namespace green_function {
 
       // count the number of green function elements for each target block
 
-      uint16_t num_target_coords[3] = {0, 0, 0};
-      int16_t  min_target_coords[3] = {0, 0, 0}; // internal coordinates
-      int16_t  max_target_coords[3] = {0, 0, 0}; // internal coordinates
+      uint32_t num_target_coords[3] = {0, 0, 0};
+      int32_t  min_target_coords[3] = {0, 0, 0}; // internal coordinates
+      int32_t  max_target_coords[3] = {0, 0, 0}; // internal coordinates
       { // scope: create the truncated Green function block-sparsity pattern
           auto const rtrunc       = std::max(0., r_trunc);
           auto const rtrunc_plus  =              rtrunc + 2*r_block_circumscribing_sphere;
@@ -651,9 +655,18 @@ namespace green_function {
               assert(itrunc < 32768 && "target coordinate type is int16_t!");
               itr[d] = int16_t(itrunc);
               assert(itr[d] >= 0);
-              min_target_coords[d] = min_source_coords[d] - internal_global_offset[d] - itr[d];
-              max_target_coords[d] = max_source_coords[d] - internal_global_offset[d] + itr[d];
-              num_target_coords[d] = max_target_coords[d] + 1 - min_target_coords[d];
+              min_target_coords[d] = min_global_source_coords[d] - global_internal_offset[d] - itr[d]; // vaccum BC
+              max_target_coords[d] = max_global_source_coords[d] - global_internal_offset[d] + itr[d]; // vaccum BC
+              if (Vacuum_Boundary == boundary_condition[d]) {
+                  // ok, no modification necessary
+              } else {
+                  auto const m = n_original_Veff_blocks[d] - 1;
+                  min_target_coords[d] = std::max(min_target_coords[d], 0 - global_internal_offset[d]);
+                  max_target_coords[d] = std::min(max_target_coords[d], m - global_internal_offset[d]);
+              }
+              auto const n_target_coords = int32_t(max_target_coords[d]) + 1 - min_target_coords[d];
+              assert(n_target_coords > 0);
+              num_target_coords[d] = n_target_coords;
 
               char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x'+d); // this feature allows also truncation ellipsoids
               auto const scale_h = control::get(keyword, 1.);
@@ -669,7 +682,6 @@ namespace green_function {
                       // TODO: in general, the following algorithm is only suitable for isolated boundary conditions
                   }
               } // periodic boundary condition
-              
           } // d
           auto const product_target_blocks = size_t(num_target_coords[Z])*
                                              size_t(num_target_coords[Y])*
@@ -699,16 +711,18 @@ namespace green_function {
               int constexpr max_nci = 27;
               std::vector<int> hist(1 + max_nci, 0); // distribution of nci
               std::vector<simple_stats::Stats<>> stats_d2(1 + max_nci);
-              for (int16_t bz = -itr[Z]; bz <= itr[Z]; ++bz) {
-              for (int16_t by = -itr[Y]; by <= itr[Y]; ++by) {
-              for (int16_t bx = -itr[X]; bx <= itr[X]; ++bx) {
-                  int16_t const bxyz[3] = {bx, by, bz}; // block difference vector
-                  int16_t target_coords[3]; // internal target block coordinates
-                  for (int d = 0; d < 3; ++d) {
-                      target_coords[d] = source_coords[d] + bxyz[d];
-                      assert(target_coords[d] >= min_target_coords[d]);
-                      assert(target_coords[d] <= max_target_coords[d]);
-                  } // d
+              int32_t target_coords[3]; // internal target block coordinates
+              for (int32_t bz = -itr[Z]; bz <= itr[Z]; ++bz) { target_coords[Z] = source_coords[Z] + bz; if (target_coords[Z] >= min_target_coords[Z] && target_coords[Z] <= max_target_coords[Z]) {
+              for (int32_t by = -itr[Y]; by <= itr[Y]; ++by) { target_coords[Y] = source_coords[Y] + by; if (target_coords[Y] >= min_target_coords[Y] && target_coords[Y] <= max_target_coords[Y]) {
+              for (int32_t bx = -itr[X]; bx <= itr[X]; ++bx) { target_coords[X] = source_coords[X] + bx; if (target_coords[X] >= min_target_coords[X] && target_coords[X] <= max_target_coords[X]) {
+
+//                int32_t const bxyz[3] = {bx, by, bz}; // block difference vector
+//                   for (int d = 0; d < 3; ++d) {
+//                    target_coords[d] = source_coords[d] + bxyz[d];
+//                       assert(target_coords[d] >= min_target_coords[d]);
+//                       assert(target_coords[d] <= max_target_coords[d]);
+//                   } // d
+
                   // d2 is the distance^2 of the block centers
                   double const d2 = pow2(bx*4*h[X]) + pow2(by*4*h[Y]) + pow2(bz*4*h[Z]);
 
@@ -740,7 +754,7 @@ namespace green_function {
 
                   if (nci > 0) {
                       // any grid point in block (bx,by,bz) is closer than rtrunc to any grid point in the source block
-                      int16_t idx[3];
+                      int32_t idx[3];
                       for (int d = 0; d < 3; ++d) {
                           idx[d] = target_coords[d] - min_target_coords[d];
                           assert(idx[d] >= 0);
@@ -758,7 +772,7 @@ namespace green_function {
                   ++hist[nci];
                   stats_d2[nci].add(d2);
 
-              }}} // xyz
+              }}}}}} // xyz
               if (echo > 7) {
                   std::printf("# RHS at %i %i %i reaches from (%g, %g, %g) to (%g, %g, %g)\n",
                       global_source_coords(irhs,X), global_source_coords(irhs,Y), global_source_coords(irhs,Z),
@@ -839,10 +853,10 @@ namespace green_function {
           { // scope: fill BSR tables
               simple_stats::Stats<> st;
               uint32_t iRow{0};
-              for (uint16_t z = 0; z < num_target_coords[Z]; ++z) { // serial
-              for (uint16_t y = 0; y < num_target_coords[Y]; ++y) { // serial
-              for (uint16_t x = 0; x < num_target_coords[X]; ++x) { // serial
-                  int const idx[3] = {x, y, z};
+              for (uint32_t z = 0; z < num_target_coords[Z]; ++z) { // serial
+              for (uint32_t y = 0; y < num_target_coords[Y]; ++y) { // serial
+              for (uint32_t x = 0; x < num_target_coords[X]; ++x) { // serial
+                  uint32_t const idx[] = {x, y, z};
                   auto const idx3 = index3D(num_target_coords, idx);
                   assert(idx3 < product_target_blocks);
 
@@ -859,7 +873,7 @@ namespace green_function {
                       for (int d = 0; d < 3; ++d) {
                           p.target_coords[iRow][d] = idx[d] + min_target_coords[d];
                           p.CubePos[iRow][d] = p.target_coords[iRow][d];
-                          global_target_coords[d] = p.target_coords[iRow][d] + internal_global_offset[d];
+                          global_target_coords[d] = p.target_coords[iRow][d] + global_internal_offset[d];
                       } // d
                       p.target_coords[iRow][3] = 0; // not used
                       p.CubePos[iRow][3] = 0.f; // not used

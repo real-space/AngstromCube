@@ -27,15 +27,38 @@
 
 namespace green_kinetic {
 
+    int32_t get_inz(
+            uint32_t const idx[3]
+          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
+          , uint32_t const RowStart[]
+          , uint16_t const ColIndex[]
+          , unsigned const irhs
+          , char const dd='?' // derivative direction
+    ) {
+          int constexpr X=0, Y=1, Z=2;
+                          auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
+                          assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
+
+                          int32_t inz_found{-1};
+                          for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+                              if (ColIndex[inz] == irhs) {
+                                  inz_found = inz; // store where it was found
+                                  inz = RowStart[iRow + 1]; // stop search loop
+                              } // found
+                          } // search
+                          return inz_found;
+    } // get_inz
+  
+  
     inline status_t finite_difference_plan(
             green_sparse::sparse_t<int32_t> & sparse // result
           , int const dd // direction of derivative
-          , bool const periodic
-          , uint16_t const num_target_coords[3]
+          , bool const boundary_is_periodic
+          , uint32_t const num_target_coords[3]
           , uint32_t const RowStart[]
           , uint16_t const ColIndex[]
-          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X)
-          , std::vector<bool> const sparsity_pattern[]
+          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
+          , std::vector<bool> const sparsity_pattern[] // memory saving bit-arrays sparsity_pattern[irhs][idx3]
           , unsigned const nrhs=1 // number of right hand sides
           , int const echo=0
       )
@@ -87,56 +110,93 @@ namespace green_kinetic {
           assert(X == dd || Y == dd || Z == dd); 
           int num[3];
           set(num, 3, num_target_coords);
-          int const num_dd = num[dd];
+          uint32_t const num_dd = num[dd];
           num[dd] = 1; // replace number of target blocks in derivative direction
           if (echo > 0) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
           simple_stats::Stats<> length_stats;
           size_t const max_lists = nrhs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
           std::vector<std::vector<int32_t>> list(max_lists);
           size_t ilist{0};
-          for (unsigned iRHS = 0; iRHS < nrhs; ++iRHS) {
-//                if (echo > 0) std::printf("# FD list for RHS #%i\n", iRHS);
-              auto const & sparsity_RHS = sparsity_pattern[iRHS];
-              for (int iz = 0; iz < num[Z]; ++iz) { //  
-              for (int iy = 0; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
-              for (int ix = 0; ix < num[X]; ++ix) { // 
-                  int idx[3] = {ix, iy, iz};
-                  list[ilist].resize(4, 0); // prepend {0, 0, 0, 0}
-                  list[ilist].reserve(4 + num_dd + 4); // makes push_back operation faster
-                  for (int id = 0; id < num_dd; ++id) { // loop over direction to derive
+          for (unsigned irhs = 0; irhs < nrhs; ++irhs) {
+//                if (echo > 0) std::printf("# FD list for RHS #%i\n", irhs);
+              auto const & sparsity_rhs = sparsity_pattern[irhs];
+              for (uint32_t iz = 0; iz < num[Z]; ++iz) { //  
+              for (uint32_t iy = 0; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
+              for (uint32_t ix = 0; ix < num[X]; ++ix) { // 
+                  uint32_t idx[3] = {ix, iy, iz}; // non-const
+                  assert(ilist < max_lists);
+                  assert(0 == list[ilist].size()); // make sure the list is empty at start
+                  int32_t last_id{-1};
+                  for (uint32_t id = 0; id < num_dd; ++id) { // loop over direction to derive
                       idx[dd] = id; // replace index in the derivate direction
-//                    if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", iRHS, idx[X], idx[Y], idx[Z]);
-                      auto const idx3 = index3D(num_target_coords, idx);
-                      if (sparsity_RHS[idx3]) {
-                          auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
-                          assert(iRow >= 0 && "sparsity_pattern[iRHS][idx3] does not match iRow_of_coords[iz][iy][ix]");
+//                    if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", irhs, idx[X], idx[Y], idx[Z]);
+                      auto const idx3 = index3D(num_target_coords, idx); // flat index
+                      if (sparsity_rhs[idx3]) {
+//                           auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
+//                           assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
+// 
+//                           int32_t inz_found{-1};
+//                           for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+//                               if (ColIndex[inz] == irhs) {
+//                                   inz_found = inz; // store where it was found
+//                                   inz = RowStart[iRow + 1]; // stop search loop
+//                               } // found
+//                           } // search
+                          auto const inz_found = get_inz(idx, iRow_of_coords, RowStart, ColIndex, irhs, 'x' + dd);
+                          assert(inz_found >= 0 && "sparsity_pattern[irhs][idx3] inconsistent with iRow_of_coords[iz][iy][ix]");
 
-                          int32_t inz_found{-1};
-                          for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-                              if (ColIndex[inz] == iRHS) {
-                                  inz_found = inz; // store where it was found
-                                  inz = RowStart[iRow + 1]; // stop search loop
-                              } // found
-                          } // search
-                          assert(inz_found >= 0); // fails at inconsistency between sparsity_pattern and the BSR tables
+                          if (0 == list[ilist].size()) {
+                              list[ilist].reserve(4 + num_dd + 4); // makes push_back operation faster
+                              list[ilist].resize(4, 0); // prepend {0, 0, 0, 0}
+                              if (boundary_is_periodic) {
+                                  if (0 == id) { // only when we are at the leftmost boundary
+                                      for(int ihalo = 0; ihalo < 4; ++ihalo) {
+                                          uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
+                                          jdx[dd] = num_target_coords[dd] - 4 + ihalo; // peridic wrap around (not correct if num_target_coords[dd] < 4)
+                                          auto const jdx3 = index3D(num_target_coords, jdx); // flat index
+                                          if (sparsity_rhs[jdx3]) {
+                                              auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
+                                              if (jnz_found >= 0) {
+                                                  list[ilist][ihalo] = -(jnz_found + 1); // negative index marks that a (left) Bloch phase needs to be multiplied
+                                              } // block exists
+                                          } // block exists
+                                      } // ihalo
+                                  } // leftmost boundary
+                              } // boundary_is_periodic
+                          } // list was empty
 
-                          assert(ilist < max_lists);
-                          list[ilist].push_back(inz_found + 1);
+                          list[ilist].push_back(inz_found + 1); // +1 so that non-exiting elements are marked by 0
+                          last_id = id;
                       } // sparsity pattern
                   } // id
                   int const list_length = list[ilist].size();
                   if (list_length > 4) {
                       length_stats.add(list_length - 4);
 //                    if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n", list_length, direction, idx[X], idx[Y], idx[Z]);
-                      // add 4 end-of-sequence markers (could also be done later during the copying into device memory)
-                      for (int i = 0; i < 4; ++i) {
-                          list[ilist].push_back(0); // append {0, 0, 0, 0}
-                      } // i
+                      // add 4 end-of-sequence markers
+                      for (int ihalo = 0; ihalo < 4; ++ihalo) {
+                          list[ilist].push_back(0); // append {0, 0, 0, 0} to mark the end of the derivative sequence
+                      } // ihalo
+                      if (boundary_is_periodic) {
+                          if (num_target_coords[dd] - 1 == last_id) { // only when the last entry was at the rightmost boundary
+                                      for(int ihalo = 0; ihalo < 4; ++ihalo) {
+                                          uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
+                                          jdx[dd] = ihalo; // peridic wrap around (not correct if num_target_coords[dd] < 4)
+                                          auto const jdx3 = index3D(num_target_coords, jdx); // flat index
+                                          if (sparsity_rhs[jdx3]) {
+                                              auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
+                                              if (jnz_found >= 0) {
+                                                  list[ilist][list_length + ihalo] = -(jnz_found + 1); // negative index marks that a (right) Bloch phase needs to be multiplied
+                                              } // block exists
+                                          } // block exists
+                                      } // ihalo
+                          } // rightmost boundary
+                      } // boundary_is_periodic
 
                       ++ilist; // create next list index
                   } // list_length > 0
               }}} // ixyz
-          } // iRHS
+          } // irhs
 
           // store the number of lists
           uint32_t const n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
