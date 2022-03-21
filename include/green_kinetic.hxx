@@ -110,6 +110,7 @@ namespace green_kinetic {
           // prepare the finite-difference sequence lists
           char const direction = 'x' + dd;
           assert(X == dd || Y == dd || Z == dd); 
+          assert(num_target_coords[X] > 0); assert(num_target_coords[Y] > 0); assert(num_target_coords[Z] > 0);
           int num[3];
           set(num, 3, num_target_coords);
           uint32_t const num_dd = num[dd];
@@ -146,8 +147,7 @@ namespace green_kinetic {
                                   if (0 == id) { // only when we are at the leftmost boundary
                                       for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
                                           uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
-                                          assert(num_target_coords[dd] >= nhalo);
-                                          jdx[dd] = num_target_coords[dd] - nhalo + ihalo; // periodic wrap around
+                                          jdx[dd] = (nhalo*num_target_coords[dd] - nhalo + ihalo) % num_target_coords[dd]; // periodic wrap around
                                           auto const jdx3 = index3D(num_target_coords, jdx); // flat index
                                           if (sparsity_rhs[jdx3]) {
                                               auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
@@ -180,8 +180,7 @@ namespace green_kinetic {
                           if (num_target_coords[dd] - 1 == last_id) { // only when the last entry was at the rightmost boundary
                                       for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
                                           uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
-                                          assert(num_target_coords[dd] >= nhalo);
-                                          jdx[dd] = ihalo; // periodic wrap around
+                                          jdx[dd] = ihalo % num_target_coords[dd]; // periodic wrap around
                                           auto const jdx3 = index3D(num_target_coords, jdx); // flat index
                                           if (sparsity_rhs[jdx3]) {
                                               auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);

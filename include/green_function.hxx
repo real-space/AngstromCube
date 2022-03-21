@@ -447,9 +447,10 @@ namespace green_function {
   char const boundary_condition_name[][16] = {"isolated", "periodic", "vacuum"};
   char const boundary_condition_shortname[][8] = {"iso", "peri", "vacu"};
 
+
   inline status_t construct_Green_function(
         green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-      , int const ng[3] // numbers of grid points of the unit cell in with the potential is defined
+      , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
       , int8_t const boundary_condition[3] // boundary conditions
       , double const hg[3] // grid spacings
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
@@ -473,7 +474,7 @@ namespace green_function {
       } // d
       if (echo > 3) { std::printf("# n_original_Veff_blocks "); printf_vector(" %d", n_original_Veff_blocks, 3); }
 
-      assert(Veff.size() == ng[Z]*ng[Y]*ng[X]);
+      assert(Veff.size() == ng[Z]*size_t(ng[Y])*size_t(ng[X]));
 
       size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
 
@@ -531,18 +532,16 @@ namespace green_function {
       } // echo
 
 
-      int32_t const MANIPULATE = control::get("MANIPULATE", 0.);
+      int32_t const source_cube = control::get("green_function.source.cube", 0.);
       int32_t n_source_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_source_blocks[d] = n_original_Veff_blocks[d];
-          if (MANIPULATE) n_source_blocks[d] = std::min(n_source_blocks[d], MANIPULATE);
+          if (source_cube) n_source_blocks[d] = std::min(n_source_blocks[d], source_cube);
       } // d
-      if (MANIPULATE && echo > 0) std::printf("\n# MANIPULATE=%d for n_source_blocks:\n", MANIPULATE);
+      if (source_cube && echo > 0) std::printf("\n# green_function.source.cube=%d for n_source_blocks:\n", source_cube);
       if (echo > 3) { std::printf("# n_source_blocks "); printf_vector(" %d", n_source_blocks, 3); }
 
-
-      // assume periodic boundary conditions and an infinite host crystal,
-      // so there is no need to consider k-points
+      // we assume that the source blocks lie compact and preferably close to each other      
 
       // determine the largest and smallest indices of target blocks
       // given a max distance r_trunc between source blocks and target blocks
@@ -659,17 +658,11 @@ namespace green_function {
 
           bool is_wrapped[] = {false, false, false}; // is_wrapped == true if periodic BC but truncation sphere fully within cell
           double h[] = {hg[X], hg[Y], hg[Z]}; // customized grid spacing used in green_potential::multiply
-          int16_t itr[3]; // 16bit, range [-32768, 32767] should be enough
+          int32_t itr[3];
           for (int d = 0; d < 3; ++d) {
 
-              // how many blocks around the source block do we need to check
-              auto const itrunc = std::floor(rtrunc_plus/(4*hg[d]));
-              assert(itrunc < 32768 && "target coordinate type is int16_t!");
-              itr[d] = int16_t(itrunc);
-              assert(itr[d] >= 0);
-              
               if (r_trunc >= 0) {
-                  char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x'+d); // this feature allows also truncation ellipsoids
+                  char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x' + d); // this feature allows also truncation ellipsoids
                   auto const scale_h = control::get(keyword, 1.);
                   if (scale_h >= 0) {
                       h[d] = hg[d]*scale_h;
@@ -681,6 +674,7 @@ namespace green_function {
                       if (2*rtrunc > deformed_cell) {
                           if (h[d] > 0) warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s), better use +%s=0 to deactivate truncation",
                                                                    2*rtrunc*Ang, _Ang,                 'x' + d, deformed_cell*Ang, _Ang,   keyword);
+                          // Alternatively, we could not only recommend it but make it automatically: h[d] = 0;
                       } else {
                           if (echo > 1) std::printf("# boundary condition in %c-direction is wrapped\n", 'x' + d);
                           is_wrapped[d] = true;
@@ -688,14 +682,21 @@ namespace green_function {
                   } // periodic boundary condition
               } // r_trunc >= 0
 
+
+              // how many blocks around the source block do we need to check
+              itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : n_original_Veff_blocks[d]/2;
+              assert(itr[d] >= 0);
+
               min_target_coords[d] = min_global_source_coords[d] - global_internal_offset[d] - itr[d]; // vaccum BC
               max_target_coords[d] = max_global_source_coords[d] - global_internal_offset[d] + itr[d]; // vaccum BC
+              
               if (Vacuum_Boundary == boundary_condition[d] || is_wrapped[d]) {
                   // ok, no modification necessary
               } else {
-                  auto const m = n_original_Veff_blocks[d] - 1;
-                  min_target_coords[d] = std::max(min_target_coords[d], 0 - global_internal_offset[d]);
-                  max_target_coords[d] = std::min(max_target_coords[d], m - global_internal_offset[d]);
+                  auto const n = n_original_Veff_blocks[d];
+                  // limit to global coordinates in [0, n)
+                  min_target_coords[d] = std::max(min_target_coords[d], 0     - global_internal_offset[d]);
+                  max_target_coords[d] = std::min(max_target_coords[d], n - 1 - global_internal_offset[d]);
               }
               auto const n_target_coords = int32_t(max_target_coords[d]) + 1 - min_target_coords[d];
               assert(n_target_coords > 0);
@@ -735,17 +736,20 @@ namespace green_function {
               int constexpr max_nci = 27;
               std::vector<int> hist(1 + max_nci, 0); // distribution of nci
               std::vector<simple_stats::Stats<>> stats_d2(1 + max_nci);
+              int64_t idx3_diagonal{-1};
               int32_t target_coords[3]; // internal target block coordinates
-              for (int32_t bz = -itr[Z]; bz <= itr[Z]; ++bz) { target_coords[Z] = source_coords[Z] + bz; if (target_coords[Z] >= min_target_coords[Z] && target_coords[Z] <= max_target_coords[Z]) {
-              for (int32_t by = -itr[Y]; by <= itr[Y]; ++by) { target_coords[Y] = source_coords[Y] + by; if (target_coords[Y] >= min_target_coords[Y] && target_coords[Y] <= max_target_coords[Y]) {
-              for (int32_t bx = -itr[X]; bx <= itr[X]; ++bx) { target_coords[X] = source_coords[X] + bx; if (target_coords[X] >= min_target_coords[X] && target_coords[X] <= max_target_coords[X]) {
-
-//                   int32_t const bxyz[3] = {bx, by, bz}; // block difference vector
-//                   for (int d = 0; d < 3; ++d) {
-//                       target_coords[d] = source_coords[d] + bxyz[d];
-//                       assert(target_coords[d] >= min_target_coords[d]);
-//                       assert(target_coords[d] <= max_target_coords[d]);
-//                   } // d
+              
+              int32_t b_first[3], b_last[3];
+              for (int d = 0; d < 3; ++d) {
+                  b_first[d] = std::max(-itr[d], min_target_coords[d] - source_coords[d]);
+                  b_last[d]  = std::min( itr[d], max_target_coords[d] - source_coords[d]);
+              } // d
+              for (int32_t bz = b_first[Z]; bz <= b_last[Z]; ++bz) { target_coords[Z] = source_coords[Z] + bz;
+                  assert(target_coords[Z] >= min_target_coords[Z] && target_coords[Z] <= max_target_coords[Z]);
+              for (int32_t by = b_first[Y]; by <= b_last[Y]; ++by) { target_coords[Y] = source_coords[Y] + by;
+                  assert(target_coords[Y] >= min_target_coords[Y] && target_coords[Y] <= max_target_coords[Y]);
+              for (int32_t bx = b_first[X]; bx <= b_last[X]; ++bx) { target_coords[X] = source_coords[X] + bx;
+                  assert(target_coords[X] >= min_target_coords[X] && target_coords[X] <= max_target_coords[X]); 
 
                   // d2 is the distance^2 of the block centers
                   double const d2 = pow2(bx*4*h[X]) + pow2(by*4*h[Y]) + pow2(bz*4*h[Z]);
@@ -781,24 +785,26 @@ namespace green_function {
                       int32_t idx[3];
                       for (int d = 0; d < 3; ++d) {
                           idx[d] = target_coords[d] - min_target_coords[d];
-                          assert(idx[d] >= 0);
-                          assert(idx[d] < num_target_coords[d]);
-                          stats[d].add(target_coords[d]);
+                          assert(0 <= idx[d]); assert(idx[d] < num_target_coords[d]);
                       } // d
                       auto const idx3 = index3D(num_target_coords, idx);
                       assert(idx3 < product_target_blocks);
-                      column_indices[idx3].push_back(irhs);
-                      sparsity_RHS[idx3] = true;
-                      if (0 == bx && 0 == by && 0 == bz) {
-                          tag_diagonal[idx3] = irhs;
-                      } // diagonal entry
-                  } // inside
+                      if (false == sparsity_RHS[idx3]) {
+                          sparsity_RHS[idx3] = true;
+                          column_indices[idx3].push_back(irhs);
+                          if (0 == bx && 0 == by && 0 == bz) {
+                              tag_diagonal[idx3] = irhs;
+                              idx3_diagonal = idx3;
+                          } // diagonal entry
+                          for (int d = 0; d < 3; ++d) stats[d].add(target_coords[d]);
+                      } // has not been hit yet
+                  } // nci > 0
                   ++hist[nci];
                   stats_d2[nci].add(d2);
 
-              }}}}}} // xyz
+              }}} // xyz
               if (echo > 7) {
-                  std::printf("# RHS at %i %i %i reaches from (%g, %g, %g) to (%g, %g, %g)\n",
+                  std::printf("# RHS#%i at %i %i %i reaches from (%g, %g, %g) to (%g, %g, %g)\n", irhs,
                       global_source_coords(irhs,X), global_source_coords(irhs,Y), global_source_coords(irhs,Z),
                       stats[X].min(), stats[Y].min(), stats[Z].min(),
                       stats[X].max(), stats[Y].max(), stats[Z].max());
@@ -820,6 +826,7 @@ namespace green_function {
                                 irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
                   inout[0].add(hist[max_nci]); inout[1].add(partial); inout[2].add(hist[0]); inout[3].add(total_checked);
               } // echo
+              assert(idx3_diagonal > -1); // must be hit once
           } // irhs
           if (echo > 0) {
               char const inout_class[][8] = {"inside", "partial", "outside",  "checked"};
@@ -841,7 +848,7 @@ namespace green_function {
           size_t nnzb{0}; // number of non-zero BSR entries
           for (int n = 0; n <= nrhs; ++n) {
               nall += hist[n];
-              nnzb  += hist[n]*n;
+              nnzb += hist[n]*n;
           } // n
           if (echo > 7) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nrhs + 1); }
           assert(nall == product_target_blocks); // sanity check
@@ -955,8 +962,8 @@ namespace green_function {
                           auto const iCol = p.colindx[inz];
                           for (int d = 0; d < 3; ++d) {
                               auto const diff = p.target_coords[iRow][d] - p.source_coords[iCol][d]; // ToDo: with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
-                              assert(std::abs(diff) <= 32767); // because of int16_t
                               p.target_minus_source[inz][d] = diff;
+                              assert(diff == p.target_minus_source[inz][d]);
                           } // d
                           p.target_minus_source[inz][3] = 0; // not used
                           p.rowindx[inz] = iRow;
@@ -1005,7 +1012,7 @@ namespace green_function {
                 , nrhs, echo);
               if (stat && echo > 0) std::printf("# construct_kinetic_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
 
-          } // dd
+          } // dd derivate direction
 
           // transfer grid spacing into managed GPU memory
           p.grid_spacing = get_memory<double>(3, echo, "grid_spacing");
@@ -1057,9 +1064,9 @@ namespace green_function {
 #else // NO_UNIT_TESTS
 
   inline status_t test_Green_function(int const echo=0) {
-      int    ng[3] = {0, 0, 0}; // grid sizes
-      int8_t bc[3] = {0, 0, 0}; // boundary conditions
-      double hg[3] = {1, 1, 1}; // grid spacings
+      uint32_t ng[3] = {0, 0, 0}; // grid sizes
+      int8_t   bc[3] = {0, 0, 0}; // boundary conditions
+      double   hg[3] = {1, 1, 1}; // grid spacings
       std::vector<double> Veff(0); // local potential
       int natoms{0}; // number of atoms
       std::vector<double> xyzZinso(0); // atom info
