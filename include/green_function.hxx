@@ -672,8 +672,12 @@ namespace green_function {
                       // periodic boundary conditions
                       double const deformed_cell = h[d]*ng[d];
                       if (2*rtrunc > deformed_cell) {
-                          if (h[d] > 0) warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s), better use +%s=0 to deactivate truncation",
-                                                                   2*rtrunc*Ang, _Ang,                 'x' + d, deformed_cell*Ang, _Ang,   keyword);
+                          if (h[d] > 0) {
+                              warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s), better use +%s=0 to deactivate truncation",
+                                                       2*rtrunc*Ang, _Ang,                 'x' + d, deformed_cell*Ang, _Ang,   keyword);
+                          } else {
+                              
+                          }
                           // Alternatively, we could not only recommend it but make it automatically: h[d] = 0;
                       } else {
                           if (echo > 1) std::printf("# boundary condition in %c-direction is wrapped\n", 'x' + d);
