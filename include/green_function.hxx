@@ -538,7 +538,7 @@ namespace green_function {
           n_source_blocks[d] = n_original_Veff_blocks[d];
           if (source_cube) n_source_blocks[d] = std::min(n_source_blocks[d], source_cube);
       } // d
-      if (source_cube && echo > 0) std::printf("\n# green_function.source.cube=%d for n_source_blocks:\n", source_cube);
+      if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
       if (echo > 3) { std::printf("# n_source_blocks "); printf_vector(" %d", n_source_blocks, 3); }
 
       // we assume that the source blocks lie compact and preferably close to each other      
@@ -789,6 +789,7 @@ namespace green_function {
                       int32_t idx[3];
                       for (int d = 0; d < 3; ++d) {
                           idx[d] = target_coords[d] - min_target_coords[d];
+                          // TODO in the periodic case we have to make sure that we hit no element twice
                           assert(0 <= idx[d]); assert(idx[d] < num_target_coords[d]);
                       } // d
                       auto const idx3 = index3D(num_target_coords, idx);
@@ -812,6 +813,7 @@ namespace green_function {
                       global_source_coords(irhs,X), global_source_coords(irhs,Y), global_source_coords(irhs,Z),
                       stats[X].min(), stats[Y].min(), stats[Z].min(),
                       stats[X].max(), stats[Y].max(), stats[Z].max());
+                  // here, we can also check if the center of all targets is the source coordinate
               } // echo
               if (echo > 2) {
                   int total_checked{0};

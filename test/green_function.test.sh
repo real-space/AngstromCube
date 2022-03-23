@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-exe=../src/a43
+exe=./a43
 project_base=green_function
 
 ## How to generate a test potential Hmt.xml for the Green function module?
@@ -15,7 +15,7 @@ for rtrunc in 11; do
 #   project=$project_base.r$rtrunc
 #   (cd ../src/ && make -j) && \
   $exe -test green_function \
-        +verbosity=7 \
+        +verbosity=17 \
         +green_input.empty.potential=1 \
         +green_function.source.cube=2 \
         +green_function.truncation.radius=$rtrunc \
