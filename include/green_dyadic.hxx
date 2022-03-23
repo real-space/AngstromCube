@@ -27,17 +27,17 @@ namespace green_dyadic {
           real_t (*const __restrict__ H1D)[3][4] // result H1D[nu][dir][i4]
         , float  (*const __restrict__ xi_squared)[4] // distance^2 xi_squared[dir][i4]
         , int    const ivec // thread index used for the vectorization (at least 3*4==12 threads must run)
-        , int    const Lmax
-        , double const xyza[3+1] // atomic position in [0],[1],[2], sigma^{-1/2} in [3]
-        , float  const xyzc[3]   // position of the target block
+        , int    const lmax
+        , double const xyza[3+1] // atom image position in [0],[1],[2], sigma^{-1/2} in [3]
+        , float  const xyzc[3]   // position of the target block (in units of 4*grid spacing)
         , double const hxyz[3+1] // grid spacings in [0],[1],[2], projection radius in [3]
     )
-      // Evaluate the Hermite-Gauss functions on a 3D block of 4^3 grid points in parallel
+      // Evaluate the 1D Hermite-Gauss functions on a 3D block of 4^3 grid points in parallel
     {
 
         double const R2_projection = pow2(double(hxyz[3])); // projection radius can be controlled from outside
 
-        if (Lmax < 0) return R2_projection; // as float
+        if (lmax < 0) return R2_projection; // as float
 
         int constexpr l2b = 2;
         int constexpr n4 = 1 << l2b; // Block edge length is 2^l2b
@@ -63,23 +63,27 @@ namespace green_dyadic {
             double const xi2 = xi*xi;
             xi_squared[idir][i4] = xi2; // export the square of the distance in units of sigma
             double const H0 = (xi2 < R2_projection) ? std::exp(-0.5*xi2) : 0; // Gaussian envelope function
-
+            
             // Discuss:   We could export xi*xi as an array double (or maybe only float) xi2[3][4] and compare
             //              xi2[0][x] + xi2[1][y] + xi2[2][z] < R2_projection
             //            hence omitting the data transfer of BitMask entirely and save preparation code complexity
 
+
             H1D[0][idir][i4] = H0; // store Gaussian H_0
 
             double Hnp1, Hn{H0}, Hnm1{0};
-            for (int nu = 0; nu < Lmax; ++nu) {
+//          std::printf("# %s idir=%d xi= %g H= %g", __func__, idir, xi, H0);
+            for (int nu = 0; nu < lmax; ++nu) {
                 double const nuhalf = 0.5 * nu; // nu/2.
                 // use the two step recurrence relation to create the 1D Hermite polynomials
                 // H1D[nu+1][idir][i4] = xi * H1D[nu][idir][i4] - nu/2. * H1D[nu-1][idir][i4];
                 Hnp1 = xi * Hn - nuhalf * Hnm1; // see snippets/3Hermite.F90 for the derivation of this
                 H1D[nu + 1][idir][i4] = Hnp1; // store
+//              std::printf(" %g", Hnp1);
                 // rotate registers for the next iteration
                 Hnm1 = Hn; Hn = Hnp1; // ordering is important here
             } // nu
+//          std::printf("\n");
 
             // Warning!
             // The Hermite polynomials are not normalized. To normalize w.r.t. the 2-norm,
@@ -417,7 +421,6 @@ namespace green_dyadic {
 #endif // HAS_NO_CUDA
               
             int sho{0};
-            int const nSHO = sho_tools::nSHO(Lmax);
             for (int iz = 0; iz <= lmax; ++iz) { // executes (Lmax + 1) times
 
                 real_t byx[4][4]; // get 16 accumulator registers --> 32 registers if double
@@ -480,7 +483,6 @@ namespace green_dyadic {
                 mask_all |= mask_atom; // set mask bits for modified grid points to 1
 
             } // iz
-            if (lmax == Lmax) assert(nSHO == sho);
             // now how many flop have been done?
             // FMA*( 4 * ((L+1)*(L+2)*(L+3))/6 + 4**2 * ((L+1)*(L+2))/2 + 4**3 * (L+1) )
             // so for Lmax=5 this is 944 FMAs = 1888 flop
@@ -970,6 +972,26 @@ namespace green_dyadic {
     } // multiply (dyadic operations)
 
 
+    std::vector<double> sho_normalization(int8_t const lmax, double const sigma=1) {
+        int const n1ho = sho_tools::n1HO(lmax);
+        std::vector<double> v1(n1ho, constants::sqrtpi * sigma);
+        double fac{1};
+        for (int nu = 0; nu <= lmax; ++nu) {
+            v1[nu] *= fac;
+            fac *= 0.5*(nu + 1);
+        } // nu
+
+        std::vector<double> vec(sho_tools::nSHO(lmax), 1.);
+        int sho{0};
+        for (int iz = 0; iz <= lmax; ++iz) {
+            for (int iy = 0; iy <= lmax - iz; ++iy) {
+                for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
+                    vec[sho] = v1[ix] * v1[iy] * v1[iz];
+                    ++sho;
+        }}}
+        assert(vec.size() == sho);
+        return vec;
+    } // sho_normalization
             
 
 #ifdef  NO_UNIT_TESTS
@@ -1061,12 +1083,13 @@ namespace green_dyadic {
 
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1, int8_t const lmax=std::min(5,Lmax_default)) {
+  inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1, int8_t const lmax=5) {
       // check if drivers compile and the normalization of the lowest (up to 64) SHO functions
-      int const nb = 7, natoms = 1, nrhs = 1, nnzb = pow3(nb);
-      int const nsho = sho_tools::nSHO(lmax);
+      auto const rc = control::get("green_dyadic.test.rc", 7.);
+      int  const nb = control::get("green_dyadic.test.nb", 11.), natoms = 1, nrhs = 1, nnzb = pow3(nb);
+      int  const nsho = sho_tools::nSHO(lmax);
       auto psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "psi");
-      set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64), real_t(0)); // clear
+      set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64ull), real_t(0)); // clear
       auto apc = get_memory<real_t[R1C2][Noco   ][Noco*64]>(natoms*nsho*nrhs, echo, "apc");
       set(apc[0][0][0], natoms*nsho*nrhs*R1C2*pow2(Noco)*64, real_t(0)); // clear
 
@@ -1085,7 +1108,7 @@ namespace green_dyadic {
 
       auto ColIndexCubes = get_memory<uint16_t>(nnzb, echo, "ColIndexCubes");     set(ColIndexCubes, nnzb, uint16_t(0));
       auto RowIndexCubes = get_memory<uint32_t>(nnzb, echo, "RowIndexCubes");     for (int inzb = 0; inzb < nnzb; ++inzb) RowIndexCubes[inzb] = inzb;
-      auto hGrid         = get_memory<double>(3+1, echo, "hGrid");                set(hGrid, 3, 1.0);                        hGrid[3] = 6.2832;
+      auto hGrid         = get_memory<double>(3+1, echo, "hGrid");                set(hGrid, 3, 0.25); hGrid[3] = rc;
       auto AtomPos       = get_memory<double[3+1]>(natoms, echo, "AtomPos");      set(AtomPos[0], 3, hGrid, 0.5*4*nb);  AtomPos[0][3] = 1./std::sqrt(sigma);
       auto AtomLmax      = get_memory<int8_t>(natoms, echo, "AtomLmax");          set(AtomLmax, natoms, lmax);
       auto AtomStarts    = get_memory<uint32_t>(natoms + 1, echo, "AtomStarts");  for(int ia = 0; ia <= natoms; ++ia) AtomStarts[ia] = ia*nsho;
@@ -1093,19 +1116,28 @@ namespace green_dyadic {
       for (int iz = 0; iz < nb; ++iz) {
       for (int iy = 0; iy < nb; ++iy) {
       for (int ix = 0; ix < nb; ++ix) {
-          auto const inzb = (iz*nb + iy)*nb + ix;
-          CubePos[inzb][0] = hGrid[0]*4*ix;
-          CubePos[inzb][1] = hGrid[1]*4*iy;
-          CubePos[inzb][2] = hGrid[2]*4*iz;
-          CubePos[inzb][3] = 0;
+          int const xyz0[] = {ix, iy, iz, 0};
+          set(CubePos[(iz*nb + iy)*nb + ix], 4, xyz0);
       }}} // ix iy iz
 
       // see if these drivers compile and can be executed without segfaults
       if (echo > 11) std::printf("# here %s:%d\n", __func__, __LINE__);
 
-      for (int isho = 0; isho < std::min(nsho, 64); ++isho) apc[isho*nrhs][0][0][isho] = 1; // set "unit matrix"
+      auto const dV = hGrid[0]*hGrid[1]*hGrid[2];
+      auto const sho_norm = sho_normalization(lmax, sigma);
+      for (int isho = 0; isho < std::min(nsho, 64); ++isho) apc[isho*nrhs][0][0][isho] = dV/sho_norm[isho]; // set "unit matrix" but normalized
 
       SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
+      if (0) {
+          size_t nz{0};
+          for (int i = 0; i < nnzb*64; ++i) {
+              auto const value = psi[i >> 6][0][i & 63][0];
+              nz += (0 == value);
+              if (echo > 19) std::printf(" %g", value);
+          } // isho
+          if (echo > 3) std::printf("\n# %ld non-zeros of %d\n", nz, nnzb*64);
+      } // echo
+
       SHOprj_driver<real_t,R1C2,Noco>(apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
 
       double maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
@@ -1115,9 +1147,10 @@ namespace green_dyadic {
           for (int isho = 0; isho < msho; ++isho) {
               if (echo > 9) std::printf("\n# projection coefficients[%2d]: ", isho);
               for (int jsho = 0; jsho < msho; ++jsho) {
-                  auto const diag = (isho == jsho);
-                  if (echo > 9) std::printf(" %g", apc[isho*nrhs][0][0][jsho]);
-                  maxdev[diag] = std::max(maxdev[diag], std::abs(double(apc[isho*nrhs][0][0][jsho]) - diag));
+                  double const value = apc[isho*nrhs][0][0][jsho];
+                  int const diag = (isho == jsho);
+                  if (echo > 9) std::printf(" %g", value);
+                  maxdev[diag] = std::max(maxdev[diag], std::abs(value - diag));
               } // isho
               if (echo > 9) std::printf(" diagonal=");
               if (echo > 5) std::printf(" %.3f", apc[isho*nrhs][0][0][isho]);
@@ -1126,17 +1159,18 @@ namespace green_dyadic {
       } // scope
       if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.1e, normalization error %.1e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
 
-      // also test the deprecated interface 'multiply'
-      auto AtomMatrices = get_memory<double*>(natoms, echo, "AtomMatrices");
-      for (int ia = 0; ia < natoms; ++ia) {
-          int const nsho = sho_tools::nSHO(AtomLmax[ia]);
-          if (echo > 9) std::printf("# %s atom image #%d has lmax= %d and %d coefficients starting at %d\n", __func__, ia, AtomLmax[ia], nsho, AtomStarts[ia]);
-          AtomMatrices[ia] = get_memory<double>(pow2(Noco)*2*pow2(nsho), echo, "AtomMatrix[ia]");
-          set(AtomMatrices[ia], pow2(Noco)*2*pow2(nsho), 0.0);
-      } // ia
-      multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, AtomMatrices, sparse_SHOadd, RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
-      for (int ia = 0; ia < natoms; ++ia) free_memory(AtomMatrices[ia]);
-      free_memory(AtomMatrices);
+      if (0) {
+          // also test the deprecated interface 'multiply'
+          auto AtomMatrices = get_memory<double*>(natoms, echo, "AtomMatrices");
+          for (int ia = 0; ia < natoms; ++ia) {
+              if (echo > 9) std::printf("# %s atom image #%d has lmax= %d and %d coefficients starting at %d\n", __func__, ia, AtomLmax[ia], nsho, AtomStarts[ia]);
+              AtomMatrices[ia] = get_memory<double>(pow2(Noco)*2*pow2(nsho), echo, "AtomMatrix[ia]");
+              set(AtomMatrices[ia], pow2(Noco)*2*pow2(nsho), 0.0);
+          } // ia
+          multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, AtomMatrices, sparse_SHOadd, RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
+          for (int ia = 0; ia < natoms; ++ia) free_memory(AtomMatrices[ia]);
+          free_memory(AtomMatrices);
+      } // 0
 
       free_memory(ColIndexCubes);
       free_memory(RowIndexCubes);
@@ -1153,17 +1187,17 @@ namespace green_dyadic {
   inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1) {
       status_t stat(0);
       stat += test_SHOprj_and_SHOadd<float ,1,1>(echo, sigma); // real
-      stat += test_SHOprj_and_SHOadd<float ,2,1>(echo, sigma); // complex
-      stat += test_SHOprj_and_SHOadd<float ,2,2>(echo, sigma); // non-collinear
+//       stat += test_SHOprj_and_SHOadd<float ,2,1>(echo, sigma); // complex
+//       stat += test_SHOprj_and_SHOadd<float ,2,2>(echo, sigma); // non-collinear
       stat += test_SHOprj_and_SHOadd<double,1,1>(echo, sigma); // real
-      stat += test_SHOprj_and_SHOadd<double,2,1>(echo, sigma); // complex
-      stat += test_SHOprj_and_SHOadd<double,2,2>(echo, sigma); // non-collinear
+//       stat += test_SHOprj_and_SHOadd<double,2,1>(echo, sigma); // complex
+//       stat += test_SHOprj_and_SHOadd<double,2,2>(echo, sigma); // non-collinear
       return stat;
   } // test_SHOprj_and_SHOadd
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_Hermite_polynomials_1D(echo);
+//    stat += test_Hermite_polynomials_1D(echo);
       stat += test_SHOprj_and_SHOadd(echo);
       return stat;
   } // all_tests

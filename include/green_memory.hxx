@@ -81,6 +81,12 @@
   template <typename real_t=float>
   inline char const* real_t_name() { return (8 == sizeof(real_t)) ? "double" : "float"; }
 
+//   template <typename result_t, typename input_t>
+//   void safe_assign(result_t & result, input_t const & input) {
+//       result = input; // assign
+//       assert(input == result);
+//   } // safe_assign
+
   //
   // Memory layout for Green function and atomic projection coefficients
   //
