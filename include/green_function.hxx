@@ -878,7 +878,7 @@ namespace green_function {
           set(p.veff_index, nnzb, -1); // init as non-existing
           p.target_coords = get_memory<int16_t[3+1]>(p.nRows, echo, "target_coords");
           p.target_minus_source = get_memory<int16_t[3+1]>(nnzb, echo, "target_minus_source");
-          p.CubePos = get_memory<float[3+1]>(p.nRows, echo, "CubePos");
+          p.CubePos = get_memory<float[3+1]>(p.nRows, echo, "CubePos"); // internal coordinates but in float
 
           p.global_target_indices.resize(p.nRows);
           p.subset.resize(p.nCols); // we assume columns of the unit operator as RHS
@@ -909,7 +909,7 @@ namespace green_function {
                       int32_t global_target_coords[3];
                       for (int d = 0; d < 3; ++d) {
                           p.target_coords[iRow][d] = idx[d] + min_target_coords[d];
-                          p.CubePos[iRow][d] = p.target_coords[iRow][d];
+                          p.CubePos[iRow][d] = p.target_coords[iRow][d]; assert(p.CubePos[iRow][d] == p.target_coords[iRow][d]);
                           global_target_coords[d] = p.target_coords[iRow][d] + global_internal_offset[d];
                       } // d
                       p.target_coords[iRow][3] = 0; // not used

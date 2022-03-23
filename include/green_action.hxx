@@ -99,7 +99,7 @@ namespace green_action {
       uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
-      float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float
+      float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float, could be int16_t for most applications
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
       double  (**Veff)[64]          = nullptr; // effective potential, data layout [Noco*Noco][nRows][64]
       int32_t*  veff_index          = nullptr; // [nnzb] indirection list
