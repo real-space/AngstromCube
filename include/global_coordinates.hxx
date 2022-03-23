@@ -19,10 +19,10 @@ namespace global_coordinates {
       // interleave bit pattern of the lowest 21 bits to 63 bits
       int64_t i63{0};
       for (int b21 = 0; b21 < 21; ++b21) {
-          int32_t const i3 = (x & 0x1) + 2*(y & 0x1) + 4*(z & 0x1);
-          x >>= 1; y >>= 1; z >>= 1; // delete the least significant bit of the coordinates
-          int64_t const i3_shifted = int64_t(i3) << (b21*3);
+          int64_t const i3 = (x & 0x1) + 2*(y & 0x1) + 4*(z & 0x1);
+          int64_t const i3_shifted = i3 << (b21*3);
           i63 |= i3_shifted;
+          x >>= 1; y >>= 1; z >>= 1; // delete the least significant bit of the coordinates
       } // b21
       return i63; // when printing i63, use format %22.22lo
   } // get
@@ -40,7 +40,14 @@ namespace global_coordinates {
           z |= (i63 & 0x1) << b21;   i63 >>= 1;
       } // b21
       xyz[0] = x; xyz[1] = y; xyz[2] = z;
-      return status_t(i63 & 0x1); // this is 0 if i63 >= 0
+      return status_t(i63 & 0x1); // this is 0 if i63 >= 0, i.e. if i63 was valid
+  } // get
+
+  inline int32_t get(uint32_t const xyz) {
+      // retrieve signed global_coordinates in the half-open range [-2^20, 2^20)
+      uint32_t constexpr b20 = 1 << 20;
+      int32_t  constexpr b21 = 1 << 21;
+      return int32_t(xyz) - (xyz >= b20)*b21; // subtract 2^21 if larger equal 2^20
   } // get
 
 #ifdef  NO_UNIT_TESTS

@@ -82,8 +82,12 @@ namespace green_sparse {
 
           if (echo > 7) std::printf("# sparse_t constructed with %d rows and %ld non-zero elements\n", uint32_t(nRows_), size_t(nnz));
           if (echo > 5) std::printf("# sparse_t %s columns per row stats [%g, %g +/- %g, %g]\n", name, st.min(), st.mean(), st.dev(), st.max());
-          if (echo > 9) { std::printf("# sparse_t.rowStart(%p)= ", (void*)rowStart_); printf_vector(" %d", rowStart_, nRows_); }
-          if (echo > 9) { std::printf("# sparse_t.colIndex(%p)= ", (void*)colIndex_); printf_vector(" %d", colIndex_, nnz); }
+          if (echo > 9) { 
+              std::printf("# sparse_t.rowStart"); if (echo > 19) std::printf("(%p)", (void*)rowStart_); 
+              std::printf("[0..%d]=", nRows_);  printf_vector(" %d", rowStart_, nRows_);
+              std::printf("# sparse_t.colIndex"); if (echo > 19) std::printf("(%p)", (void*)colIndex_); 
+              std::printf("[0..%ld-1]= ", nnz); printf_vector(" %d", colIndex_, nnz);
+          } // echo
       } // constructor
 
       ~sparse_t() {

@@ -7,6 +7,7 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory, dim3, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<>
+#include "inline_math.hxx" // pow2, pow3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 
 #ifndef HAS_NO_CUDA
@@ -855,6 +856,7 @@ namespace green_dyadic {
       double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages]
       int8_t*   AtomImageLmax       = nullptr; // [nAtomImages]
       double  (*AtomImagePhase)[4]  = nullptr; // [nAtomImages]
+      int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages]
       uint32_t nAtomImages  = 0;
 
       double *grid_spacing   = nullptr; // [3+1] hx,hy,hz,rcut/sigma
@@ -882,14 +884,15 @@ namespace green_dyadic {
           free_memory(AtomImagePos);
           free_memory(AtomImageLmax);
           free_memory(AtomImagePhase);
+          free_memory(AtomImageShift);
           free_memory(AtomLmax);
-//        free_memory(CubePos);
           if (sparse_SHOprj) for (int32_t irhs = 0; irhs < nrhs; ++irhs) sparse_SHOprj[irhs].~sparse_t<>();
           free_memory(sparse_SHOprj);
       } // constructor
       
       status_t consistency_check() const {
           status_t stat(0);
+          assert(nAtomImages >= nAtoms);
           auto const rowStart = sparse_SHOsum.rowStart();
           auto const colIndex = sparse_SHOsum.colIndex();
           stat += (sparse_SHOsum.nRows() != nAtoms);
@@ -1058,25 +1061,72 @@ namespace green_dyadic {
 
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1) {
-      int const natoms = 1, nrhs = 1, nnzb = 1;
-      int const nsho = sho_tools::nSHO(Lmax_default);
+  inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1, int8_t const lmax=std::min(5,Lmax_default)) {
+      // check if drivers compile and the normalization of the lowest (up to 64) SHO functions
+      int const nb = 7, natoms = 1, nrhs = 1, nnzb = pow3(nb);
+      int const nsho = sho_tools::nSHO(lmax);
       auto psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "psi");
+      set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64), real_t(0)); // clear
       auto apc = get_memory<real_t[R1C2][Noco   ][Noco*64]>(natoms*nsho*nrhs, echo, "apc");
+      set(apc[0][0][0], natoms*nsho*nrhs*R1C2*pow2(Noco)*64, real_t(0)); // clear
 
       auto sparse_SHOprj = get_memory<green_sparse::sparse_t<>>(nrhs, echo, "sparse_SHOprj");
       {   
-          std::vector<std::vector<uint32_t>> vv(1); vv[0].resize(1, 0);
-          sparse_SHOprj[0] = green_sparse::sparse_t<>(vv, false, __func__, echo);
+          std::vector<std::vector<uint32_t>> SHO_prj(natoms);
+          SHO_prj[0].resize(nnzb); for (int inzb = 0; inzb < nnzb; ++inzb) SHO_prj[0][inzb] = inzb;
+          sparse_SHOprj[0] = green_sparse::sparse_t<>(SHO_prj, false, __func__, echo - 9);
       }
-      auto const & sparse_SHOadd = sparse_SHOprj[0];
+      green_sparse::sparse_t<> sparse_SHOadd;
+      {
+          std::vector<std::vector<uint32_t>> SHO_add(nnzb);
+          for (int inzb = 0; inzb < nnzb; ++inzb) SHO_add[inzb].resize(1, 0);
+          sparse_SHOadd    = green_sparse::sparse_t<>(SHO_add, false, __func__, echo - 9);
+      }
+
       auto ColIndexCubes = get_memory<uint16_t>(nnzb, echo, "ColIndexCubes");     set(ColIndexCubes, nnzb, uint16_t(0));
-      auto RowIndexCubes = get_memory<uint32_t>(nnzb, echo, "RowIndexCubes");     set(RowIndexCubes, nnzb, uint32_t(0));
-      auto AtomPos       = get_memory<double[3+1]>(natoms, echo, "AtomPos");      set(AtomPos[0], 3, 0.0); AtomPos[0][3] = 1./std::sqrt(sigma);
-      auto AtomLmax      = get_memory<int8_t>(natoms, echo, "AtomLmax");          set(AtomLmax, natoms, int8_t(2));
-      auto AtomStarts    = get_memory<uint32_t>(natoms + 1, echo, "AtomStarts");  for(int ia = 0; ia <= natoms; ++ia) AtomStarts[ia] = ia*10;
-      auto CubePos       = get_memory<float[3+1]>(1, echo, "CubePos");            set(CubePos[0], 4, 0.f);
-      auto hGrid         = get_memory<double>(3+1, echo, "hGrid");                set(hGrid, 3, 0.25);          hGrid[3] = 6.2832;
+      auto RowIndexCubes = get_memory<uint32_t>(nnzb, echo, "RowIndexCubes");     for (int inzb = 0; inzb < nnzb; ++inzb) RowIndexCubes[inzb] = inzb;
+      auto hGrid         = get_memory<double>(3+1, echo, "hGrid");                set(hGrid, 3, 1.0);                        hGrid[3] = 6.2832;
+      auto AtomPos       = get_memory<double[3+1]>(natoms, echo, "AtomPos");      set(AtomPos[0], 3, hGrid, 0.5*4*nb);  AtomPos[0][3] = 1./std::sqrt(sigma);
+      auto AtomLmax      = get_memory<int8_t>(natoms, echo, "AtomLmax");          set(AtomLmax, natoms, lmax);
+      auto AtomStarts    = get_memory<uint32_t>(natoms + 1, echo, "AtomStarts");  for(int ia = 0; ia <= natoms; ++ia) AtomStarts[ia] = ia*nsho;
+      auto CubePos       = get_memory<float[3+1]>(nnzb, echo, "CubePos");
+      for (int iz = 0; iz < nb; ++iz) {
+      for (int iy = 0; iy < nb; ++iy) {
+      for (int ix = 0; ix < nb; ++ix) {
+          auto const inzb = (iz*nb + iy)*nb + ix;
+          CubePos[inzb][0] = hGrid[0]*4*ix;
+          CubePos[inzb][1] = hGrid[1]*4*iy;
+          CubePos[inzb][2] = hGrid[2]*4*iz;
+          CubePos[inzb][3] = 0;
+      }}} // ix iy iz
+
+      // see if these drivers compile and can be executed without segfaults
+      if (echo > 11) std::printf("# here %s:%d\n", __func__, __LINE__);
+
+      for (int isho = 0; isho < std::min(nsho, 64); ++isho) apc[isho*nrhs][0][0][isho] = 1; // set "unit matrix"
+
+      SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
+      SHOprj_driver<real_t,R1C2,Noco>(apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
+
+      double maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
+      { // scope
+          auto const msho = std::min(nsho, 64); // show projection coefficients
+          if (echo > 5) std::printf("# %d projection coefficients ", msho);
+          for (int isho = 0; isho < msho; ++isho) {
+              if (echo > 9) std::printf("\n# projection coefficients[%2d]: ", isho);
+              for (int jsho = 0; jsho < msho; ++jsho) {
+                  auto const diag = (isho == jsho);
+                  if (echo > 9) std::printf(" %g", apc[isho*nrhs][0][0][jsho]);
+                  maxdev[diag] = std::max(maxdev[diag], std::abs(double(apc[isho*nrhs][0][0][jsho]) - diag));
+              } // isho
+              if (echo > 9) std::printf(" diagonal=");
+              if (echo > 5) std::printf(" %.3f", apc[isho*nrhs][0][0][isho]);
+          } // isho
+          if (echo > 5) std::printf("\n");
+      } // scope
+      if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.1e, normalization error %.1e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
+
+      // also test the deprecated interface 'multiply'
       auto AtomMatrices = get_memory<double*>(natoms, echo, "AtomMatrices");
       for (int ia = 0; ia < natoms; ++ia) {
           int const nsho = sho_tools::nSHO(AtomLmax[ia]);
@@ -1084,16 +1134,12 @@ namespace green_dyadic {
           AtomMatrices[ia] = get_memory<double>(pow2(Noco)*2*pow2(nsho), echo, "AtomMatrix[ia]");
           set(AtomMatrices[ia], pow2(Noco)*2*pow2(nsho), 0.0);
       } // ia
-
-      // see if these drivers compile and can be executed without segfaults
-      std::printf("# here %s:%d\n", __func__, __LINE__);
-      SHOprj_driver<real_t,R1C2,Noco>(apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
-      SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
       multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, AtomMatrices, sparse_SHOadd, RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
-
       for (int ia = 0; ia < natoms; ++ia) free_memory(AtomMatrices[ia]);
       free_memory(AtomMatrices);
+
       free_memory(ColIndexCubes);
+      free_memory(RowIndexCubes);
       free_memory(sparse_SHOprj);
       free_memory(CubePos);
       free_memory(AtomStarts);

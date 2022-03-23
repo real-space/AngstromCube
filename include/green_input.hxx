@@ -19,11 +19,14 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "xml_reading.hxx" // ::read_sequence
 #include "inline_math.hxx" // set
+#ifdef DEVEL
+  #include "control.hxx" // ::get
+#endif // DEVEL
 
 namespace green_input {
 
   inline status_t load_Hamiltonian(
-        int ng[3] // numbers of grid points
+        uint32_t ng[3] // numbers of grid points
       , int8_t bc[3] // boundary conditions
       , double hg[3] // grid spacings
       , std::vector<double> & Veff
@@ -42,7 +45,7 @@ namespace green_input {
       rapidxml::xml_document<> doc;
       doc.parse<0>(infile.data());
 
-      set(ng, 3, 0);
+      set(ng, 3, 0u);
       set(hg, 3, 1.0);
       Veff.resize(0);
       natoms = 0;
@@ -144,11 +147,21 @@ namespace green_input {
                       if (echo > 5) std::printf("# %s = %d\n", axyz, ng[d]);
                   } // value != ""
               } // d
+              auto const ngall = ng[0]*size_t(ng[1])*size_t(ng[2]);
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
-              Veff = xml_reading::read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
-              if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
-                  Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
-              assert(Veff.size() == ng[2]*ng[1]*ng[0]);
+              Veff = xml_reading::read_sequence<double>(potential->value(), echo, ngall);
+              if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %ld\n",
+                  Veff.size(), ng[0], ng[1], ng[2], ngall);
+              if (Veff.size() != ngall) {
+#ifdef DEVEL
+                  if (0 == Veff.size() && control::get("green_input.empty.potential", 0.) > 0) {
+                      Veff.resize(ngall, 0.0); // very useful for 
+                  } else 
+#endif // DEVEL
+                  {
+                      error("expected %d*%d*%d = %ld potential values but found %ld", ng[2], ng[1], ng[0], ngall, Veff.size());
+                  }
+              } // Veff.size != ngall
           } else warn("grid_Hamiltonian has no potential in file %s", filename);
 
       } else warn("no grid_Hamiltonian found in file %s", filename);
