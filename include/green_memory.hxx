@@ -28,6 +28,7 @@
   }; // dim3
 
   inline void __syncthreads(void) {} // dummy
+  inline void  cudaDeviceSynchronize() {}; // dummy
 #endif // HAS_NO_CUDA      
 
 // #define DEBUG

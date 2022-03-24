@@ -3,7 +3,6 @@
 #include <cstdint> // int64_t, int32_t, int16_t, int8_t
 #include <cassert> // assert
 #include <algorithm> // std::max
-#include <utility> // std::swap
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf
 #include <type_traits> // std::is_signed
@@ -213,5 +212,9 @@ namespace green_sparse {
 #endif // NO_UNIT_TESTS
 
 } // namespace green_sparse
+
+#ifdef DEBUG
+  #undef DEBUG
+#endif // DEBUG
 
 #undef debug_printf
