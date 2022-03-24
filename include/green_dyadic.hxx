@@ -1192,12 +1192,13 @@ namespace green_dyadic {
 
   inline status_t test_SHOprj_and_SHOadd(int const echo=0) {
       status_t stat(0);
-      stat += test_SHOprj_and_SHOadd<float ,1,1>(echo); // real
-//       stat += test_SHOprj_and_SHOadd<float ,2,1>(echo); // complex
-//       stat += test_SHOprj_and_SHOadd<float ,2,2>(echo); // non-collinear
-      stat += test_SHOprj_and_SHOadd<double,1,1>(echo); // real
-//       stat += test_SHOprj_and_SHOadd<double,2,1>(echo); // complex
-//       stat += test_SHOprj_and_SHOadd<double,2,2>(echo); // non-collinear
+      int const more = control::get("green_dyadic.test.more", 0.);
+      stat +=   test_SHOprj_and_SHOadd<float ,1,1>(echo); // real
+      if (more) test_SHOprj_and_SHOadd<float ,2,1>(echo); // complex
+      if (more) test_SHOprj_and_SHOadd<float ,2,2>(echo); // non-collinear
+      stat +=   test_SHOprj_and_SHOadd<double,1,1>(echo); // real
+      if (more) test_SHOprj_and_SHOadd<double,2,1>(echo); // complex
+      if (more) test_SHOprj_and_SHOadd<double,2,2>(echo); // non-collinear
       return stat;
   } // test_SHOprj_and_SHOadd
 

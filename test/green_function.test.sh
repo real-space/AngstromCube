@@ -10,7 +10,7 @@ project_base=green_function
 ## e.g. ./a43 -t self_consistency +hamiltonian.export.format=xml +hamiltonian.export=-1 +bands.per.atom=0 +geometry.file=Cu40Zr22.xyz
 
 # for rtrunc in `seq 0 0.1 19`; do
-for rtrunc in 11; do
+for rtrunc in {15..15}; do
   echo -n "rtrunc=$rtrunc "
 #   project=$project_base.r$rtrunc
 #   (cd ../src/ && make -j) && \
