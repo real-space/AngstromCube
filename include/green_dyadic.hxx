@@ -1132,6 +1132,7 @@ namespace green_dyadic {
 
       SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
       if (0) {
+          cudaDeviceSynchronize();
           size_t nz{0};
           for (int i = 0; i < nnzb*64; ++i) {
               auto const value = psi[i >> 6][0][i & 63][0];
@@ -1145,6 +1146,7 @@ namespace green_dyadic {
 
       double maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
       { // scope
+          cudaDeviceSynchronize();
           auto const msho = std::min(nsho, 64); // show projection coefficients
           if (echo > 5) std::printf("# %d projection coefficients ", msho);
           for (int isho = 0; isho < msho; ++isho) {
