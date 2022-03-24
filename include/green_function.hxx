@@ -550,24 +550,24 @@ namespace green_function {
       uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
 
-      view2D<uint32_t> global_source_coords(nrhs, 4, 0); // unsigned since they must be in [0, 2^21) anyway
-      p.global_source_indices.resize(nrhs); // [nrhs]
+      view2D<int32_t> global_source_coords(nrhs, 4, 0);
+      p.global_source_indices.resize(nrhs, -1); // [nrhs]
       p.nCols = nrhs;
       double center_of_mass_RHS[] = {0, 0, 0};
       double center_of_RHSs[]     = {0, 0, 0};
       int32_t min_global_source_coords[] = {0, 0, 0}; // global coordinates
       int32_t max_global_source_coords[] = {0, 0, 0}; // global coordinates
-      int32_t global_internal_offset[] = {0, 0, 0};
+      int32_t global_internal_offset[]   = {0, 0, 0};
       double max_distance_from_comass{0};
       double max_distance_from_center{0};
       { // scope: determine min, max, center
           {   uint32_t irhs{0};
-              for (uint32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
-              for (uint32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
-              for (uint32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-                  uint32_t const ibxyz[] = {ibx + n_original_Veff_blocks[X]/2,
-                                            iby + n_original_Veff_blocks[Y]/2,
-                                            ibz + n_original_Veff_blocks[Z]/2, 0};
+              for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
+              for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
+              for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
+                  int32_t const ibxyz[] = {ibx + n_original_Veff_blocks[X]/2,
+                                           iby + n_original_Veff_blocks[Y]/2,
+                                           ibz + n_original_Veff_blocks[Z]/2, 0};
                   set(global_source_coords[irhs], 4, ibxyz);
                   p.global_source_indices[irhs] = global_coordinates::get(ibxyz);
                   for (int d = 0; d < 3; ++d) {
@@ -598,8 +598,7 @@ namespace green_function {
                   double d2m{0}, d2c{0};
                   for (int d = 0; d < 3; ++d) {
                       int32_t const source_coord = global_source_coords(irhs,d) - global_internal_offset[d];
-                      p.source_coords[irhs][d] = source_coord;
-                      assert(source_coord == p.source_coords[irhs][d]);
+                      p.source_coords[irhs][d] = source_coord; assert(source_coord == p.source_coords[irhs][d] && "safe assign");
                       d2m += pow2((global_source_coords(irhs,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
                       d2c += pow2((global_source_coords(irhs,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
                   } // d
@@ -647,8 +646,9 @@ namespace green_function {
       // count the number of green function elements for each target block
 
       uint32_t num_target_coords[3] = {0, 0, 0};
-      int32_t  min_target_coords[3] = {0, 0, 0}; // internal coordinates
-      int32_t  max_target_coords[3] = {0, 0, 0}; // internal coordinates
+      int32_t  min_target_coords[3] = {0, 0, 0}; // global coordinates
+      int32_t  max_target_coords[3] = {0, 0, 0}; // global coordinates
+      int32_t  min_targets[3]       = {0, 0, 0}; // global coordinates
       { // scope: create the truncated Green function block-sparsity pattern
           auto const rtrunc       = std::max(0., r_trunc);
           auto const rtrunc_plus  =              rtrunc + 2*r_block_circumscribing_sphere;
@@ -656,7 +656,7 @@ namespace green_function {
           if (echo > 0) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
           if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
-          bool is_wrapped[] = {false, false, false}; // is_wrapped == true if periodic BC but truncation sphere fully within cell
+          uint8_t is_periodic[] = {0, 0, 0, 0}; // is_periodic > 0 if periodic BC and truncation sphere overlaps with itself
           double h[] = {hg[X], hg[Y], hg[Z]}; // customized grid spacing used in green_potential::multiply
           int32_t itr[3];
           for (int d = 0; d < 3; ++d) {
@@ -673,40 +673,48 @@ namespace green_function {
                       double const deformed_cell = h[d]*ng[d];
                       if (2*rtrunc > deformed_cell) {
                           if (h[d] > 0) {
-                              warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s), better use +%s=0 to deactivate truncation",
+                              warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s)\n#          better use +%s=0 to deactivate truncation",
                                                        2*rtrunc*Ang, _Ang,                 'x' + d, deformed_cell*Ang, _Ang,   keyword);
-                          } else {
-                              
+                              // TODO the approach to compute target_minus_source is wrong in this case, we must check what is the closest periodic image
+                              is_periodic[d] = std::ceil(rtrunc/deformed_cell); // truncation sphere may overlap with its periodic images
+                          } else { // h[d] > 0
+                              is_periodic[d] = 1; // truncation sphere may overlap with its periodic images
                           }
-                          // Alternatively, we could not only recommend it but make it automatically: h[d] = 0;
+                          if (echo > 1) std::printf("# boundary condition in %c-direction has up to %d images\n", 'x' + d, is_periodic[d]);
                       } else {
-                          if (echo > 1) std::printf("# boundary condition in %c-direction is wrapped\n", 'x' + d);
-                          is_wrapped[d] = true;
+                          // truncation sphere does not overlap with its periodic images, we can treat it like Vacuum_Boundary
+                          if (echo > 1) std::printf("# periodic boundary condition in %c-direction is wrapped\n", 'x' + d);
                       }
                   } // periodic boundary condition
               } // r_trunc >= 0
-
 
               // how many blocks around the source block do we need to check
               itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : n_original_Veff_blocks[d]/2;
               assert(itr[d] >= 0);
 
-              min_target_coords[d] = min_global_source_coords[d] - global_internal_offset[d] - itr[d]; // vaccum BC
-              max_target_coords[d] = max_global_source_coords[d] - global_internal_offset[d] + itr[d]; // vaccum BC
-              
-              if (Vacuum_Boundary == boundary_condition[d] || is_wrapped[d]) {
-                  // ok, no modification necessary
-              } else {
+              min_target_coords[d] = min_global_source_coords[d] - itr[d];
+              max_target_coords[d] = max_global_source_coords[d] + itr[d];
+
+              if (Isolated_Boundary == boundary_condition[d]) {
                   auto const n = n_original_Veff_blocks[d];
                   // limit to global coordinates in [0, n)
-                  min_target_coords[d] = std::max(min_target_coords[d], 0     - global_internal_offset[d]);
-                  max_target_coords[d] = std::min(max_target_coords[d], n - 1 - global_internal_offset[d]);
+                  min_target_coords[d] = std::max(min_target_coords[d], 0);
+                  max_target_coords[d] = std::min(max_target_coords[d], n - 1);
               }
               auto const n_target_coords = int32_t(max_target_coords[d]) + 1 - min_target_coords[d];
               assert(n_target_coords > 0);
               num_target_coords[d] = n_target_coords;
 
+              min_targets[d] = min_target_coords[d];
+              if (is_periodic[d]) {
+                  // prepare for all blocks in this direction
+                  min_targets[d] = 0;
+                  num_target_coords[d] = n_original_Veff_blocks[d];
+              } // is_periodic[d]
+
           } // d
+          int constexpr ANY = 3;
+          is_periodic[ANY] = (is_periodic[X] > 0) + (is_periodic[Y] > 0) + (is_periodic[Z] > 0);
           if (r_trunc < 0) {
               if (echo > 1) std::printf("# truncation deactivated\n");
           } else {
@@ -735,11 +743,12 @@ namespace green_function {
           for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
               auto & sparsity_RHS = sparsity_pattern[irhs]; // abbreviate
               sparsity_RHS.resize(product_target_blocks, false);
-              auto const *const source_coords = p.source_coords[irhs]; // internal source block coordinates
+              auto const *const source_coords = global_source_coords[irhs]; // global source block coordinates
               simple_stats::Stats<> stats[3];
               int constexpr max_nci = 27;
               std::vector<int> hist(1 + max_nci, 0); // distribution of nci
               std::vector<simple_stats::Stats<>> stats_d2(1 + max_nci);
+              size_t hit_single{0}, hit_multiple{0};
               int64_t idx3_diagonal{-1};
               int32_t target_coords[3]; // internal target block coordinates
               
@@ -756,7 +765,9 @@ namespace green_function {
                   assert(target_coords[X] >= min_target_coords[X] && target_coords[X] <= max_target_coords[X]); 
 
                   // d2 is the distance^2 of the block centers
-                  double const d2 = pow2(bx*4*h[X]) + pow2(by*4*h[Y]) + pow2(bz*4*h[Z]);
+                  double const d2 = pow2(bx*4*h[X])
+                                  + pow2(by*4*h[Y])
+                                  + pow2(bz*4*h[Z]);
 
                   int nci{0}; // init number of corners inside
                   if (d2 < r2trunc_plus) { // potentially inside, check all 8 or 27 corner cases
@@ -788,26 +799,33 @@ namespace green_function {
                       // any grid point in block (bx,by,bz) is closer than rtrunc to any grid point in the source block
                       int32_t idx[3];
                       for (int d = 0; d < 3; ++d) {
-                          idx[d] = target_coords[d] - min_target_coords[d];
+                          idx[d] = target_coords[d] - min_targets[d];
                           // TODO in the periodic case we have to make sure that we hit no element twice
+                          if (is_periodic[d]) idx[d] = (target_coords[d] + 999*n_original_Veff_blocks[d]) % n_original_Veff_blocks[d];
                           assert(0 <= idx[d]); assert(idx[d] < num_target_coords[d]);
                       } // d
-                      auto const idx3 = index3D(num_target_coords, idx);
+                      auto const idx3 = index3D(num_target_coords, idx); // flat index
                       assert(idx3 < product_target_blocks);
                       if (false == sparsity_RHS[idx3]) {
                           sparsity_RHS[idx3] = true;
                           column_indices[idx3].push_back(irhs);
-                          if (0 == bx && 0 == by && 0 == bz) {
-                              tag_diagonal[idx3] = irhs;
-                              idx3_diagonal = idx3;
-                          } // diagonal entry
                           for (int d = 0; d < 3; ++d) stats[d].add(target_coords[d]);
+                          ++hit_single;
+                      } else {
+                          ++hit_multiple;
                       } // has not been hit yet
+                      if (0 == bx && 0 == by && 0 == bz) {
+                          tag_diagonal[idx3] = irhs;
+                          idx3_diagonal = idx3;
+                      } // diagonal entry
                   } // nci > 0
                   ++hist[nci];
                   stats_d2[nci].add(d2);
 
               }}} // xyz
+              if (echo > 9) std::printf("# RHS#%i has %ld single and %ld multiple hits\n", irhs, hit_single, hit_multiple);
+              assert((0 == hit_multiple) || (hit_multiple > 0 && is_periodic[ANY]));
+              assert(hit_single <= product_target_blocks);
               if (echo > 7) {
                   std::printf("# RHS#%i at %i %i %i reaches from (%g, %g, %g) to (%g, %g, %g)\n", irhs,
                       global_source_coords(irhs,X), global_source_coords(irhs,Y), global_source_coords(irhs,Z),
@@ -832,7 +850,7 @@ namespace green_function {
                                 irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
                   inout[0].add(hist[max_nci]); inout[1].add(partial); inout[2].add(hist[0]); inout[3].add(total_checked);
               } // echo
-              assert(idx3_diagonal > -1); // must be hit once
+              assert(idx3_diagonal > -1 && "difference vector (0,0,0) must be hit once");
           } // irhs
           if (echo > 0) {
               char const inout_class[][8] = {"inside", "partial", "outside",  "checked"};
@@ -857,7 +875,7 @@ namespace green_function {
               nnzb += hist[n]*n;
           } // n
           if (echo > 7) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nrhs + 1); }
-          assert(nall == product_target_blocks); // sanity check
+          assert(nall == product_target_blocks && "sanity check");
 
           p.nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
           if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
@@ -877,8 +895,8 @@ namespace green_function {
           p.veff_index = get_memory<int32_t>(nnzb, echo, "veff_index"); // indirection list for the local potential
           set(p.veff_index, nnzb, -1); // init as non-existing
           p.target_coords = get_memory<int16_t[3+1]>(p.nRows, echo, "target_coords");
+          p.CubePos       = get_memory<float  [3+1]>(p.nRows, echo, "CubePos"); // internal coordinates but in float
           p.target_minus_source = get_memory<int16_t[3+1]>(nnzb, echo, "target_minus_source");
-          p.CubePos = get_memory<float[3+1]>(p.nRows, echo, "CubePos"); // internal coordinates but in float
 
           p.global_target_indices.resize(p.nRows);
           p.subset.resize(p.nCols); // we assume columns of the unit operator as RHS
@@ -888,6 +906,7 @@ namespace green_function {
                                          num_target_coords[X], -1); // init as non-existing
 
           { // scope: fill BSR tables
+              size_t warn_needs_shortest{0};
               simple_stats::Stats<> st;
               uint32_t iRow{0};
               for (uint32_t z = 0; z < num_target_coords[Z]; ++z) { // serial
@@ -908,9 +927,10 @@ namespace green_function {
                       // copy the target block coordinates
                       int32_t global_target_coords[3];
                       for (int d = 0; d < 3; ++d) {
-                          p.target_coords[iRow][d] = idx[d] + min_target_coords[d];
-                          p.CubePos[iRow][d] = p.target_coords[iRow][d]; assert(p.CubePos[iRow][d] == p.target_coords[iRow][d]);
-                          global_target_coords[d] = p.target_coords[iRow][d] + global_internal_offset[d];
+                          global_target_coords[d] = idx[d] + min_targets[d];
+                          int32_t const internal_target_coord = global_target_coords[d] - global_internal_offset[d];
+                          p.target_coords[iRow][d] = internal_target_coord; assert(internal_target_coord == p.target_coords[iRow][d] && "safe assign");
+                          p.CubePos[iRow][d]       = internal_target_coord; assert(internal_target_coord == p.CubePos[iRow][d]       && "safe assign");
                       } // d
                       p.target_coords[iRow][3] = 0; // not used
                       p.CubePos[iRow][3] = 0.f; // not used
@@ -942,34 +962,62 @@ namespace green_function {
                       int32_t veff_index{-1};
                       if (1) { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
                           int32_t mod[3];
-                          bool given{true};
+                          bool potential_given{true};
                           for (int d = 0; d < 3; ++d) {
                               mod[d] = global_target_coords[d];
                               if (Periodic_Boundary == boundary_condition[d]) {
                                   mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
                                   mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
                               } else {
-                                  given = given && (mod[d] >= 0 && mod[d] < n_original_Veff_blocks[d]);
+                                  potential_given = potential_given && (mod[d] >= 0 && mod[d] < n_original_Veff_blocks[d]);
                               }
                           } // d
-                          if (given) {
+                          if (potential_given) {
                               auto const iloc = index3D(n_original_Veff_blocks, mod);
-                              veff_index = iloc;
-                              assert(iloc == veff_index);
-                          } else {
+                              veff_index = iloc; assert(iloc == veff_index && "safe assign");
+                          } else { // potential_given
                               assert(Vacuum_Boundary == boundary_condition[X] ||
                                      Vacuum_Boundary == boundary_condition[Y] ||
                                      Vacuum_Boundary == boundary_condition[Z]);
                               veff_index = -1; // outside of the unit cell due to Vacuum_Boundary
-                          }
+                          } // potential_given
                       } // scope
 
                       for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
                           auto const iCol = p.colindx[inz];
+                          
+                          int iimage[] = {0, 0, 0};
+                          if (is_periodic[ANY]) {
+                              int32_t dv[3];
+                              for (int d = 0; d < 3; ++d) {
+                                  dv[d] = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d];
+                              } // d
+                              auto const *const n = n_original_Veff_blocks;
+                              // with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
+                              double d2shortest{9e37};
+                              for (int iz = -is_periodic[Z]; iz <= is_periodic[Z]; ++iz) {
+                              for (int iy = -is_periodic[Y]; iy <= is_periodic[Y]; ++iy) {
+                              for (int ix = -is_periodic[X]; ix <= is_periodic[X]; ++ix) {
+                                  double const d2 = pow2((dv[X] + ix*n[X])*4*h[X])
+                                                  + pow2((dv[Y] + iy*n[Y])*4*h[Y])
+                                                  + pow2((dv[Z] + iz*n[Z])*4*h[Z]);
+                                  if (d2 < d2shortest) {
+                                      iimage[X] = ix;  iimage[Y] = iy;  iimage[Z] = iz;
+                                      d2shortest = d2;
+                                  } // is shorter
+                              }}}
+                              if (pow2(iimage[X]) + pow2(iimage[Y]) + pow2(iimage[Z]) > 0 && echo > 5) {
+                                  std::printf("# block pair target(%i %i %i) - source(%i %i %i) has shortest distance %g at image %i %i %i\n",
+                                              p.target_coords[iRow][X], p.target_coords[iRow][Y], p.target_coords[iRow][Z],
+                                              p.source_coords[iCol][X], p.source_coords[iCol][Y], p.source_coords[iCol][Z],
+                                              d2shortest, iimage[X], iimage[Y], iimage[Z]);
+                              }
+                              ++warn_needs_shortest; // still, the confinement potential may not be correct in each grid point
+                          } // is_periodic[ANY]
+                          
                           for (int d = 0; d < 3; ++d) {
-                              auto const diff = p.target_coords[iRow][d] - p.source_coords[iCol][d]; // ToDo: with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
-                              p.target_minus_source[inz][d] = diff;
-                              assert(diff == p.target_minus_source[inz][d]);
+                              auto const diff = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d] + n_original_Veff_blocks[d]*iimage[d];
+                              p.target_minus_source[inz][d] = diff; assert(diff == p.target_minus_source[inz][d] && "safe assign");
                           } // d
                           p.target_minus_source[inz][3] = 0; // not used
                           p.rowindx[inz] = iRow;
@@ -980,9 +1028,12 @@ namespace green_function {
                       ++iRow;
                   } // n > 0
               }}} // idx
-              assert(p.nRows == iRow);
-              assert(nnzb == p.RowStart[p.nRows]);
+              assert(p.nRows == iRow && "counting 2nd time");
+              assert(nnzb == p.RowStart[p.nRows] && "sparse matrix consistency");
               std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.dev(), st.min(), st.max());
+              if (warn_needs_shortest > 0) {
+                  warn("for %ld block pairs the nearest periodic images in only evaluated on the block level", warn_needs_shortest);
+              } // warn_needs_shortest
           } // scope
           column_indices.clear(); // not needed beyond this point
 
