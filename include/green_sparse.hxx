@@ -98,20 +98,18 @@ namespace green_sparse {
           nRows_ = 0;
       } // destructor
 
-      sparse_t(sparse_t && rhs) = delete;
-
-      sparse_t(sparse_t const & rhs) = delete;
-
+      sparse_t(sparse_t && rhs)                   = delete; // move constructor
+      sparse_t(sparse_t const & rhs)              = delete; // copy constructor
       sparse_t & operator= (sparse_t       & rhs) = delete; // copy assignment operator
       sparse_t & operator= (sparse_t const & rhs) = delete; // copy assignment operator
 
       sparse_t & operator= (sparse_t && rhs) {
           debug_printf("# sparse_t move assignment sparse_t<ColIndex_t=%s,RowIndex_t=%s>\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>());
 //        debug_printf("# sparse_t.colIndex(%p)= ", (void*)rhs.colIndex()); printf_vector(" %d", rhs.colIndex(), rhs.nNonzeros());
-          std::swap(rowStart_, rhs.rowStart_);
-          std::swap(colIndex_, rhs.colIndex_);
-          std::swap(rowIndex_, rhs.rowIndex_);
-          std::swap(nRows_   , rhs.nRows_);
+          rowStart_ = rhs.rowStart_; rhs.rowStart_ = nullptr;
+          colIndex_ = rhs.colIndex_; rhs.colIndex_ = nullptr;
+          rowIndex_ = rhs.rowIndex_; rhs.rowIndex_ = nullptr;
+          nRows_    = rhs.nRows_;    rhs.nRows_    = 0;
 //        debug_printf("# sparse_t.colIndex(%p)= ", (void*)colIndex()); printf_vector(" %d", colIndex(), nNonzeros());
           return *this;
       } // move assignment
