@@ -1591,6 +1591,26 @@ The typical split energy used in GPAW PAW setups is $1.0$ Hartree.
   \caption{Lower (lower subplot) and upper (upper subplot) charge deficit eigenvalues of Cu with the \ttt{recreate\_second} partial wave generation scheme. The eigenvalues are shown as a function of the energy split between lowest and excited partial wave (in Hartree) for $\ell \in \{s, p, d\}$.} \label{fig:charge-deficit-copper-recreate-second}
 \end{figure}
 
+\newpage
+
+\section*{Module green\_dyadic}
+
+Use \ttt{-t green\_dyadic} to test this module:\\
+Options are \ttt{+green\_dyadic.test.nb} for $n_B$. $n_B^3$ blocks are used in the \ac{SHO} projection.
+\ttt{+green\_dyadic.test.rc} determines a cutoff radius in units of the SHO spread \ttt{+green\_dyadic.test.sigma}
+beyond which projection and addition is zero.
+
+\begin{figure} [h]
+  \centering
+  \begin{minipage}[c]{.990\textwidth}
+    \includegraphics[width=.99\textwidth]{fig/green_dyadic.orthogonality_normalization} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \caption{Error in orthogonality and normalization of the \ttt{green\_dyadic} module. 
+           Using \ttt{float} or \ttt{double}, an orthogonality error of only $10^{-6}$ or $10^{-15}$ can be reached, respectively.}
+  \label{fig:green-dyadic-orthogonality-normalization}
+\end{figure}
 
 \newpage
 

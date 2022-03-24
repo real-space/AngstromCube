@@ -1083,10 +1083,13 @@ namespace green_dyadic {
 
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1, int8_t const lmax=5) {
+  inline status_t test_SHOprj_and_SHOadd(int const echo=0, int8_t const lmax=5) {
       // check if drivers compile and the normalization of the lowest (up to 64) SHO functions
-      auto const rc = control::get("green_dyadic.test.rc", 7.);
-      int  const nb = control::get("green_dyadic.test.nb", 11.), natoms = 1, nrhs = 1, nnzb = pow3(nb);
+      auto const sigma = control::get("green_dyadic.test.sigma", 1.);
+      auto const hg    = control::get("green_dyadic.test.grid.spacing", 0.25);
+      auto const rc    = control::get("green_dyadic.test.rc", 7.);
+      int  const nb    = control::get("green_dyadic.test.nb", 14.);
+      int  const natoms = 1, nrhs = 1, nnzb = pow3(nb);
       int  const nsho = sho_tools::nSHO(lmax);
       auto psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "psi");
       set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64ull), real_t(0)); // clear
@@ -1108,7 +1111,7 @@ namespace green_dyadic {
 
       auto ColIndexCubes = get_memory<uint16_t>(nnzb, echo, "ColIndexCubes");     set(ColIndexCubes, nnzb, uint16_t(0));
       auto RowIndexCubes = get_memory<uint32_t>(nnzb, echo, "RowIndexCubes");     for (int inzb = 0; inzb < nnzb; ++inzb) RowIndexCubes[inzb] = inzb;
-      auto hGrid         = get_memory<double>(3+1, echo, "hGrid");                set(hGrid, 3, 0.25); hGrid[3] = rc;
+      auto hGrid         = get_memory<double>(3+1, echo, "hGrid");                set(hGrid, 3, hg); hGrid[3] = rc;
       auto AtomPos       = get_memory<double[3+1]>(natoms, echo, "AtomPos");      set(AtomPos[0], 3, hGrid, 0.5*4*nb);  AtomPos[0][3] = 1./std::sqrt(sigma);
       auto AtomLmax      = get_memory<int8_t>(natoms, echo, "AtomLmax");          set(AtomLmax, natoms, lmax);
       auto AtomStarts    = get_memory<uint32_t>(natoms + 1, echo, "AtomStarts");  for(int ia = 0; ia <= natoms; ++ia) AtomStarts[ia] = ia*nsho;
@@ -1159,7 +1162,7 @@ namespace green_dyadic {
       } // scope
       if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.1e, normalization error %.1e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
 
-      if (0) {
+      if (1) {
           // also test the deprecated interface 'multiply'
           auto AtomMatrices = get_memory<double*>(natoms, echo, "AtomMatrices");
           for (int ia = 0; ia < natoms; ++ia) {
@@ -1172,9 +1175,10 @@ namespace green_dyadic {
           free_memory(AtomMatrices);
       } // 0
 
+      sparse_SHOprj[0].~sparse_t<>();
+      free_memory(sparse_SHOprj);
       free_memory(ColIndexCubes);
       free_memory(RowIndexCubes);
-      free_memory(sparse_SHOprj);
       free_memory(CubePos);
       free_memory(AtomStarts);
       free_memory(AtomLmax);
@@ -1184,14 +1188,14 @@ namespace green_dyadic {
       return 0;
   } // test_SHOprj_and_SHOadd
 
-  inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1) {
+  inline status_t test_SHOprj_and_SHOadd(int const echo=0) {
       status_t stat(0);
-      stat += test_SHOprj_and_SHOadd<float ,1,1>(echo, sigma); // real
-//       stat += test_SHOprj_and_SHOadd<float ,2,1>(echo, sigma); // complex
-//       stat += test_SHOprj_and_SHOadd<float ,2,2>(echo, sigma); // non-collinear
-      stat += test_SHOprj_and_SHOadd<double,1,1>(echo, sigma); // real
-//       stat += test_SHOprj_and_SHOadd<double,2,1>(echo, sigma); // complex
-//       stat += test_SHOprj_and_SHOadd<double,2,2>(echo, sigma); // non-collinear
+      stat += test_SHOprj_and_SHOadd<float ,1,1>(echo); // real
+//       stat += test_SHOprj_and_SHOadd<float ,2,1>(echo); // complex
+//       stat += test_SHOprj_and_SHOadd<float ,2,2>(echo); // non-collinear
+      stat += test_SHOprj_and_SHOadd<double,1,1>(echo); // real
+//       stat += test_SHOprj_and_SHOadd<double,2,1>(echo); // complex
+//       stat += test_SHOprj_and_SHOadd<double,2,2>(echo); // non-collinear
       return stat;
   } // test_SHOprj_and_SHOadd
 
