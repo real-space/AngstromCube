@@ -1,13 +1,14 @@
 #pragma once
 
-#include <cstdio> // std::printf
-#include <cstdint> // int8_t
-#include <cstring> // std::strcmp
-#include <cassert> // assert
-#include <cmath> // std::sqrt
-#include <algorithm> // std::max
-#include <vector> // std::vector<T>
-#include <cstdlib> // std::atoi, ::atof
+#include <cstdint>    // int8_t
+#include <cassert>    // assert
+#include <cstdio>     // std::printf, ::snprintf
+//       <cstdio>     // std::fopen, ::fprintf, ::fclose
+#include <cstring>    // std::strcmp
+#include <cmath>      // std::sqrt
+#include <algorithm>  // std::max
+#include <vector>     // std::vector<T>
+#include <cstdlib>    // std::atoi, ::atof
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer

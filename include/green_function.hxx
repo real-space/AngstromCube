@@ -1,13 +1,13 @@
 #pragma once
 
-#include <cstdint> // int64_t, int32_t, uint32_t, int8_t
-#include <cassert> // assert
-#include <cmath> // std::sqrt, ::cbrt
-#include <algorithm> // std::max
-#include <utility> // std::swap //, ::move
-#include <vector> // std::vector<T>
-#include <cstdio> // std::printf, ::snprintf
-#include <complex> // std::complex
+#include <cstdint>    // int64_t, int32_t, uint32_t, int16_t, uint16_t, int8_t, uint8_t
+#include <cassert>    // assert
+#include <cmath>      // std::sqrt, ::cbrt
+#include <algorithm>  // std::max, ::min
+#include <utility>    // std::swap
+#include <vector>     // std::vector<T>
+#include <cstdio>     // std::printf, ::snprintf
+#include <complex>    // std::complex
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
@@ -732,7 +732,7 @@ namespace green_function {
                        r2block_circum = pow2(r_block_circumscribing_sphere*3); // Maybe this can be reduced to *2
 
           std::vector<int32_t> tag_diagonal(product_target_blocks, -1);
-          assert(nrhs < 65536 && "the integer type of ColIndex is uint16_t!");
+          assert(nrhs < (1ul << 16) && "the integer type of ColIndex is uint16_t!");
           std::vector<std::vector<bool>> sparsity_pattern(nrhs); // std::vector<bool> is a memory-saving bit-array
 
           simple_stats::Stats<> inout[4];
@@ -888,7 +888,7 @@ namespace green_function {
           if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n", 
               p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001);
 
-          assert(nnzb < (uint64_t(1) << 32) && "the integer type or RowStart is uint32_t!");
+          assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
 
           // resize BSR tables: (Block-compressed Sparse Row format)
           if (echo > 3) { std::printf("# memory of a complex Green function is %.6f %s (float, twice for double)\n",
