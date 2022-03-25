@@ -22,8 +22,7 @@
 #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
-
-// #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
+#include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
 //int8_t constexpr Isolated_Boundary = 0, Periodic_Boundary = 1;
 
 /*

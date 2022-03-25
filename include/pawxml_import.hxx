@@ -21,11 +21,8 @@
 #endif // HAS_RAPIDXML
 
 #include "xml_reading.hxx" // ::read_sequence
-
 #include "unit_system.hxx" // eV, _eV, Ang, _Ang
-
 #include "print_tools.hxx" // printf_vector
-
 #include "control.hxx" // ::get
 
 /*
@@ -65,7 +62,7 @@ namespace pawxml_import {
   inline pawxml_t parse_pawxml(char const *filename, int const echo=0) {
 #ifndef HAS_RAPIDXML
       warn("Unable to test GPAW loading when compiled without -D HAS_RAPIDXML", 0);
-      return STATUS_TEST_NOT_INCLUDED;
+      return pawxml_t();
 #else  // HAS_RAPIDXML
 
       pawxml_t p;

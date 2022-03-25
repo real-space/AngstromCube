@@ -34,6 +34,7 @@ for module in \
   fourier_poisson \
   solid_harmonics \
   bisection_tools \
+  green_potential \
   green_function \
   poisson_solver \
   brillouin_zone \
@@ -43,10 +44,14 @@ for module in \
   grid_operators \
   dense_operator \
   element_config \
-  green_kinetic \
   complex_tools \
   vector_layout \
   sho_potential \
+  green_kinetic \
+  pawxml_import \
+  green_sparse \
+  green_dyadic \
+  green_action \
   simple_stats \
   mpi_parallel \
   angular_grid \
@@ -69,27 +74,12 @@ for module in \
   multi_grid \
   sho_radial \
   sho_tools \
+  sho_basis \
   atom_core \
   data_view \
   control \
 ; do
 
-    echo $module
+    ./standalone_module_test.sh $module
 
-    ## generate a short main function including the header
-    echo "#include \"$module.hxx\" // ::all_tests"            > test_me.cxx
-    echo "int main() { return int($module::all_tests(6)); }" >> test_me.cxx
-
-    ## compile to check for missing include files
-    g++ -std=c++11 \
-        -I../include/ \
-        -g -pedantic -Wall -O0 \
-              -D HAS_NO_MKL \
-              -D DEVEL \
-              -D HAS_NO_MPI \
-              -D NO_UNIT_TESTS \
-              -c test_me.cxx
-
-    ## cleanup
-    rm -f test_me.cxx test_me.o
 done

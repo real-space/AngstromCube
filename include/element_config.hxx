@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cassert> // assert
+#include <cstdio> // std::printf, ::snprintf
+#include <vector> // std::vector
+#include <algorithm> // std::min, ::max
 
 #include "status.hxx" // status_t
 #include "control.hxx" // ::get
@@ -13,6 +16,8 @@
 #include "chemical_symbol.h" // element_symbols
 #include "recorded_warnings.hxx" // warn
 #include "radial_eigensolver.hxx" // ::shooting_method
+#include "inline_math.hxx" // set
+#include "sho_tools.hxx" // ::nn_max
 
 namespace element_config {
 

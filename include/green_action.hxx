@@ -18,6 +18,7 @@
 #include "green_potential.hxx" // ::multiply
 #include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 #include "simple_stats.hxx" // ::Stats<>
+#include "display_units.h" // eV, _eV
 
 #ifdef HAS_TFQMRGPU
     #include "tfQMRgpu/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>

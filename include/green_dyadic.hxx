@@ -9,6 +9,11 @@
 #include "green_sparse.hxx" // ::sparse_t<>
 #include "inline_math.hxx" // pow2, pow3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
+#include "constants.hxx" // ::sqrtpi
+
+#ifndef NO_UNIT_TESTS
+    #include "control.hxx" // ::get
+#endif // NO_UNIT_TESTS
 
 #ifndef HAS_NO_CUDA
     #include <cuda/std/complex> // std::complex
@@ -972,7 +977,7 @@ namespace green_dyadic {
     } // multiply (dyadic operations)
 
 
-    std::vector<double> sho_normalization(int8_t const lmax, double const sigma=1) {
+    std::vector<double> __host__ sho_normalization(int8_t const lmax, double const sigma=1) {
         int const n1ho = sho_tools::n1HO(lmax);
         std::vector<double> v1(n1ho, constants::sqrtpi * sigma);
         double fac{1};
@@ -1034,10 +1039,8 @@ namespace green_dyadic {
   } // test_Hermite_polynomials_1D
 
 
-
-
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t __host__ multiply(
+    size_t multiply(
           real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result,  modified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
         , real_t         (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // projection coefficients     [natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
@@ -1143,8 +1146,8 @@ namespace green_dyadic {
 
       SHOprj_driver<real_t,R1C2,Noco>(apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
 
-      double maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
-      double maxdev_nu[][2] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+      float maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
+      float maxdev_nu[8][2] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
       { // scope: show projection coefficients
           cudaDeviceSynchronize();
           std::vector<int8_t> nu_of_sho(nsho, -1);
@@ -1166,19 +1169,19 @@ namespace green_dyadic {
                   double const value = apc[isho*nrhs][0][0][jsho];
                   int const diag = (isho == jsho);
                   if (echo > 9) std::printf(" %g", value);
-                  auto const absdev = std::abs(value - diag);
+                  float const absdev = std::abs(value - diag);
                   maxdev[diag] = std::max(maxdev[diag], absdev);
                   auto const nu = std::max(nu_of_sho[isho], nu_of_sho[jsho]);
-                  maxdev_nu[nu][diag] = std::max(maxdev_nu[nu][diag], absdev);
+                  if (nu < 8) maxdev_nu[nu][diag] = std::max(maxdev_nu[nu][diag], absdev);
               } // isho
               if (echo > 9) std::printf(" diagonal=");
               if (echo > 5) std::printf(" %.3f", apc[isho*nrhs][0][0][isho]);
           } // isho
           if (echo > 5) std::printf("\n");
       } // scope
-      if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.1e, normalization error %.1e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
+      if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.2e, normalization error %.2e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
       if (echo > 5) {
-          for (int nu = 0; nu <= lmax; ++nu) {
+          for (int nu = 0; nu < std::min(8, lmax + 1); ++nu) {
               std::printf("# real%ld nu=%d %.2e %.2e\n", sizeof(real_t), nu, maxdev_nu[nu][0], maxdev_nu[nu][1]);
           } // nu
       } // echo

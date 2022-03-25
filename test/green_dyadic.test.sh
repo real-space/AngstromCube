@@ -10,6 +10,7 @@ for nb in {1..20}; do
   echo -n "nb=$nb"
   $exe -test $project_base \
         +verbosity=7 \
+        +control.show=4 \
         +$project_base.test.nb=$nb \
         "$@" > $project_base.out.1
   grep 'error' $project_base.out.1

@@ -3,9 +3,11 @@
 #include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
+#include <complex> // std::complex
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "green_memory.hxx" // dim3, get_memory, free_memory?
+#include "green_memory.hxx" // dim3, get_memory, free_memory
+#include "inline_math.hxx" // pow2, set
 
 namespace green_potential {
 
