@@ -44,6 +44,7 @@
   #include "sho_potential.hxx" // ::all_tests
   #include "green_kinetic.hxx" // ::all_tests
   #include "pawxml_import.hxx" // ::all_tests
+  #include "load_balancer.hxx" // ::all_tests
   #include "green_sparse.hxx" // ::all_tests
   #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
@@ -157,6 +158,7 @@
           add_module_test(mpi_parallel);
           add_module_test(parallel_domains);
           add_module_test(global_coordinates);
+          add_module_test(load_balancer);
 
           if (chapters) std::printf("\n\n\n\n#\n# electrostatics modules\n#\n\n\n\n");
           add_module_test(multi_grid);
