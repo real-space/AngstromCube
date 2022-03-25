@@ -992,7 +992,6 @@ namespace green_dyadic {
         assert(vec.size() == sho);
         return vec;
     } // sho_normalization
-            
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
@@ -1145,9 +1144,21 @@ namespace green_dyadic {
       SHOprj_driver<real_t,R1C2,Noco>(apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
 
       double maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
-      { // scope
+      double maxdev_nu[][2] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+      { // scope: show projection coefficients
           cudaDeviceSynchronize();
-          auto const msho = std::min(nsho, 64); // show projection coefficients
+          std::vector<int8_t> nu_of_sho(nsho, -1);
+          {
+              int sho{0};
+              for (int iz = 0; iz <= lmax; ++iz) {
+                  for (int iy = 0; iy <= lmax - iz; ++iy) {
+                      for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
+                          nu_of_sho[sho] = ix + iy + iz;
+                          ++sho;
+              }}}
+              assert(nu_of_sho.size() == sho);
+          }
+          auto const msho = std::min(nsho, 64);
           if (echo > 5) std::printf("# %d projection coefficients ", msho);
           for (int isho = 0; isho < msho; ++isho) {
               if (echo > 9) std::printf("\n# projection coefficients[%2d]: ", isho);
@@ -1155,7 +1166,10 @@ namespace green_dyadic {
                   double const value = apc[isho*nrhs][0][0][jsho];
                   int const diag = (isho == jsho);
                   if (echo > 9) std::printf(" %g", value);
-                  maxdev[diag] = std::max(maxdev[diag], std::abs(value - diag));
+                  auto const absdev = std::abs(value - diag);
+                  maxdev[diag] = std::max(maxdev[diag], absdev);
+                  auto const nu = std::max(nu_of_sho[isho], nu_of_sho[jsho]);
+                  maxdev_nu[nu][diag] = std::max(maxdev_nu[nu][diag], absdev);
               } // isho
               if (echo > 9) std::printf(" diagonal=");
               if (echo > 5) std::printf(" %.3f", apc[isho*nrhs][0][0][isho]);
@@ -1163,6 +1177,11 @@ namespace green_dyadic {
           if (echo > 5) std::printf("\n");
       } // scope
       if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.1e, normalization error %.1e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
+      if (echo > 5) {
+          for (int nu = 0; nu <= lmax; ++nu) {
+              std::printf("# real%ld nu=%d %.2e %.2e\n", sizeof(real_t), nu, maxdev_nu[nu][0], maxdev_nu[nu][1]);
+          } // nu
+      } // echo
 
       if (1) {
           // also test the deprecated interface 'multiply'

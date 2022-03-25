@@ -16,3 +16,19 @@ for nb in {1..20}; do
   cat $project_base.out.1 >> $project_base.out
 done
 grep 'error' $project_base.out
+
+echo "# real4 nu=0..5"
+grep '# real4 nu=0 ' $project_base.out
+grep '# real4 nu=1 ' $project_base.out
+grep '# real4 nu=2 ' $project_base.out
+grep '# real4 nu=3 ' $project_base.out
+grep '# real4 nu=4 ' $project_base.out
+grep '# real4 nu=5 ' $project_base.out
+
+echo "# real8 nu=0..5"
+grep '# real8 nu=0 ' $project_base.out
+grep '# real8 nu=1 ' $project_base.out
+grep '# real8 nu=2 ' $project_base.out
+grep '# real8 nu=3 ' $project_base.out
+grep '# real8 nu=4 ' $project_base.out
+grep '# real8 nu=5 ' $project_base.out
