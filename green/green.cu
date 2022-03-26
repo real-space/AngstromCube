@@ -177,7 +177,7 @@
 
               // options (short or long)
               char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #iarg
-              char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
+              char const IgnoreCase = 'a' - 'A'; // use with | to convert upper case chars into lower case chars
               if ('-' == ci1) {
 
                   // long options with "--"
