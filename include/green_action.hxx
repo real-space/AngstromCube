@@ -4,7 +4,7 @@
 #include <cassert> // assert
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
-#include <utility> // std::swap //, std::move
+#include <utility> // std::swap
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf
 
@@ -13,24 +13,37 @@
 
 #include "constants.hxx" // ::pi
 #include "green_memory.hxx" // get_memory, free_memory
-#include "green_sparse.hxx"    // ::sparse_t<,>
-#include "green_kinetic.hxx"   // ::multiply, ::finite_difference_plan_t
-#include "green_potential.hxx" // ::multiply
-#include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 #include "simple_stats.hxx" // ::Stats<>
 #include "display_units.h" // eV, _eV
 
 #ifdef HAS_TFQMRGPU
-    #include "tfQMRgpu/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
-    #include "tfQMRgpu/tfqmrgpu_memWindow.h" // memWindow_t
+
+    #ifdef HAS_NO_CUDA
+        #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
+        #define devPtr const __restrict__
+    #else  // HAS_NO_CUDA
+        #include <cuda.h>
+    #endif // HAS_NO_CUDA
+    #include "tfQMRgpu/include/tfqmrgpu_memWindow.h" // memWindow_t
+    #include "tfQMRgpu/include/tfqmrgpu_linalg.hxx" // ...
+    #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
+
 #else  // HAS_TFQMRGPU
+
     #include <utility> // std::pair<T>
     typedef std::pair<size_t,size_t> memWindow_t;
     #ifdef HAS_NO_CUDA
         typedef size_t cudaStream_t;
     #endif // HAS_NO_CUDA
+
 #endif // HAS_TFQMRGPU
 
+#include "green_sparse.hxx"    // ::sparse_t<,>
+#include "green_kinetic.hxx"   // ::multiply, ::finite_difference_plan_t
+#include "green_potential.hxx" // ::multiply
+#include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
+
+        
 // #define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
 #define debug_printf(...)
 
@@ -149,7 +162,7 @@ namespace green_action {
       // Arithmetic according to complex<real_t> 
       // with real_t either float or double
       //
-      action_t(plan_t const *plan) 
+      action_t(plan_t *plan) 
         : p(plan), apc(nullptr), aac(nullptr)
       {
           assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
@@ -486,11 +499,11 @@ namespace green_action {
           return nops;
       } // multiply
 
-      plan_t const* get_plan() { return p; }
+      plan_t * get_plan() { return p; }
 
     private: // members
 
-      plan_t const *p; // the plan is independent of real_t
+      plan_t *p; // the plan is independent of real_t
 
       int echo = 9;
 
@@ -500,6 +513,7 @@ namespace green_action {
       // (we could live with a single copy if the application of the atom-centered matrices is in-place)
 
   }; // class action_t
+
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
@@ -512,7 +526,11 @@ namespace green_action {
           { action_t<float ,2,2> action(&plan); }
           { action_t<double,1,1> action(&plan); }
           { action_t<double,2,1> action(&plan); }
-          { action_t<double,2,2> action(&plan); }
+          { action_t<double,2,2> action(&plan);
+#ifdef HAS_TFQMRGPU
+              return tfqmrgpu::solve(action); // try to commpile
+#endif // HAS_TFQMRGPU
+          }
       } // destruct plan
       if (echo > 0) {
           std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));

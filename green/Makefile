@@ -32,13 +32,14 @@ CXX    = g++
 INC ?=
 INC += -I../include
 INC += -I../external
-
+INC += -I../../tfQMRgpu
 
 ERRFLAGS =
 FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 FEAFLAGS += -D HAS_RAPIDXML
+FEAFLAGS += -D HAS_TFQMRGPU
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 

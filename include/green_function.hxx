@@ -17,9 +17,9 @@
 #include "green_input.hxx" // ::load_Hamitonian
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
+#include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
 #include "green_dyadic.hxx" // ::dyadic_plan_t
-#include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
@@ -47,7 +47,7 @@ namespace green_function {
   double const GByte = 1e-9; char const *const _GByte = "GByte";
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  void try_action(green_action::plan_t const & p, int const n_iterations=1, int const echo=9) {
+  void try_action(green_action::plan_t & p, int const n_iterations=1, int const echo=9) {
       if (n_iterations >= 0) { // scope: try to apply the operator
           if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
           green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor

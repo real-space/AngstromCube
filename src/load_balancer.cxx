@@ -720,6 +720,7 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
           auto const inv_cbrt = 1./cube_root;
           int npd[3];
           for (int d = 0; d < 3; ++d) {
+              assert(n[d] > 0);
               auto const npdf = n[d]*inv_cbrt;
               npd[d] = std::ceil(npdf);
               if (echo > 2) std::printf("# in %c-direction [%d, %.2f, %d] blocks per process\n", 'x' + d, npd[d] - 1, npdf, npd[d]);
@@ -811,7 +812,7 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
       view2D<float> contact(nprocs, nprocs_aligned); // count on how many surface points two processes are in contact
 
       int stop{0};
-      for (int iteration = 0; iteration < 99 && 0 == stop; ++iteration) {
+      for (int iteration = 0; iteration < 999 && 0 == stop; ++iteration) {
           int const echo_it = 7 + 4*(iteration > 0);
 
           std::swap(new_load, load); // swap pointers
@@ -820,7 +821,6 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
               set(contact[rank], contact.stride(), 0.f); // clear
           } // rank
           set(load, nprocs, 0.f); // clear
-          double E_surface{0};
           std::vector<uint32_t> n_surf(nprocs, 0);
           for (int iz = 0; iz < n[Z]; ++iz) {
           for (int iy = 0; iy < n[Y]; ++iy) {
@@ -848,7 +848,6 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
                   jxyz[d] = ixyz[d]; // reset
               } // d
 
-              E_surface += number_of_different_neighbors*w8; // do we need the weight here?
               n_surf[owner_rank] += number_of_different_neighbors;
           }}} // ix iy iz
 
@@ -856,29 +855,27 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
           for (int32_t owner_rank = 0; owner_rank < nprocs; ++owner_rank) {
               E_imbalance += pow2(load[owner_rank] - load_average);
           } // owner_rank
-          auto const E_total = E_imbalance + E_surface;
-          if (echo > echo_it) std::printf("# E_total= %g = %g + %g (E_imbalance + E_surface)\n",
-                                       E_total,               E_imbalance,  E_surface);
+
           if (iteration > 0) {
               if (echo > echo_it) std::printf("# iteration=%i new E_total= %g, last E_total= %g, change= %g\n",
-                                            iteration, E_total, last_E_total, E_total - last_E_total);
+                                            iteration, E_imbalance, last_E_total, E_imbalance - last_E_total);
           } // iteration
           if (0 == iteration) E_imbalance_initial = E_imbalance;
 
-          // suggest to change towards a rank out of the neighborhood of imax
+          // suggest a giving and a receiving rank
           int32_t giver{-1}, taker{-1};
           int imax[] = {-1, -1, -1};
           { // scope
               float maxstress{-9e9}, minstress{9e9};
               for (int32_t irank = 0; irank < nprocs; ++irank) {
                   auto const wants2give = load[irank] - load_average;
-                  if (wants2give > 0) {
+                  if (wants2give >= 0) {
                       for (int32_t jrank = 0; jrank < nprocs; ++jrank) {
                           if (irank != jrank) {
                               auto const total_contact = contact(irank,jrank);
                               if (total_contact > 0) {
                                   auto const wants2take = load_average - load[jrank];
-                                  if (wants2take > 0) {
+                                  if (wants2take >= 0) {
                                       float const stress = total_contact*wants2give*wants2take;
                                       if (stress > maxstress) {
                                           maxstress = stress;
@@ -894,11 +891,13 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
                       } // jrank
                   } // wants2give
               } // irank
-              if (echo > echo_it) std::printf("# iteration=%i suggested transfer rank %i --> rank %i\n", iteration, giver, taker);
-              assert(giver != taker);
-              
-              // now find where exactly this transfer should happen
-              float maxtension{-9e9}, mintension{9e9};
+          } // scope
+          if (echo > echo_it) std::printf("# iteration=%i suggested transfer rank %i --> rank %i\n", iteration, giver, taker);
+          assert(giver != taker);
+
+          // now find where exactly this transfer should happen
+          float maxtension{-9e9}, mintension{9e9};
+          {
               for (int iz = 0; iz < n[Z]; ++iz) {
               for (int iy = 0; iy < n[Y]; ++iy) {
               for (int ix = 0; ix < n[X]; ++ix) {
@@ -934,7 +933,7 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
                   } // giver
               }}} // ix iy iz
               if (echo > echo_it) std::printf("# iteration=%i smallest, largest tension %g %g at %i %i %i\n",
-                                           iteration, mintension, maxtension, imax[X], imax[Y], imax[Z]);
+                                                 iteration, mintension, maxtension, imax[X], imax[Y], imax[Z]);
           } // scope
 
           // we can make a prediction for E_imbalance
@@ -944,9 +943,9 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
               auto const w8 = weight(imax[Z],imax[Y],imax[X]);
               new_load[giver] -= w8;
               new_load[taker] += w8;
-              for (int32_t owner_rank = 0; owner_rank < nprocs; ++owner_rank) {
-                  new_E_imbalance += pow2(new_load[owner_rank] - load_average);
-              } // owner_rank
+              for (int32_t rank = 0; rank < nprocs; ++rank) {
+                  new_E_imbalance += pow2(new_load[rank] - load_average);
+              } // rank
           }
           if (echo > echo_it) std::printf("# iteration=%i old E= %g, new E= %g\n", iteration, E_imbalance, new_E_imbalance);
 
@@ -956,16 +955,18 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
           // new_n_surf[giver] -= 1;
           // new_n_surf[taker] += 1;
           // maybe that is already done in maxtension....
-          
-          last_E_total = E_total;
 
-          if (new_E_imbalance < E_imbalance) {
+          last_E_total = E_imbalance;
+
+          if (new_E_imbalance < E_imbalance - 0*maxtension) {
               // accept the suggested change
               assert(owner(imax[Z],imax[Y],imax[X]) == giver);
               owner(imax[Z],imax[Y],imax[X]) = taker;
+              if (echo > 11) std::printf("# owner[%i,%i,%i] changes from %i to %i\n", imax[X], imax[Y], imax[Z], giver, taker);
           } else {
               // stop the iterative procedure
               stop = 1 + iteration;
+              if (echo > 3) std::printf("# stop in iteration %i\n", iteration);
           } // energy is minimized
 
       } // while
@@ -1010,6 +1011,16 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
       
       return stat;
   } // test_pressure_balancer
+  
+  // continuum theory:
+  //    define pop(r,xyz) between 0 and 1
+  //    normalized to fulfill sum_r pop(r,xyz) == 1 for each xyz
+  //    total_load = sum_r sum_xyz pop(r,xyz) * weights(xyz)
+  //    E_imbalance = sum_r (sum_xyz pop(r,xyz) * weights(xyz) - load_average)^2
+  //    E_surface = sum_r sum_xyz (sum_neighborsxyz pop(r,xyz))*(6 - sum_neighborsxyz pop(r,xyz))
+  //    apply diffusion to let domains leak into each other and explore the phase space,
+  //    apply sharpening e.g. with 3x^2-2x^3, to minimize the surface energy and find a mapping
+
 
 #undef weight
   

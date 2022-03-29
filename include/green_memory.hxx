@@ -27,8 +27,11 @@
       dim3(int xx, int yy=1, int zz=1) : x(xx), y(yy), z(zz) {}
   }; // dim3
 
-  inline void __syncthreads(void) {} // dummy
-  inline void  cudaDeviceSynchronize() {}; // dummy
+  #ifndef HAS_TFQMRGPU
+    inline void __syncthreads(void) {} // dummy
+    typedef int cudaError;
+    inline cudaError cudaDeviceSynchronize(void) { return 0; }; // dummy
+  #endif // HAS_TFQMRGPU
 #endif // HAS_NO_CUDA      
 
 // #define DEBUG
