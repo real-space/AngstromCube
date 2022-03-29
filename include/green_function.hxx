@@ -15,8 +15,33 @@
 #include "print_tools.hxx" // printf_vector
 #include "global_coordinates.hxx" // ::get
 #include "green_input.hxx" // ::load_Hamitonian
+
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
+
+#ifdef HAS_TFQMRGPU
+
+//  #define DEBUG
+    #ifdef HAS_NO_CUDA
+        #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
+        #define devPtr const __restrict__
+    #else  // HAS_NO_CUDA
+        #include <cuda.h>
+    #endif // HAS_NO_CUDA
+    #include "tfQMRgpu/include/tfqmrgpu_memWindow.h" // memWindow_t
+    #include "tfQMRgpu/include/tfqmrgpu_linalg.hxx" // ...
+    #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
+
+#else  // HAS_TFQMRGPU
+
+    #include <utility> // std::pair<T>
+    typedef std::pair<size_t,size_t> memWindow_t;
+    #ifdef HAS_NO_CUDA
+        typedef size_t cudaStream_t;
+    #endif // HAS_NO_CUDA
+
+#endif // HAS_TFQMRGPU
+
 #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
 #include "green_dyadic.hxx" // ::dyadic_plan_t
@@ -49,8 +74,22 @@ namespace green_function {
   template <typename real_t, int R1C2=2, int Noco=1>
   void try_action(green_action::plan_t & p, int const n_iterations=1, int const echo=9) {
       if (n_iterations >= 0) { // scope: try to apply the operator
-          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
+          if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
           green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
+
+#ifdef  HAS_TFQMRGPU
+          p.echo = echo - 5;
+          if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
+          tfqmrgpu::solve(action); // try to compile
+          if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f GByte GPU memory\n", p.gpu_mem*1e-9);
+          auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+          if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
+          tfqmrgpu::solve(action, memory_buffer);
+          if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
+                                                             p.residuum_reached,    p.iterations_needed);
+          free_memory(memory_buffer);
+          return;
+#endif // HAS_TFQMRGPU
 
           uint32_t const nnzbX = p.colindx.size();
           int constexpr LM = Noco*64;
@@ -433,6 +472,28 @@ namespace green_function {
       return 0;
   } // update_phases
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   
   int8_t constexpr Vacuum_Boundary = 2;
   // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
@@ -532,7 +593,7 @@ namespace green_function {
       } // echo
 
 
-      int32_t const source_cube = control::get("green_function.source.cube", 0.);
+      int32_t const source_cube = control::get("green_function.source.cube", 1.);
       int32_t n_source_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_source_blocks[d] = n_original_Veff_blocks[d];
@@ -1108,16 +1169,22 @@ namespace green_function {
           if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
       } else { // n_iterations < 0
           // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
-          int const act = control::get("green_function.benchmark.action", 412.);
-          switch (act) {
-              case 411: try_action<float ,1,1>(p, n_iterations, echo); break; // real
-              case 412: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
+          int const action = control::get("green_function.benchmark.action", 412.);
+          switch (action) {
               case 422: try_action<float ,2,2>(p, n_iterations, echo); break; // non-collinear
-              case 811: try_action<double,1,1>(p, n_iterations, echo); break; // real
-              case 812: try_action<double,2,1>(p, n_iterations, echo); break; // complex
               case 822: try_action<double,2,2>(p, n_iterations, echo); break; // non-collinear
-              default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", act);
-          } // switch act
+
+              case 412: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
+              case 812: try_action<double,2,1>(p, n_iterations, echo); break; // complex
+#ifndef HAS_TFQMRGPU
+              case 411: try_action<float ,1,1>(p, n_iterations, echo); break; // real
+              case 811: try_action<double,1,1>(p, n_iterations, echo); break; // real
+#else  // HAS_TFQMRGPU
+              case 411: // real
+              case 811: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
+#endif // HAS_TFQMRGPU
+              default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", action);
+          } // switch action
       } // n_iterations < 0
 
       return 0;

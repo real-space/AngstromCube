@@ -18,6 +18,7 @@
 
 #ifdef HAS_TFQMRGPU
 
+//  #define DEBUG
     #ifdef HAS_NO_CUDA
         #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
@@ -98,6 +99,8 @@ namespace green_action {
       int   iterations_needed   = -99;
 
       // =====================================================================================
+      
+      int echo = 9;
 
       // additional members to define the action
       std::vector<int64_t> global_target_indices; // [nRows]
@@ -184,9 +187,8 @@ namespace green_action {
           auto const n = size_t(natomcoeffs) * p->nCols;
           // ToDo: could be using GPU memory taking it from the buffer
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
-          int const echo = 5;
-          apc = get_memory<real_t[R1C2][Noco][LM]>(n, echo, "apc");
-//        aac = get_memory<real_t[R1C2][Noco][LM]>(n, echo, "aac"); // currently not used
+          apc = get_memory<real_t[R1C2][Noco][LM]>(n, p->echo, "apc");
+//        aac = get_memory<real_t[R1C2][Noco][LM]>(n, p->echo, "aac"); // currently not used
       } // take_memory
 
       void transfer(char* const buffer, cudaStream_t const streamId=0) {
@@ -215,6 +217,7 @@ namespace green_action {
       )
         // Toy CPU implementation of green_kinetic and green_potential
       {
+          auto const echo = p->echo;
 
           if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
 
@@ -470,7 +473,7 @@ namespace green_action {
           , uint16_t const (*const __restrict colIndex) // column indices [nnzb], warning: must be in device memory
           , uint32_t const nnzb // number of nonzero blocks, typically colIndex.size()
           , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
-          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzb
+          , unsigned const l2nX=0  // number of levels needed for binary reductions over nnzb
           , cudaStream_t const streamId=0 // CUDA stream to run on
           , bool const precondition=false
       )
@@ -479,22 +482,20 @@ namespace green_action {
           assert(p);
           double nops{0};
           
-          if (echo > 0) std::printf("# green_action::multiply\n");
+          if (p->echo > 2) std::printf("# green_action::multiply\n");
 
-          // start with the potential, assign y to initial values
+          // start with the local potential, assign y to initial values
           nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff, p->veff_index,
                       p->target_minus_source, p->grid_spacing_trunc, nnzb, p->E_param,
-                      p->V_confinement, pow2(p->r_confinement), echo);
+                      p->V_confinement, pow2(p->r_confinement), p->echo);
 
           // add the kinetic energy expressions
-//        nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
-//                    p->grid_spacing, 4, nnzb);
           nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
                       p->grid_spacing, 4, nnzb);
 
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
-                      p->rowindx, colIndex, p->CubePos, nnzb, echo);
+                      p->rowindx, colIndex, p->CubePos, nnzb, p->echo);
 
           return nops;
       } // multiply
@@ -504,8 +505,6 @@ namespace green_action {
     private: // members
 
       plan_t *p; // the plan is independent of real_t
-
-      int echo = 9;
 
       // temporary device memory needed for dyadic operations
       real_t (*apc)[R1C2][Noco][LM]; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
@@ -526,11 +525,7 @@ namespace green_action {
           { action_t<float ,2,2> action(&plan); }
           { action_t<double,1,1> action(&plan); }
           { action_t<double,2,1> action(&plan); }
-          { action_t<double,2,2> action(&plan);
-#ifdef HAS_TFQMRGPU
-              return tfqmrgpu::solve(action); // try to commpile
-#endif // HAS_TFQMRGPU
-          }
+          { action_t<double,2,2> action(&plan); }
       } // destruct plan
       if (echo > 0) {
           std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
