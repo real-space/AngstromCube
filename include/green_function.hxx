@@ -85,7 +85,7 @@ namespace green_function {
           if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f GByte GPU memory\n", p.gpu_mem*1e-9);
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
-          tfqmrgpu::solve(action, memory_buffer);
+          tfqmrgpu::solve(action, memory_buffer, 1e-9, 99, 0, true);
           if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
                                                              p.residuum_reached,    p.iterations_needed);
           free_memory(memory_buffer);
@@ -309,7 +309,7 @@ namespace green_function {
                            nc_stats.min(), nc_stats.mean(), nc_stats.dev(), nc_stats.max());
           } // echo
 
-          if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*1e-3, napc/double(nai));
+          if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*1e-3, napc/std::max(1., 1.*nai));
           // projection coefficients for the non-local PAW operations are stored
           // as real_t apc[napc*nrhs][R1C2][Noco][Noco*64] on the GPU
           if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
