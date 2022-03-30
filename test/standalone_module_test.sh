@@ -16,6 +16,8 @@
         -I../include/ \
         -I../external/ \
         -g -pedantic -Wall -O0 \
+           -Wno-sign-compare \
+           -Wno-format \
               -D HAS_NO_MKL \
               -D DEVEL \
               -D HAS_NO_MPI \

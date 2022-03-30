@@ -68,7 +68,7 @@ CUOPTFLAGS =
 #### production mode
 CUOPTFLAGS += -O3 --use_fast_math
 #### debug mode
-# CUOPTFLAGS += -g -O0 -G
+CUOPTFLAGS += -g -O0 -G
 # CUOPTFLAGS += -DDEBUGGPU
 
 ## verbose GPU assembler
