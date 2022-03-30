@@ -11,9 +11,9 @@
   #include <cuda.h> // dim3, cudaMallocManaged, cudaFree, cudaSuccess, cudaError, cudaGetErrorString, cudaStream_t, __syncthreads
 
     __host__ inline
-    void __cudaSafeCall(cudaError err, const char *file, const int line, char const *call=nullptr) { // Actual check function
+    void __cudaSafeCall(cudaError err, const char *file, const int line, char const *call) { // Actual check function
         if (cudaSuccess != err) {
-            std::fprintf(stderr, "[ERROR] CUDA call%s%s at %s:%d\n%s\n", call?" to ":"", call, file, line, cudaGetErrorString(err));
+            std::fprintf(stderr, "[ERROR] CUDA call to %s at %s:%d\n%s\n", call, file, line, cudaGetErrorString(err));
             exit(0);
         }
     } // __cudaSafeCall

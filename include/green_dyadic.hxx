@@ -832,6 +832,7 @@ namespace green_dyadic {
         , int const echo=0 // log level
     ) {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
+        if (natoms*nrhs < 1) return 0;
 
         dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*n64, Noco, 1);
         if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, %d, 1} >>>\n",
@@ -929,7 +930,8 @@ namespace green_dyadic {
     ) {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
         size_t nops{0};
-        
+        if (p.nAtomImages*p.nrhs < 1) return nops; // zero
+
         assert(p.AtomImageStarts);
         auto const natomcoeffs = p.AtomImageStarts[p.nAtomImages];
         if (echo > 6) std::printf("# %s<%s,R1C2=%d,Noco=%d> nAtoms=%d nAtomImages=%d nrhs=%d ncoeffs=%d\n",
@@ -1061,6 +1063,7 @@ namespace green_dyadic {
     ) {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
         size_t nops{0};
+        if (natoms*nrhs < 1) return nops; // zero
 
         auto const natomcoeffs = AtomStarts[natoms];
         if (echo > 6) std::printf("# %s<%s> R1C2=%d Noco=%d natoms=%d nrhs=%d ncoeffs=%d\n", __func__, real_t_name<real_t>(), R1C2, Noco, natoms, nrhs, natomcoeffs);
