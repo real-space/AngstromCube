@@ -192,6 +192,7 @@ namespace green_action {
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
           apc = get_memory<real_t[R1C2][Noco][LM]>(n, p->echo, "apc");
 //        aac = get_memory<real_t[R1C2][Noco][LM]>(n, p->echo, "aac"); // currently not used
+          // ToDo: alternatively, we could take GPU device memory from the buffer
       } // take_memory
 
       void transfer(char* const buffer, cudaStream_t const streamId=0) {
