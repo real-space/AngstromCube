@@ -124,7 +124,7 @@
 @    xaxis  bar color 1
 @    xaxis  bar linestyle 1
 @    xaxis  bar linewidth 2.0
-@    xaxis  label "Radius / \f{Symbol}s\f{}"
+@    xaxis  label "Radius / \q\f{Symbol}s\f{}\Q"
 @    xaxis  label layout para
 @    xaxis  label place auto
 @    xaxis  label char size 1.500000

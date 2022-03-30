@@ -1,8 +1,13 @@
 #pragma once
 
+#include <cstdio> // std::printf
+#include <cmath> // std::sqrt
+#include <algorithm> // std::max
+
 #include "energy_level.hxx" // energy_level_t, TRU_ONLY
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "radial_grid.hxx" // radial_grid_t
+#include "inline_math.hxx" // pow2
 
   typedef struct energy_level_t<TRU_ONLY> spherical_state_t; // Pseudo=1: spherical states, e.g. core states, only a TRU wave is stored
 

@@ -37,6 +37,7 @@ OBJ = \
 	sho_hamiltonian.o \
 	sho_projection.o \
 	structure_solver.o \
+	load_balancer.o \
 	main.o
 
 .PHONY: clean allclean

@@ -9,6 +9,11 @@
 #include "green_sparse.hxx" // ::sparse_t<>
 #include "inline_math.hxx" // pow2, pow3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
+#include "constants.hxx" // ::sqrtpi
+
+#ifndef NO_UNIT_TESTS
+    #include "control.hxx" // ::get
+#endif // NO_UNIT_TESTS
 
 #ifndef HAS_NO_CUDA
     #include <cuda/std/complex> // std::complex
@@ -829,7 +834,7 @@ namespace green_dyadic {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
 
         dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*n64, Noco, 1);
-        if (echo >-1) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, %d, 1} >>>\n",
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, %d, 1} >>>\n",
                            __func__, real_t_name<real_t>(), R1C2, Noco, n64,  natoms, nrhs,  Noco*n64, Noco);
         SHOmul<real_t,R1C2,Noco,n64> // launch <<< {natoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
@@ -972,7 +977,7 @@ namespace green_dyadic {
     } // multiply (dyadic operations)
 
 
-    std::vector<double> sho_normalization(int8_t const lmax, double const sigma=1) {
+    std::vector<double> __host__ sho_normalization(int8_t const lmax, double const sigma=1) {
         int const n1ho = sho_tools::n1HO(lmax);
         std::vector<double> v1(n1ho, constants::sqrtpi * sigma);
         double fac{1};
@@ -992,7 +997,6 @@ namespace green_dyadic {
         assert(vec.size() == sho);
         return vec;
     } // sho_normalization
-            
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
@@ -1035,10 +1039,8 @@ namespace green_dyadic {
   } // test_Hermite_polynomials_1D
 
 
-
-
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t __host__ multiply(
+    size_t multiply(
           real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result,  modified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
         , real_t         (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // projection coefficients     [natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
@@ -1144,10 +1146,22 @@ namespace green_dyadic {
 
       SHOprj_driver<real_t,R1C2,Noco>(apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
 
-      double maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
-      { // scope
+      float maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
+      float maxdev_nu[8][2] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+      { // scope: show projection coefficients
           cudaDeviceSynchronize();
-          auto const msho = std::min(nsho, 64); // show projection coefficients
+          std::vector<int8_t> nu_of_sho(nsho, -1);
+          {
+              int sho{0};
+              for (int iz = 0; iz <= lmax; ++iz) {
+                  for (int iy = 0; iy <= lmax - iz; ++iy) {
+                      for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
+                          nu_of_sho[sho] = ix + iy + iz;
+                          ++sho;
+              }}}
+              assert(nu_of_sho.size() == sho);
+          }
+          auto const msho = std::min(nsho, 64);
           if (echo > 5) std::printf("# %d projection coefficients ", msho);
           for (int isho = 0; isho < msho; ++isho) {
               if (echo > 9) std::printf("\n# projection coefficients[%2d]: ", isho);
@@ -1155,14 +1169,22 @@ namespace green_dyadic {
                   double const value = apc[isho*nrhs][0][0][jsho];
                   int const diag = (isho == jsho);
                   if (echo > 9) std::printf(" %g", value);
-                  maxdev[diag] = std::max(maxdev[diag], std::abs(value - diag));
+                  float const absdev = std::abs(value - diag);
+                  maxdev[diag] = std::max(maxdev[diag], absdev);
+                  auto const nu = std::max(nu_of_sho[isho], nu_of_sho[jsho]);
+                  if (nu < 8) maxdev_nu[nu][diag] = std::max(maxdev_nu[nu][diag], absdev);
               } // isho
               if (echo > 9) std::printf(" diagonal=");
               if (echo > 5) std::printf(" %.3f", apc[isho*nrhs][0][0][isho]);
           } // isho
           if (echo > 5) std::printf("\n");
       } // scope
-      if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.1e, normalization error %.1e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
+      if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.2e, normalization error %.2e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
+      if (echo > 5) {
+          for (int nu = 0; nu < std::min(8, lmax + 1); ++nu) {
+              std::printf("# real%ld nu=%d %.2e %.2e\n", sizeof(real_t), nu, maxdev_nu[nu][0], maxdev_nu[nu][1]);
+          } // nu
+      } // echo
 
       if (1) {
           // also test the deprecated interface 'multiply'
@@ -1192,12 +1214,13 @@ namespace green_dyadic {
 
   inline status_t test_SHOprj_and_SHOadd(int const echo=0) {
       status_t stat(0);
-      stat += test_SHOprj_and_SHOadd<float ,1,1>(echo); // real
-//       stat += test_SHOprj_and_SHOadd<float ,2,1>(echo); // complex
-//       stat += test_SHOprj_and_SHOadd<float ,2,2>(echo); // non-collinear
-      stat += test_SHOprj_and_SHOadd<double,1,1>(echo); // real
-//       stat += test_SHOprj_and_SHOadd<double,2,1>(echo); // complex
-//       stat += test_SHOprj_and_SHOadd<double,2,2>(echo); // non-collinear
+      int const more = control::get("green_dyadic.test.more", 0.);
+      stat +=   test_SHOprj_and_SHOadd<float ,1,1>(echo); // real
+      if (more) test_SHOprj_and_SHOadd<float ,2,1>(echo); // complex
+      if (more) test_SHOprj_and_SHOadd<float ,2,2>(echo); // non-collinear
+      stat +=   test_SHOprj_and_SHOadd<double,1,1>(echo); // real
+      if (more) test_SHOprj_and_SHOadd<double,2,1>(echo); // complex
+      if (more) test_SHOprj_and_SHOadd<double,2,2>(echo); // non-collinear
       return stat;
   } // test_SHOprj_and_SHOadd
 

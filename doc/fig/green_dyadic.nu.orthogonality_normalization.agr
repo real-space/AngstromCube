@@ -1,0 +1,2328 @@
+# Grace project file
+#
+@version 50125
+@page size 792, 612
+@page scroll 5%
+@page inout 5%
+@link page off
+@map font 4 to "Times-Roman", "Times-Roman"
+@map font 1 to "Times-Italic", "Times-Italic"
+@map font 2 to "Times-Bold", "Times-Bold"
+@map font 3 to "Times-BoldItalic", "Times-BoldItalic"
+@map font 0 to "Helvetica", "Helvetica"
+@map font 5 to "Helvetica-Oblique", "Helvetica-Oblique"
+@map font 6 to "Helvetica-Bold", "Helvetica-Bold"
+@map font 7 to "Helvetica-BoldOblique", "Helvetica-BoldOblique"
+@map font 8 to "Courier", "Courier"
+@map font 9 to "Courier-Oblique", "Courier-Oblique"
+@map font 10 to "Courier-Bold", "Courier-Bold"
+@map font 11 to "Courier-BoldOblique", "Courier-BoldOblique"
+@map font 12 to "Symbol", "Symbol"
+@map font 13 to "ZapfDingbats", "ZapfDingbats"
+@map color 0 to (255, 255, 255), "white"
+@map color 1 to (0, 0, 0), "black"
+@map color 2 to (255, 0, 0), "red"
+@map color 3 to (0, 139, 0), "green"
+@map color 4 to (0, 0, 255), "blue"
+@map color 5 to (255, 255, 0), "yellow"
+@map color 6 to (188, 143, 143), "brown"
+@map color 7 to (220, 220, 220), "grey"
+@map color 8 to (148, 0, 211), "violet"
+@map color 9 to (0, 255, 255), "cyan"
+@map color 10 to (255, 0, 255), "magenta"
+@map color 11 to (255, 165, 0), "orange"
+@map color 12 to (114, 33, 188), "indigo"
+@map color 13 to (103, 7, 72), "maroon"
+@map color 14 to (64, 224, 208), "turquoise"
+@map color 15 to (0, 139, 0), "green4"
+@reference date 0
+@date wrap off
+@date wrap year 1950
+@default linewidth 2.0
+@default linestyle 1
+@default color 1
+@default pattern 1
+@default font 0
+@default char size 1.500000
+@default symbol size 1.000000
+@default sformat "%.8g"
+@background color 0
+@page background fill on
+@timestamp off
+@timestamp 0.03, 0.03
+@timestamp color 1
+@timestamp rot 0
+@timestamp font 0
+@timestamp char size 1.500000
+@timestamp def "Fri Mar 25 10:07:40 2022"
+@r0 off
+@link r0 to g0
+@r0 type above
+@r0 linestyle 1
+@r0 linewidth 2.0
+@r0 color 1
+@r0 line 0, 0, 0, 0
+@r1 off
+@link r1 to g0
+@r1 type above
+@r1 linestyle 1
+@r1 linewidth 2.0
+@r1 color 1
+@r1 line 0, 0, 0, 0
+@r2 off
+@link r2 to g0
+@r2 type above
+@r2 linestyle 1
+@r2 linewidth 2.0
+@r2 color 1
+@r2 line 0, 0, 0, 0
+@r3 off
+@link r3 to g0
+@r3 type above
+@r3 linestyle 1
+@r3 linewidth 2.0
+@r3 color 1
+@r3 line 0, 0, 0, 0
+@r4 off
+@link r4 to g0
+@r4 type above
+@r4 linestyle 1
+@r4 linewidth 2.0
+@r4 color 1
+@r4 line 0, 0, 0, 0
+@g0 on
+@g0 hidden false
+@g0 type XY
+@g0 stacked false
+@g0 bar hgap 0.000000
+@g0 fixedpoint off
+@g0 fixedpoint type 0
+@g0 fixedpoint xy 0.000000, 0.000000
+@g0 fixedpoint format general general
+@g0 fixedpoint prec 6, 6
+@with g0
+@    world 2.5, 2e-18, 9.5, 5
+@    stack world 0, 0, 0, 0
+@    znorm 1
+@    view 0.150000, 0.150000, 1.150000, 0.850000
+@    title ""
+@    title font 0
+@    title size 1.500000
+@    title color 1
+@    subtitle "Errors up to \q\f{Symbol}n\f{}\Q\smax\N= 5, 64bit"
+@    subtitle font 0
+@    subtitle size 1.500000
+@    subtitle color 1
+@    xaxes scale Normal
+@    yaxes scale Logarithmic
+@    xaxes invert off
+@    yaxes invert off
+@    xaxis  on
+@    xaxis  type zero false
+@    xaxis  offset 0.000000 , 0.000000
+@    xaxis  bar on
+@    xaxis  bar color 1
+@    xaxis  bar linestyle 1
+@    xaxis  bar linewidth 2.0
+@    xaxis  label "Radius / \q\f{Symbol}s\f{}\Q"
+@    xaxis  label layout para
+@    xaxis  label place auto
+@    xaxis  label char size 1.500000
+@    xaxis  label font 0
+@    xaxis  label color 1
+@    xaxis  label place normal
+@    xaxis  tick on
+@    xaxis  tick major 1
+@    xaxis  tick minor ticks 1
+@    xaxis  tick default 6
+@    xaxis  tick place rounded true
+@    xaxis  tick in
+@    xaxis  tick major size 1.000000
+@    xaxis  tick major color 1
+@    xaxis  tick major linewidth 2.0
+@    xaxis  tick major linestyle 1
+@    xaxis  tick major grid off
+@    xaxis  tick minor color 1
+@    xaxis  tick minor linewidth 2.0
+@    xaxis  tick minor linestyle 1
+@    xaxis  tick minor grid off
+@    xaxis  tick minor size 0.500000
+@    xaxis  ticklabel on
+@    xaxis  ticklabel format general
+@    xaxis  ticklabel prec 5
+@    xaxis  ticklabel formula ""
+@    xaxis  ticklabel append ""
+@    xaxis  ticklabel prepend ""
+@    xaxis  ticklabel angle 0
+@    xaxis  ticklabel skip 0
+@    xaxis  ticklabel stagger 0
+@    xaxis  ticklabel place normal
+@    xaxis  ticklabel offset auto
+@    xaxis  ticklabel offset 0.000000 , 0.010000
+@    xaxis  ticklabel start type auto
+@    xaxis  ticklabel start 0.000000
+@    xaxis  ticklabel stop type auto
+@    xaxis  ticklabel stop 0.000000
+@    xaxis  ticklabel char size 1.500000
+@    xaxis  ticklabel font 0
+@    xaxis  ticklabel color 1
+@    xaxis  tick place both
+@    xaxis  tick spec type none
+@    yaxis  on
+@    yaxis  type zero false
+@    yaxis  offset 0.000000 , 0.000000
+@    yaxis  bar on
+@    yaxis  bar color 1
+@    yaxis  bar linestyle 1
+@    yaxis  bar linewidth 2.0
+@    yaxis  label ""
+@    yaxis  label layout para
+@    yaxis  label place auto
+@    yaxis  label char size 1.500000
+@    yaxis  label font 0
+@    yaxis  label color 1
+@    yaxis  label place normal
+@    yaxis  tick on
+@    yaxis  tick major 1000
+@    yaxis  tick minor ticks 9
+@    yaxis  tick default 6
+@    yaxis  tick place rounded true
+@    yaxis  tick in
+@    yaxis  tick major size 1.000000
+@    yaxis  tick major color 1
+@    yaxis  tick major linewidth 2.0
+@    yaxis  tick major linestyle 1
+@    yaxis  tick major grid off
+@    yaxis  tick minor color 1
+@    yaxis  tick minor linewidth 2.0
+@    yaxis  tick minor linestyle 1
+@    yaxis  tick minor grid off
+@    yaxis  tick minor size 0.500000
+@    yaxis  ticklabel on
+@    yaxis  ticklabel format general
+@    yaxis  ticklabel prec 5
+@    yaxis  ticklabel formula ""
+@    yaxis  ticklabel append ""
+@    yaxis  ticklabel prepend ""
+@    yaxis  ticklabel angle 0
+@    yaxis  ticklabel skip 0
+@    yaxis  ticklabel stagger 0
+@    yaxis  ticklabel place opposite
+@    yaxis  ticklabel offset auto
+@    yaxis  ticklabel offset 0.000000 , 0.010000
+@    yaxis  ticklabel start type auto
+@    yaxis  ticklabel start 0.000000
+@    yaxis  ticklabel stop type auto
+@    yaxis  ticklabel stop 0.000000
+@    yaxis  ticklabel char size 1.500000
+@    yaxis  ticklabel font 0
+@    yaxis  ticklabel color 1
+@    yaxis  tick place both
+@    yaxis  tick spec type both
+@    yaxis  tick spec 71
+@    yaxis  tick major 0, 1e-18
+@    yaxis  ticklabel 0, "10\S-18\n"
+@    yaxis  tick minor 1, 2e-18
+@    yaxis  tick minor 2, 3e-18
+@    yaxis  tick minor 3, 4e-18
+@    yaxis  tick minor 4, 5e-18
+@    yaxis  tick minor 5, 6e-18
+@    yaxis  tick minor 6, 7e-18
+@    yaxis  tick minor 7, 8e-18
+@    yaxis  tick minor 8, 9e-18
+@    yaxis  tick minor 9, 1e-17
+@    yaxis  tick major 10, 1e-15
+@    yaxis  ticklabel 10, "10\S-15\n"
+@    yaxis  tick minor 11, 2e-15
+@    yaxis  tick minor 12, 3e-15
+@    yaxis  tick minor 13, 4e-15
+@    yaxis  tick minor 14, 5e-15
+@    yaxis  tick minor 15, 6e-15
+@    yaxis  tick minor 16, 7e-15
+@    yaxis  tick minor 17, 8e-15
+@    yaxis  tick minor 18, 9e-15
+@    yaxis  tick minor 19, 1e-14
+@    yaxis  tick major 20, 1e-12
+@    yaxis  ticklabel 20, "10\S-12\n"
+@    yaxis  tick minor 21, 2e-12
+@    yaxis  tick minor 22, 3e-12
+@    yaxis  tick minor 23, 4e-12
+@    yaxis  tick minor 24, 5e-12
+@    yaxis  tick minor 25, 6e-12
+@    yaxis  tick minor 26, 7e-12
+@    yaxis  tick minor 27, 8e-12
+@    yaxis  tick minor 28, 9e-12
+@    yaxis  tick minor 29, 1e-11
+@    yaxis  tick major 30, 1e-09
+@    yaxis  ticklabel 30, "10\S-9\n"
+@    yaxis  tick minor 31, 2e-09
+@    yaxis  tick minor 32, 3e-09
+@    yaxis  tick minor 33, 4e-09
+@    yaxis  tick minor 34, 5e-09
+@    yaxis  tick minor 35, 6e-09
+@    yaxis  tick minor 36, 7e-09
+@    yaxis  tick minor 37, 8e-09
+@    yaxis  tick minor 38, 9e-09
+@    yaxis  tick minor 39, 1e-08
+@    yaxis  tick major 40, 1e-06
+@    yaxis  ticklabel 40, "10\S-6\n"
+@    yaxis  tick minor 41, 2e-06
+@    yaxis  tick minor 42, 3e-06
+@    yaxis  tick minor 43, 4e-06
+@    yaxis  tick minor 44, 5e-06
+@    yaxis  tick minor 45, 6e-06
+@    yaxis  tick minor 46, 7e-06
+@    yaxis  tick minor 47, 8e-06
+@    yaxis  tick minor 48, 9e-06
+@    yaxis  tick minor 49, 1e-05
+@    yaxis  tick major 50, 0.001
+@    yaxis  ticklabel 50, "10\S-3\n"
+@    yaxis  tick minor 51, 0.002
+@    yaxis  tick minor 52, 0.003
+@    yaxis  tick minor 53, 0.004
+@    yaxis  tick minor 54, 0.005
+@    yaxis  tick minor 55, 0.006
+@    yaxis  tick minor 56, 0.007
+@    yaxis  tick minor 57, 0.008
+@    yaxis  tick minor 58, 0.009
+@    yaxis  tick minor 59, 0.01
+@    yaxis  tick major 60, 1
+@    yaxis  ticklabel 60, "10\S0\n"
+@    yaxis  tick minor 61, 2
+@    yaxis  tick minor 62, 3
+@    yaxis  tick minor 63, 4
+@    yaxis  tick minor 64, 5
+@    yaxis  tick minor 65, 6
+@    yaxis  tick minor 66, 7
+@    yaxis  tick minor 67, 8
+@    yaxis  tick minor 68, 9
+@    yaxis  tick minor 69, 10
+@    yaxis  tick major 70, 1000
+@    yaxis  ticklabel 70, "10\S3\n"
+@    altxaxis  off
+@    altyaxis  off
+@    legend on
+@    legend loctype view
+@    legend 0.75, 0.8
+@    legend box color 1
+@    legend box pattern 1
+@    legend box linewidth 2.0
+@    legend box linestyle 0
+@    legend box fill color 0
+@    legend box fill pattern 0
+@    legend font 0
+@    legend char size 1.500000
+@    legend color 1
+@    legend length 4
+@    legend vgap 1
+@    legend hgap 1
+@    legend invert false
+@    frame type 0
+@    frame linestyle 1
+@    frame linewidth 2.0
+@    frame color 1
+@    frame pattern 1
+@    frame background color 0
+@    frame background pattern 0
+@    s0 hidden true
+@    s0 type xy
+@    s0 symbol 0
+@    s0 symbol size 1.000000
+@    s0 symbol color 1
+@    s0 symbol pattern 1
+@    s0 symbol fill color 0
+@    s0 symbol fill pattern 1
+@    s0 symbol linewidth 2.0
+@    s0 symbol linestyle 1
+@    s0 symbol char 65
+@    s0 symbol char font 0
+@    s0 symbol skip 0
+@    s0 line type 1
+@    s0 line linestyle 1
+@    s0 line linewidth 2.0
+@    s0 line color 1
+@    s0 line pattern 1
+@    s0 baseline type 0
+@    s0 baseline off
+@    s0 dropline off
+@    s0 fill type 0
+@    s0 fill rule 0
+@    s0 fill color 1
+@    s0 fill pattern 1
+@    s0 avalue off
+@    s0 avalue type 2
+@    s0 avalue char size 1.500000
+@    s0 avalue font 0
+@    s0 avalue color 1
+@    s0 avalue rot 0
+@    s0 avalue format general
+@    s0 avalue prec 3
+@    s0 avalue prepend ""
+@    s0 avalue append ""
+@    s0 avalue offset 0.000000 , 0.000000
+@    s0 errorbar on
+@    s0 errorbar place both
+@    s0 errorbar color 1
+@    s0 errorbar pattern 1
+@    s0 errorbar size 1.000000
+@    s0 errorbar linewidth 2.0
+@    s0 errorbar linestyle 1
+@    s0 errorbar riser linewidth 2.0
+@    s0 errorbar riser linestyle 1
+@    s0 errorbar riser clip off
+@    s0 errorbar riser clip length 0.100000
+@    s0 comment "green_dyadic.nu.dat"
+@    s0 legend  ""
+@    s1 hidden true
+@    s1 type xy
+@    s1 symbol 0
+@    s1 symbol size 1.000000
+@    s1 symbol color 2
+@    s1 symbol pattern 1
+@    s1 symbol fill color 0
+@    s1 symbol fill pattern 1
+@    s1 symbol linewidth 2.0
+@    s1 symbol linestyle 1
+@    s1 symbol char 65
+@    s1 symbol char font 0
+@    s1 symbol skip 0
+@    s1 line type 1
+@    s1 line linestyle 1
+@    s1 line linewidth 2.0
+@    s1 line color 2
+@    s1 line pattern 1
+@    s1 baseline type 0
+@    s1 baseline off
+@    s1 dropline off
+@    s1 fill type 0
+@    s1 fill rule 0
+@    s1 fill color 1
+@    s1 fill pattern 1
+@    s1 avalue off
+@    s1 avalue type 2
+@    s1 avalue char size 1.500000
+@    s1 avalue font 0
+@    s1 avalue color 1
+@    s1 avalue rot 0
+@    s1 avalue format general
+@    s1 avalue prec 3
+@    s1 avalue prepend ""
+@    s1 avalue append ""
+@    s1 avalue offset 0.000000 , 0.000000
+@    s1 errorbar on
+@    s1 errorbar place both
+@    s1 errorbar color 2
+@    s1 errorbar pattern 1
+@    s1 errorbar size 1.000000
+@    s1 errorbar linewidth 2.0
+@    s1 errorbar linestyle 1
+@    s1 errorbar riser linewidth 2.0
+@    s1 errorbar riser linestyle 1
+@    s1 errorbar riser clip off
+@    s1 errorbar riser clip length 0.100000
+@    s1 comment "green_dyadic.nu.dat"
+@    s1 legend  ""
+@    s2 hidden true
+@    s2 type xy
+@    s2 symbol 0
+@    s2 symbol size 1.000000
+@    s2 symbol color 7
+@    s2 symbol pattern 1
+@    s2 symbol fill color 7
+@    s2 symbol fill pattern 1
+@    s2 symbol linewidth 2.0
+@    s2 symbol linestyle 1
+@    s2 symbol char 65
+@    s2 symbol char font 0
+@    s2 symbol skip 0
+@    s2 line type 1
+@    s2 line linestyle 2
+@    s2 line linewidth 4.0
+@    s2 line color 7
+@    s2 line pattern 1
+@    s2 baseline type 0
+@    s2 baseline off
+@    s2 dropline off
+@    s2 fill type 0
+@    s2 fill rule 0
+@    s2 fill color 1
+@    s2 fill pattern 1
+@    s2 avalue off
+@    s2 avalue type 2
+@    s2 avalue char size 1.500000
+@    s2 avalue font 0
+@    s2 avalue color 1
+@    s2 avalue rot 0
+@    s2 avalue format general
+@    s2 avalue prec 3
+@    s2 avalue prepend ""
+@    s2 avalue append ""
+@    s2 avalue offset 0.000000 , 0.000000
+@    s2 errorbar on
+@    s2 errorbar place both
+@    s2 errorbar color 7
+@    s2 errorbar pattern 1
+@    s2 errorbar size 1.000000
+@    s2 errorbar linewidth 2.0
+@    s2 errorbar linestyle 1
+@    s2 errorbar riser linewidth 2.0
+@    s2 errorbar riser linestyle 1
+@    s2 errorbar riser clip off
+@    s2 errorbar riser clip length 0.100000
+@    s2 comment "green_dyadic.nu.dat"
+@    s2 legend  ""
+@    s3 hidden true
+@    s3 type xy
+@    s3 symbol 0
+@    s3 symbol size 1.000000
+@    s3 symbol color 7
+@    s3 symbol pattern 1
+@    s3 symbol fill color 7
+@    s3 symbol fill pattern 1
+@    s3 symbol linewidth 2.0
+@    s3 symbol linestyle 1
+@    s3 symbol char 65
+@    s3 symbol char font 0
+@    s3 symbol skip 0
+@    s3 line type 1
+@    s3 line linestyle 1
+@    s3 line linewidth 4.0
+@    s3 line color 7
+@    s3 line pattern 1
+@    s3 baseline type 0
+@    s3 baseline off
+@    s3 dropline off
+@    s3 fill type 0
+@    s3 fill rule 0
+@    s3 fill color 1
+@    s3 fill pattern 1
+@    s3 avalue off
+@    s3 avalue type 2
+@    s3 avalue char size 1.500000
+@    s3 avalue font 0
+@    s3 avalue color 1
+@    s3 avalue rot 0
+@    s3 avalue format general
+@    s3 avalue prec 3
+@    s3 avalue prepend ""
+@    s3 avalue append ""
+@    s3 avalue offset 0.000000 , 0.000000
+@    s3 errorbar on
+@    s3 errorbar place both
+@    s3 errorbar color 7
+@    s3 errorbar pattern 1
+@    s3 errorbar size 1.000000
+@    s3 errorbar linewidth 2.0
+@    s3 errorbar linestyle 1
+@    s3 errorbar riser linewidth 2.0
+@    s3 errorbar riser linestyle 1
+@    s3 errorbar riser clip off
+@    s3 errorbar riser clip length 0.100000
+@    s3 comment "green_dyadic.nu.dat"
+@    s3 legend  ""
+@    s4 hidden true
+@    s4 type xy
+@    s4 symbol 0
+@    s4 symbol size 1.000000
+@    s4 symbol color 5
+@    s4 symbol pattern 1
+@    s4 symbol fill color 0
+@    s4 symbol fill pattern 1
+@    s4 symbol linewidth 2.0
+@    s4 symbol linestyle 1
+@    s4 symbol char 65
+@    s4 symbol char font 0
+@    s4 symbol skip 0
+@    s4 line type 1
+@    s4 line linestyle 1
+@    s4 line linewidth 2.0
+@    s4 line color 5
+@    s4 line pattern 1
+@    s4 baseline type 0
+@    s4 baseline off
+@    s4 dropline off
+@    s4 fill type 0
+@    s4 fill rule 0
+@    s4 fill color 1
+@    s4 fill pattern 1
+@    s4 avalue off
+@    s4 avalue type 2
+@    s4 avalue char size 1.500000
+@    s4 avalue font 0
+@    s4 avalue color 1
+@    s4 avalue rot 0
+@    s4 avalue format general
+@    s4 avalue prec 3
+@    s4 avalue prepend ""
+@    s4 avalue append ""
+@    s4 avalue offset 0.000000 , 0.000000
+@    s4 errorbar on
+@    s4 errorbar place both
+@    s4 errorbar color 5
+@    s4 errorbar pattern 1
+@    s4 errorbar size 1.000000
+@    s4 errorbar linewidth 2.0
+@    s4 errorbar linestyle 1
+@    s4 errorbar riser linewidth 2.0
+@    s4 errorbar riser linestyle 1
+@    s4 errorbar riser clip off
+@    s4 errorbar riser clip length 0.100000
+@    s4 comment "green_dyadic.nu.dat"
+@    s4 legend  "32bit ortho nu=0"
+@    s5 hidden true
+@    s5 type xy
+@    s5 symbol 0
+@    s5 symbol size 1.000000
+@    s5 symbol color 6
+@    s5 symbol pattern 1
+@    s5 symbol fill color 0
+@    s5 symbol fill pattern 1
+@    s5 symbol linewidth 2.0
+@    s5 symbol linestyle 1
+@    s5 symbol char 65
+@    s5 symbol char font 0
+@    s5 symbol skip 0
+@    s5 line type 1
+@    s5 line linestyle 1
+@    s5 line linewidth 2.0
+@    s5 line color 6
+@    s5 line pattern 1
+@    s5 baseline type 0
+@    s5 baseline off
+@    s5 dropline off
+@    s5 fill type 0
+@    s5 fill rule 0
+@    s5 fill color 1
+@    s5 fill pattern 1
+@    s5 avalue off
+@    s5 avalue type 2
+@    s5 avalue char size 1.500000
+@    s5 avalue font 0
+@    s5 avalue color 1
+@    s5 avalue rot 0
+@    s5 avalue format general
+@    s5 avalue prec 3
+@    s5 avalue prepend ""
+@    s5 avalue append ""
+@    s5 avalue offset 0.000000 , 0.000000
+@    s5 errorbar on
+@    s5 errorbar place both
+@    s5 errorbar color 6
+@    s5 errorbar pattern 1
+@    s5 errorbar size 1.000000
+@    s5 errorbar linewidth 2.0
+@    s5 errorbar linestyle 1
+@    s5 errorbar riser linewidth 2.0
+@    s5 errorbar riser linestyle 1
+@    s5 errorbar riser clip off
+@    s5 errorbar riser clip length 0.100000
+@    s5 comment "green_dyadic.nu.dat"
+@    s5 legend  ""
+@    s6 hidden true
+@    s6 type xy
+@    s6 symbol 0
+@    s6 symbol size 1.000000
+@    s6 symbol color 6
+@    s6 symbol pattern 1
+@    s6 symbol fill color 0
+@    s6 symbol fill pattern 1
+@    s6 symbol linewidth 2.0
+@    s6 symbol linestyle 1
+@    s6 symbol char 65
+@    s6 symbol char font 0
+@    s6 symbol skip 0
+@    s6 line type 1
+@    s6 line linestyle 1
+@    s6 line linewidth 2.0
+@    s6 line color 6
+@    s6 line pattern 1
+@    s6 baseline type 0
+@    s6 baseline off
+@    s6 dropline off
+@    s6 fill type 0
+@    s6 fill rule 0
+@    s6 fill color 1
+@    s6 fill pattern 1
+@    s6 avalue off
+@    s6 avalue type 2
+@    s6 avalue char size 1.500000
+@    s6 avalue font 0
+@    s6 avalue color 1
+@    s6 avalue rot 0
+@    s6 avalue format general
+@    s6 avalue prec 3
+@    s6 avalue prepend ""
+@    s6 avalue append ""
+@    s6 avalue offset 0.000000 , 0.000000
+@    s6 errorbar on
+@    s6 errorbar place both
+@    s6 errorbar color 6
+@    s6 errorbar pattern 1
+@    s6 errorbar size 1.000000
+@    s6 errorbar linewidth 2.0
+@    s6 errorbar linestyle 1
+@    s6 errorbar riser linewidth 2.0
+@    s6 errorbar riser linestyle 1
+@    s6 errorbar riser clip off
+@    s6 errorbar riser clip length 0.100000
+@    s6 comment "green_dyadic.nu.dat"
+@    s6 legend  ""
+@    s7 hidden true
+@    s7 type xy
+@    s7 symbol 0
+@    s7 symbol size 1.000000
+@    s7 symbol color 6
+@    s7 symbol pattern 1
+@    s7 symbol fill color 0
+@    s7 symbol fill pattern 1
+@    s7 symbol linewidth 2.0
+@    s7 symbol linestyle 1
+@    s7 symbol char 65
+@    s7 symbol char font 0
+@    s7 symbol skip 0
+@    s7 line type 1
+@    s7 line linestyle 1
+@    s7 line linewidth 2.0
+@    s7 line color 6
+@    s7 line pattern 1
+@    s7 baseline type 0
+@    s7 baseline off
+@    s7 dropline off
+@    s7 fill type 0
+@    s7 fill rule 0
+@    s7 fill color 1
+@    s7 fill pattern 1
+@    s7 avalue off
+@    s7 avalue type 2
+@    s7 avalue char size 1.500000
+@    s7 avalue font 0
+@    s7 avalue color 1
+@    s7 avalue rot 0
+@    s7 avalue format general
+@    s7 avalue prec 3
+@    s7 avalue prepend ""
+@    s7 avalue append ""
+@    s7 avalue offset 0.000000 , 0.000000
+@    s7 errorbar on
+@    s7 errorbar place both
+@    s7 errorbar color 6
+@    s7 errorbar pattern 1
+@    s7 errorbar size 1.000000
+@    s7 errorbar linewidth 2.0
+@    s7 errorbar linestyle 1
+@    s7 errorbar riser linewidth 2.0
+@    s7 errorbar riser linestyle 1
+@    s7 errorbar riser clip off
+@    s7 errorbar riser clip length 0.100000
+@    s7 comment "green_dyadic.nu.dat"
+@    s7 legend  ""
+@    s8 hidden true
+@    s8 type xy
+@    s8 symbol 0
+@    s8 symbol size 1.000000
+@    s8 symbol color 6
+@    s8 symbol pattern 1
+@    s8 symbol fill color 0
+@    s8 symbol fill pattern 1
+@    s8 symbol linewidth 2.0
+@    s8 symbol linestyle 1
+@    s8 symbol char 65
+@    s8 symbol char font 0
+@    s8 symbol skip 0
+@    s8 line type 1
+@    s8 line linestyle 1
+@    s8 line linewidth 2.0
+@    s8 line color 6
+@    s8 line pattern 1
+@    s8 baseline type 0
+@    s8 baseline off
+@    s8 dropline off
+@    s8 fill type 0
+@    s8 fill rule 0
+@    s8 fill color 1
+@    s8 fill pattern 1
+@    s8 avalue off
+@    s8 avalue type 2
+@    s8 avalue char size 1.500000
+@    s8 avalue font 0
+@    s8 avalue color 1
+@    s8 avalue rot 0
+@    s8 avalue format general
+@    s8 avalue prec 3
+@    s8 avalue prepend ""
+@    s8 avalue append ""
+@    s8 avalue offset 0.000000 , 0.000000
+@    s8 errorbar on
+@    s8 errorbar place both
+@    s8 errorbar color 6
+@    s8 errorbar pattern 1
+@    s8 errorbar size 1.000000
+@    s8 errorbar linewidth 2.0
+@    s8 errorbar linestyle 1
+@    s8 errorbar riser linewidth 2.0
+@    s8 errorbar riser linestyle 1
+@    s8 errorbar riser clip off
+@    s8 errorbar riser clip length 0.100000
+@    s8 comment "green_dyadic.nu.dat"
+@    s8 legend  ""
+@    s9 hidden true
+@    s9 type xy
+@    s9 symbol 0
+@    s9 symbol size 1.000000
+@    s9 symbol color 6
+@    s9 symbol pattern 1
+@    s9 symbol fill color 0
+@    s9 symbol fill pattern 1
+@    s9 symbol linewidth 2.0
+@    s9 symbol linestyle 1
+@    s9 symbol char 65
+@    s9 symbol char font 0
+@    s9 symbol skip 0
+@    s9 line type 1
+@    s9 line linestyle 1
+@    s9 line linewidth 2.0
+@    s9 line color 6
+@    s9 line pattern 1
+@    s9 baseline type 0
+@    s9 baseline off
+@    s9 dropline off
+@    s9 fill type 0
+@    s9 fill rule 0
+@    s9 fill color 1
+@    s9 fill pattern 1
+@    s9 avalue off
+@    s9 avalue type 2
+@    s9 avalue char size 1.500000
+@    s9 avalue font 0
+@    s9 avalue color 1
+@    s9 avalue rot 0
+@    s9 avalue format general
+@    s9 avalue prec 3
+@    s9 avalue prepend ""
+@    s9 avalue append ""
+@    s9 avalue offset 0.000000 , 0.000000
+@    s9 errorbar on
+@    s9 errorbar place both
+@    s9 errorbar color 6
+@    s9 errorbar pattern 1
+@    s9 errorbar size 1.000000
+@    s9 errorbar linewidth 2.0
+@    s9 errorbar linestyle 1
+@    s9 errorbar riser linewidth 2.0
+@    s9 errorbar riser linestyle 1
+@    s9 errorbar riser clip off
+@    s9 errorbar riser clip length 0.100000
+@    s9 comment "green_dyadic.nu.dat"
+@    s9 legend  ""
+@    s10 hidden true
+@    s10 type xy
+@    s10 symbol 0
+@    s10 symbol size 1.000000
+@    s10 symbol color 6
+@    s10 symbol pattern 1
+@    s10 symbol fill color 0
+@    s10 symbol fill pattern 1
+@    s10 symbol linewidth 2.0
+@    s10 symbol linestyle 1
+@    s10 symbol char 65
+@    s10 symbol char font 0
+@    s10 symbol skip 0
+@    s10 line type 1
+@    s10 line linestyle 1
+@    s10 line linewidth 2.0
+@    s10 line color 6
+@    s10 line pattern 1
+@    s10 baseline type 0
+@    s10 baseline off
+@    s10 dropline off
+@    s10 fill type 0
+@    s10 fill rule 0
+@    s10 fill color 1
+@    s10 fill pattern 1
+@    s10 avalue off
+@    s10 avalue type 2
+@    s10 avalue char size 1.500000
+@    s10 avalue font 0
+@    s10 avalue color 1
+@    s10 avalue rot 0
+@    s10 avalue format general
+@    s10 avalue prec 3
+@    s10 avalue prepend ""
+@    s10 avalue append ""
+@    s10 avalue offset 0.000000 , 0.000000
+@    s10 errorbar on
+@    s10 errorbar place both
+@    s10 errorbar color 6
+@    s10 errorbar pattern 1
+@    s10 errorbar size 1.000000
+@    s10 errorbar linewidth 2.0
+@    s10 errorbar linestyle 1
+@    s10 errorbar riser linewidth 2.0
+@    s10 errorbar riser linestyle 1
+@    s10 errorbar riser clip off
+@    s10 errorbar riser clip length 0.100000
+@    s10 comment "green_dyadic.nu.dat"
+@    s10 legend  ""
+@    s11 hidden true
+@    s11 type xy
+@    s11 symbol 0
+@    s11 symbol size 1.000000
+@    s11 symbol color 6
+@    s11 symbol pattern 1
+@    s11 symbol fill color 0
+@    s11 symbol fill pattern 1
+@    s11 symbol linewidth 2.0
+@    s11 symbol linestyle 1
+@    s11 symbol char 65
+@    s11 symbol char font 0
+@    s11 symbol skip 0
+@    s11 line type 1
+@    s11 line linestyle 1
+@    s11 line linewidth 2.0
+@    s11 line color 6
+@    s11 line pattern 1
+@    s11 baseline type 0
+@    s11 baseline off
+@    s11 dropline off
+@    s11 fill type 0
+@    s11 fill rule 0
+@    s11 fill color 1
+@    s11 fill pattern 1
+@    s11 avalue off
+@    s11 avalue type 2
+@    s11 avalue char size 1.500000
+@    s11 avalue font 0
+@    s11 avalue color 1
+@    s11 avalue rot 0
+@    s11 avalue format general
+@    s11 avalue prec 3
+@    s11 avalue prepend ""
+@    s11 avalue append ""
+@    s11 avalue offset 0.000000 , 0.000000
+@    s11 errorbar on
+@    s11 errorbar place both
+@    s11 errorbar color 6
+@    s11 errorbar pattern 1
+@    s11 errorbar size 1.000000
+@    s11 errorbar linewidth 2.0
+@    s11 errorbar linestyle 1
+@    s11 errorbar riser linewidth 2.0
+@    s11 errorbar riser linestyle 1
+@    s11 errorbar riser clip off
+@    s11 errorbar riser clip length 0.100000
+@    s11 comment "green_dyadic.nu.dat"
+@    s11 legend  ""
+@    s12 hidden true
+@    s12 type xy
+@    s12 symbol 0
+@    s12 symbol size 1.000000
+@    s12 symbol color 6
+@    s12 symbol pattern 1
+@    s12 symbol fill color 0
+@    s12 symbol fill pattern 1
+@    s12 symbol linewidth 2.0
+@    s12 symbol linestyle 1
+@    s12 symbol char 65
+@    s12 symbol char font 0
+@    s12 symbol skip 0
+@    s12 line type 1
+@    s12 line linestyle 1
+@    s12 line linewidth 2.0
+@    s12 line color 6
+@    s12 line pattern 1
+@    s12 baseline type 0
+@    s12 baseline off
+@    s12 dropline off
+@    s12 fill type 0
+@    s12 fill rule 0
+@    s12 fill color 1
+@    s12 fill pattern 1
+@    s12 avalue off
+@    s12 avalue type 2
+@    s12 avalue char size 1.500000
+@    s12 avalue font 0
+@    s12 avalue color 1
+@    s12 avalue rot 0
+@    s12 avalue format general
+@    s12 avalue prec 3
+@    s12 avalue prepend ""
+@    s12 avalue append ""
+@    s12 avalue offset 0.000000 , 0.000000
+@    s12 errorbar on
+@    s12 errorbar place both
+@    s12 errorbar color 6
+@    s12 errorbar pattern 1
+@    s12 errorbar size 1.000000
+@    s12 errorbar linewidth 2.0
+@    s12 errorbar linestyle 1
+@    s12 errorbar riser linewidth 2.0
+@    s12 errorbar riser linestyle 1
+@    s12 errorbar riser clip off
+@    s12 errorbar riser clip length 0.100000
+@    s12 comment "green_dyadic.nu.dat"
+@    s12 legend  ""
+@    s13 hidden true
+@    s13 type xy
+@    s13 symbol 0
+@    s13 symbol size 1.000000
+@    s13 symbol color 6
+@    s13 symbol pattern 1
+@    s13 symbol fill color 0
+@    s13 symbol fill pattern 1
+@    s13 symbol linewidth 2.0
+@    s13 symbol linestyle 1
+@    s13 symbol char 65
+@    s13 symbol char font 0
+@    s13 symbol skip 0
+@    s13 line type 1
+@    s13 line linestyle 1
+@    s13 line linewidth 2.0
+@    s13 line color 6
+@    s13 line pattern 1
+@    s13 baseline type 0
+@    s13 baseline off
+@    s13 dropline off
+@    s13 fill type 0
+@    s13 fill rule 0
+@    s13 fill color 1
+@    s13 fill pattern 1
+@    s13 avalue off
+@    s13 avalue type 2
+@    s13 avalue char size 1.500000
+@    s13 avalue font 0
+@    s13 avalue color 1
+@    s13 avalue rot 0
+@    s13 avalue format general
+@    s13 avalue prec 3
+@    s13 avalue prepend ""
+@    s13 avalue append ""
+@    s13 avalue offset 0.000000 , 0.000000
+@    s13 errorbar on
+@    s13 errorbar place both
+@    s13 errorbar color 6
+@    s13 errorbar pattern 1
+@    s13 errorbar size 1.000000
+@    s13 errorbar linewidth 2.0
+@    s13 errorbar linestyle 1
+@    s13 errorbar riser linewidth 2.0
+@    s13 errorbar riser linestyle 1
+@    s13 errorbar riser clip off
+@    s13 errorbar riser clip length 0.100000
+@    s13 comment "green_dyadic.nu.dat"
+@    s13 legend  ""
+@    s14 hidden true
+@    s14 type xy
+@    s14 symbol 0
+@    s14 symbol size 1.000000
+@    s14 symbol color 6
+@    s14 symbol pattern 1
+@    s14 symbol fill color 0
+@    s14 symbol fill pattern 1
+@    s14 symbol linewidth 2.0
+@    s14 symbol linestyle 1
+@    s14 symbol char 65
+@    s14 symbol char font 0
+@    s14 symbol skip 0
+@    s14 line type 1
+@    s14 line linestyle 1
+@    s14 line linewidth 2.0
+@    s14 line color 6
+@    s14 line pattern 1
+@    s14 baseline type 0
+@    s14 baseline off
+@    s14 dropline off
+@    s14 fill type 0
+@    s14 fill rule 0
+@    s14 fill color 1
+@    s14 fill pattern 1
+@    s14 avalue off
+@    s14 avalue type 2
+@    s14 avalue char size 1.500000
+@    s14 avalue font 0
+@    s14 avalue color 1
+@    s14 avalue rot 0
+@    s14 avalue format general
+@    s14 avalue prec 3
+@    s14 avalue prepend ""
+@    s14 avalue append ""
+@    s14 avalue offset 0.000000 , 0.000000
+@    s14 errorbar on
+@    s14 errorbar place both
+@    s14 errorbar color 6
+@    s14 errorbar pattern 1
+@    s14 errorbar size 1.000000
+@    s14 errorbar linewidth 2.0
+@    s14 errorbar linestyle 1
+@    s14 errorbar riser linewidth 2.0
+@    s14 errorbar riser linestyle 1
+@    s14 errorbar riser clip off
+@    s14 errorbar riser clip length 0.100000
+@    s14 comment "green_dyadic.nu.dat"
+@    s14 legend  ""
+@    s15 hidden true
+@    s15 type xy
+@    s15 symbol 0
+@    s15 symbol size 1.000000
+@    s15 symbol color 6
+@    s15 symbol pattern 1
+@    s15 symbol fill color 0
+@    s15 symbol fill pattern 1
+@    s15 symbol linewidth 2.0
+@    s15 symbol linestyle 1
+@    s15 symbol char 65
+@    s15 symbol char font 0
+@    s15 symbol skip 0
+@    s15 line type 1
+@    s15 line linestyle 1
+@    s15 line linewidth 2.0
+@    s15 line color 6
+@    s15 line pattern 1
+@    s15 baseline type 0
+@    s15 baseline off
+@    s15 dropline off
+@    s15 fill type 0
+@    s15 fill rule 0
+@    s15 fill color 1
+@    s15 fill pattern 1
+@    s15 avalue off
+@    s15 avalue type 2
+@    s15 avalue char size 1.500000
+@    s15 avalue font 0
+@    s15 avalue color 1
+@    s15 avalue rot 0
+@    s15 avalue format general
+@    s15 avalue prec 3
+@    s15 avalue prepend ""
+@    s15 avalue append ""
+@    s15 avalue offset 0.000000 , 0.000000
+@    s15 errorbar on
+@    s15 errorbar place both
+@    s15 errorbar color 6
+@    s15 errorbar pattern 1
+@    s15 errorbar size 1.000000
+@    s15 errorbar linewidth 2.0
+@    s15 errorbar linestyle 1
+@    s15 errorbar riser linewidth 2.0
+@    s15 errorbar riser linestyle 1
+@    s15 errorbar riser clip off
+@    s15 errorbar riser clip length 0.100000
+@    s15 comment "green_dyadic.nu.dat"
+@    s15 legend  ""
+@    s16 hidden false
+@    s16 type xy
+@    s16 symbol 0
+@    s16 symbol size 1.000000
+@    s16 symbol color 1
+@    s16 symbol pattern 1
+@    s16 symbol fill color 1
+@    s16 symbol fill pattern 1
+@    s16 symbol linewidth 2.0
+@    s16 symbol linestyle 1
+@    s16 symbol char 65
+@    s16 symbol char font 0
+@    s16 symbol skip 0
+@    s16 line type 1
+@    s16 line linestyle 3
+@    s16 line linewidth 2.0
+@    s16 line color 1
+@    s16 line pattern 1
+@    s16 baseline type 0
+@    s16 baseline off
+@    s16 dropline off
+@    s16 fill type 0
+@    s16 fill rule 0
+@    s16 fill color 1
+@    s16 fill pattern 1
+@    s16 avalue off
+@    s16 avalue type 2
+@    s16 avalue char size 1.500000
+@    s16 avalue font 0
+@    s16 avalue color 1
+@    s16 avalue rot 0
+@    s16 avalue format general
+@    s16 avalue prec 3
+@    s16 avalue prepend ""
+@    s16 avalue append ""
+@    s16 avalue offset 0.000000 , 0.000000
+@    s16 errorbar on
+@    s16 errorbar place both
+@    s16 errorbar color 1
+@    s16 errorbar pattern 1
+@    s16 errorbar size 1.000000
+@    s16 errorbar linewidth 2.0
+@    s16 errorbar linestyle 1
+@    s16 errorbar riser linewidth 2.0
+@    s16 errorbar riser linestyle 1
+@    s16 errorbar riser clip off
+@    s16 errorbar riser clip length 0.100000
+@    s16 comment "copy of setdata G0.S17"
+@    s16 legend  "Orthogonality"
+@    s17 hidden false
+@    s17 type xy
+@    s17 symbol 0
+@    s17 symbol size 1.000000
+@    s17 symbol color 1
+@    s17 symbol pattern 1
+@    s17 symbol fill color 0
+@    s17 symbol fill pattern 1
+@    s17 symbol linewidth 2.0
+@    s17 symbol linestyle 1
+@    s17 symbol char 65
+@    s17 symbol char font 0
+@    s17 symbol skip 0
+@    s17 line type 1
+@    s17 line linestyle 1
+@    s17 line linewidth 2.0
+@    s17 line color 1
+@    s17 line pattern 1
+@    s17 baseline type 0
+@    s17 baseline off
+@    s17 dropline off
+@    s17 fill type 0
+@    s17 fill rule 0
+@    s17 fill color 1
+@    s17 fill pattern 1
+@    s17 avalue off
+@    s17 avalue type 2
+@    s17 avalue char size 1.500000
+@    s17 avalue font 0
+@    s17 avalue color 1
+@    s17 avalue rot 0
+@    s17 avalue format general
+@    s17 avalue prec 3
+@    s17 avalue prepend ""
+@    s17 avalue append ""
+@    s17 avalue offset 0.000000 , 0.000000
+@    s17 errorbar on
+@    s17 errorbar place both
+@    s17 errorbar color 1
+@    s17 errorbar pattern 1
+@    s17 errorbar size 1.000000
+@    s17 errorbar linewidth 2.0
+@    s17 errorbar linestyle 1
+@    s17 errorbar riser linewidth 2.0
+@    s17 errorbar riser linestyle 1
+@    s17 errorbar riser clip off
+@    s17 errorbar riser clip length 0.100000
+@    s17 comment "green_dyadic.nu.dat"
+@    s17 legend  "\q\f{Symbol}n\f{}\Q = 0"
+@    s18 hidden false
+@    s18 type xy
+@    s18 symbol 0
+@    s18 symbol size 1.000000
+@    s18 symbol color 2
+@    s18 symbol pattern 1
+@    s18 symbol fill color 0
+@    s18 symbol fill pattern 1
+@    s18 symbol linewidth 2.0
+@    s18 symbol linestyle 1
+@    s18 symbol char 65
+@    s18 symbol char font 0
+@    s18 symbol skip 0
+@    s18 line type 1
+@    s18 line linestyle 3
+@    s18 line linewidth 2.0
+@    s18 line color 2
+@    s18 line pattern 1
+@    s18 baseline type 0
+@    s18 baseline off
+@    s18 dropline off
+@    s18 fill type 0
+@    s18 fill rule 0
+@    s18 fill color 1
+@    s18 fill pattern 1
+@    s18 avalue off
+@    s18 avalue type 2
+@    s18 avalue char size 1.500000
+@    s18 avalue font 0
+@    s18 avalue color 1
+@    s18 avalue rot 0
+@    s18 avalue format general
+@    s18 avalue prec 3
+@    s18 avalue prepend ""
+@    s18 avalue append ""
+@    s18 avalue offset 0.000000 , 0.000000
+@    s18 errorbar on
+@    s18 errorbar place both
+@    s18 errorbar color 2
+@    s18 errorbar pattern 1
+@    s18 errorbar size 1.000000
+@    s18 errorbar linewidth 2.0
+@    s18 errorbar linestyle 1
+@    s18 errorbar riser linewidth 2.0
+@    s18 errorbar riser linestyle 1
+@    s18 errorbar riser clip off
+@    s18 errorbar riser clip length 0.100000
+@    s18 comment "green_dyadic.nu.dat"
+@    s18 legend  ""
+@    s19 hidden false
+@    s19 type xy
+@    s19 symbol 0
+@    s19 symbol size 1.000000
+@    s19 symbol color 2
+@    s19 symbol pattern 1
+@    s19 symbol fill color 0
+@    s19 symbol fill pattern 1
+@    s19 symbol linewidth 2.0
+@    s19 symbol linestyle 1
+@    s19 symbol char 65
+@    s19 symbol char font 0
+@    s19 symbol skip 0
+@    s19 line type 1
+@    s19 line linestyle 1
+@    s19 line linewidth 2.0
+@    s19 line color 2
+@    s19 line pattern 1
+@    s19 baseline type 0
+@    s19 baseline off
+@    s19 dropline off
+@    s19 fill type 0
+@    s19 fill rule 0
+@    s19 fill color 1
+@    s19 fill pattern 1
+@    s19 avalue off
+@    s19 avalue type 2
+@    s19 avalue char size 1.500000
+@    s19 avalue font 0
+@    s19 avalue color 1
+@    s19 avalue rot 0
+@    s19 avalue format general
+@    s19 avalue prec 3
+@    s19 avalue prepend ""
+@    s19 avalue append ""
+@    s19 avalue offset 0.000000 , 0.000000
+@    s19 errorbar on
+@    s19 errorbar place both
+@    s19 errorbar color 2
+@    s19 errorbar pattern 1
+@    s19 errorbar size 1.000000
+@    s19 errorbar linewidth 2.0
+@    s19 errorbar linestyle 1
+@    s19 errorbar riser linewidth 2.0
+@    s19 errorbar riser linestyle 1
+@    s19 errorbar riser clip off
+@    s19 errorbar riser clip length 0.100000
+@    s19 comment "green_dyadic.nu.dat"
+@    s19 legend  "\q\f{Symbol}n\f{}\Q = 1"
+@    s20 hidden false
+@    s20 type xy
+@    s20 symbol 0
+@    s20 symbol size 1.000000
+@    s20 symbol color 15
+@    s20 symbol pattern 1
+@    s20 symbol fill color 5
+@    s20 symbol fill pattern 1
+@    s20 symbol linewidth 2.0
+@    s20 symbol linestyle 1
+@    s20 symbol char 65
+@    s20 symbol char font 0
+@    s20 symbol skip 0
+@    s20 line type 1
+@    s20 line linestyle 3
+@    s20 line linewidth 2.0
+@    s20 line color 15
+@    s20 line pattern 1
+@    s20 baseline type 0
+@    s20 baseline off
+@    s20 dropline off
+@    s20 fill type 0
+@    s20 fill rule 0
+@    s20 fill color 1
+@    s20 fill pattern 1
+@    s20 avalue off
+@    s20 avalue type 2
+@    s20 avalue char size 1.500000
+@    s20 avalue font 0
+@    s20 avalue color 1
+@    s20 avalue rot 0
+@    s20 avalue format general
+@    s20 avalue prec 3
+@    s20 avalue prepend ""
+@    s20 avalue append ""
+@    s20 avalue offset 0.000000 , 0.000000
+@    s20 errorbar on
+@    s20 errorbar place both
+@    s20 errorbar color 15
+@    s20 errorbar pattern 1
+@    s20 errorbar size 1.000000
+@    s20 errorbar linewidth 2.0
+@    s20 errorbar linestyle 1
+@    s20 errorbar riser linewidth 2.0
+@    s20 errorbar riser linestyle 1
+@    s20 errorbar riser clip off
+@    s20 errorbar riser clip length 0.100000
+@    s20 comment "green_dyadic.nu.dat"
+@    s20 legend  ""
+@    s21 hidden false
+@    s21 type xy
+@    s21 symbol 0
+@    s21 symbol size 1.000000
+@    s21 symbol color 15
+@    s21 symbol pattern 1
+@    s21 symbol fill color 5
+@    s21 symbol fill pattern 1
+@    s21 symbol linewidth 2.0
+@    s21 symbol linestyle 1
+@    s21 symbol char 65
+@    s21 symbol char font 0
+@    s21 symbol skip 0
+@    s21 line type 1
+@    s21 line linestyle 1
+@    s21 line linewidth 2.0
+@    s21 line color 15
+@    s21 line pattern 1
+@    s21 baseline type 0
+@    s21 baseline off
+@    s21 dropline off
+@    s21 fill type 0
+@    s21 fill rule 0
+@    s21 fill color 1
+@    s21 fill pattern 1
+@    s21 avalue off
+@    s21 avalue type 2
+@    s21 avalue char size 1.500000
+@    s21 avalue font 0
+@    s21 avalue color 1
+@    s21 avalue rot 0
+@    s21 avalue format general
+@    s21 avalue prec 3
+@    s21 avalue prepend ""
+@    s21 avalue append ""
+@    s21 avalue offset 0.000000 , 0.000000
+@    s21 errorbar on
+@    s21 errorbar place both
+@    s21 errorbar color 15
+@    s21 errorbar pattern 1
+@    s21 errorbar size 1.000000
+@    s21 errorbar linewidth 2.0
+@    s21 errorbar linestyle 1
+@    s21 errorbar riser linewidth 2.0
+@    s21 errorbar riser linestyle 1
+@    s21 errorbar riser clip off
+@    s21 errorbar riser clip length 0.100000
+@    s21 comment "green_dyadic.nu.dat"
+@    s21 legend  "\q\f{Symbol}n\f{}\Q = 2"
+@    s22 hidden false
+@    s22 type xy
+@    s22 symbol 0
+@    s22 symbol size 1.000000
+@    s22 symbol color 4
+@    s22 symbol pattern 1
+@    s22 symbol fill color 0
+@    s22 symbol fill pattern 1
+@    s22 symbol linewidth 2.0
+@    s22 symbol linestyle 1
+@    s22 symbol char 65
+@    s22 symbol char font 0
+@    s22 symbol skip 0
+@    s22 line type 1
+@    s22 line linestyle 3
+@    s22 line linewidth 2.0
+@    s22 line color 4
+@    s22 line pattern 1
+@    s22 baseline type 0
+@    s22 baseline off
+@    s22 dropline off
+@    s22 fill type 0
+@    s22 fill rule 0
+@    s22 fill color 1
+@    s22 fill pattern 1
+@    s22 avalue off
+@    s22 avalue type 2
+@    s22 avalue char size 1.500000
+@    s22 avalue font 0
+@    s22 avalue color 1
+@    s22 avalue rot 0
+@    s22 avalue format general
+@    s22 avalue prec 3
+@    s22 avalue prepend ""
+@    s22 avalue append ""
+@    s22 avalue offset 0.000000 , 0.000000
+@    s22 errorbar on
+@    s22 errorbar place both
+@    s22 errorbar color 4
+@    s22 errorbar pattern 1
+@    s22 errorbar size 1.000000
+@    s22 errorbar linewidth 2.0
+@    s22 errorbar linestyle 1
+@    s22 errorbar riser linewidth 2.0
+@    s22 errorbar riser linestyle 1
+@    s22 errorbar riser clip off
+@    s22 errorbar riser clip length 0.100000
+@    s22 comment "green_dyadic.nu.dat"
+@    s22 legend  ""
+@    s23 hidden false
+@    s23 type xy
+@    s23 symbol 0
+@    s23 symbol size 1.000000
+@    s23 symbol color 4
+@    s23 symbol pattern 1
+@    s23 symbol fill color 0
+@    s23 symbol fill pattern 1
+@    s23 symbol linewidth 2.0
+@    s23 symbol linestyle 1
+@    s23 symbol char 65
+@    s23 symbol char font 0
+@    s23 symbol skip 0
+@    s23 line type 1
+@    s23 line linestyle 1
+@    s23 line linewidth 2.0
+@    s23 line color 4
+@    s23 line pattern 1
+@    s23 baseline type 0
+@    s23 baseline off
+@    s23 dropline off
+@    s23 fill type 0
+@    s23 fill rule 0
+@    s23 fill color 1
+@    s23 fill pattern 1
+@    s23 avalue off
+@    s23 avalue type 2
+@    s23 avalue char size 1.500000
+@    s23 avalue font 0
+@    s23 avalue color 1
+@    s23 avalue rot 0
+@    s23 avalue format general
+@    s23 avalue prec 3
+@    s23 avalue prepend ""
+@    s23 avalue append ""
+@    s23 avalue offset 0.000000 , 0.000000
+@    s23 errorbar on
+@    s23 errorbar place both
+@    s23 errorbar color 4
+@    s23 errorbar pattern 1
+@    s23 errorbar size 1.000000
+@    s23 errorbar linewidth 2.0
+@    s23 errorbar linestyle 1
+@    s23 errorbar riser linewidth 2.0
+@    s23 errorbar riser linestyle 1
+@    s23 errorbar riser clip off
+@    s23 errorbar riser clip length 0.100000
+@    s23 comment "green_dyadic.nu.dat"
+@    s23 legend  "\q\f{Symbol}n\f{}\Q = 3"
+@    s24 hidden false
+@    s24 type xy
+@    s24 symbol 0
+@    s24 symbol size 1.000000
+@    s24 symbol color 11
+@    s24 symbol pattern 1
+@    s24 symbol fill color 1
+@    s24 symbol fill pattern 1
+@    s24 symbol linewidth 2.0
+@    s24 symbol linestyle 1
+@    s24 symbol char 65
+@    s24 symbol char font 0
+@    s24 symbol skip 0
+@    s24 line type 1
+@    s24 line linestyle 3
+@    s24 line linewidth 2.0
+@    s24 line color 11
+@    s24 line pattern 1
+@    s24 baseline type 0
+@    s24 baseline off
+@    s24 dropline off
+@    s24 fill type 0
+@    s24 fill rule 0
+@    s24 fill color 1
+@    s24 fill pattern 1
+@    s24 avalue off
+@    s24 avalue type 2
+@    s24 avalue char size 1.500000
+@    s24 avalue font 0
+@    s24 avalue color 1
+@    s24 avalue rot 0
+@    s24 avalue format general
+@    s24 avalue prec 3
+@    s24 avalue prepend ""
+@    s24 avalue append ""
+@    s24 avalue offset 0.000000 , 0.000000
+@    s24 errorbar on
+@    s24 errorbar place both
+@    s24 errorbar color 11
+@    s24 errorbar pattern 1
+@    s24 errorbar size 1.000000
+@    s24 errorbar linewidth 2.0
+@    s24 errorbar linestyle 1
+@    s24 errorbar riser linewidth 2.0
+@    s24 errorbar riser linestyle 1
+@    s24 errorbar riser clip off
+@    s24 errorbar riser clip length 0.100000
+@    s24 comment "green_dyadic.nu.dat"
+@    s24 legend  ""
+@    s25 hidden false
+@    s25 type xy
+@    s25 symbol 0
+@    s25 symbol size 1.000000
+@    s25 symbol color 11
+@    s25 symbol pattern 1
+@    s25 symbol fill color 1
+@    s25 symbol fill pattern 1
+@    s25 symbol linewidth 2.0
+@    s25 symbol linestyle 1
+@    s25 symbol char 65
+@    s25 symbol char font 0
+@    s25 symbol skip 0
+@    s25 line type 1
+@    s25 line linestyle 1
+@    s25 line linewidth 2.0
+@    s25 line color 11
+@    s25 line pattern 1
+@    s25 baseline type 0
+@    s25 baseline off
+@    s25 dropline off
+@    s25 fill type 0
+@    s25 fill rule 0
+@    s25 fill color 1
+@    s25 fill pattern 1
+@    s25 avalue off
+@    s25 avalue type 2
+@    s25 avalue char size 1.500000
+@    s25 avalue font 0
+@    s25 avalue color 1
+@    s25 avalue rot 0
+@    s25 avalue format general
+@    s25 avalue prec 3
+@    s25 avalue prepend ""
+@    s25 avalue append ""
+@    s25 avalue offset 0.000000 , 0.000000
+@    s25 errorbar on
+@    s25 errorbar place both
+@    s25 errorbar color 11
+@    s25 errorbar pattern 1
+@    s25 errorbar size 1.000000
+@    s25 errorbar linewidth 2.0
+@    s25 errorbar linestyle 1
+@    s25 errorbar riser linewidth 2.0
+@    s25 errorbar riser linestyle 1
+@    s25 errorbar riser clip off
+@    s25 errorbar riser clip length 0.100000
+@    s25 comment "green_dyadic.nu.dat"
+@    s25 legend  "\q\f{Symbol}n\f{}\Q = 4"
+@    s26 hidden false
+@    s26 type xy
+@    s26 symbol 0
+@    s26 symbol size 1.000000
+@    s26 symbol color 14
+@    s26 symbol pattern 1
+@    s26 symbol fill color 4
+@    s26 symbol fill pattern 1
+@    s26 symbol linewidth 2.0
+@    s26 symbol linestyle 1
+@    s26 symbol char 65
+@    s26 symbol char font 0
+@    s26 symbol skip 0
+@    s26 line type 1
+@    s26 line linestyle 3
+@    s26 line linewidth 2.0
+@    s26 line color 14
+@    s26 line pattern 1
+@    s26 baseline type 0
+@    s26 baseline off
+@    s26 dropline off
+@    s26 fill type 0
+@    s26 fill rule 0
+@    s26 fill color 1
+@    s26 fill pattern 1
+@    s26 avalue off
+@    s26 avalue type 2
+@    s26 avalue char size 1.500000
+@    s26 avalue font 0
+@    s26 avalue color 1
+@    s26 avalue rot 0
+@    s26 avalue format general
+@    s26 avalue prec 3
+@    s26 avalue prepend ""
+@    s26 avalue append ""
+@    s26 avalue offset 0.000000 , 0.000000
+@    s26 errorbar on
+@    s26 errorbar place both
+@    s26 errorbar color 14
+@    s26 errorbar pattern 1
+@    s26 errorbar size 1.000000
+@    s26 errorbar linewidth 2.0
+@    s26 errorbar linestyle 1
+@    s26 errorbar riser linewidth 2.0
+@    s26 errorbar riser linestyle 1
+@    s26 errorbar riser clip off
+@    s26 errorbar riser clip length 0.100000
+@    s26 comment "green_dyadic.nu.dat"
+@    s26 legend  ""
+@    s27 hidden false
+@    s27 type xy
+@    s27 symbol 0
+@    s27 symbol size 1.000000
+@    s27 symbol color 14
+@    s27 symbol pattern 1
+@    s27 symbol fill color 4
+@    s27 symbol fill pattern 1
+@    s27 symbol linewidth 2.0
+@    s27 symbol linestyle 1
+@    s27 symbol char 65
+@    s27 symbol char font 0
+@    s27 symbol skip 0
+@    s27 line type 1
+@    s27 line linestyle 1
+@    s27 line linewidth 2.0
+@    s27 line color 14
+@    s27 line pattern 1
+@    s27 baseline type 0
+@    s27 baseline off
+@    s27 dropline off
+@    s27 fill type 0
+@    s27 fill rule 0
+@    s27 fill color 1
+@    s27 fill pattern 1
+@    s27 avalue off
+@    s27 avalue type 2
+@    s27 avalue char size 1.500000
+@    s27 avalue font 0
+@    s27 avalue color 1
+@    s27 avalue rot 0
+@    s27 avalue format general
+@    s27 avalue prec 3
+@    s27 avalue prepend ""
+@    s27 avalue append ""
+@    s27 avalue offset 0.000000 , 0.000000
+@    s27 errorbar on
+@    s27 errorbar place both
+@    s27 errorbar color 14
+@    s27 errorbar pattern 1
+@    s27 errorbar size 1.000000
+@    s27 errorbar linewidth 2.0
+@    s27 errorbar linestyle 1
+@    s27 errorbar riser linewidth 2.0
+@    s27 errorbar riser linestyle 1
+@    s27 errorbar riser clip off
+@    s27 errorbar riser clip length 0.100000
+@    s27 comment "green_dyadic.nu.dat"
+@    s27 legend  "\q\f{Symbol}n\f{}\Q = 5"
+@target G0.S0
+@type xy
+0.5 0.12
+1 0.45
+1.5 0.6
+2 0.86
+2.5 0.55
+3 0.14
+3.5 0.017
+4 0.001
+4.5 3.4e-05
+5 1e-06
+5.5 6.5e-07
+6 1.1e-06
+6.5 6.5e-07
+7 1.1e-06
+7.5 6.5e-07
+8 1.1e-06
+8.5 6.5e-07
+9 1.1e-06
+9.5 6.5e-07
+10 1.1e-06
+&
+@target G0.S1
+@type xy
+0.5 1
+1 0.98
+1.5 0.85
+2 0.62
+2.5 0.5
+3 0.2
+3.5 0.035
+4 0.0029
+4.5 0.00012
+5 5.1e-06
+5.5 3.9e-06
+6 5.1e-06
+6.5 3.9e-06
+7 5.1e-06
+7.5 3.9e-06
+8 5.1e-06
+8.5 3.9e-06
+9 5.1e-06
+9.5 3.9e-06
+10 5.1e-06
+&
+@target G0.S2
+@type xy
+0.5 0.12
+1 0.45
+1.5 0.6
+2 0.86
+2.5 0.55
+3 0.14
+3.5 0.017
+4 0.001
+4.5 3.4e-05
+5 6e-07
+5.5 6e-09
+6 3.4e-11
+6.5 1.2e-13
+7 2.4e-14
+7.5 2.4e-14
+8 2.4e-14
+8.5 2.4e-14
+9 2.4e-14
+9.5 2.4e-14
+10 2.4e-14
+&
+@target G0.S3
+@type xy
+0.5 1
+1 0.98
+1.5 0.85
+2 0.62
+2.5 0.5
+3 0.2
+3.5 0.035
+4 0.0029
+4.5 0.00012
+5 2.8e-06
+5.5 3.4e-08
+6 2.3e-10
+6.5 8.9e-13
+7 2.4e-14
+7.5 2.6e-14
+8 2.4e-14
+8.5 2.6e-14
+9 2.4e-14
+9.5 2.6e-14
+10 2.4e-14
+&
+@target G0.S4
+@type xy
+0.5 0
+1 0
+1.5 0
+2 0
+2.5 0
+3 0
+3.5 0
+4.5 0
+5.5 0
+6.5 0
+7.5 0
+8.5 0
+9.5 0
+&
+@target G0.S5
+@type xy
+0.5 0.857
+1 0.397
+1.5 0.0957
+2 0.0133
+2.5 0.00114
+3 6.06e-05
+3.5 2.62e-06
+4.5 1.37e-06
+5.5 1.37e-06
+6.5 1.37e-06
+7.5 1.37e-06
+8.5 1.37e-06
+9.5 1.37e-06
+&
+@target G0.S6
+@type xy
+0.5 9.31e-10
+1 2.61e-08
+1.5 3.42e-08
+2 1.58e-08
+2.5 6.12e-08
+3 2.06e-08
+3.5 5.7e-08
+4 1.43e-08
+4.5 1.99e-08
+5 1.67e-08
+5.5 2.08e-08
+6 1.67e-08
+6.5 2.08e-08
+7 1.67e-08
+7.5 2.08e-08
+8 1.67e-08
+8.5 2.08e-08
+9 1.67e-08
+9.5 2.08e-08
+10 1.67e-08
+&
+@target G0.S7
+@type xy
+0.5 0.979
+1 0.695
+1.5 0.261
+2 0.0532
+2.5 0.00632
+3 0.000448
+3.5 1.96e-05
+4 3.7e-06
+4.5 2.21e-06
+5 3.64e-06
+5.5 2.21e-06
+6 3.64e-06
+6.5 2.21e-06
+7 3.64e-06
+7.5 2.21e-06
+8 3.64e-06
+8.5 2.21e-06
+9 3.64e-06
+9.5 2.21e-06
+10 3.64e-06
+&
+@target G0.S8
+@type xy
+0.5 0.122
+1 0.298
+1.5 0.165
+2 0.0399
+2.5 0.00518
+3 0.000386
+3.5 1.72e-05
+4 4.87e-07
+4.5 3.49e-07
+5 4.83e-08
+5.5 3.46e-07
+6 4.83e-08
+6.5 3.46e-07
+7 4.83e-08
+7.5 3.46e-07
+8 4.83e-08
+8.5 3.46e-07
+9 4.83e-08
+9.5 3.46e-07
+10 4.83e-08
+&
+@target G0.S9
+@type xy
+0.5 0.997
+1 0.846
+1.5 0.556
+2 0.196
+2.5 0.0367
+3 0.0038
+3.5 0.000222
+4 7.93e-06
+4.5 2.5e-06
+5 2.03e-06
+5.5 2.5e-06
+6 2.03e-06
+6.5 2.5e-06
+7 2.03e-06
+7.5 2.5e-06
+8 2.03e-06
+8.5 2.5e-06
+9 2.03e-06
+9.5 2.5e-06
+10 2.03e-06
+&
+@target G0.S10
+@type xy
+0.5 0.0291
+1 0.299
+1.5 0.378
+2 0.162
+2.5 0.033
+3 0.00354
+3.5 0.000211
+4 7.36e-06
+4.5 3.29e-07
+5 2.47e-07
+5.5 2.38e-07
+6 2.46e-07
+6.5 2.38e-07
+7 2.46e-07
+7.5 2.38e-07
+8 2.46e-07
+8.5 2.38e-07
+9 2.46e-07
+9.5 2.38e-07
+10 2.46e-07
+&
+@target G0.S11
+@type xy
+0.5 1
+1 0.922
+1.5 0.704
+2 0.437
+2.5 0.135
+3 0.0209
+3.5 0.0017
+4 7.75e-05
+4.5 4.65e-06
+5 2.56e-06
+5.5 3.1e-06
+6 2.56e-06
+6.5 3.1e-06
+7 2.56e-06
+7.5 3.1e-06
+8 2.56e-06
+8.5 3.1e-06
+9 2.56e-06
+9.5 3.1e-06
+10 2.56e-06
+&
+@target G0.S12
+@type xy
+0.5 0.104
+1 0.219
+1.5 0.6
+2 0.525
+2.5 0.18
+3 0.0292
+3.5 0.00243
+4 0.00011
+4.5 2.73e-06
+5 6.72e-07
+5.5 6.25e-07
+6 6.72e-07
+6.5 6.25e-07
+7 6.72e-07
+7.5 6.25e-07
+8 6.72e-07
+8.5 6.25e-07
+9 6.72e-07
+9.5 6.25e-07
+10 6.72e-07
+&
+@target G0.S13
+@type xy
+0.5 0.999
+1 0.96
+1.5 0.782
+2 0.603
+2.5 0.318
+3 0.077
+3.5 0.00904
+4 0.000545
+4.5 2.09e-05
+5 3.46e-06
+5.5 3.87e-06
+6 3.46e-06
+6.5 3.87e-06
+7 3.46e-06
+7.5 3.87e-06
+8 3.46e-06
+8.5 3.87e-06
+9 3.46e-06
+9.5 3.87e-06
+10 3.46e-06
+&
+@target G0.S14
+@type xy
+0.5 0.0665
+1 0.454
+1.5 0.511
+2 0.856
+2.5 0.546
+3 0.141
+3.5 0.0171
+4 0.00105
+4.5 3.4e-05
+5 1.03e-06
+5.5 6.47e-07
+6 1.11e-06
+6.5 6.47e-07
+7 1.11e-06
+7.5 6.47e-07
+8 1.11e-06
+8.5 6.47e-07
+9 1.11e-06
+9.5 6.47e-07
+10 1.11e-06
+&
+@target G0.S15
+@type xy
+0.5 0.999
+1 0.98
+1.5 0.855
+2 0.619
+2.5 0.498
+3 0.198
+3.5 0.0348
+4 0.00291
+4.5 0.000125
+5 5.13e-06
+5.5 3.87e-06
+6 5.13e-06
+6.5 3.87e-06
+7 5.13e-06
+7.5 3.87e-06
+8 5.13e-06
+8.5 3.87e-06
+9 5.13e-06
+9.5 3.87e-06
+10 5.13e-06
+&
+@target G0.S16
+@type xy
+0.5 0.857
+1 0.397
+1.5 0.0957
+2 0.0133
+2.5 0.00114
+3 6.01e-05
+3.5 1.96e-06
+4 3.91e-08
+4.5 4.78e-10
+5 3.57e-12
+5.5 1.99e-14
+6 3.33e-16
+6.5 3.66e-15
+7 3.33e-16
+7.5 3.66e-15
+8 3.33e-16
+8.5 3.66e-15
+9 3.33e-16
+9.5 3.66e-15
+10 3.33e-16
+&
+@target G0.S17
+@type xy
+0.5 0.857
+1 0.397
+1.5 0.0957
+2 0.0133
+2.5 0.00114
+3 6.01e-05
+3.5 1.96e-06
+4 3.91e-08
+4.5 4.78e-10
+5 3.57e-12
+5.5 1.99e-14
+6 3.33e-16
+6.5 3.66e-15
+7 3.33e-16
+7.5 3.66e-15
+8 3.33e-16
+8.5 3.66e-15
+9 3.33e-16
+9.5 3.66e-15
+10 3.33e-16
+&
+@target G0.S18
+@type xy
+0.5 3.47e-18
+1 4.51e-17
+1.5 7.24e-17
+2 4.42e-17
+2.5 4.31e-17
+3 3.5e-17
+3.5 4.63e-17
+4 1.02e-16
+4.5 6.35e-17
+5 6.81e-17
+5.5 3.74e-17
+6 6.73e-17
+6.5 4.7e-17
+7 7.55e-17
+7.5 4.72e-17
+8 7.55e-17
+8.5 4.72e-17
+9 7.55e-17
+9.5 4.72e-17
+10 7.55e-17
+&
+@target G0.S19
+@type xy
+0.5 0.979
+1 0.695
+1.5 0.261
+2 0.0532
+2.5 0.00632
+3 0.000446
+3.5 1.89e-05
+4 4.77e-07
+4.5 7.21e-09
+5 6.54e-11
+5.5 3.62e-13
+6 2.11e-15
+6.5 9.21e-15
+7 2e-15
+7.5 9.21e-15
+8 2e-15
+8.5 9.21e-15
+9 2e-15
+9.5 9.21e-15
+10 2e-15
+&
+@target G0.S20
+@type xy
+0.5 0.122
+1 0.298
+1.5 0.165
+2 0.0399
+2.5 0.00518
+3 0.000386
+3.5 1.69e-05
+4 4.38e-07
+4.5 6.74e-09
+5 6.18e-11
+5.5 3.41e-13
+6 1.14e-15
+6.5 1.01e-15
+7 3.05e-16
+7.5 1.01e-15
+8 3.05e-16
+8.5 1.01e-15
+9 3.05e-16
+9.5 1.01e-15
+10 3.05e-16
+&
+@target G0.S21
+@type xy
+0.5 0.997
+1 0.846
+1.5 0.556
+2 0.196
+2.5 0.0367
+3 0.0038
+3.5 0.000222
+4 7.4e-06
+4.5 1.43e-07
+5 1.61e-09
+5.5 1.07e-11
+6 4.31e-14
+6.5 8.55e-15
+7 8.1e-15
+7.5 8.44e-15
+8 8.1e-15
+8.5 8.44e-15
+9 8.1e-15
+9.5 8.44e-15
+10 8.1e-15
+&
+@target G0.S22
+@type xy
+0.5 0.0291
+1 0.299
+1.5 0.378
+2 0.162
+2.5 0.033
+3 0.00354
+3.5 0.000211
+4 7.14e-06
+4.5 1.39e-07
+5 1.57e-09
+5.5 1.05e-11
+6 4.11e-14
+6.5 8.17e-16
+7 7.22e-16
+7.5 8.16e-16
+8 7.22e-16
+8.5 8.16e-16
+9 7.22e-16
+9.5 8.16e-16
+10 7.22e-16
+&
+@target G0.S23
+@type xy
+0.5 1
+1 0.922
+1.5 0.704
+2 0.437
+2.5 0.135
+3 0.0209
+3.5 0.0017
+4 7.56e-05
+4.5 1.87e-06
+5 2.63e-08
+5.5 2.12e-10
+6 9.94e-13
+6.5 5.77e-15
+7 9.99e-15
+7.5 5.77e-15
+8 9.99e-15
+8.5 5.77e-15
+9 9.99e-15
+9.5 5.77e-15
+10 9.99e-15
+&
+@target G0.S24
+@type xy
+0.5 0.104
+1 0.219
+1.5 0.6
+2 0.525
+2.5 0.18
+3 0.0292
+3.5 0.00243
+4 0.000109
+4.5 2.73e-06
+5 3.86e-08
+5.5 3.12e-10
+6 1.46e-12
+6.5 4.18e-15
+7 1.35e-15
+7.5 1.31e-15
+8 1.35e-15
+8.5 1.31e-15
+9 1.35e-15
+9.5 1.31e-15
+10 1.35e-15
+&
+@target G0.S25
+@type xy
+0.5 0.999
+1 0.96
+1.5 0.782
+2 0.603
+2.5 0.318
+3 0.077
+3.5 0.00904
+4 0.000544
+4.5 1.75e-05
+5 3.09e-07
+5.5 3.05e-09
+6 1.71e-11
+6.5 6.12e-14
+7 9.77e-15
+7.5 1.2e-14
+8 9.77e-15
+8.5 1.2e-14
+9 9.77e-15
+9.5 1.2e-14
+10 9.77e-15
+&
+@target G0.S26
+@type xy
+0.5 0.0665
+1 0.454
+1.5 0.511
+2 0.856
+2.5 0.546
+3 0.141
+3.5 0.0171
+4 0.00105
+4.5 3.4e-05
+5 6.04e-07
+5.5 5.99e-09
+6 3.37e-11
+6.5 1.15e-13
+7 2.44e-14
+7.5 2.44e-14
+8 2.44e-14
+8.5 2.44e-14
+9 2.44e-14
+9.5 2.44e-14
+10 2.44e-14
+&
+@target G0.S27
+@type xy
+0.5 0.999
+1 0.98
+1.5 0.855
+2 0.619
+2.5 0.498
+3 0.198
+3.5 0.0348
+4 0.00291
+4.5 0.000124
+5 2.78e-06
+5.5 3.4e-08
+6 2.31e-10
+6.5 8.94e-13
+7 2.44e-14
+7.5 2.58e-14
+8 2.44e-14
+8.5 2.58e-14
+9 2.44e-14
+9.5 2.58e-14
+10 2.44e-14
+&

@@ -1,13 +1,14 @@
 #pragma once
 
-#include <cstdio> // std::printf
-#include <cstdint> // int8_t
-#include <cstring> // std::strcmp
-#include <cassert> // assert
-#include <cmath> // std::sqrt
-#include <algorithm> // std::max
-#include <vector> // std::vector<T>
-#include <cstdlib> // std::atoi, ::atof
+#include <cstdint>    // int8_t
+#include <cassert>    // assert
+#include <cstdio>     // std::printf, ::snprintf
+//       <cstdio>     // std::fopen, ::fprintf, ::fclose
+#include <cstring>    // std::strcmp
+#include <cmath>      // std::sqrt
+#include <algorithm>  // std::max
+#include <vector>     // std::vector<T>
+#include <cstdlib>    // std::atoi, ::atof
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
@@ -21,11 +22,8 @@
 #endif // HAS_RAPIDXML
 
 #include "xml_reading.hxx" // ::read_sequence
-
 #include "unit_system.hxx" // eV, _eV, Ang, _Ang
-
 #include "print_tools.hxx" // printf_vector
-
 #include "control.hxx" // ::get
 
 /*
@@ -65,7 +63,7 @@ namespace pawxml_import {
   inline pawxml_t parse_pawxml(char const *filename, int const echo=0) {
 #ifndef HAS_RAPIDXML
       warn("Unable to test GPAW loading when compiled without -D HAS_RAPIDXML", 0);
-      return STATUS_TEST_NOT_INCLUDED;
+      return pawxml_t();
 #else  // HAS_RAPIDXML
 
       pawxml_t p;

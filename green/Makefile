@@ -33,12 +33,15 @@ INC ?=
 INC += -I../include
 INC += -I../external
 
-
 ERRFLAGS =
 FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 FEAFLAGS += -D HAS_RAPIDXML
+
+FEAFLAGS += -D HAS_TFQMRGPU
+INC += -I../../tfQMRgpu
+
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
