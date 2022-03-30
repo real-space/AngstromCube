@@ -21,7 +21,8 @@
 
 #ifdef HAS_TFQMRGPU
 
-//  #define DEBUG
+    #define DEBUG
+    #define DEBUGGPU
     #ifdef HAS_NO_CUDA
         #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
