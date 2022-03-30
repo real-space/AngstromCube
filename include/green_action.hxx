@@ -9,7 +9,7 @@
 #include <cstdio> // std::printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "simple_timer.hxx" // SimpleTimer
+// #include "simple_timer.hxx" // SimpleTimer
 
 #include "constants.hxx" // ::pi
 #include "green_memory.hxx" // get_memory, free_memory
@@ -45,6 +45,9 @@
 #include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 
         
+#ifdef  debug_printf
+#undef  debug_printf
+#endif
 // #define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
 #define debug_printf(...)
 
@@ -495,7 +498,7 @@ namespace green_action {
 
           // add the kinetic energy expressions
           nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
-                      p->grid_spacing, 4, nnzb);
+                      p->grid_spacing, 4, nnzb, p->echo);
 
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
