@@ -664,6 +664,7 @@ namespace green_kinetic {
                 lists[dd][il] = &colIndex[rowStart[il]];
             } // il
         } // dd
+        if (echo > 3) std::printf("# green_kinetic::%s nFD= %d, number= %d %d %d\n", __func__, FD_range, num[0], num[1], num[2]);
 
         auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
         

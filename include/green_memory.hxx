@@ -30,7 +30,7 @@
   #ifndef HAS_TFQMRGPU
     inline void __syncthreads(void) {} // dummy
     typedef int cudaError;
-    inline cudaError cudaDeviceSynchronize(void) { return 0; }; // dummy
+    inline cudaError cudaDeviceSynchronize(void) { return 0; } // dummy
   #endif // HAS_TFQMRGPU
 #endif // HAS_NO_CUDA      
 

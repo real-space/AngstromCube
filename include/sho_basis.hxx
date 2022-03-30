@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector> // std::vector<T>
+
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>
 
