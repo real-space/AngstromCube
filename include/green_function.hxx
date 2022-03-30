@@ -21,8 +21,8 @@
 
 #ifdef HAS_TFQMRGPU
 
-    #define DEBUG
-    #define DEBUGGPU
+//  #define DEBUG
+//  #define DEBUGGPU
     #ifdef HAS_NO_CUDA
         #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
@@ -84,8 +84,9 @@ namespace green_function {
           tfqmrgpu::solve(action); // try to compile
           if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f GByte GPU memory\n", p.gpu_mem*1e-9);
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+          int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
-          tfqmrgpu::solve(action, memory_buffer, 1e-9, 99, 0, true);
+          tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
           if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
                                                              p.residuum_reached,    p.iterations_needed);
           free_memory(memory_buffer);
