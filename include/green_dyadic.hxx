@@ -916,15 +916,16 @@ namespace green_dyadic {
 
 
       inline int flop_count_SHOprj_SHOadd(int const L) {
-          return 2*(4*4*4 * (L+1) + 4*4 * ((L+1)*(L+2))/2 + 4 * ((L+1)*(L+2)*(L+3))/6);
+          return 2*(4*4*4 * (L+1) + 4*4 * (((L+1)*(L+2))/2) + 4 * (((L+1)*(L+2)*(L+3))/6));
       } // flop_count_SHOprj_SHOadd
 
       inline int flop_count_Hermite_Gauss(int const L) {
           int constexpr flop_exp = 0; // TODO find out how many flop are needed for std::exp
-          return 7 + flop_exp + 4*L; // 12 threads per block do these double flops
+          return 7 + flop_exp + 4*L;
       } // flop_count_Hermite_Gauss
 
       void update_flop_counts(int const echo=0) {
+
           flop_count_SHOgen = 0;
           flop_count_SHOadd = 0;
           {
@@ -934,6 +935,7 @@ namespace green_dyadic {
                   int const lmax = AtomImageLmax[iai_of_bsr[bsr]];
                   flop_count_SHOadd += 64 * flop_count_SHOprj_SHOadd(lmax); // 64 threads per block (real version)
                   flop_count_SHOgen += 12 * flop_count_Hermite_Gauss(lmax); // 12 threads per block eval the Hermite polynomials
+                  // this flop count does not account for masked blocks
               } // bsr
           }
 //        flop_count_SHOprj = flop_count_SHOadd; // symmetric, both missing factor R1C2 Noco^2
@@ -952,12 +954,11 @@ namespace green_dyadic {
                   flop_count_SHOsum += sho_tools::nSHO(lmax);
               } // iai
               flop_count_SHOsum *= 2*nrhs*64; // missing factor R1C2^2 Noco^2
-          } else {
-              // no need to run SHOsum
-          }
+          } else { /* no need to run SHOsum */ }
+          
       } // update_flop_counts
 
-      size_t get_flop_count(int const R1C2=2, int const Noco=1, int const echo=0) const {
+      size_t get_flop_count(int const R1C2, int const Noco, int const echo=0) const {
           size_t nops{0};
 //        nops += flop_count_SHOgen; // Hermite Gauss functions
 //        nops += flop_count_SHOprj*R1C2*pow2(Noco); // projection
