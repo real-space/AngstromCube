@@ -86,9 +86,12 @@ namespace green_function {
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
-          tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
+          {   SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+              tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
+          } // timer
           if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
                                                              p.residuum_reached,    p.iterations_needed);
+          if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
           free_memory(memory_buffer);
           return;
 #endif // HAS_TFQMRGPU
@@ -183,7 +186,7 @@ namespace green_function {
               nimages *= (iimage[d] + 1 + iimage[d]); // iimage images to the left and right
           } // d
           auto const nAtomImages = natoms*nimages;
-          if (echo > 3) std::printf("# replicate %s atom images, %.3f k images total\n", str(iimage).c_str(), nimages*.001);
+          if (echo > 3) std::printf("# replicate %s atom images, %ld images total\n", str(iimage).c_str(), nimages);
 
           std::vector<uint32_t> AtomImageStarts(nAtomImages + 1, 0); // probably larger than needed, should call resize(nai + 1) later
           std::vector<green_action::atom_t> atom_data(nAtomImages);
@@ -440,6 +443,8 @@ namespace green_function {
           } // iac
           p.nAtoms = nac;
           if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
+
+          p.update_flop_counts(echo); // prepare to count the number of floating point operations
 
           return 0;
   } // construct_dyadic_plan

@@ -57,7 +57,7 @@ namespace green_input {
           auto const sho_atoms = xml_reading::find_child(grid_Hamiltonian, "sho_atoms", echo);
           if (sho_atoms) {
               auto const number = xml_reading::find_attribute(sho_atoms, "number", "0", echo);
-              if (echo > 1) std::printf("# expect %s sho_atoms\n", number);
+              if (echo > 5) std::printf("# expect %s sho_atoms\n", number);
               natoms = std::atoi(number);
               xyzZinso.resize(natoms*8);
               atom_mat.resize(natoms);
@@ -159,7 +159,9 @@ namespace green_input {
                   } else 
 #endif // DEVEL
                   {
-                      error("expected %d*%d*%d = %ld potential values but found %ld", ng[2], ng[1], ng[0], ngall, Veff.size());
+                      error("expected %d*%d*%d = %ld potential values but found %ld, "
+                            "try +green_input.empty.potential=1 to override",
+                                      ng[2], ng[1], ng[0], ngall, Veff.size());
                   }
               } // Veff.size != ngall
           } else warn("grid_Hamiltonian has no potential in file %s", filename);

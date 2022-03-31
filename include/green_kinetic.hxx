@@ -634,7 +634,7 @@ namespace green_kinetic {
             nops += nnzb*(2*nFD[dd] + 1)*R1C2*(Noco*64ul)*(Noco*64ul)*2ul; // total number of floating point operations performed
         } // dd
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f';
-        if (echo > 1) std::printf("# green_kinetic::%s nFD= %d %d %d, %.3f M%clop\n", __func__, nFD[0], nFD[1], nFD[2], nops*1e-6, fF);
+        if (echo > 7) std::printf("# green_kinetic::%s nFD= %d %d %d, %.3f M%clop\n", __func__, nFD[0], nFD[1], nFD[2], nops*1e-6, fF);
         return nops;
     } // multiply (kinetic energy operator)
 

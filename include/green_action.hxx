@@ -501,6 +501,8 @@ namespace green_action {
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
                       p->rowindx, colIndex, p->CubePos, nnzb, p->echo);
 
+          if (p->echo > 4) std::printf("# green_action::multiply %g Gflop\n", nops*1e-9);
+          
           return nops;
       } // multiply
 
