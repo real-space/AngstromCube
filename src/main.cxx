@@ -97,7 +97,7 @@
       error("version was compiled with -D NO_UNIT_TESTS", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #else // NO_UNIT_TESTS
-      
+
       SimpleTimer unit_test_timer(__func__, 0, module, 0); // timer over all tests
 
       std::string const input_name(module ? module : "");

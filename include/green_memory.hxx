@@ -66,6 +66,7 @@
 
   template <typename T>
   void _free_memory(T* & ptr, char const *const name="") {
+//    std::printf("# free_memory %s at %p\n", name, (void*)ptr);
       if (nullptr != ptr) {
 #ifdef DEBUG
           std::printf("# free_memory %s at %p\n", name, (void*)ptr);
