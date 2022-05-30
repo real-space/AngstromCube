@@ -44,12 +44,13 @@
 #include "green_potential.hxx" // ::multiply
 #include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 
-        
+
 #ifdef  debug_printf
 #undef  debug_printf
 #endif
-// #define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
-#define debug_printf(...)
+
+#define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
+// #define debug_printf(...)
 
 namespace green_action {
 
@@ -61,20 +62,20 @@ namespace green_action {
       int16_t shifts[3]; // periodic image shifts
       uint8_t nc; // number of coefficients, uint8_t sufficient up to numax=9 --> 220 coefficients
       int8_t numax; // SHO basis size
-  }; // atom_t 48 Byte
+  }; // atom_t 48 Byte, only used in CPU parts
 
-  // this could replace AtomPos + AtomLmax in the long run
+  // Suggestion: this could replace AtomPos + AtomLmax in the long run
   struct atom_image_t {
-      double pos[3]; // position
+      double pos[3]; // atom position
       float  oneoversqrtsigma; // Gaussian spread, 1/sqrt(sigma)
       int8_t shifts[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
-      int8_t lmax; // SHO basis size
+      int8_t lmax; // SHO basis size >= -1
   }; // atom_image_t 32 Byte
 
   struct plan_t {
 
       // members needed for the usage with tfQMRgpu
-    
+
       // for the inner products and axpy/xpay
       std::vector<uint16_t> colindx; // [nnzb], must be a std::vector since nnzb is derived from colindx.size()
       memWindow_t colindxwin; // column indices in GPU memory
@@ -102,7 +103,7 @@ namespace green_action {
       int   iterations_needed   = -99;
 
       // =====================================================================================
-      
+
       int echo = 9;
 
       // additional members to define the action
@@ -121,7 +122,8 @@ namespace green_action {
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
       float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float, could be int16_t for most applications
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
-      double  (**Veff)[64]          = nullptr; // effective potential, data layout [Noco*Noco][nRows][64]
+      double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
+      // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
       int32_t*  veff_index          = nullptr; // [nnzb] indirection list
 
       double *grid_spacing_trunc = nullptr; // [3]
@@ -133,6 +135,7 @@ namespace green_action {
 
       plan_t() {
           debug_printf("# default constructor for %s\n", __func__);
+          // please see construct_Green_function in green_function.hxx for the construction of the plan_t
       } // constructor
 
       ~plan_t() {
@@ -142,7 +145,10 @@ namespace green_action {
           free_memory(source_coords);
           free_memory(target_coords);
           free_memory(target_minus_source);
-          for (int mag = 0; mag < 4; ++mag) free_memory(Veff[mag]);
+          for (int mag = 0; mag < 4*(nullptr != Veff); ++mag) {
+              free_memory(Veff[mag]);
+          } // mag
+          free_memory(Veff);
           free_memory(veff_index);
           free_memory(CubePos);
           free_memory(grid_spacing_trunc);
@@ -254,7 +260,7 @@ namespace green_action {
       //      HG = finite_difference_kinetic_energy(G);
       //      for (d < 3) // serial
       //        for (istick < nstick[d]) // parallel
-      //          while(jnz >= 0, jnz from index_list[d][istick])
+      //          while (jnz >= 0, jnz from index_list[d][istick])
       //            for (j4 < 4) // serial (data-reuse)
       //              for (-8 <= imj <= 8) // reduction
       //                for (j16 < 16) // parallel
@@ -273,7 +279,7 @@ namespace green_action {
           } // inz
 
           if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
-          
+
           // kinetic energy
           auto const max_block_index = p->colindx.size();
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
@@ -325,7 +331,7 @@ namespace green_action {
 //            if (echo > 6) std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.mean(), ts.dev(), ts.min(), ts.max());
               // ===== synchronize to avoid race conditions on y ========
           } // dd
-          
+
           if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
 
       //
@@ -383,7 +389,7 @@ namespace green_action {
               auto const *const target_coords = p->target_coords[iRow];
 
               for (auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
-                
+
                   real_t V[LM]; // buffer, probably best using shared memory of the SMx
                   if (p->veff_index[inz] >= 0) {
                       set(V, LM, p->Veff[0][p->veff_index[inz]]); // load potential values through indirection list
@@ -471,9 +477,9 @@ namespace green_action {
           return 0; // no flops performed so far
       } // toy_multiply
 
-      
-      
-      
+
+
+
       double multiply( // returns the number of flops performed
             real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
           , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
@@ -488,7 +494,7 @@ namespace green_action {
       {
           assert(p);
           double nops{0};
-          
+
           if (p->echo > 2) std::printf("# green_action::multiply\n");
 
           // start with the local potential, assign y to initial values
@@ -503,6 +509,8 @@ namespace green_action {
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
                       p->rowindx, colIndex, p->CubePos, nnzb, p->echo);
+
+          if (p->echo > 4) std::printf("# green_action::multiply %g Gflop\n", nops*1e-9);
 
           return nops;
       } // multiply
@@ -527,6 +535,7 @@ namespace green_action {
 
   inline status_t test_construction_and_destruction(int const echo=0) {
       {   plan_t plan;
+          debug_printf("# start constructors for action_t\n");
           { action_t<float ,1,1> action(&plan); }
           { action_t<float ,2,1> action(&plan); }
           { action_t<float ,2,2> action(&plan); }

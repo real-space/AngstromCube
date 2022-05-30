@@ -28,30 +28,30 @@
 namespace green_kinetic {
 
     int constexpr nhalo = 4; // a maximum of 4 bocks (i.e. 16 grid points) is the range of the FD stencil.
-  
-    int32_t get_inz(
-            uint32_t const idx[3]
-          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
-          , uint32_t const RowStart[]
-          , uint16_t const ColIndex[]
-          , unsigned const irhs
-          , char const dd='?' // derivative direction
-    ) {
-          int constexpr X=0, Y=1, Z=2;
-                          auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
-                          assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
 
-                          int32_t inz_found{-1};
-                          for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-                              if (ColIndex[inz] == irhs) {
-                                  inz_found = inz; // store where it was found
-                                  inz = RowStart[iRow + 1]; // stop search loop
-                              } // found
-                          } // search
-                          return inz_found;
+    int32_t get_inz(
+          uint32_t const idx[3]
+        , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
+        , uint32_t const RowStart[]
+        , uint16_t const ColIndex[]
+        , unsigned const irhs
+        , char const dd='?' // derivative direction
+    ) {
+        int constexpr X=0, Y=1, Z=2;
+        auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
+        assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
+
+        int32_t inz_found{-1};
+        for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+            if (ColIndex[inz] == irhs) {
+                inz_found = inz; // store where it was found
+                inz = RowStart[iRow + 1]; // stop search loop
+            } // found
+        } // search
+        return inz_found;
     } // get_inz
-  
-  
+
+
     inline status_t finite_difference_plan(
             green_sparse::sparse_t<int32_t> & sparse // result
           , int const dd // direction of derivative
@@ -210,7 +210,7 @@ namespace green_kinetic {
           sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo);
           return 0;
       } // finite_difference_plan
-  
+
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
     void __global__ Laplace8th( // GPU kernel, must be launched with <<< {Nrows, 16, 1}, {Noco*64, Noco, R1C2} >>>
@@ -378,8 +378,8 @@ namespace green_kinetic {
 //      std::printf("# %s(Stride=%d)\n", __func__, Stride);
 
     } // Laplace8th
- 
-    
+
+
 
     template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Laplace16th( // GPU kernel, must be launched with <<< {Nrows, 16, 1}, {Noco*64, Noco, R1C2} >>>
@@ -518,7 +518,7 @@ namespace green_kinetic {
 //   Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)
 //   Maximum memory pitch:                          2147483647 bytes
 
-    
+
 
     template <typename real_t, int R1C2=2, int Noco=1> 
     int Laplace_driver(
@@ -540,7 +540,7 @@ namespace green_kinetic {
                   (    gridDim, blockDim,
 #else  // HAS_NO_CUDA
                    <<< gridDim, blockDim >>> (
-#endif // HAS_NO_CUDA                     
+#endif // HAS_NO_CUDA
                    Tpsi, psi, index_list, prefactor, Stride, phase);
         return (8 == nFD) ? 8 : 4;
     } // Laplace_driver
@@ -556,12 +556,9 @@ namespace green_kinetic {
         assert(std::abs(phase_angle) < 0.503); // 181 degrees are accepted for test purposes
 
         double dev{0};
-        
+
         auto const arg = 2*constants::pi*phase_angle;
         auto cs = std::cos(arg), sn = std::sin(arg);
-
-//         auto const ph = std::pow(std::complex<double>(0, 1), 4*phase_angle);
-//         auto cs = ph.real(), sn = ph.imag();
 
         // purify the values for multiples of 15 degrees
         int const phase24 = phase_angle*24;
@@ -590,7 +587,7 @@ namespace green_kinetic {
             dev = std::max(std::abs(cs - std::cos(arg)), std::abs(sn - std::sin(arg)));
         }
 // #endif // DEBUG
-        
+
         int constexpr Re=0, Im=1, Left=0, Right=1;
         phase[Left][Re] = cs;
         phase[Left][Im] = sn;
@@ -608,8 +605,8 @@ namespace green_kinetic {
             set_phase(phase[dd], phase_angle ? phase_angle[dd] : 0, 'x' + dd, echo);
         } // dd
     } // set_phase
-    
-    
+
+
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
           real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
@@ -634,7 +631,7 @@ namespace green_kinetic {
             nops += nnzb*(2*nFD[dd] + 1)*R1C2*(Noco*64ul)*(Noco*64ul)*2ul; // total number of floating point operations performed
         } // dd
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f';
-        if (echo > 1) std::printf("# green_kinetic::%s nFD= %d %d %d, %.3f M%clop\n", __func__, nFD[0], nFD[1], nFD[2], nops*1e-6, fF);
+        if (echo > 7) std::printf("# green_kinetic::%s nFD= %d %d %d, %.3f M%clop\n", __func__, nFD[0], nFD[1], nFD[2], nops*1e-6, fF);
         return nops;
     } // multiply (kinetic energy operator)
 
@@ -667,16 +664,15 @@ namespace green_kinetic {
         if (echo > 3) std::printf("# green_kinetic::%s nFD= %d, number= %d %d %d\n", __func__, FD_range, num[0], num[1], num[2]);
 
         auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
-        
+
         for (int dd = 0; dd < 3; ++dd) {
             free_memory(lists[dd]);
         } // dd
         free_memory(phase);
         return nops;
    } // multiply (kinetic energy operator)
-                  
 
-                  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -757,7 +753,6 @@ namespace green_kinetic {
 
   inline status_t test_set_phase(int const echo=0) {
       double phase[2][2], maxdev{0};
-//    for (int iangle = -181; iangle <= 181; ++iangle) {
       for (int iangle = -180; iangle <= 180; iangle += 5) {
           auto const dev = set_phase(phase, iangle/360., 't', echo);
           maxdev = std::max(maxdev, dev);
