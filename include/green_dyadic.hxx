@@ -190,20 +190,21 @@ namespace green_dyadic {
             auto const inzb = inzb_of_bsr[bsr]; // non-zero index of the Green function
             auto const irow = irow_of_inzb[inzb]; // row index of the Green function
 
+            __shared__ float R2_proj;
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[irow][threadIdx.x]; // load into shared memory
             __syncthreads();
 
             // generate Hx, Hy, Hz up to lmax inside the 4^3 cube
+
             if (0 == threadIdx.y && 0 == threadIdx.z) // sufficient to be executed by the first 12 threads of a block
-            auto const R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid);
+                R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid);
             // how many times executed? nrhs * sparse[irhs].nNonzeros()
 
             __syncthreads();
 #else  // HAS_NO_CUDA
             set(xyzc, 3, CubePos[irow]);
 
-            float R2_proj;
             for (int jj = 0; jj < 12; ++jj) {
                 R2_proj = Hermite_polynomials_1D(H1D, xi_squared, jj, lmax, xyza, xyzc, hgrid);
             } // jj
@@ -407,6 +408,7 @@ namespace green_dyadic {
 //          if (lmax > Lmax) std::printf("# %s Error: lmax=%d but max. Lmax=%d, iatom=%d, bsr=%d, inzb=%d\n", __func__, lmax, Lmax, iatom, bsr, inzb);
             assert(lmax <= Lmax);
 
+            __shared__ float R2_proj;
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 4) xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // coalesced load
 
@@ -414,12 +416,11 @@ namespace green_dyadic {
 
             // generate Hx, Hy, Hz up to Lmax inside the 4^3 cube
             if (0 == threadIdx.y && 0 == threadIdx.z) // sufficient to be executed by the first 12 threads of a block
-            auto const R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid);
+                R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid);
 
 #else  // HAS_NO_CUDA
             set(xyza, 4, AtomPos[iatom]);
 
-            float R2_proj;
             for (int jj = 0; jj < 12; ++jj) {
                 R2_proj = Hermite_polynomials_1D(H1D, xi_squared, jj, lmax, xyza, xyzc, hgrid);
             } // jj
