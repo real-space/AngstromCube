@@ -487,7 +487,6 @@ namespace green_action {
         // GPU implementation of green_potential, green_kinetic and green_dyadic
       {
           assert(p);
-          SimpleTimer timer(__FILE__, __LINE__, __func__, p->echo);
           double nops{0};
           
           if (p->echo > 2) std::printf("# green_action::multiply\n");

@@ -68,7 +68,7 @@ CUOPTFLAGS =
 #### production mode
 CUOPTFLAGS += -O3 --use_fast_math
 #### debug mode
-CUOPTFLAGS += -g -O0 -G
+# CUOPTFLAGS += -g -O0 -G
 # CUOPTFLAGS += -DDEBUGGPU
 
 ## verbose GPU assembler
@@ -80,7 +80,7 @@ CUOPTFLAGS += -lineinfo
 ifdef ENABLE_GPU
 	INC += -I/usr/local/cuda/include
 	FEAFLAGS += -DUSE_NVTX
-	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt  #-rdynamic
+	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt -lcurand  #-rdynamic
 else
 	FEAFLAGS += -D HAS_NO_CUDA
 endif
