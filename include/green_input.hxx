@@ -33,7 +33,7 @@ namespace green_input {
       , int & natoms
       , std::vector<double> & xyzZinso
       , std::vector<std::vector<double>> & atom_mat
-      , char const *const filename="Hmt.xml"
+      , char const *const filename="Hmt.xml" // input
       , int const echo=0 // log-level
   ) {
 #ifndef HAS_RAPIDXML
@@ -136,7 +136,7 @@ namespace green_input {
                   if (echo > 3) std::printf("# BC%s = %d\n", axyz, bc[d]);
               } // value != ""
           } // d
-          
+
           auto const potential = xml_reading::find_child(grid_Hamiltonian, "potential", echo);
           if (potential) {
               for (int d = 0; d < 3; ++d) {

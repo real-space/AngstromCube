@@ -135,7 +135,7 @@ namespace green_action {
 
       plan_t() {
           debug_printf("# default constructor for %s\n", __func__);
-          // please see construct_Green_function in green_function.hxx for the contruction of the plan_t
+          // please see construct_Green_function in green_function.hxx for the construction of the plan_t
       } // constructor
 
       ~plan_t() {

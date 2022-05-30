@@ -68,7 +68,7 @@ namespace green_dyadic {
             double const xi2 = xi*xi; // 1 flop
             xi_squared[idir][i4] = xi2; // export the square of the distance in units of sigma
             double const H0 = (xi2 < R2_projection) ? std::exp(-0.5*xi2) : 0; // Gaussian envelope function // ? flop
-            
+
             // Discuss:   We could export xi*xi as an array double (or maybe only float) xi2[3][4] and compare
             //              xi2[0][x] + xi2[1][y] + xi2[2][z] < R2_projection
             //            hence omitting the data transfer of BitMask entirely and save preparation code complexity
@@ -181,7 +181,7 @@ namespace green_dyadic {
         } // sho
 
         __syncthreads(); // sync necessary?
-        
+
         // in this loop over bsr we accumulate atom projection coefficients over many cubes
         for (auto bsr = bsr_of_iatom[iatom]; bsr < bsr_of_iatom[iatom + 1]; ++bsr) {
 
@@ -279,7 +279,7 @@ namespace green_dyadic {
         } // scope
 
         }} // thread loops and block loops
-        
+
     } // SHOprj
 
     template <typename real_t, int R1C2=2, int Noco=1>
@@ -309,14 +309,14 @@ namespace green_dyadic {
 #endif // HAS_NO_CUDA
                Cpr, Psi, sparse, AtomPos, AtomLmax, AtomStarts, RowIndexCube, CubePos, hGrid);
     } // SHOprj_driver
-    
+
 
     // maybe this could be useful?
 //     union mask64_t {
 //         int64_t i;
 //         uint16_t u[4];
 //     }; // mask64_t
-    
+
     template <typename real_t, int R1C2=2, int Noco=1, int Lmax=Lmax_default>
     void __global__ SHOadd( // launch SHOadd<real_t,R1C2,Noco> <<< {nnzb, 1, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef HAS_NO_CUDA
@@ -424,7 +424,7 @@ namespace green_dyadic {
                 R2_proj = Hermite_polynomials_1D(H1D, xi_squared, jj, lmax, xyza, xyzc, hgrid);
             } // jj
 #endif // HAS_NO_CUDA
-              
+
             int sho{0};
             for (int iz = 0; iz <= lmax; ++iz) { // executes (L+1) times
 
@@ -509,7 +509,7 @@ namespace green_dyadic {
         } // mask_all
 
         }} // thread loops and block loop
-        
+
     } // SHOadd
 
 
@@ -566,7 +566,7 @@ namespace green_dyadic {
     //  <R1C2=2, Noco=1>
     //  <R1C2=2, Noco=2>
     //  ---> 6 instances
-    
+
     // The as-is state is suited for ncols=1, i.e. for only one block-column per Green function
     // The advantages of more than 1 block-column were given for the block-sparse Hamiltonian,
     // however, not for the ultra-sparse Hamiltonian.
@@ -574,7 +574,7 @@ namespace green_dyadic {
     // For the Green function data layout X[ncubes][R1C2][Noco*64][Noco*64]
     // SHOprj: p_{ai}[64_i] * X[icube][R1C2][Noco*64_i][Noco*64_j] summed over 64_i -> c[nai][R1C2][Noco][Noco*64_j]
     // SHOadd: Y[icube][R1C2][Noco*64_i][Noco*64_j] += p_{ai}[64_i] * d[nai][R1C2][Noco][Noco*64_j] summed over ai
-    
+
     // Memory estimate: double complex Noco=1 --> 2^16 Byte =  64 KiByte per block
     //                  double complex Noco=2 --> 2^18 Byte = 256 KiByte per block
     // GPU capacity 40 GiByte
@@ -588,7 +588,7 @@ namespace green_dyadic {
     // 2^16 blocks --> 3755 gold atom centers inside the truncation cluster
     // 2^14 blocks -->  964 gold atom centers inside the truncation cluster
     // Lattice constant of iron: 2.8665 Angstrom (bcc) --> 2 atoms per (2.8665 Angstrom)^3 --> 11.7                      753 DoF
-    
+
     // ==> try first with ncols=1 implementation because it is simpler
 
     template <typename real_t, int R1C2=2, int Noco=1, int n64=64>
@@ -617,7 +617,7 @@ namespace green_dyadic {
         assert(1       == blockDim.z);
 
         float const scale_imaginary = collect ? 1 : -1; // simple complex conjugate
-        
+
 #ifndef HAS_NO_CUDA
         int const irhs  = blockIdx.y;
         int const iatom = blockIdx.x;
@@ -845,29 +845,29 @@ namespace green_dyadic {
 
 
 
-            
+
   class dyadic_plan_t {
   public: // members
 
-      uint32_t* AtomStarts     = nullptr; // [nAtoms + 1]
-      int8_t*   AtomLmax       = nullptr; // [nAtoms]
-      double**  AtomMatrices   = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
-      uint32_t nAtoms = 0;
+      uint32_t* AtomStarts          = nullptr; // [nAtoms + 1]
+      int8_t*   AtomLmax            = nullptr; // [nAtoms]
+      double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
+      uint32_t nAtoms               = 0;
 
       uint32_t* AtomImageStarts     = nullptr; // [nAtomImages + 1]
       double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages]
       int8_t*   AtomImageLmax       = nullptr; // [nAtomImages]
       double  (*AtomImagePhase)[4]  = nullptr; // [nAtomImages]
       int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages]
-      uint32_t nAtomImages  = 0;
+      uint32_t nAtomImages          = 0;
 
-      double *grid_spacing   = nullptr; // [3+1] hx,hy,hz,rcut/sigma
+      double* grid_spacing          = nullptr; // [3+1] hx,hy,hz,rcut/sigma
 
-      int32_t nrhs = 0;
-      green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nrhs]
-      green_sparse::sparse_t<>   sparse_SHOadd;
-      green_sparse::sparse_t<>   sparse_SHOsum;
-      
+      int32_t nrhs                  = 0;
+      green_sparse::sparse_t<>* sparse_SHOprj = nullptr; // [nrhs]
+      green_sparse::sparse_t<>  sparse_SHOadd;
+      green_sparse::sparse_t<>  sparse_SHOsum;
+
       size_t flop_count_SHOgen = 0,
              flop_count_SHOsum = 0,
              flop_count_SHOmul = 0,
@@ -875,11 +875,10 @@ namespace green_dyadic {
 
   public: // methods
 
-      dyadic_plan_t() {} // default constructor
-
-      dyadic_plan_t(int const echo) {
+      dyadic_plan_t(int const echo=0) {
           if (echo > 0) std::printf("# construct %s\n", __func__);
-      } // empty constructor
+          // please see construct_dyadic_plan in green_function.hxx for the construction of the dyadic_plan_t
+      } // empty and default constructor
 
       ~dyadic_plan_t() {
           std::printf("# destruct %s\n", __func__);
@@ -896,7 +895,7 @@ namespace green_dyadic {
           if (sparse_SHOprj) for (int32_t irhs = 0; irhs < nrhs; ++irhs) sparse_SHOprj[irhs].~sparse_t<>();
           free_memory(sparse_SHOprj);
       } // constructor
-      
+
       status_t consistency_check() const {
           status_t stat(0);
           assert(nAtomImages >= nAtoms);
@@ -955,7 +954,7 @@ namespace green_dyadic {
               } // iai
               flop_count_SHOsum *= 2*nrhs*64; // missing factor R1C2^2 Noco^2
           } else { /* no need to run SHOsum */ }
-          
+
       } // update_flop_counts
 
       size_t get_flop_count(int const R1C2, int const Noco, int const echo=0) const {
@@ -1007,7 +1006,7 @@ namespace green_dyadic {
                                             p.sparse_SHOsum, p.nAtoms, p.nrhs, true, echo); // true:collect
 
             auto cadd = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "cadd");
-            
+
             SHOmul_driver<double,R1C2,Noco>(cadd, cprj, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, p.nrhs, echo);
 
             free_memory(cprj);
@@ -1123,7 +1122,7 @@ namespace green_dyadic {
         if (echo > 6) std::printf("# %s<%s> R1C2=%d Noco=%d natoms=%d nrhs=%d ncoeffs=%d\n", __func__, real_t_name<real_t>(), R1C2, Noco, natoms, nrhs, natomcoeffs);
 
         SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
-        
+
         // ToDo: in the future, nAtomImages and natoms can be different. Then, we need an extra step of accumulating the projection coefficients
         //       with the corresponding phases and, after SHOmul, distributing the addition coefficients to the images with the inverse phases.        
 
@@ -1133,9 +1132,9 @@ namespace green_dyadic {
         SHOmul_driver<real_t,R1C2,Noco,64>(Cad, Cpr, AtomMatrices, AtomLmax, AtomStarts, natoms, nrhs, echo);
 
         SHOadd_driver<real_t,R1C2,Noco>(Ppsi, Cad, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
-        
+
         free_memory(Cad);
-        
+
         return 0; // total number of floating point operations not computed
     } // multiply (deprecated)
 
@@ -1156,7 +1155,7 @@ namespace green_dyadic {
       set(apc[0][0][0], natoms*nsho*nrhs*R1C2*pow2(Noco)*64, real_t(0)); // clear
 
       auto sparse_SHOprj = get_memory<green_sparse::sparse_t<>>(nrhs, echo, "sparse_SHOprj");
-      {   
+      {
           std::vector<std::vector<uint32_t>> SHO_prj(natoms);
           SHO_prj[0].resize(nnzb); for (int inzb = 0; inzb < nnzb; ++inzb) SHO_prj[0][inzb] = inzb;
           sparse_SHOprj[0] = green_sparse::sparse_t<>(SHO_prj, false, __func__, echo - 9);
@@ -1215,7 +1214,9 @@ namespace green_dyadic {
                       for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
                           nu_of_sho[sho] = ix + iy + iz;
                           ++sho;
-              }}}
+                      } // ix
+                  } // iy
+              } // iz
               assert(nu_of_sho.size() == sho);
           }
           auto const msho = std::min(nsho, 64);
@@ -1292,9 +1293,9 @@ namespace green_dyadic {
 
 } // namespace green_dyadic
 
-// 
+//
 // General thoughts:
-//      
+//
 //    We assume that a Green function G(r,r') comes in as psi.
 //    The spatial arguments \vec r of the Green function are
 //    sampled on an equidistant Cartesian real-space grids.

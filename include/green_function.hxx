@@ -51,21 +51,12 @@
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
 //int8_t constexpr Isolated_Boundary = 0, Periodic_Boundary = 1;
 
-/*
- *  ToDo plan:
- *    Implement CPU version of SHOprj and SHOadd
- *    Implement periodic boundary conditions in CPU version [optional, but would speed up the following item]
- *    Ensure that tfQMRgpu can invert CPU-only
- *    Verify that the density of states of the Green function matches that found by eigenvalues (explicit solver)
- *    Implement GPU versions of the Hamiltonian
- * 
- */
-
  /*
   *  Future plan:
   *   Support also density matrix purification scheme (McWeeney filter: x^2(3-2x)
   *   or with a non-trivial overlap operator S (3xSx - 2xSxSx from Phys. Rev. B 50, 17622)
   *   maybe better with norm-conserving PAW formalism --> S == 1
+  *   in particular suitable for the real Hamiltonian action (which is not supported by tfQMRgpu)
   */
 
 namespace green_function {

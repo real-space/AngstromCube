@@ -39,6 +39,7 @@ FEAFLAGS =
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 FEAFLAGS += -D HAS_RAPIDXML
 
+## use the tfQMRgpu library to invert the shifted Hamiltonian
 FEAFLAGS += -D HAS_TFQMRGPU
 INC += -I../../tfQMRgpu
 
