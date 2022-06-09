@@ -153,15 +153,15 @@ namespace green_input {
               if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %ld\n",
                   Veff.size(), ng[0], ng[1], ng[2], ngall);
               if (Veff.size() != ngall) {
+                  auto const empty_potential = "green_input.empty.potential";
 #ifdef DEVEL
-                  if (0 == Veff.size() && control::get("green_input.empty.potential", 0.) > 0) {
+                  if (0 == Veff.size() && control::get(empty_potential, 0.) > 0) {
                       Veff.resize(ngall, 0.0); // very useful for 
                   } else 
 #endif // DEVEL
                   {
-                      error("expected %d*%d*%d = %ld potential values but found %ld, "
-                            "try +green_input.empty.potential=1 to override",
-                                      ng[2], ng[1], ng[0], ngall, Veff.size());
+                      error("expected %d*%d*%d = %ld potential values but found %ld, try +%s=1 to override",
+                                      ng[2], ng[1], ng[0], ngall,       Veff.size(), empty_potential);
                   }
               } // Veff.size != ngall
           } else warn("grid_Hamiltonian has no potential in file %s", filename);
