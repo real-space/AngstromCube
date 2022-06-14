@@ -77,13 +77,13 @@ namespace green_action {
       // members needed for the usage with tfQMRgpu
 
       // for the inner products and axpy/xpay
-      std::vector<uint16_t> colindx; // [nnzb], must be a std::vector since nnzb is derived from colindx.size()
+      std::vector<uint16_t> colindx; // [nnzbX], must be a std::vector since nnzb is derived from colindx.size()
       memWindow_t colindxwin; // column indices in GPU memory
 
-      // for the matrix-matrix subtraction Y -= B:
+      // for the matrix-submatrix addition/subtraction Y -= B:
       std::vector<uint32_t> subset; // [nnzbB], list of inzbX-indices at which B is also non-zero
-      memWindow_t matBwin; // data of the right hand side operator B
       memWindow_t subsetwin; // subset indices in GPU memory
+      memWindow_t matBwin; // data of the right hand side operator B
 
       // memory positions
       memWindow_t matXwin; // solution vector in GPU memory
@@ -124,10 +124,11 @@ namespace green_action {
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
       double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
       // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
-      int32_t*  veff_index          = nullptr; // [nnzb] indirection list
+      int32_t*  veff_index          = nullptr; // [nnzb] indirection list, values -1 for non-existent indices
 
       double *grid_spacing_trunc = nullptr; // [3]
       double *grid_spacing       = nullptr; // [3]
+      double (*phase)[2][2]      = nullptr; // [3]
 
       bool noncollinear_spin = false;
 
@@ -153,6 +154,7 @@ namespace green_action {
           free_memory(CubePos);
           free_memory(grid_spacing_trunc);
           free_memory(grid_spacing);
+          free_memory(phase);
           for (int dd = 0; dd < 3; ++dd) kinetic_plan[dd].~sparse_t();
       } // destructor
 
@@ -504,7 +506,7 @@ namespace green_action {
 
           // add the kinetic energy expressions
           nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
-                      p->grid_spacing, 4, nnzb, p->echo);
+                      p->grid_spacing, p->phase, 4, nnzb, p->echo);
 
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
@@ -519,7 +521,7 @@ namespace green_action {
 
     private: // members
 
-      plan_t *p; // the plan is independent of real_t
+      plan_t *p; // the plan is independent of real_t and R1C2
 
       // temporary device memory needed for dyadic operations
       real_t (*apc)[R1C2][Noco][LM]; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]

@@ -16,6 +16,7 @@
   #include "density_generator.hxx" // ::all_tests
   #include "fourier_transform.hxx" // ::all_tests
   #include "iterative_poisson.hxx" // ::all_tests
+  #include "green_experiments.hxx" // ::all_tests
   #include "self_consistency.hxx" // ::all_tests
   #include "radial_potential.hxx" // ::all_tests
   #include "bessel_transform.hxx" // ::all_tests
@@ -200,6 +201,7 @@
           add_module_test(green_potential);
           add_module_test(green_dyadic);
           add_module_test(green_action);
+          add_module_test(green_experiments);
 
           if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
           add_module_test(conjugate_gradients);

@@ -87,7 +87,7 @@ namespace boundary_condition {
           } // iy
       } // iz
       if (echo > 1) std::printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
-      
+
       // export array of periodic positions
       ipos = view2D<double>(ni, 4); // get memory
       set(ipos.data(), ni*4, pos.data()); // copy
@@ -171,6 +171,6 @@ namespace boundary_condition {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace boundary_condition

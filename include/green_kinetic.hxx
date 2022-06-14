@@ -548,7 +548,7 @@ namespace green_kinetic {
 
     template <typename real_t=double>
     double __host__ set_phase(real_t phase[2][2], double const phase_angle=0, char const direction='?', int const echo=0) {
-        // phase_angle comes in units of 2*pi
+        // phase_angle in units of 2*pi
         // phase_angle ==     0.00 --> phase = 1
         // phase_angle == +/- 0.25 --> phase = +/-i
         // phase_angle == +/- 0.50 --> phase = -1
@@ -600,9 +600,9 @@ namespace green_kinetic {
     } // set_phase
 
     template <typename real_t=double>
-    void __host__ set_phase(real_t phase[3][2][2], double const phase_angle[3]=nullptr, int const echo=0) {
+    void __host__ set_phase(real_t phase[3][2][2], double const phase_angles[3]=nullptr, int const echo=0) {
         for (int dd = 0; dd < 3; ++dd) {
-            set_phase(phase[dd], phase_angle ? phase_angle[dd] : 0, 'x' + dd, echo);
+            set_phase(phase[dd], phase_angles ? phase_angles[dd] : 0, 'x' + dd, echo);
         } // dd
     } // set_phase
 
@@ -617,7 +617,7 @@ namespace green_kinetic {
         , int32_t  const *const *const __restrict__ z_list // 
         , double   const hgrid[3] // grid spacing in X,Y,Z
         , int      const FD_range[3] // finite-difference stencil range (in grid points)
-        , double   const phase[3][2][2] // complex phase factors
+        , double   const phase[3][2][2] // complex Bloch phase factors
         , size_t   const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
         , int      const echo=0
     ) {
@@ -642,13 +642,14 @@ namespace green_kinetic {
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // 
         , green_sparse::sparse_t<int32_t> const kinetic_plan[3]
         , double   const hgrid[3] // grid spacing in X,Y,Z
+        , double const phase[3][2][2] // complex Bloch phase factors [direction][forward:backward][real:imag]
         , int const FD_range=4 // finite-difference stencil range (in grid points)
         , size_t const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
         , int const echo=0
     ) {
         int const nFD[] = {FD_range, FD_range, FD_range};
-        auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
-        set_phase(phase, nullptr, echo); // neutral (Gamma-point) phase factors
+//         auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
+//         set_phase(phase, nullptr, echo); // neutral (Gamma-point) phase factors
         uint32_t num[3];
         int32_t const ** lists[3];
         for (int dd = 0; dd < 3; ++dd) {
@@ -668,7 +669,7 @@ namespace green_kinetic {
         for (int dd = 0; dd < 3; ++dd) {
             free_memory(lists[dd]);
         } // dd
-        free_memory(phase);
+//         free_memory(phase);
         return nops;
    } // multiply (kinetic energy operator)
 

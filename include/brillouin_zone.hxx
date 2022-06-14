@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstdio> // std::printf
-#include <algorithm> // std::max, std::min
-#include <cmath> // std::round
+#include <cstdio> // std::printf, ::snprintf
+#include <algorithm> // std::min, ::max
+#include <cmath> // std::round, ::sqrt
 
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D, view4D
@@ -33,7 +33,7 @@ namespace brillouin_zone {
           } // d
       } // phase factors must be real
 
-      int constexpr WEIGHT=3, COUNT=0, WRITE=1;
+      int constexpr COUNT=0, WRITE=1;
 
       size_t const nfull = n[2]*n[1]*n[0];
       view4D<double> full(n[2], n[1], n[0], 4); // get temporary memory
@@ -160,6 +160,51 @@ namespace brillouin_zone {
       } // ik
       return false;
   } // needs_complex
+
+
+  inline char get_special_kpoint(char const *const keyword, double v[3], char const *const def="?") {
+      v[0] = 0; v[1] = 0; v[2] = 0; // clear
+      char const cin = *control::get(keyword, def);
+      switch (cin | 32) { // convert to lower case
+        case 'g': case '0':                           return 'G';
+        case 'x': case '1':               v[0] = 0.5; return 'X';
+        case 'm':             v[1] = 0.5; v[0] = 0.5; return 'M';
+        case 'r': v[2] = 0.5; v[1] = 0.5; v[0] = 0.5; return 'R';
+        default:
+            char extended_keyword[64];
+            for (int d = 0; d < 3; ++d) {
+                std::snprintf(extended_keyword, 63, "%s.%c", keyword, 'x' + d);
+                v[d] = control::get(extended_keyword, 0.0);
+            } // d
+      } // switch
+      return cin;
+  } // get_special_kpoint
+
+
+  inline int get_kpoint_path( // returns the number of k-points
+        view2D<double> & path // on exit shape (nk + 1, 4)
+      , int const echo=0 // log-level
+  ) {
+      double from[3], to[3], dk;
+      auto const c_from = get_special_kpoint("hamiltonian.kpath.from", from, "Gamma");
+      auto const c_to   = get_special_kpoint("hamiltonian.kpath.to", to, "X");
+      dk = control::get("hamiltonian.kpath.spacing", 0.01);
+      auto const length = std::sqrt(pow2(to[0] - from[0]) + pow2(to[1] - from[1]) + pow2(to[2] - from[2]));
+      int const nk = std::ceil(length/std::max(dk, 1e-9));
+      int const npath = nk + 1;
+      path = view2D<double>(npath, 4, 0.0); // get memory
+      double const by_nk = (nk > 0) ? 1./nk : 0;
+      for (int ik = 0; ik <= nk; ++ik) {
+          for (int d = 0; d < 3; ++d) {
+              path(ik,d) = from[d] + (to[d] - from[d])*(ik*by_nk);
+          } // d
+          path(ik,3) = length*(ik*by_nk); // instead of a weight, this is a progress on the band path
+      } // ik
+      if (echo > 0) std::printf("# k-point path from %g %g %g (%c) to %g %g %g (%c) in %d steps, dk= %g\n",
+                          from[0], from[1], from[2], c_from, to[0], to[1], to[2], c_to, nk, length*by_nk);
+      return npath;
+  } // get_kpoint_path
+
 
 
 #ifdef  NO_UNIT_TESTS

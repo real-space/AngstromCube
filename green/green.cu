@@ -3,6 +3,7 @@
   #include "global_coordinates.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
+  #include "green_experiments.hxx" // ::all_tests
   #include "green_potential.hxx" // ::all_tests
   #include "green_function.hxx" // ::all_tests
   #include "green_kinetic.hxx" // ::all_tests
@@ -40,7 +41,7 @@
       error("version was compiled with -D NO_UNIT_TESTS", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #else // NO_UNIT_TESTS
-      
+
       SimpleTimer unit_test_timer(__func__, 0, module, 0); // timer over all tests
 
       std::string const input_name(module ? module : "");
@@ -67,7 +68,7 @@
                   results.push_back(std::make_tuple(module_name, stat, time));      \
               }                                                                     \
           } // add_module_test
-          
+
           if (chapters) std::printf("\n\n\n\n#\n# general modules\n#\n\n\n\n");
           add_module_test(control);
           add_module_test(recorded_warnings);
@@ -88,6 +89,7 @@
           add_module_test(green_potential);
           add_module_test(green_dyadic);
           add_module_test(green_action);
+          add_module_test(green_experiments);
 
 #undef    add_module_test
 

@@ -869,6 +869,8 @@ namespace green_dyadic {
       green_sparse::sparse_t<>  sparse_SHOadd;
       green_sparse::sparse_t<>  sparse_SHOsum;
 
+      std::vector<int32_t> global_atom_index;
+
       size_t flop_count_SHOgen = 0,
              flop_count_SHOsum = 0,
              flop_count_SHOmul = 0,
