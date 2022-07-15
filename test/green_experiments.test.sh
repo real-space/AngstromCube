@@ -2,7 +2,7 @@
 
 exe=../green/green
 
-base=empty
+base=methane
 
 ### generate a control file
 cat > green_control.sh << EOF
@@ -27,20 +27,21 @@ green_experiments.hamiltonian.file=Hmt.$base.xml
 ## when reading from the xml-formatted input file 1:ignore empty potential, 0:error on empty potential
 green_input.empty.potential=1
 
-## spacing in k-space
-hamiltonian.kpath.from.x=0
-hamiltonian.kpath.from.y=0
-hamiltonian.kpath.from.z=0
-hamiltonian.kpath.to.x=0.5
-hamiltonian.kpath.to.y=0
-hamiltonian.kpath.to.z=0
-hamiltonian.kpath.spacing=0.1
+## path in k-space
+hamiltonian.kpath.from=Gamma
+# hamiltonian.kpath.to=X
+hamiltonian.kpath.to=0
+hamiltonian.kpath.spacing=0.01
 
-## in E-space
-green_experiments.bandstructure.energy.offset=-0.2
-green_experiments.bandstructure.energy.spacing=0.01
-green_experiments.bandstructure.energy.points=600
+## sampling in E-space
+#green_experiments.bandstructure.energy.offset=-0.2
+green_experiments.bandstructure.energy.offset=-0.5
+green_experiments.bandstructure.energy.spacing=0.005
+green_experiments.bandstructure.energy.points=1200
 green_experiments.bandstructure.energy.imag=0.005
+
+## switch off benchmarking
+green_function.benchmark.iterations=0
 
 control.show=1
 
@@ -48,6 +49,6 @@ EOF
 
 (cd ../green/ && make -j) && \
 echo "# start calculation $base" && \
-$exe -test green_experiments \
+$exe --test green_experiments \
       +control.file=green_control.sh \
       "$@" > green_experiments.$base.out

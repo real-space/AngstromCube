@@ -174,8 +174,9 @@ namespace green_experiments {
   } // test_Green_bandstructure
 
   inline status_t all_tests(int const echo=0) {
+      int const which = control::get("green_experiments.select.test", -1.);
       status_t stat(0);
-      stat += test_Green_bandstructure(echo);
+      if (which & 0x1) stat += test_Green_bandstructure(echo);
       return stat;
   } // all_tests
 

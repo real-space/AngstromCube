@@ -15,6 +15,7 @@ OBJECTS = \
 	control.o \
 	recorded_warnings.o \
 	display_units.o \
+	load_balancer.o \
 	green.o
 
 

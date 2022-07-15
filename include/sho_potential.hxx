@@ -826,7 +826,7 @@ namespace sho_potential {
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       int const which = control::get("sho_potential.select.test", 0.); // switched off
-      if(which & 0x1) stat += test_local_potential_matrix_elements(echo); // expensive
+      if (which & 0x1) stat += test_local_potential_matrix_elements(echo); // expensive
       return stat;
   } // all_tests
 

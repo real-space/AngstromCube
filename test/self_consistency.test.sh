@@ -98,6 +98,18 @@ echo "H   -$dist  $dist  $dist" >> $base.xyz
 # printf " 1 \n#cell 1.420282 10 10 p p p \n" > $base.xyz
 # echo "C   0 0 0" >> $base.xyz
 
+### silicon LDA lattice constant 5.378 Ang in diamond structure
+# base=scf.silicon
+# printf " 8 \n#cell 5.378 5.378 5.378 p p p \n" > $base.xyz
+### 5.378 / 8 == 0.67225, 0.67225 * 3 == 2.01675
+# echo "Si  -2.01675 -2.01675 -2.01675" >> $base.xyz
+# echo "Si   0.67225  0.67225 -2.01675" >> $base.xyz
+# echo "Si  -0.67225 -0.67225 -0.67225" >> $base.xyz
+# echo "Si   2.01675  2.01675 -0.67225" >> $base.xyz
+# echo "Si  -2.01675  0.67225  0.67225" >> $base.xyz
+# echo "Si   0.67225 -2.01675  0.67225" >> $base.xyz
+# echo "Si  -0.67225  2.01675  2.01675" >> $base.xyz
+# echo "Si   2.01675 -0.67225  2.01675" >> $base.xyz
 
 
 ### generate a control file

@@ -10,6 +10,7 @@
   #include "green_sparse.hxx" // ::all_tests
   #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
+  #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
@@ -80,6 +81,7 @@
           add_module_test(unit_system);
           add_module_test(boundary_condition);
           add_module_test(global_coordinates);
+          add_module_test(load_balancer);
           add_module_test(sho_tools);
 
           if (chapters) std::printf("\n\n\n\n#\n# Green function modules\n#\n\n\n\n");
