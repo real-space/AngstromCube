@@ -10,10 +10,10 @@ rm -f load_balancer_main.cxx
 rm -f $project_base.out
 touch $project_base.out
 
-for nprocs in {1..16}; do
+for nprocs in {1..116}; do
 # echo -n "nprocs=$nprocs"
   $exe -test $project_base \
-        +verbosity=11 \
+        +verbosity=17 \
         +$project_base.test.nprocs=$nprocs \
         +$project_base.test.nx=17 \
         +$project_base.test.ny=19 \

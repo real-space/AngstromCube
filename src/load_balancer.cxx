@@ -92,6 +92,12 @@ namespace load_balancer {
 
   int constexpr X=0, Y=1, Z=2;
 
+  template <typename real_t>
+  inline real_t distance_squared(real_t const a[], real_t const b[]) {
+      return pow2(a[X] - b[X]) + pow2(a[Y] - b[Y]) + pow2(a[Z] - b[Z]);
+  } // distance_squared
+
+
   inline status_t test_bisection_balancer(int const nprocs, int const n[3], int const echo=0) {
       status_t stat(0);
 
@@ -1022,27 +1028,33 @@ for (int myrank = 0; myrank < nprocs; ++myrank) {
   inline status_t test_plane_balancer(int const nprocs, int const n[3], int const echo=0) {
       status_t stat(0);
 
-      if (nprocs < 2) return stat;
+      if (nprocs < 1) return stat;
 
-      auto const all = (n[X])*size_t(n[Y])*size_t(n[Z]);
+      auto const nall = (n[X])*size_t(n[Y])*size_t(n[Z]);
+      assert(nall <= (size_t(1) << 32) && "uint32_t is not long enough!");
 
       double w8sum_all{0};
-      view2D<float> xyzw(all, 4, 0.f);
-      std::vector<double> w8s(all, 0.0);
+      int constexpr W = 3;
+      view2D<float> xyzw(nall, 4, 0.f);
+      std::vector<float> w8s(nall, 0.f);
 
       for (int iz = 0; iz < n[Z]; ++iz) {
       for (int iy = 0; iy < n[Y]; ++iy) {
       for (int ix = 0; ix < n[X]; ++ix) {
           auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
-          assert(uint32_t(iall) == iall);
+//        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
           xyzw(iall,X) = ix;
           xyzw(iall,Y) = iy;
           xyzw(iall,Z) = iz;
-          w8s[iall]  = weight(ix,iy,iz);
-          w8sum_all += w8s[iall];
+          auto const w8 = weight(ix,iy,iz);
+          w8s[iall]  = w8;
+          w8sum_all += w8;
+          xyzw(iall,W) = w8;
       }}} // ix iy iz
 
       std::vector<double> load(nprocs, 0.0);
+      view2D<double> rank_center(nprocs, 4, 0.0);
+      bool constexpr compute_rank_centers = true;
 
       if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
 
@@ -1050,12 +1062,12 @@ for (int rank = 0; rank < nprocs; ++rank) {
 
 
       bool constexpr UNASSIGNED = 0, ASSIGNED = 1;
-      std::vector<bool> state(all, UNASSIGNED);
+      std::vector<bool> state(nall, UNASSIGNED);
 
-      std::vector<uint32_t> indirect(all, 0);
-      std::iota(indirect.begin(), indirect.end(), 0); // initialize with 0,1,....,all-1
+      std::vector<uint32_t> indirect(nall, 0);
+      std::iota(indirect.begin(), indirect.end(), 0); // initialize with 0,1,....,nall-1
 
-      size_t nuna{all}; // number of unassigned blocks
+      size_t nuna{nall}; // number of unassigned blocks
 
       double load_now{w8sum_all};
 
@@ -1075,55 +1087,47 @@ for (int rank = 0; rank < nprocs; ++rank) {
           assert(nhalf[0] + nhalf[1] == np);
 
           // determine the direction of the largest extent
-          //    determine the center of weight
-          size_t iuna{0};
-          double cow[3] = {0, 0, 0};
+
+          // determine the center of weight
+          double cow[] = {0, 0, 0, 0};
           double w8sum{0};
-
-//           for (size_t iall = 0; iall < all; ++iall) {
-          auto const nunk = nuna; // copy old number of unassigned blocks
-          for (size_t iunk = 0; iunk < nunk; ++iunk) {
-              auto const iall = indirect[iunk]; // read from array indirect
-
-              if (UNASSIGNED == state[iall]) {
-                  auto const w8 = w8s[iall];
-                  w8sum += w8;
-                  // only use as weight if the weight is non-zero
-                  add_product(cow, 3, xyzw[iall], double(w8 > 0));
-                  indirect[iuna] = iall; // write to array indirect
-                  ++iuna;
-              } // is_unassigned
+          for (size_t iuna = 0; iuna < nuna; ++iuna) {
+              auto const iall = indirect[iuna];
+              auto const *const xyz = xyzw[iall];
+              double const w8 = xyz[W];
+//            assert(w8 == w8s[iall]);
+              w8sum += w8;
+              // contributes if the weight is positive
+              double const w8pos = double(w8 > 0);
+              add_product(cow, 3, xyz, w8pos);
+              cow[3] += w8pos;
           } // iall
-          nuna = iuna; // set new number of unassigned blocks
-          assert(nuna <= nunk);
+          if (cow[3] > 0) scale(cow, 3, 1./cow[3]);
 
           // determine the largest distance^2 from the center
           double maxdist2{-1};
           int64_t imax{-1}; // index of the block with the largest distance
-//           for (size_t iall = 0; iall < all; ++iall) {
-//               if (UNASSIGNED == state[iall]) {
           for (size_t iuna = 0; iuna < nuna; ++iuna) {
               auto const iall = indirect[iuna];
-              {
-                  auto const *const xyz = xyzw[iall];
-                  auto const dist2 = pow2(xyz[X] - cow[X])
-                                   + pow2(xyz[Y] - cow[Y])
-                                   + pow2(xyz[Z] - cow[Z]);
-                  if (dist2 > maxdist2) {
-                      maxdist2 = dist2;
-                      imax = iall;
-                  }
-              } // is_unassigned
-          } // i
+              auto const *const xyz = xyzw[iall];
+              auto const dist2 = pow2(xyz[X] - cow[X])
+                               + pow2(xyz[Y] - cow[Y])
+                               + pow2(xyz[Z] - cow[Z]);
+              if (dist2 > maxdist2) {
+                  maxdist2 = dist2;
+                  imax = iall;
+              } // dist2 > maxdist2
+          } // iuna
 
           if (imax < 0) {
-              // this happens if the process is idle, i.e. there are no blocks assigned to this one
+              // this should only happens if the process is idle,
+              //   i.e. there are no blocks assigned to this one
               load_now = 0;
               np = 1; // stop the loop
           } else {
 
+              // determine a sorting direction
               add_product(cow, 3, xyzw[imax], -1.);
-
               auto const len2 = pow2(cow[X]) + pow2(cow[Y]) + pow2(cow[Z]);
               auto const norm = (len2 > 0) ? 1./std::sqrt(len2) : 0.0;
               double const vec[] = {cow[X]*norm, cow[Y]*norm, cow[Z]*norm};
@@ -1132,30 +1136,23 @@ for (int rank = 0; rank < nprocs; ++rank) {
               using fui_t = std::pair<float,uint32_t>;
               std::vector<fui_t> v(nuna);
 
-    //           iuna = 0;
-    //           for (size_t iall = 0; iall < all; ++iall) {
-    //               if (UNASSIGNED == state[i]) {
               for (size_t iuna = 0; iuna < nuna; ++iuna) {
                   auto const iall = indirect[iuna];
-                  {
-                      auto const *const xyz = xyzw[iall];
-                      auto const f = xyz[X]*vec[X] + xyz[Y]*vec[Y] + xyz[Z]*vec[Z]; // inner product
-                      v[iuna] = std::make_pair(float(f), uint32_t(iall));
-    //                   ++iuna;
-                  } // is_unassigned
+                  auto const *const xyz = xyzw[iall];
+                  auto const f = xyz[X]*vec[X] + xyz[Y]*vec[Y] + xyz[Z]*vec[Z]; // inner product
+                  v[iuna] = std::make_pair(float(f), uint32_t(iall));
               } // iall
-              assert(iuna == nuna);
 
               auto lambda = [](fui_t i1, fui_t i2) { return i1.first < i2.first; };
               std::stable_sort(v.begin(), v.end(), lambda);
 
-              auto const target_frac = nhalf[0]/double(np); // the "larger" half
-              auto const target_load = target_frac*w8sum;
+              auto const target_frac = nhalf[0]/double(np), // the "larger" half
+                         target_load = target_frac*w8sum;
               {
                   auto const state0 = i01 ? ASSIGNED : UNASSIGNED,
-                            state1 = i01 ? UNASSIGNED : ASSIGNED;
+                             state1 = i01 ? UNASSIGNED : ASSIGNED;
                   double load0{0}, load1{0};
-                  int isrt;
+                  size_t isrt;
                   for (isrt = 0; load0 < target_load; ++isrt) {
                       auto const iall = v[isrt].second;
                       load0 += w8s[iall];
@@ -1166,7 +1163,7 @@ for (int rank = 0; rank < nprocs; ++rank) {
                       load1 += w8s[iall];
                       state[iall] = state1;
                   } // i
-                  assert(load0 + load1 == w8sum && "Maybe failed due to accuarcy issues");
+                  assert(load0 + load1 == w8sum && "Maybe failed due to accuracy issues");
                   load_now = i01 ? load1 : load0;
               }
 
@@ -1176,18 +1173,68 @@ for (int rank = 0; rank < nprocs; ++rank) {
               // prepare for the next iteration
               rank_offset += i01*nhalf[0];
               np = nhalf[i01];
+              // update the indirection list
+              // determine which blocks are still unassigned
+              size_t iunk{0}; // counter
+              for (size_t iuna = 0; iuna < nuna; ++iuna) { // serial loop due to read-write access to array indirect
+                  auto const iall = indirect[iuna]; // read from array indirect
+                  if (UNASSIGNED == state[iall]) {
+                      indirect[iunk] = iall; // write to array indirect at a lower address
+                      ++iunk;
+                  } // is_unassigned
+              } // iall
+              assert(iunk <= nuna);
+              nuna = iunk; // set new number of unassigned blocks
 
           } // imax < 0
 
       } // while
 
-      if (echo > 9) std::printf("# rank#%i assign %.3f %%, target %.3f %%\n\n", rank, load_now*100/w8sum_all, 100./nprocs);
+      if (compute_rank_centers && load_now > 0) {
+          // compute the center of weight again, for display
+          double cow[] = {0, 0, 0, 0}, w8sum{0};
+          for (size_t iuna = 0; iuna < nuna; ++iuna) {
+              auto const iall = indirect[iuna];
+              auto const *const xyz = xyzw[iall];
+              double const w8 = xyz[W];
+              assert(w8 == w8s[iall]);
+              w8sum += w8;
+              // contributes if the weight is positive
+              double const w8pos = double(w8 > 0);
+              add_product(cow, 3, xyz, w8pos);
+              cow[3] += w8pos;
+          } // iall
+          if (cow[3] > 0) scale(cow, 3, 1./cow[3]);
+          set(rank_center[rank], 4, cow);
+          if (echo > 13) std::printf("# rank#%i assign %.3f %% center %g %g %g\n", 
+                                        rank, w8sum*100/w8sum_all, cow[X], cow[Y], cow[Z]);
+      } // compute_rank_centers
+
+      if (echo > 9) std::printf("# rank#%i assign %.3f %%, target %.3f %%\n\n", 
+                                   rank, load_now*100/w8sum_all, 100./nprocs);
       load[rank] = load_now;
 
 } // rank
 
 
       analyze_load_imbalance(load.data(), nprocs, echo);
+
+      if (compute_rank_centers && nprocs > 1) {
+          // analyze rank centers
+          double mindist2{9e300}; int ijmin[] = {-1, -1};
+          for (int irank = 0; irank < nprocs; ++irank) {
+              if (load[irank] > 0) {
+                  for (int jrank = 0; jrank < irank; ++jrank) { // self-avoiding triangular loop
+                      if (load[jrank] > 0) {
+                          auto const dist2 = distance_squared(rank_center[irank], rank_center[jrank]);
+                          if (dist2 < mindist2) { mindist2 = dist2; ijmin[0] = irank; ijmin[1] = jrank; }
+                      } // load
+                  } // jrank
+              } // load
+          } // irank
+          if (echo > 1) std::printf("# shortest distance between centers is %g between rank#%i and #%i\n", 
+                                        std::sqrt(mindist2), ijmin[0], ijmin[1]);
+      } // compute_rank_centers
 
       return stat;
   } // test_plane_balancer
