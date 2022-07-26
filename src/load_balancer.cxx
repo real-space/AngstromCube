@@ -37,38 +37,6 @@ namespace load_balancer {
       }
   } // largest_of_3
 
-} // namespace load_balancer
-
-
-#ifndef  NO_UNIT_TESTS
-
-  #include "control.hxx" // ::get
-
-#define weight(x,y,z) 1.f
-
-namespace load_balancer {
-
-  template <typename real_t>
-  inline real_t analyze_load_imbalance(real_t const load[], int const nprocs, int const echo=1) {
-      simple_stats::Stats<> st(0);
-      for (int rank = 0; rank < nprocs; ++rank) {
-          st.add(load[rank]);
-          if (echo > 19) std::printf("# myrank=%i owns %g\n", rank, load[rank]);
-      } // rank
-      auto const mean = st.mean(), max = st.max();
-      if (echo > 0) std::printf("# %ld processes own %g blocks, per process [%g, %.2f +/- %.2f, %g]\n",
-                                    st.tim(), st.sum(), st.min(), mean, st.dev(), max);
-      return (mean > 0) ? max/mean : -1;
-  } // analyze_load_imbalance
-
-  int constexpr X=0, Y=1, Z=2;
-
-  template <typename real_t>
-  inline real_t distance_squared(real_t const a[], real_t const b[]) {
-      return pow2(a[X] - b[X]) + pow2(a[Y] - b[Y]) + pow2(a[Z] - b[Z]);
-  } // distance_squared
-
-
   // idea for a stable load balancer or at least a stable initial guess:
   //    for np processes, uses celing(log_2(np)) iterations
   //    in iteration #0, place the center at 0,0,0 and the diagonal opposite corner finding its longest extent
@@ -82,20 +50,48 @@ namespace load_balancer {
   // 3) assume that the largest extent is along the line through the center of weight and that position
   // --> a cuboid will always use the space diagonal
 
-  template <typename real_t>
+  int constexpr X=0, Y=1, Z=2, W=3;
+
+  template <typename real_t, typename real_w_t=double>
+  inline double center_of_weight(
+        double cow[4]
+      , size_t const nuna
+      , uint32_t const indirect[]
+      , view2D<real_t> const & xyzw
+      , real_w_t const *w8s=nullptr
+  ) {
+      set(cow, 4, 0.0);
+      double w8sum{0};
+      for (size_t iuna = 0; iuna < nuna; ++iuna) {
+          auto const iall = indirect[iuna];
+          auto const *const xyz = xyzw[iall];
+          double const w8 = xyz[W];
+          if (w8s) assert(w8 == w8s[iall]); // consistency check
+          w8sum += w8;
+          // contributes if the weight is positive
+          double const w8pos = double(w8 > 0);
+          add_product(cow, 3, xyz, w8pos);
+          cow[3] += w8pos;
+      } // iall
+      if (cow[3] > 0) scale(cow, 3, 1./cow[3]);
+      return w8sum;
+  } // center_of_weight
+
+  template <typename real_t, typename real_w_t=double>
   inline double plane_balancer(
         int const nprocs // number of MPI processes to distribute the work items evenly to
       , int const rank   // my MPI rank
       , size_t const nall // number of all work items
       , view2D<real_t> const & xyzw // xyzw[nall][4], positions [0/1/2] and weights [3] of the work items
-      , real_t const w8s[]          // w8s[nall] weights separated
+      , real_w_t const w8s[]        // w8s[nall] weights separated
       , double const w8sum_all=1. // denominator of all weights
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
+      , std::vector<bool> *rank_mask=nullptr
       , int const echo=0 // verbosity
   ) {
-      int constexpr W = 3;
+      auto constexpr epsilon = 1e-6; // accuracy for snity check
 
-      bool constexpr UNASSIGNED = 0, ASSIGNED = 1;
+      bool constexpr UNASSIGNED = 1, ASSIGNED = 0;
       std::vector<bool> state(nall, UNASSIGNED);
 
       std::vector<uint32_t> indirect(nall, 0);
@@ -197,7 +193,7 @@ namespace load_balancer {
                       load1 += w8s[iall];
                       state[iall] = state1;
                   } // i
-                  assert(load0 + load1 == w8sum && "Maybe failed due to accuracy issues");
+                  assert(std::abs(load0 + load1 - w8sum) < epsilon*w8sum && "Maybe failed due to accuracy issues");
                   load_now = i01 ? load1 : load0;
               }
 
@@ -231,7 +227,7 @@ namespace load_balancer {
               auto const iall = indirect[iuna];
               auto const *const xyz = xyzw[iall];
               double const w8 = xyz[W];
-              assert(w8 == w8s[iall]);
+              assert(w8 == w8s[iall]); // consistency check here (parallelized)
               w8sum += w8;
               // contributes if the weight is positive
               double const w8pos = double(w8 > 0);
@@ -247,9 +243,46 @@ namespace load_balancer {
       if (echo > 9) std::printf("# rank#%i assign %.3f %%, target %.3f %%\n\n",
                                    rank, load_now*100/w8sum_all, 100./nprocs);
 
+      if (rank_mask) { // export mask
+          auto & mask = *rank_mask;
+          for (size_t iall = 0; iall < nall; ++iall) {
+              mask[iall] = (UNASSIGNED == state[iall]);
+          } // iall
+      } // rank_mask
+
       return load_now;
   } // plane_balancer
 
+
+} // namespace load_balancer
+
+
+#ifndef  NO_UNIT_TESTS
+
+  #include "control.hxx" // ::get
+
+#define weight(x,y,z) 1.f
+
+namespace load_balancer {
+
+  template <typename real_t>
+  inline real_t analyze_load_imbalance(real_t const load[], int const nprocs, int const echo=1) {
+      simple_stats::Stats<> st(0);
+      for (int rank = 0; rank < nprocs; ++rank) {
+          st.add(load[rank]);
+          if (echo > 19) std::printf("# myrank=%i owns %g\n", rank, load[rank]);
+      } // rank
+      auto const mean = st.mean(), max = st.max();
+      if (echo > 0) std::printf("# %ld processes own %g blocks, per process [%g, %.2f +/- %.2f, %g]\n",
+                                    st.tim(), st.sum(), st.min(), mean, st.dev(), max);
+      return (mean > 0) ? max/mean : -1;
+  } // analyze_load_imbalance
+
+
+  template <typename real_t>
+  inline real_t distance_squared(real_t const a[], real_t const b[]) {
+      return pow2(a[X] - b[X]) + pow2(a[Y] - b[Y]) + pow2(a[Z] - b[Z]);
+  } // distance_squared
 
 
   inline status_t test_plane_balancer(int const nprocs, int const n[3], int const echo=0) {
@@ -263,7 +296,7 @@ namespace load_balancer {
       double w8sum_all{0};
       int constexpr W = 3;
       view2D<float> xyzw(nall, 4, 0.f);
-      std::vector<float> w8s(nall, 0.f);
+      std::vector<double> w8s(nall, 0);
 
       for (int iz = 0; iz < n[Z]; ++iz) {
       for (int iy = 0; iy < n[Y]; ++iy) {
@@ -286,7 +319,7 @@ namespace load_balancer {
       if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
 
       for (int rank = 0; rank < nprocs; ++rank) {
-          load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, rank_center[rank], echo);
+          load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, rank_center[rank], nullptr, echo);
       } // rank
 
       analyze_load_imbalance(load.data(), nprocs, echo);
@@ -316,7 +349,7 @@ namespace load_balancer {
           double const wbin = control::get("load_balancer.bin.width", 0.25), invbin = 1./wbin;
           int const nbin = int(maxdist/wbin) + 1;
           std::vector<uint32_t> hist(nbin, 0);
-          int np{0};
+          int np{0}; // counter for the number of processes with a non-zero load
           for (int irank = 0; irank < nprocs; ++irank) {
               if (load[irank] > 0) {
                   ++np;
@@ -331,7 +364,7 @@ namespace load_balancer {
                   } // jrank
               } // load
           } // irank
-          if (echo > 5) {
+          if (echo > 7) {
               double const denom = 1./pow2(std::max(1, np));
               std::printf("## center-distance histogram, bin width %g\n", wbin);
               for (int ibin = 0; ibin < nbin; ++ibin) {
@@ -359,6 +392,7 @@ namespace load_balancer {
       double constexpr rand_denom = 1./RAND_MAX;
       return rand()*rand_denom;
   } // random_between_0_and_1
+
 
   inline status_t test_reference_point_cloud(int const nxyz[3], int const echo=9) {
           if (echo > 0) std::printf("# reference point-cloud histogram for %d x %d x %d points\n",
@@ -423,7 +457,7 @@ namespace load_balancer {
       int const nxyz[] = {int(control::get("load_balancer.test.nx", 17.)), // number of blocks
                           int(control::get("load_balancer.test.ny", 19.)),
                           int(control::get("load_balancer.test.nz", 23.))};
-      int const nprocs = control::get("load_balancer.test.nprocs", 53.);
+      auto const nprocs = int(control::get("load_balancer.test.nprocs", 53.));
       if (echo > 0) std::printf("\n\n# %s start %d x %d x %d = %d with %d MPI processes\n", 
                       __func__, nxyz[X], nxyz[Y], nxyz[Z], nxyz[X]*nxyz[Y]*nxyz[Z], nprocs);
 
