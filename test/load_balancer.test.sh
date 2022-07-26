@@ -17,6 +17,6 @@ for nprocs in {1..116}; do
         +$project_base.test.nprocs=$nprocs \
         +$project_base.test.nx=17 \
         +$project_base.test.ny=19 \
-        +$project_base.test.nz=23 \
+        +$project_base.test.nz=1 \
         "$@" >> $project_base.out
 done
