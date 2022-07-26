@@ -1,8 +1,8 @@
 
 /*
  * Where does A43 need load balancing?
- * 
- * 
+ *
+ *
  */
 
 #include <cassert> // assert
@@ -24,14 +24,48 @@
 
 namespace load_balancer {
 
-  template <typename number_t, int sgn=1>
+  template <typename number_t, int sgn=1> // use sgn=-1 for smallest_of_3
   int largest_of_3(number_t const n[3]) {
-      if (n[0]*sgn >= n[1]*sgn) { // answer is 0 or 2
+      if (n[0]*sgn >= n[1]*sgn) {
+          // answer is 0 or 2
           return (n[0]*sgn >= n[2]*sgn) ? 0 : 2;
-      } else {               // answer is 1 or 2
+      } else {
+          // answer is 1 or 2
           return (n[1]*sgn >= n[2]*sgn) ? 1 : 2;
       }
   } // largest_of_3
+
+} // namespace load_balancer
+
+
+#ifndef  NO_UNIT_TESTS
+
+  #include "control.hxx" // ::get
+
+#define weight(x,y,z) 1.f
+
+namespace load_balancer {
+
+  template <typename real_t>
+  inline real_t analyze_load_imbalance(real_t const load[], int const nprocs, int const echo=1) {
+      simple_stats::Stats<> st(0);
+      for (int rank = 0; rank < nprocs; ++rank) {
+          st.add(load[rank]);
+          if (echo > 19) std::printf("# myrank=%i owns %g\n", rank, load[rank]);
+      } // rank
+      auto const mean = st.mean(), max = st.max();
+      if (echo > 0) std::printf("# %ld processes own %g blocks, per process [%g, %.2f +/- %.2f, %g]\n",
+                                    st.tim(), st.sum(), st.min(), mean, st.dev(), max);
+      return (mean > 0) ? max/mean : -1;
+  } // analyze_load_imbalance
+
+  int constexpr X=0, Y=1, Z=2;
+
+  template <typename real_t>
+  inline real_t distance_squared(real_t const a[], real_t const b[]) {
+      return pow2(a[X] - b[X]) + pow2(a[Y] - b[Y]) + pow2(a[Z] - b[Z]);
+  } // distance_squared
+
 
   status_t bisection_balancer(
         int nd[3] // result and input for the number of blocks to be distributed
@@ -65,37 +99,6 @@ namespace load_balancer {
       if (echo > 99) std::printf("# myrank=%i grid %d %d %d, level= %d\n", myrank, nd[0], nd[1], nd[2], level);
       return np - 1;
   } // bisection_balancer
-
-} // namespace load_balancer
-
-
-#ifndef  NO_UNIT_TESTS
-
-  #include "control.hxx" // ::get
-
-#define weight(x,y,z) 1.f
-
-namespace load_balancer {
-
-  template <typename real_t>
-  inline real_t analyze_load_imbalance(real_t const load[], int const nprocs, int const echo=1) {
-      simple_stats::Stats<> st(0);
-      for (int rank = 0; rank < nprocs; ++rank) {
-          st.add(load[rank]);
-          if (echo > 19) std::printf("# myrank=%i owns %g\n", rank, load[rank]);
-      } // rank
-      auto const mean = st.mean(), max = st.max();
-      if (echo > 0) std::printf("# %ld processes own %g blocks, per process [%g, %.2f +/- %.2f, %g]\n",
-                                    st.tim(), st.sum(), st.min(), mean, st.dev(), max);
-      return (mean > 0) ? max/mean : -1;
-  } // analyze_load_imbalance
-
-  int constexpr X=0, Y=1, Z=2;
-
-  template <typename real_t>
-  inline real_t distance_squared(real_t const a[], real_t const b[]) {
-      return pow2(a[X] - b[X]) + pow2(a[Y] - b[Y]) + pow2(a[Z] - b[Z]);
-  } // distance_squared
 
 
   inline status_t test_bisection_balancer(int const nprocs, int const n[3], int const echo=0) {
