@@ -13,7 +13,7 @@ touch $project_base.out
 for nprocs in {1..116}; do
 # echo -n "nprocs=$nprocs"
   $exe -test $project_base \
-        +verbosity=17 \
+        +verbosity=7 \
         +$project_base.test.nprocs=$nprocs \
         +$project_base.test.nx=17 \
         +$project_base.test.ny=19 \
