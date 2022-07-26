@@ -52,13 +52,12 @@ namespace load_balancer {
 
   int constexpr X=0, Y=1, Z=2, W=3;
 
-  template <typename real_t, typename real_w_t=double>
+  template <typename real_t>
   inline double center_of_weight(
         double cow[4]
       , size_t const nuna
       , uint32_t const indirect[]
       , view2D<real_t> const & xyzw
-      , real_w_t const *w8s=nullptr
   ) {
       set(cow, 4, 0.0);
       double w8sum{0};
@@ -66,7 +65,6 @@ namespace load_balancer {
           auto const iall = indirect[iuna];
           auto const *const xyz = xyzw[iall];
           double const w8 = xyz[W];
-          if (w8s) assert(w8 == w8s[iall]); // consistency check
           w8sum += w8;
           // contributes if the weight is positive
           double const w8pos = double(w8 > 0);
@@ -119,6 +117,7 @@ namespace load_balancer {
           // determine the direction of the largest extent
 
           // determine the center of weight
+#if 0
           double cow[] = {0, 0, 0, 0};
           double w8sum{0};
           for (size_t iuna = 0; iuna < nuna; ++iuna) {
@@ -133,6 +132,10 @@ namespace load_balancer {
               cow[3] += w8pos;
           } // iall
           if (cow[3] > 0) scale(cow, 3, 1./cow[3]);
+#else
+          double cow[4];
+          auto const w8sum = center_of_weight(cow, nuna, indirect.data(), xyzw);
+#endif
 
           // determine the largest distance^2 from the center
           double maxdist2{-1};
@@ -222,12 +225,12 @@ namespace load_balancer {
 
       if (rank_center && load_now > 0) {
           // compute the center of weight again, for display
+#if 0
           double cow[] = {0, 0, 0, 0}, w8sum{0};
           for (size_t iuna = 0; iuna < nuna; ++iuna) {
               auto const iall = indirect[iuna];
               auto const *const xyz = xyzw[iall];
               double const w8 = xyz[W];
-              assert(w8 == w8s[iall]); // consistency check here (parallelized)
               w8sum += w8;
               // contributes if the weight is positive
               double const w8pos = double(w8 > 0);
@@ -235,6 +238,10 @@ namespace load_balancer {
               cow[3] += w8pos;
           } // iall
           if (cow[3] > 0) scale(cow, 3, 1./cow[3]);
+#else
+          double cow[4];
+          auto const w8sum = center_of_weight(cow, nuna, indirect.data(), xyzw);
+#endif
           set(rank_center, 4, cow);
           if (echo > 13) std::printf("# rank#%i assign %.3f %% center %g %g %g, %g items\n",
                                         rank, w8sum*100/w8sum_all, cow[X], cow[Y], cow[Z], cow[W]);
@@ -249,6 +256,14 @@ namespace load_balancer {
               mask[iall] = (UNASSIGNED == state[iall]);
           } // iall
       } // rank_mask
+
+      if (1) { // parallelized consistency check
+          for (size_t iuna = 0; iuna < nuna; ++iuna) {
+              auto const iall = indirect[iuna];
+              auto const w8 = xyzw(iall,W);
+              assert(w8 == w8s[iall] && "weights inconsistent");
+          } // iuna
+      } // consistency check
 
       return load_now;
   } // plane_balancer
