@@ -162,14 +162,13 @@ namespace load_balancer {
               auto lambda = [](fui_t i1, fui_t i2) { return i1.first < i2.first; };
               std::stable_sort(v.begin(), v.end(), lambda);
 
-              auto const target_frac = nhalf[0]/double(np), // the "larger" half
-                         target_load = target_frac*w8sum;
+              auto const by_np = 1./np, target_load0 = nhalf[0]*by_np*w8sum;
               {
                   auto const state0 = i01 ? ASSIGNED : UNASSIGNED,
                              state1 = i01 ? UNASSIGNED : ASSIGNED;
                   double load0{0}, load1{0};
                   size_t isrt;
-                  for (isrt = 0; load0 < target_load; ++isrt) { // serial
+                  for (isrt = 0; load0 < target_load0; ++isrt) { // serial
                       auto const iall = v[isrt].second;
                       load0 += w8s[iall];
                       state[iall] = state0;
@@ -184,7 +183,7 @@ namespace load_balancer {
               }
 
               if (echo > 19) std::printf("# rank#%i assign %g of %g (%.2f %%, target %.2f %%) to %d processes\n", 
-                                          rank, load_now, w8sum, load_now*100./w8sum, target_frac*100, nhalf[0]);
+                                          rank, load_now, w8sum, load_now*100./w8sum, nhalf[i01]*by_np*100, nhalf[0]);
 
               // prepare for the next iteration
               rank_offset += i01*nhalf[0];
@@ -388,8 +387,9 @@ namespace load_balancer {
           if (strange0 + strange1) warn("strange: %d double assignments and %d under-assignments", strange1, strange0);
       }
 
-      if (nprocs < 65 && n[Z] < 2 && echo > 5) {
-          std::printf("\n# visualize plane balancer %d x %d on %d processes:", n[Y], n[X], nprocs);
+      if (1 == n[Z] && echo > 5) {
+          std::printf("\n# visualize plane balancer %d x %d on %d processes:%s", n[Y], n[X], nprocs,
+                              nprocs > 64 ? " (symbols are not unique)" : "");
           int constexpr iz = 0;
           char const chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ<>";
           for (int iy = 0; iy < n[Y]; ++iy) {
@@ -398,13 +398,17 @@ namespace load_balancer {
                   auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
                   char c{'?'};
                   for (int rank = 0; rank < nprocs; ++rank) {
-                      if (rank_mask[rank][iall]) c = chars[rank];
+                      if (rank_mask[rank][iall]) c = chars[rank & 0x3f];
                   } // irank
                   std::printf("%c", c);
               } // ix
           } // iy
           std::printf("\n#\n\n");
-      } // can visualize
+          //
+          // ToDo: to export the Voronoi diagrams, we need to access the plane normals
+          //       and plane parameters at which the plane separates the two processes
+          //
+      } // visualize
 
       return stat;
   } // test_plane_balancer
