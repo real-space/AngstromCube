@@ -10,6 +10,7 @@
   #include "green_sparse.hxx" // ::all_tests
   #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
+  #include "mpi_parallel.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
@@ -23,6 +24,7 @@
 
 #include <cstdlib> // std::abs, ::abort
 
+#include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::size, MPI_Comm
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
 #include "unit_system.hxx" // ::set_output_units
@@ -81,6 +83,7 @@
           add_module_test(unit_system);
           add_module_test(boundary_condition);
           add_module_test(global_coordinates);
+          add_module_test(mpi_parallel);
           add_module_test(load_balancer);
           add_module_test(sho_tools);
 
@@ -165,13 +168,17 @@
       return 0;
   } // show_version
 
-  int main(int const argc, char const *argv[]) {
+  int main(int const argc, char *argv[]) {
+
+      mpi_parallel::init(argc, argv);
+      auto const myrank = mpi_parallel::rank();
+
       status_t stat(0);
       char const *test_unit{nullptr}; // the name of the unit to be tested
       int run_tests{0};
       int verbosity{3}; // set default verbosity low
       if (argc < 2) {
-          std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
+          if (0 == myrank) std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
           return -1;
       } // no argument passed to executable
       for (int iarg = 1; iarg < argc; ++iarg) {
@@ -228,20 +235,20 @@
 
       } // iarg
       //
-      if (verbosity > 0) {
+      // in addition to command_line_interface, we can modify the control environment by a file
+      stat += control::read_control_file(control::get("control.file", ""), verbosity);
+      //
+      int const echo = (0 == myrank)*control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
+      //
+      show_version(argv[0], echo);
+      //
+      if (echo > 0) {
           std::printf("\n#");
           for (int iarg = 0; iarg < argc; ++iarg) {
               std::printf(" %s", argv[iarg]); // repeat all command line arguments for completeness of the log file
           } // iarg
           std::printf("\n");
-      } // verbosity
-      //
-      // in addition to command_line_interface, we can modify the control environment by a file
-      stat += control::read_control_file(control::get("control.file", ""), verbosity);
-      //
-      int const echo = control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
-      //
-      show_version(argv[0], echo);
+      } // echo
       //
       if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
       //
@@ -259,5 +266,8 @@
 
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
+
+      mpi_parallel::finalize();
+
       return int(stat);
   } // main

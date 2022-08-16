@@ -1,8 +1,11 @@
 #pragma once
 
-#include <cstdio>  // std::printf
+#include <cstdio>  // std::printf, ::fopen, ::fprintf, ::fclose
+#include <cmath>   // std::abs, ::round, ::pow
 #include <cstdint> // int8_t
-#include <complex> // std::real
+#include <complex> // std::real, ::imag
+#include <vector>  // std::vector<T>
+#include <algorithm> // std::min, ::max
 
 #include "status.hxx" // status_t
 
@@ -30,13 +33,13 @@ namespace grid_operators {
   complex_t Bloch_phase(complex_t const boundary_phase[3][2], int8_t const idx[3], int const inv=0) {
       complex_t Bloch_factor(1);
       for (int d = 0; d < 3; ++d) {
-          int i01 = ((idx[d] < 0) + inv) & 0x1;
+          int const i01 = ((idx[d] < 0) + inv) & 0x1;
           Bloch_factor *= intpow(boundary_phase[d][i01], std::abs(idx[d]));
       } // d
       return Bloch_factor;
   } // Bloch_phase
 
-  
+
   template <typename complex_t, typename real_fd_t=double>
   status_t _grid_operation(
         complex_t Hpsi[] // result
@@ -56,7 +59,7 @@ namespace grid_operators {
       using atom_matrix_t = decltype(std::real(real_fd_t(1)));
 
       status_t stat(0);
-      
+
       if (Hpsi) {
           if (kinetic) {
               if (psi) {
@@ -188,7 +191,7 @@ namespace grid_operators {
   //       because then, all three operators, Hamiltonian, Overlapping and Preconditioner share
   //       the same structure, whereas the latter has a FD-stencil with all positive coefficients
   //
-  
+
   inline status_t set_nonlocal_potential(std::vector<atom_image::sho_atom_t> & a
                 , double const *const *const atom_matrices // data layout am[natoms][2*ncoeff[ia]^2]
                 , int const echo=0) {
@@ -226,8 +229,6 @@ namespace grid_operators {
       , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
       , float const rcut=18 // sho_projection usually ends at 9*sigma
   ) {
-      status_t stat(0);
-
       double const cell[] = {gc[0]*gc.h[0], gc[1]*gc.h[1], gc[2]*gc.h[2]};
       double const grid_offset[] = {0.5*(gc[0] - 1)*gc.h[0], 0.5*(gc[1] - 1)*gc.h[1], 0.5*(gc[2] - 1)*gc.h[2]};
       view2D<double> image_positions;
@@ -261,12 +262,14 @@ namespace grid_operators {
 
       } // ia
 
+      status_t stat(0);
       if (nullptr != atom_matrices) {
           stat += set_nonlocal_potential(a, atom_matrices, echo);
       } else {
 //           warn("Atom-centered matrices were not set"); // this warning is deactivated as in the default use case,
             // we will create the an instance of the grid_operator_t before we know the atom_matrices, so nullptr is often passed but it is ok.
       } // atom_matrices != nullptr
+      if (stat) warn("set_nonlocal_potential returned status sum %d", int(stat));
 
       return a;
   } // list_of_atoms
@@ -409,7 +412,7 @@ namespace grid_operators {
           if (stat && (echo > 0)) std::printf("# %s %s returns status=%i\n", __FILE__, __func__, int(stat));
           return stat;
       } // set_potential
-      
+
       void construct_dense_operator(complex_t Hmat[], complex_t Smat[], size_t const stride, int const echo=0) {
           // assume shapes Hmat[][stride], Smat[][stride]
           size_t const ndof = grid.all();
@@ -548,7 +551,7 @@ namespace grid_operators {
               std::fprintf(f, "]\n"); // close values
               std::fprintf(f, "  }\n"); // close potential
               std::fprintf(f, "}\n"); // close grid_Hamiltonian
-              
+
               // get the result file checked at https://jsonlint.com
 
           } // .xml or .json
@@ -560,8 +563,9 @@ namespace grid_operators {
           return -1; // activate -D DEVEL for export function
 #endif // DEVEL
       } // write_to_file
-      
+
     private:
+
       real_space::grid_t grid;
       std::vector<atom_image::sho_atom_t> atoms;
       complex_t boundary_phase[3][2];
@@ -572,13 +576,16 @@ namespace grid_operators {
       finite_difference::stencil_t<complex_t> preconditioner;
       bool has_precond;
       bool has_overlap;
+
     public:
+
       real_space::grid_t const & get_grid() const { return grid; }
       bool use_precond() const { return has_precond; }
       bool use_overlap() const { return has_overlap; }
       int  get_natoms()  const { return atoms.size(); }
       int    get_numax(int const ia) const { return atoms[ia].numax(); }
       double get_sigma(int const ia) const { return atoms[ia].sigma(); }
+
   }; // class grid_operator_t
 
 #ifdef NO_UNIT_TESTS
@@ -662,6 +669,7 @@ namespace grid_operators {
 #ifdef DEBUG
   #undef DEBUG
 #endif // DEBUG
+
 #ifdef FULL_DEBUG
   #undef FULL_DEBUG
 #endif // FULL_DEBUG

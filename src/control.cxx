@@ -201,7 +201,7 @@ namespace control {
           if (echo > 1) std::printf("# no control file passed\n");
           return stat; // 0
       }
-      
+
       if ('\0' == *filename) {
           if (echo > 1) std::printf("# no control file given\n");
           return stat; // 0
@@ -248,7 +248,7 @@ namespace control {
       return stat;
   } // read_control_file
 
-  
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

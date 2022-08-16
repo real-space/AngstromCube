@@ -1,6 +1,7 @@
 // g++ -std=c++11 -O0 -g -pedantic -Wall -Wno-format-security -Wno-format test_MODULE.cxx && ./a.out
 #include <cstdio> // std::printf
 #include <cassert> // assert
+#include "status.h" // status_t
 #include "control.hxx" // ::command_line_interface, ::get
 #include "MODULE.hxx" // ::all_tests
 int main(int const argc, char const *argv[]) {

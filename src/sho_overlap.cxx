@@ -7,7 +7,7 @@
 #include <vector> // std::vector<T>
 #include <array> // std::array<T,n>
 #include <cassert> // assert
- 
+
 #include "sho_overlap.hxx"
 
 #include "vector_math.hxx" // ::vec<N,T>
@@ -39,7 +39,7 @@
 #endif
 
 #ifdef DEBUG
-    #define debug(print) print 
+    #define debug(print) print
 #else
     #define debug(print)
 #endif
@@ -47,7 +47,7 @@
 
 namespace sho_overlap {
   // computes the overlap between Gaussian-localized 1D polynomials
-  
+
   template <typename real_t>
   int multiply( // returns the number of non-zero coefficients that did not fit into p0xp1
         real_t    p0xp1[], int const n  // result
@@ -71,7 +71,7 @@ namespace sho_overlap {
       return nloss; // return a positive number if potentially non-zero coefficients have been lost because n < n0 + n1 - 1
   } // multiply
 
-  
+
   template <typename real_t>
   double integrate( // returns the analytically integrated value
         real_t const p[] // input polynomial coefficients
@@ -95,8 +95,8 @@ namespace sho_overlap {
       } // d
       return value;
   } // integrate
- 
-  
+
+
   template <typename real_t>
   void prepare_centered_Hermite_polynomials(
         real_t H[] // result: Hermite polynomials H[i*ncut + j] up to order n < ncut
@@ -132,7 +132,7 @@ namespace sho_overlap {
 
   } // prepare_centered_Hermite_polynomials
 
-  
+
   template <typename real_t>
   int derive_Hermite_Gauss_polynomial( // returns 1 if the highest term could not be stored
         real_t dH[] // output derived Hermite polynomial coefficients
@@ -142,9 +142,9 @@ namespace sho_overlap {
   ) {
       // the Gaussian envelope function exp(-.5*(x/sigma)^2) is implicit here
       // but needs to be considered when deriving:
-      // 
+      //
       // d/dx ( p(x)*exp(-x^2/2) ) = (d/dx p(x) - p(x)*x/sigma^2) * exp(-.5*(x/sigma)^2)
-    
+
       // derive the polynomial part first
       for (int d = 1; d < n; ++d) {
           dH[d - 1] = d*H[d];
@@ -178,7 +178,7 @@ namespace sho_overlap {
 
           // evaluate the value of d^k p(x) / d x^k at x=x_shift
           real_t val{0};
-          {   
+          {
               real_t xsp{1}; // x_shift^p
               for (int p = 0; p < nmax - k; ++p) { // we only need to run up to nmax-k as the degree of the input poly is decreased with every k
                   val += xsp * c_old[p];
@@ -197,8 +197,8 @@ namespace sho_overlap {
           kfactorial *= (k + 1); // update kfactorial for the next k-iteration
       } // k
   } // shift_polynomial_centers
-  
-  
+
+
   template <typename real_t>
   real_t overlap_of_poly_times_Gauss_with_pure_powers( // return the integral
         real_t const p[] // polynomial coefficients p[i] * x^i, i=0...n0-1
@@ -212,7 +212,7 @@ namespace sho_overlap {
       return integrate(p, n0, sigma, moment);
   } // overlap_of_poly_times_Gauss_with_pure_powers
 
-  
+
   template <typename real_t>
   real_t overlap_of_two_Hermite_Gauss_functions(
       real_t const H0[], int const n0, double const s0, // polynomial H0[j < n0] times Gaussian exp(-x^2/(2*s0^2))
@@ -224,7 +224,7 @@ namespace sho_overlap {
       auto const k0 = .5/(s0*s0), k1 = .5/(s1*s1);
       auto const denom = 1./(k0 + k1);
       auto const sigma = std::sqrt(denom);
-      
+
       int const n = n0 + n1; // ToDo: check if we can use n0 + n1 - 1 without changing the results
       std::vector<real_t> h0xh1(n); // product of H0s and H1s
 
@@ -254,7 +254,7 @@ namespace sho_overlap {
       // for the density we assume that it is sufficient to
       // represent the density in a SHO basis 
       // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
-    
+
       status_t stat(0);
       if (echo > 1) std::printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
       double const sigma = 1; // typically == 1 
@@ -357,7 +357,7 @@ namespace sho_overlap {
       , double const sigma0=1
       , double const sigma1=1
   ) {
-    
+
     status_t stat(0);
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
@@ -389,7 +389,7 @@ namespace sho_overlap {
     return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // product_tensor_plain
 
-  
+
   template <typename real_t>
   status_t product_tensor(
         real_t tensor[]
@@ -398,7 +398,7 @@ namespace sho_overlap {
       , double const sigma1 // =1
       , double const sigma0 // =1
   ) {
-      
+
       status_t stat(0);
       double const sigma0inv = 1./sigma0;
       double const sigma1inv = 1./sigma1;
@@ -442,7 +442,7 @@ namespace sho_overlap {
       , double const sigma0 // =1
       , int const maxmoment // default=0 (overlap matrix)
   ) {
-    
+
       double const sigma0inv = 1./sigma0, sigma1inv = 1./sigma1;
       view2D<double> H0(n0, n0), H1(n1, n1); // polynomial coefficients
       double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
@@ -480,7 +480,7 @@ namespace sho_overlap {
       return 0; // success
   } // moment_tensor
 
-  
+
   status_t moment_normalization(
         double matrix[] // output matrix, assumed layout [M][M]
       , int const M // dimensions
@@ -700,7 +700,7 @@ namespace sho_overlap {
       return (df_max > 8e-9); // return error of the deviations are too strong
   } // test
 
-  
+
   typedef std::complex<double> complex_t;
   extern "C" {
       // complex<double> hermitian generalized eigenvalue problem
@@ -719,7 +719,7 @@ namespace sho_overlap {
       typedef vector_math::vec<3,int>    vec3i;
       auto const numax = int(control::get("sho_overlap.crystal.numax", 4.));
       int const ncut = numax + 2;
-      
+
       vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
       { // scope: lattice structure
           auto const structure_abbrev = control::get("sho_overlap.crystal.structure", "fcc"); // choice {sc, bcc, fcc}
@@ -775,7 +775,7 @@ namespace sho_overlap {
       // return radius of the classical harmonic oscillator
       double const return_radius = sigma*std::sqrt(2.*numax + 3.);
       if (echo > 0) std::printf("# classical return radius at %g Bohr\n", return_radius);
-      
+
       double const dmax = 12*sigma; // 12 sigma is converged for fcc
 
       double const normalize = 0; // 0:do not normalize, we have to deal with an overlap matrix anyway
@@ -792,7 +792,7 @@ namespace sho_overlap {
                   std::printf("%8.4f", H0[n][m]);
               }   std::printf("\n");
           } // echo
-          
+
           // construct first derivatives
           derive_Hermite_Gauss_polynomial(dH0[n], H0[n], ncut, 1./sigma0);
           derive_Hermite_Gauss_polynomial(dH1[n], H1[n], ncut, 1./sigma1);
@@ -812,7 +812,7 @@ namespace sho_overlap {
               std::printf("\n");
           } // scope
       } // echo
-      
+
       bool const DoS = (0 < control::get("sho_overlap.test.DoS", 0.)); // 1: density of states, 0: bandstructure
       if (DoS && echo > 3) std::printf("# compute density of states (DoS)\n");
       bool const Ref = (0 < control::get("sho_overlap.test.Ref", 0.));
@@ -965,7 +965,7 @@ namespace sho_overlap {
               set(eigvals.data(), n3D, free_E.data()); // copy lowest eigenvals
 
           } else { // Ref
-            
+
               // clear matrices
               for (int in = 0; in < n3D; ++in) {
                   for (int im = 0; im < n3D; ++im) {
@@ -988,7 +988,7 @@ namespace sho_overlap {
                   } // in
               } // ipi
 
-#if 0            
+#if 0
               // check if matrices are hermitian
               auto const threshold = 1e-5;
               for (auto m = ovl_mat; m == ovl_mat || m == kin_mat; m += (kin_mat - ovl_mat)) {
@@ -1003,7 +1003,7 @@ namespace sho_overlap {
 #endif
               // LAPACK call (Fortran77 interface);
               if (overlap_eigvals) {
-                
+
                   // get the eigenvalues of the overlap operator only
                   zheev_(&jobv, &uplo, &n3D, ovl_mat.data(), &n3D, 
                         eigvals.data(), work.data(), &lwork, rwork.data(), &info);
@@ -1020,7 +1020,7 @@ namespace sho_overlap {
                   } // DEBUG
 #endif
               } else { // overlap_eigvals
-                
+
                   // solve generalized eigenvalue problem kin_mat*X == diag*ovl_mat*X
   //                 info = linear_algebra::generalized_eigenvalues(n3D, 
   //                               kin_mat.data(), kin_mat.stride(), 
@@ -1134,7 +1134,7 @@ namespace sho_overlap {
       } // it
       return stat;
   } // test_shifted_polynomial
-  
+
   status_t test_pure_power_overlap(int const echo=1, int const numerical=999) {
       // show the overlap of the lowest 1D Hermite-Gauss functions with pure powers x^n
       status_t stat(0);

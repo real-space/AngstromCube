@@ -2,13 +2,13 @@
 
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <cstdio> // std::printf, std::fprintf, stdout, FILE
+#include <cstdio> // std::printf, ::fprintf, stdout, FILE
 
-  template <typename real_t, typename y_real_t>
+  template <typename real_t, typename real_y_t>
   int RamerDouglasPeucker(
         std::vector<bool> & active
       , real_t const x_list[]
-      , y_real_t const y_list[]
+      , real_y_t const y_list[]
       , int const end
       , int const begin=0
       , float const epsilon=1e-6
@@ -73,9 +73,9 @@
           int const n1 = RamerDouglasPeucker(active, x_list, y_list, end,       index, epsilon);
           return n0 + n1 - 1;
       } else {
-          int n_off{0};
+//        int n_off{0};
           for (int i = p0 + 1; i < pl; ++i) {
-              n_off += (0 != active[i]);
+//            n_off += (0 != active[i]);
               active[i] = false; // switch off every point in between since the curve is sufficiently smooth there
           } // i
 //        if (n_off > 0) std::printf("# DouglasPeucker eleminate %d points, largest distance^2 is %g\n", n_off, d2max);
@@ -84,10 +84,11 @@
 
   } // RamerDouglasPeucker
 
-  template <typename real_t, typename y_real_t>
+
+  template <typename real_t, typename real_y_t>
   std::vector<bool> RDP_lossful_compression(
         real_t const x[]
-      , y_real_t const y[]
+      , real_y_t const y[]
       , int const n
       , float const epsilon=1e-6
   ) {
@@ -95,6 +96,7 @@
       RamerDouglasPeucker(mask, x, y, n, 0, epsilon);
       return mask;
   } // RDP_lossful_compression
+
 
   template <typename real_t, typename real_y_t>
   void print_compressed(

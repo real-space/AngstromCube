@@ -65,10 +65,11 @@ namespace green_experiments {
       int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
       auto const E0     = control::get("green_experiments.bandstructure.energy.offset", 0.0);
       auto const dE     = control::get("green_experiments.bandstructure.energy.spacing", 0.01);
-      int const nE      = control::get("green_experiments.bandstructure.energy.points", 32);
+      int const nE      = control::get("green_experiments.bandstructure.energy.points", 32.);
       auto const E_imag = control::get("green_experiments.bandstructure.energy.imag", 1e-3); // room temperature
       if (E_imag <= 0) warn("imaginary part of the energy parameter is %.1e Ha", E_imag);
 
+      if (echo > 3) std::printf("# +tfqmrgpu.max.iterations=%d\n", maxiter);
       if (echo > 1) std::printf("# %d E-points in [%g, %g] %s\n", nE, E0*eV, (E0 + (nE - 1)*dE)*eV, _eV);
 
       view2D<double> k_path;

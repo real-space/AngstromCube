@@ -1,7 +1,8 @@
 #pragma once
 
 #include <cstdint> // uint32_t, int8_t
-#include <algorithm> // std::max
+#include <algorithm> // std::min, ::max
+#include <cmath> // std::floor, ::ceil, ::sqrt, ::abs
 #include <cstdio> // std::printf
 #include <cassert> // assert
 
@@ -15,7 +16,7 @@
 #include "status.hxx" // status_t
 
 namespace real_space {
-  
+
   int constexpr debug = 0;
 
   class grid_t {
@@ -122,14 +123,16 @@ namespace real_space {
       assert(hcoeff*r2cut < ncoeff);
       assert(g.is_Cartesian());
       int imn[3], imx[3];
+#ifdef DEBUG
       size_t nwindow{1};
+#endif // DEBUG
       for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
           imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
 #ifdef DEBUG
           std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
-#endif // DEBUG
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
+#endif // DEBUG
       } // d
       assert(hcoeff > 0);
       double added_charge{0}; // clear
@@ -188,14 +191,12 @@ namespace real_space {
       double const rcut = r_cut;
       double const r2cut = rcut*rcut; // stop at 10 Bohr
       int imn[3], imx[3];
-      size_t nwindow = 1;
       for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
           imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
-#ifdef DEBUG
-          std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
-#endif // DEBUG
-          nwindow *= std::max(0, imx[d] + 1 - imn[d]);
+// #ifdef DEBUG
+//           std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
+// #endif // DEBUG
       } // d
       set(q_coeff, nq, 0.0); // clear
       for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;

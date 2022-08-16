@@ -28,7 +28,8 @@ allclean: clean
 
 CU     = nvcc
 CC     = gcc
-CXX    = g++
+CXX    = mpic++
+### g++
 
 INC ?=
 INC += -I../include

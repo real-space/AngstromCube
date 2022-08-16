@@ -3,7 +3,7 @@
 #include "status.hxx" // status_t
 
 namespace sho_overlap {
-  
+
   template <typename real_t>
   status_t moment_tensor(
         real_t tensor[] // tensor layout [1 + maxmoment][n1][n0]

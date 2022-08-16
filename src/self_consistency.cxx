@@ -1,4 +1,4 @@
-#include <cstdio> // std::printf, std::sprintf
+#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <algorithm> // std::copy, ::min, ::max
 #include <vector> // std::vector
@@ -75,7 +75,7 @@ namespace self_consistency {
       stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
 
       { // scope: determine grid spacings and number of grid points
-        
+
           // precedence: 
           //    highest:  grid.points.x, .y, .z
           //           :  grid.points
@@ -96,11 +96,11 @@ namespace self_consistency {
           int default_grid_spacing_used{0};
           int ng[3] = {0, 0, 0};
           for (int d = 0; d < 3; ++d) { // directions x, y, z
-              char keyword[96];
-              std::snprintf(keyword, 95, "%s.%c", keyword_ng, 'x'+d);
+              char keyword[32];
+              std::snprintf(keyword, 31, "%s.%c", keyword_ng, 'x'+d);
               ng[d] = int(control::get(keyword, ng_iso)); // "grid.points.x", ".y", ".z"
               if (ng[d] < 1) {
-                  std::snprintf(keyword, 95, "%s.%c", keyword_hg, 'x'+d);
+                  std::snprintf(keyword, 31, "%s.%c", keyword_hg, 'x'+d);
                   double const hg_lu = control::get(keyword, hg_iso); // "grid.spacing.x", ".y", ".z"
                   bool const is_default_grid_spacing = (hg_lu == hg_iso);
                   double const hg = hg_lu*in_lu;
@@ -124,7 +124,7 @@ namespace self_consistency {
       if (echo > 1) std::printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
-      double const max_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
+      double const max_grid_spacing = std::max(std::max(std::max(1e-9, g.h[0]), g.h[1]), g.h[2]);
       if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
             g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
       for (int d = 0; d < 3; ++d) {
@@ -134,7 +134,7 @@ namespace self_consistency {
               ++stat;
           } // deviates
           cell[d] = g.h[d]*g[d];
-          assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
+          assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16 && "grid spacing and its inverse do not match");
       } // d
       if (echo > 1) std::printf("# cell is  %g %g %g  %s\n", cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang);
 
@@ -185,7 +185,7 @@ namespace self_consistency {
       int const na{na_noconst}; // total number of atoms
 
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
-     
+
       std::vector<float> ionization(na, 0.f);
       if (0 != ion) {
 #ifdef DEVEL
@@ -311,12 +311,12 @@ namespace self_consistency {
       std::vector<double> Vtot(run*g.all()); // total effective potential
 
       // configuration
-      char const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
+      auto const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
-      char const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32; // {'f', 'g'}
+      auto const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32; // {'f', 'g'}
 
-      char const occupation_method = *control::get("fermi.level", "exact") | 32; // {'e':"exact", 'l':"linearized"}
+      auto const occupation_method = *control::get("fermi.level", "exact") | 32; // {'e':"exact", 'l':"linearized"}
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);
@@ -329,7 +329,7 @@ namespace self_consistency {
           std::vector<int32_t> numax_a(na, 3);
           stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
           for (int ia = 0; ia < na; ++ia) {
-              assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
+              assert(numax_a[ia] == numax[ia] && "consistency between atom_update('i') and ('p')");
           } // ia
       } // scope
 
@@ -488,7 +488,7 @@ namespace self_consistency {
 #endif // DEVEL
               } // ia
 
-              
+
               double const E_es = 0.5*dot_product(g.all(), rho.data(), Ves.data())*g.dV();
               grid_electrostatic_energy = E_es; // store
               if (echo > 3) std::printf("# smooth electrostatic grid energy %.9f %s\n", E_es*eV,_eV);
@@ -496,7 +496,7 @@ namespace self_consistency {
           } // scope
           here;
 
-          
+
           // communicate vlm to the atoms, get zero potential, atom-centered Hamiltonian and overlap
           float potential_mixing_ratio[] = {.5}; // {potential}
           stat += single_atom::atom_update("update", na, 0, 0, potential_mixing_ratio, atom_vlm.data());
@@ -515,23 +515,23 @@ namespace self_consistency {
           if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential  (after adding zero potentials)", eV, _eV);
           here;
 
-         
+
           //
           //  Potential generation done
           //
 
-          
+
           double double_counting_correction{0};
 
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               SimpleTimer KS_timer(__FILE__, __LINE__, "solving KS-equation", echo);
-              
+
 #ifdef DEVEL
               if (echo > 0) {
                   std::printf("\n\n# %s\n# Solve Kohn-Sham equation\n# %s\n\n", h_line, h_line);
                   std::fflush(stdout);
               } // echo
-#endif // DEVEL     
+#endif // DEVEL
 
               view2D<double> rho_valence_new(2, g.all(), 0.0); // new valence density and response
               data_list<double> atom_rho_new[2];
@@ -546,7 +546,7 @@ namespace self_consistency {
               double band_energy_sum = Fermi.get_band_sum(); // non-const since we might need to correct this
 
               Fermi.correct_Fermi_level(nullptr, echo); // clear the accumulators
-              
+
               // correct if k-point weights do not sum up to 1
               if (charges[0] > 0 && std::abs(charges[0] - 1.0) > 1e-15) {
                   double const renormalization_factor = 1./charges[0];
@@ -559,7 +559,7 @@ namespace self_consistency {
                   } // ia
                   scale(charges, 3, renormalization_factor);
               } // normalize by sum of k-weights
-              
+
               if (echo > 2) std::printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                               charges[1], charges[2]*Fermi.get_temperature());
 
@@ -599,7 +599,7 @@ namespace self_consistency {
               grid_kinetic_energy = band_energy_sum - double_counting_correction;
               if (echo > 1) std::printf("\n# grid kinetic energy %.9f %s (take %.1f %%)\n\n", 
                   grid_kinetic_energy*eV, _eV, (1. - take_atomic_valence_densities)*100);
-              
+
               // valence density mixing
               double const mix_old = 1 - density_mixing;
               scale(rho_valence.data(), g.all(), mix_old); // mix old
@@ -615,7 +615,7 @@ namespace self_consistency {
 
           float rho_mixing_ratios[] = {.5, .5, .5}; // for spherical {core, semicore, valence} density             
           stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());
-          
+
 
           // compute the total energy
           std::vector<double> atomic_energy_diff(na, 0.0);
@@ -654,7 +654,7 @@ namespace self_consistency {
                   Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC] 
                                                  + Ea[energy_contribution::ELECTROSTATIC]
                                                  + Ea[energy_contribution::EXCHANGE_CORRELATION];
-                                                 
+
               } // show without and with grid contributions
           } else {
               stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
@@ -670,7 +670,7 @@ namespace self_consistency {
                        + atomic_energy_corrections;
           if (echo > 0) { std::printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV); std::fflush(stdout); }
 
-          
+
 
           if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
 #if 1
@@ -715,7 +715,7 @@ namespace self_consistency {
       stat += single_atom::atom_update("memory cleanup", na);
 
       solid_harmonics::cleanup<double>();
-      
+
       return stat;
   } // init
 
@@ -731,8 +731,7 @@ namespace self_consistency {
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      int n{0}; int const t = control::get("self_consistency.select.test", -1.); // -1:all
-      if (t & (1 << n++)) stat += test_init(echo);
+      stat += test_init(echo);
       return stat;
   } // all_tests
 

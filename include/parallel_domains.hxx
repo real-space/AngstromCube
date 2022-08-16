@@ -2,13 +2,11 @@
 
 #include <cstdio> // std::printf, ::sprintf
 #include <cassert> // assert
-// #include <cmath> // std::min, ::max
 
 #include "status.hxx" // status_t
 
 namespace parallel_domains {
-  
-  template <int D0=1>
+
   inline status_t decompose_grid(unsigned const ng, int const echo=0, int const min_ng_per_pe=4) {
       status_t stat(0);
       for (int npe = 1; npe <= ng + 9; ++npe) {
@@ -48,7 +46,7 @@ namespace parallel_domains {
 
               } // method
               int const np_lowr = np_more - np_uppr;
-              
+
               int const gs[] = {ng_more, ng_less, ng_more, 0};
               int const ps[] = {np_lowr, np_less, np_uppr, np_zero};
               int gxp[3];
@@ -63,7 +61,7 @@ namespace parallel_domains {
               } // section i {lower, middle, upper}
               if (echo > 7) std::printf("# parallelize %d grid points as %s + %s + %s with %d process elements (BC=%s)\n", 
                           ng, dec_str[0], dec_str[1], dec_str[2], npe, bc?"periodic":"isolated");
-              
+
 #ifdef DEBUG
               // check that this distribution routine works correctly
               assert(ng == ng_more*np_lowr + ng_less*np_less + ng_more*np_uppr);
@@ -95,7 +93,7 @@ namespace parallel_domains {
       stat += test_analysis(echo);
       return stat; 
   } // all_tests
-  
+
 #endif // NO_UNIT_TESTS
 
 } // namespace parallel_domains

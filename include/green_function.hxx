@@ -121,9 +121,10 @@ namespace green_function {
 
 
   template <typename number_t>
-  std::string vec2str(number_t const vec[3], double const f=1, char const*const sep=" ") {
+  std::string vec2str(number_t const vec[3], double const f=1, char const *const sep=" ") {
       // convert a vector of 3 numbers into a string, with scaling f and separator
-      char s[64]; std::snprintf(s, 63, "%g%s%g%s%g", vec[0]*f, sep, vec[1]*f, sep, vec[2]*f);
+      char s[64];
+      std::snprintf(s, 63, "%g%s%g%s%g", vec[0]*f, sep, vec[1]*f, sep, vec[2]*f);
       return std::string(s);
   } // vec2str
   #define str(...) vec2str(__VA_ARGS__).c_str()
@@ -136,7 +137,7 @@ namespace green_function {
       , int const Noco=1
       , int const echo=0
   ) {
-      assert(1 == Noco);
+      if (1 != Noco) warn("not prepared for Noco=%d", Noco);
       for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
           int const nc = sho_tools::nSHO(p.AtomLmax[iac]);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
@@ -144,13 +145,14 @@ namespace green_function {
           assert(2*nc*nc <= AtomMatrices[ia].size());
 
           // fill this with matrix values
+          auto const atomMatrix = p.AtomMatrices[iac];
           auto const hmt = AtomMatrices[ia].data(); // Hamiltonian matrix elements
           auto const ovl = hmt + nc*nc;          // charge deficit matrix elements
           for (int i = 0; i < nc; ++i) {
               for (int j = 0; j < nc; ++j) {
                   int const ij = i*nc + j;
-                  p.AtomMatrices[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
-                  p.AtomMatrices[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
+                  atomMatrix[ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
+                  atomMatrix[ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
               } // j
           } // i
           // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
@@ -189,7 +191,7 @@ namespace green_function {
       , double const max_distance_from_center
       , double const r_trunc
       , std::complex<double> E_param
-      , int const Noco
+      , int const Noco=1
       , int const echo=0 // verbosity
   ) {
       SimpleTimer timer(__FILE__, __LINE__, __func__);
@@ -221,7 +223,7 @@ namespace green_function {
       size_t nimages{1};
       for (int d = 0; d < 3; ++d) { // parallel
           iimage[d] = (Periodic_Boundary == boundary_condition[d]) * std::ceil(radius/cell[d]);
-          nimages *= (iimage[d] + 1 + iimage[d]); // iimage images to the left and right
+          nimages *= (2*iimage[d] + 1); // iimage images to the left and right
       } // d
       auto const nAtomImages = natoms*nimages;
       if (echo > 3) std::printf("# replicate %s atom images, %ld images total\n", str(iimage), nimages);
@@ -467,16 +469,6 @@ namespace green_function {
           // fill this with matrix values
           assert(2*nc*nc <= AtomMatrices[ia].size());
           // use MPI communication to find values in atom owner processes
-
-//           auto const hmt = AtomMatrices[ia].data();
-//           auto const ovl = hmt + nc*nc;
-//           for (int i = 0; i < nc; ++i) {
-//               for (int j = 0; j < nc; ++j) {
-//                   int const ij = i*nc + j;
-//                   p.AtomMatrices[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
-//                   p.AtomMatrices[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
-//               } // j
-//           } // i
       } // iac
       p.nAtoms = nac;
 
@@ -493,18 +485,17 @@ namespace green_function {
   inline status_t update_phases(
         green_action::plan_t & p
       , double const k_point[3]
-      , int const Noco
+      , int const Noco=1
       , int const echo=0 // verbosity
   ) {
-//         auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
       assert(p.phase && "phase[3][2][2] must already be allocated");
       green_kinetic::set_phase(p.phase, k_point, echo); // neutral (Gamma-point) phase factors
 
       std::complex<double> phase[3][2]; // for each direction: forward and backward phase
       for (int d = 0; d < 3; ++d) {
-//           double const arg = 2*constants::pi*k_point[d];
-//           phase[d][0] = std::complex<double>(std::cos(arg), std::sin(arg));
-//           phase[d][1] = std::conj(phase[d][0]); // should be the inverse if the k_point gets an imaginary part
+//        double const arg = 2*constants::pi*k_point[d];
+//        phase[d][0] = std::complex<double>(std::cos(arg), std::sin(arg));
+//        phase[d][1] = std::conj(phase[d][0]); // must be the inverse if the k_point gets an imaginary part
           phase[d][0] = std::complex<double>(p.phase[d][0][0], p.phase[d][0][1]);
           phase[d][1] = std::complex<double>(p.phase[d][1][0], p.phase[d][1][1]);
       } // d
@@ -587,7 +578,6 @@ namespace green_function {
       } // mag
 
       { // scope: reorder Veff into block-structured p.Veff
-
           for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
           for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, parallel
           for (int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
@@ -604,7 +594,7 @@ namespace green_function {
                   if (Noco > 1) {
                       p.Veff[3][Veff_index][i64] = 0; // set clear
                       p.Veff[2][Veff_index][i64] = 0; // set clear
-                      p.Veff[1][Veff_index][i64] = Veff[izyx];
+                      p.Veff[1][Veff_index][i64] = Veff[izyx]; // ToDo: needs to be V_upup
                   } // non-collinear
                   p.Veff[0][Veff_index][i64] = Veff[izyx]; // copy potential value
               }}} // i4
@@ -650,7 +640,7 @@ namespace green_function {
       p.nCols = nrhs;
       double center_of_mass_RHS[] = {0, 0, 0};
       double center_of_RHSs[]     = {0, 0, 0};
-      int32_t min_global_source_coords[] = {1 << 21, 1 << 21, 1 << 21}; // global coordinates
+      int32_t min_global_source_coords[] = {1 << 22, 1 << 22, 1 << 22}; // global coordinates
       int32_t max_global_source_coords[] = {0, 0, 0}; // global coordinates
       int32_t global_internal_offset[]   = {0, 0, 0};
       double max_distance_from_comass{0};
@@ -722,15 +712,6 @@ namespace green_function {
       if (echo > 0) std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV);
       if (echo > 0) std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV);
 
-// example:
-//    truncation radius in Cu (fcc)
-//    lattice constant = 3.522 Ang
-//    volume per atom = alat^3 / 4 == 10.922 Ang^3 / atom
-//    1000 atoms inside the truncation cluster
-//    truncation sphere volume 10922 Ang^3
-//    truncation radius = cbrt(3*V/(4*pi)) = 13.764 Ang = 26 Bohr
-//    8000 atoms --> 52 Bohr
-//    64000 atoms --> 104 Bohr
 
       double const r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
       if (echo > 0) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
@@ -961,6 +942,7 @@ namespace green_function {
           std::vector<uint32_t> hist(1 + nrhs, 0);
           for (size_t idx3 = 0; idx3 < column_indices.size(); ++idx3) {
               auto const n = column_indices[idx3].size();
+              assert(n <= nrhs);
               ++hist[n];
           } // idx3
 
@@ -1050,7 +1032,7 @@ namespace green_function {
                                   assert(p.source_coords[iCol][d] == p.target_coords[iRow][d]);
                               } // d
                               { // search inz such that p.colindx[inz] == iCol
-                                  int32_t inz_found{-1};
+                                  int64_t inz_found{-1};
                                   for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1] && -1 == inz_found; ++inz) {
                                       if (iCol == p.colindx[inz]) inz_found = inz;
                                   } // inz
@@ -1093,7 +1075,7 @@ namespace green_function {
                               for (int d = 0; d < 3; ++d) {
                                   dv[d] = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d];
                               } // d
-                              auto const *const n = n_original_Veff_blocks;
+                              auto const *const n = n_original_Veff_blocks; // abbreviation
                               // with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
                               double d2shortest{9e37};
                               for (int iz = -is_periodic[Z]; iz <= is_periodic[Z]; ++iz) {
@@ -1171,7 +1153,7 @@ namespace green_function {
                 , iRow_of_coords
                 , sparsity_pattern.data()
                 , nrhs, echo);
-              if (stat && echo > 0) std::printf("# construct_kinetic_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+              if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
 
           } // dd derivate direction
 

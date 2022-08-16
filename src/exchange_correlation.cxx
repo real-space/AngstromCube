@@ -15,7 +15,7 @@ namespace exchange_correlation {
 
   float constexpr TINY_DENSITY = 1e-20;
   double constexpr THIRD = 1./3.;
-  
+
   // ToDo: use libxc in the long run
   template <typename real_t>
   real_t lda_PZ81_kernel(
@@ -49,7 +49,7 @@ namespace exchange_correlation {
           } // negligible
 
       } else { // LDA, no magnetiziation
-        
+
           assert(0 == __LINE__); // will fail!
 
           *Vup = 0;
@@ -60,8 +60,8 @@ namespace exchange_correlation {
 
   } // lda_PZ81_kernel
 
-  
-  
+
+
   template <typename real_t>
   inline real_t G(
         real_t const rtrs
@@ -121,7 +121,7 @@ namespace exchange_correlation {
           } // negligible
 
       } else { // LDA, no magnetiziation
-        
+
           assert(0 == __LINE__); // will fail!
 
           *Vup = 0;
@@ -138,7 +138,7 @@ namespace exchange_correlation {
   template // explicit template instantiation for double
   double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
 
-  
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

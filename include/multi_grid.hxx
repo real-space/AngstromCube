@@ -492,7 +492,7 @@ namespace multi_grid {
           normT += Tr*Tr; // accumulate norm ||D^2 r||_2
       } // i
       if (f) std::fprintf(f, "%g %g %g %g\n\n", g*h, x[0], r[0], b[0]); // periodic
-//       if (1) std::printf("# residual norm (length %ld) is %g / %g = %g\n", g, normT, norm2, normT/norm2);
+      if (0) std::printf("# residual norm (length %ld) is %g / %g = %g\n", g, normT, norm2, normT/norm2);
       return norm2/g;
   } // get_resiual_norm
 

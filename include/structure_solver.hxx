@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::snprintf
+#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
@@ -42,9 +42,9 @@
 #include "status.hxx" // status_t
 
 namespace structure_solver {
-  
+
   /**
-      Electronic structure solver 
+      Electronic structure solver
       generates a new density from an effective potential
    */
 
@@ -139,7 +139,7 @@ namespace structure_solver {
 
         // copy the local potential and non-local atom matrices into the grid operator descriptor
         op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo*0); // muted
-        
+
         auto const export_Hamiltonian = control::get("hamiltonian.export", 0.0);
         if (export_Hamiltonian) {
             op.write_to_file(echo, control::get("hamiltonian.export.format", "xml"));
@@ -335,7 +335,7 @@ namespace structure_solver {
             if ('c' == key) c = new KohnShamStates<std::complex<float>> (gc, loa, kmesh, nkpoints, nbands, run, echo);
             if ('d' == key) d = new KohnShamStates<double>              (gc, loa, kmesh, nkpoints, nbands, run, echo);
             if ('s' == key) s = new KohnShamStates<float>               (gc, loa, kmesh, nkpoints, nbands, run, echo);
-            
+
             solver_method = control::get("grid.eigensolver", "cg");
 
         } else { // psi_on_grid
@@ -352,7 +352,7 @@ namespace structure_solver {
         energies = view2D<double>(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
 
     } // constructor
-    
+
     ~RealSpaceKohnSham() { // destructor
         // call destructors
         if (nullptr != z) z->~KohnShamStates();
@@ -393,7 +393,7 @@ namespace structure_solver {
             if (echo > 1) print_stats(Veff[0], gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
 
             view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
-            
+
             if ('z' == key) z->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
             if ('c' == key) c->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
             if ('d' == key) d->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
@@ -474,7 +474,7 @@ namespace structure_solver {
       int nbands = 0;
       real_space::grid_t const & gd; // dense grid
       real_space::grid_t gc; // coarse grid descriptor
-      
+
       std::vector<double> sigma_a;
       std::vector<int> numax;
       view2D<double> const & xyzZ;
@@ -494,13 +494,8 @@ namespace structure_solver {
 
   }; // class RealSpaceKohnSham
 
-  
-  
-  
-  
-  
-  
-  
+
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace structure_solver
@@ -508,6 +503,7 @@ namespace structure_solver {
 #ifdef DEBUG
   #undef DEBUG
 #endif // DEBUG
+
 #ifdef FULL_DEBUG
   #undef FULL_DEBUG
 #endif // FULL_DEBUG

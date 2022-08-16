@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-### This script tests if each header file module.hxx has all the
-### include statements it needs to be compiled standalone.
-### Linking will require a dependency tree of objects, so we skip that.
+echo ""
+echo "This script tests if each header file module.hxx has all the"
+echo "include statements it needs to be compiled standalone."
+echo "Linking will require a dependency tree of objects, so we skip that."
+echo ""
 
 for module in \
   exchange_correlation \
@@ -44,6 +46,7 @@ for module in \
   grid_operators \
   dense_operator \
   element_config \
+  load_balancer \
   complex_tools \
   vector_layout \
   sho_potential \

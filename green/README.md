@@ -2,18 +2,19 @@
 
 Compilation
 
-    green can be compiled for the CPU without CUDA to check the functionality.
+    green can be compiled for the CPU without CUDA to check its functionality.
     To do this, create a soft link
         ln -s green.cu green.cxx
-    
+
     Otherwise, green is a CUDA code for NVIDIA GPUs.
-    
+
 Input
 
     green expects Hmt.xml, an XML-formatted ASCII file containing
-    the local and non-local parts of the potential operator.
+    the local and non-local parts of the potential operator as
+    exported by write_to_file in include/grid_operators.hxx
 
 Dependencies
 
-    currently green needs the header-only library rapidxml.
-    planned extension foresees the inclusion of tfQMRgpu.
+    green needs the header-only library rapidxml.
+    green can include the header-only library tfQMRgpu.
