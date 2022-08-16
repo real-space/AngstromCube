@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-(cd ../src/ && make -j)
+make -j -C ../src
 exe=../src/a43
 
 

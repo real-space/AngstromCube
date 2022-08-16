@@ -75,14 +75,13 @@ namespace load_balancer {
       std::vector<double> load(nprocs, 0.0);
       view2D<double> rank_center(nprocs, 4, 0.0);
       bool constexpr compute_rank_centers = true;
-      std::vector<std::vector<bool>> rank_mask(nprocs);
+      std::vector<int32_t> owner_rank(nall, -1);
 
       if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
 
       for (int rank = 0; rank < nprocs; ++rank) {
-          rank_mask[rank].resize(nall);
           load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, echo
-                                            , rank_center[rank], &rank_mask[rank]);
+                                            , rank_center[rank], owner_rank.data());
       } // rank
 
       analyze_load_imbalance(load.data(), nprocs, echo);
@@ -145,25 +144,18 @@ namespace load_balancer {
 
       // check masks
       if (1) {
-          int strange0{0}, strange1{0};
+          int strange{0};
           for (int iz = 0; iz < n[Z]; ++iz) {
             for (int iy = 0; iy < n[Y]; ++iy) {
               for(int ix = 0; ix < n[X]; ++ix) {
                   auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
-                  int owner{-1};
-                  for (int rank = 0; rank < nprocs; ++rank) {
-                      if (rank_mask[rank][iall]) {
-                          if (-1 != owner) warn("work item %d %d %d is assigned to rank #%i and #%i", ix,iy,iz, owner, rank);
-                          strange1 += (-1 != owner); // double assignement
-                          owner = rank;
-                      }
-                  } // irank
-                  strange0 += (-1 == owner); // under-assignement
+                  int const owner = owner_rank[iall];
+                  strange += (-1 == owner); // under-assignement
                   if (-1 == owner) warn("work item %d %d %d has not been assigned to any rank", ix,iy,iz);
               } // ix
             } // iy
           } // iz
-          if (strange0 + strange1) warn("strange: %d double assignments and %d under-assignments", strange1, strange0);
+          if (strange) warn("strange: %d under-assignments", strange);
       }
 
       if (1 == n[Z] && echo > 5) {
@@ -175,10 +167,8 @@ namespace load_balancer {
               std::printf("\n# ");
               for(int ix = 0; ix < n[X]; ++ix) {
                   auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
-                  char c{'?'};
-                  for (int rank = 0; rank < nprocs; ++rank) {
-                      if (rank_mask[rank][iall]) c = chars[rank & 0x3f];
-                  } // irank
+                  auto const owner = owner_rank[iall];
+                  auto const c = chars[owner & 0x3f];
                   std::printf("%c", c);
               } // ix
           } // iy
@@ -260,7 +250,7 @@ namespace load_balancer {
   } // test_reference_point_cloud
 
 
-  status_t all_tests(int const echo) { 
+  status_t all_tests(int const echo) {
       status_t stat(0);
 
       int const nxyz[] = {int(control::get("load_balancer.test.nx", 17.)), // number of blocks

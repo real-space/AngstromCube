@@ -2,29 +2,29 @@
 
 /*
  * Where does A43 need MPI parallelization?
- * 
+ *
  * - Assume that eigenvector mode runs on a single CPU only
- * 
+ *
  * There are two levels of work: potential generation and KS-equation solving
  * - potential_generator. needs to deal with internal boundary conditions
  *   and works on a small domain of the entire supercell.
  *   For load balancing of systems with large vacuum regions that we want to
  *   sparsify, we could even think of mirco-domain, e.g. 8x8x8 grid points
  *   and let an MPI process deal with several of those.
- *   
+ *
  * - The Kohn-Sham equation can be solved in order(N) using
  *   a Green function or density matrix method.
  *   In case of the Green function, MPI communication is only needed
  *   to communicate the potential V(\vec r) and the atomic matrices
  *   (assuming that the atom centers and sigmas did not move/change).
- * 
+ *
  * A first implementation of the commmunication could be
  *    MPI_Alltoallv
  * where a different message length per process pair needs to be agreed on.
  * In order to scale, this commmunication pattern could be replaced
  * by MPI-one-sided communication. However, we still need to bookkeep,
  * where the data resides.
- * 
+ *
  */
 
 #ifndef HAS_NO_MPI

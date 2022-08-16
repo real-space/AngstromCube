@@ -13,17 +13,6 @@
 
 namespace load_balancer {
 
-//   template <typename number_t, int sgn=1> // use sgn=-1 for smallest_of_3
-//   int largest_of_3(number_t const n[3]) {
-//       if (n[0]*sgn >= n[1]*sgn) {
-//           // answer is 0 or 2
-//           return (n[0]*sgn >= n[2]*sgn) ? 0 : 2;
-//       } else {
-//           // answer is 1 or 2
-//           return (n[1]*sgn >= n[2]*sgn) ? 1 : 2;
-//       }
-//   } // largest_of_3
-
   int constexpr X=0, Y=1, Z=2, W=3;
 
   template <typename real_t>
@@ -72,7 +61,7 @@ namespace load_balancer {
       , double const w8sum_all=1. // denominator of all weights
       , int const echo=0 // verbosity
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
-      , std::vector<bool> *rank_mask=nullptr // export the rank bit mask
+      , int32_t *owner_rank=nullptr // export the rank of each task
   ) {
       // complexity is order(N^2) as each processes loops over all tasks in the first iteration
 
@@ -201,12 +190,11 @@ namespace load_balancer {
       if (echo > 9) std::printf("# rank#%i assign %.3f %%, target %.3f %%\n\n",
                                    rank, load_now*100/w8sum_all, 100./nprocs);
 
-      if (rank_mask) { // export mask
-          auto & mask = *rank_mask;
+      if (owner_rank) { // export mask
           for (size_t iall = 0; iall < nall; ++iall) {
-              mask[iall] = (UNASSIGNED == state[iall]);
+              if (UNASSIGNED == state[iall]) owner_rank[iall] = rank;
           } // iall
-      } // rank_mask
+      } // owner_rank
 
       if (1) { // parallelized consistency check
           for (size_t iuna = 0; iuna < nuna; ++iuna) { // parallel
