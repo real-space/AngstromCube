@@ -3,6 +3,7 @@
 *.blg
 *.log
 *.pdf
+*.bcf
 *.tex.backup
 
 libtfqmrgpu-*/*
