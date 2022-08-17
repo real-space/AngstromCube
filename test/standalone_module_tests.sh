@@ -17,6 +17,7 @@ for module in \
   boundary_condition \
   fermi_distribution \
   recorded_warnings \
+  green_experiments \
   finite_difference \
   radial_integrator \
   geometry_analysis \

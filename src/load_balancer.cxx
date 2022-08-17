@@ -149,7 +149,7 @@ namespace load_balancer {
             for (int iy = 0; iy < n[Y]; ++iy) {
               for(int ix = 0; ix < n[X]; ++ix) {
                   auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
-                  int const owner = owner_rank[iall];
+                  auto const owner = owner_rank[iall];
                   strange += (-1 == owner); // under-assignement
                   if (-1 == owner) warn("work item %d %d %d has not been assigned to any rank", ix,iy,iz);
               } // ix

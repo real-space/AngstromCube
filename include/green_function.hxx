@@ -19,6 +19,9 @@
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 
+#ifndef NO_UNIT_TESTS
+  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
+
 #ifdef HAS_TFQMRGPU
 
 //  #define DEBUG
@@ -43,6 +46,8 @@
 
 #endif // HAS_TFQMRGPU
 
+#endif // NO_UNIT_TESTS
+
 #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
 #include "green_dyadic.hxx" // ::dyadic_plan_t
@@ -63,68 +68,13 @@ namespace green_function {
 
   double const GByte = 1e-9; char const *const _GByte = "GByte";
 
-  template <typename real_t, int R1C2=2, int Noco=1>
-  void try_action(green_action::plan_t & p, int const n_iterations=1, int const echo=9) {
-      if (n_iterations >= 0) { // scope: try to apply the operator
-          if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
-          green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
-
-#ifdef  HAS_TFQMRGPU
-          p.echo = echo - 5;
-          if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
-          tfqmrgpu::solve(action); // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
-          if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f GByte GPU memory\n", p.gpu_mem*1e-9);
-          auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
-          int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
-          if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
-          {   SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
-              tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
-          } // timer
-          if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
-                                                             p.residuum_reached,    p.iterations_needed);
-          if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
-          free_memory(memory_buffer);
-          return;
-#endif // HAS_TFQMRGPU
-
-          uint32_t const nnzbX = p.colindx.size();
-          int constexpr LM = Noco*64;
-          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
-          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
-          for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
-              x[0][0][0][i] = 0; // init x
-          } // i
-
-          auto const nnzb = p.colindx.size();
-          auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
-          set(colIndex, nnzb, p.colindx.data()); // copy into GPU memory
-
-          bool const toy = control::get("green_function.benchmark.toy", 0.);
-
-          // benchmark the action
-          for (int iteration = 0; iteration < n_iterations; ++iteration) {
-              SimpleTimer timer(__FILE__, __LINE__);
-              if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
-              if (toy) {
-                  action.toy_multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
-              } else {
-                  action.multiply(y, x, colIndex, nnzbX, p.nCols);
-              }
-              std::swap(x, y);
-          } // iteration
-
-          free_memory(colIndex);
-          free_memory(y);
-          free_memory(x);
-      } // n_iterations >= 0
-  } // try_action
-
+  int constexpr X=0, Y=1, Z=2;
 
   template <typename number_t>
   std::string vec2str(number_t const vec[3], double const f=1, char const *const sep=" ") {
       // convert a vector of 3 numbers into a string, with scaling f and separator
       char s[64];
-      std::snprintf(s, 63, "%g%s%g%s%g", vec[0]*f, sep, vec[1]*f, sep, vec[2]*f);
+      std::snprintf(s, 63, "%g%s%g%s%g", vec[X]*f, sep, vec[Y]*f, sep, vec[Z]*f);
       return std::string(s);
   } // vec2str
   #define str(...) vec2str(__VA_ARGS__).c_str()
@@ -195,7 +145,6 @@ namespace green_function {
       , int const echo=0 // verbosity
   ) {
       SimpleTimer timer(__FILE__, __LINE__, __func__);
-      int constexpr X=0, Y=1, Z=2;
 
       p.nrhs = nrhs;
 
@@ -518,10 +467,6 @@ namespace green_function {
   } // update_phases
 
 
-
-
-
-
   int8_t constexpr Vacuum_Boundary = 2;
   // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
   // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
@@ -533,6 +478,47 @@ namespace green_function {
 
   char const boundary_condition_name[][16] = {"isolated", "periodic", "vacuum"};
   char const boundary_condition_shortname[][8] = {"iso", "peri", "vacu"};
+
+
+  std::vector<int64_t> get_right_hand_sides(
+        int32_t const n_original_Veff_blocks[3]
+      , int const source_cube=1
+      , int const echo=0
+  ) {
+      // generate a box of sources
+      int32_t n_source_blocks[3] = {0, 0, 0};
+      for (int d = 0; d < 3; ++d) {
+          n_source_blocks[d] = n_original_Veff_blocks[d];
+          if (source_cube) n_source_blocks[d] = std::min(n_original_Veff_blocks[d], source_cube);
+      } // d
+      if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
+      if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
+
+      // we assume that the source blocks lie compact and preferably close to each other
+
+      // determine the largest and smallest indices of target blocks
+      // given a max distance r_trunc between source blocks and target blocks
+
+      // assume that the source blocks lie compact in space
+      uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
+      if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
+
+      std::vector<int64_t> global_source_indices(nrhs, 0);
+
+      uint32_t irhs{0};
+      for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
+      for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
+      for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
+          int32_t const ibxyz[] = {ibx + (n_original_Veff_blocks[X] - n_source_blocks[X])/2,
+                                   iby + (n_original_Veff_blocks[Y] - n_source_blocks[Y])/2,
+                                   ibz + (n_original_Veff_blocks[Z] - n_source_blocks[Z])/2};
+          global_source_indices[irhs] = global_coordinates::get(ibxyz);
+          ++irhs;
+      }}} // xyz
+      assert(nrhs == irhs);
+
+      return global_source_indices;
+  } // get_right_hand_sides
 
 
   inline status_t construct_Green_function(
@@ -547,7 +533,6 @@ namespace green_function {
       , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
       , int const Noco=2
   ) {
-      int constexpr X=0, Y=1, Z=2;
       if (echo > 0) std::printf("\n#\n# %s(%s)\n#\n\n", __func__, str(ng, 1, ", "));
 
       p.E_param = energy_parameter ? *energy_parameter : 0;
@@ -616,7 +601,7 @@ namespace green_function {
               ng[X]*1e-6*ng[Y]*ng[Z], n_all_Veff_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
       } // echo
 
-
+#if 0
       int32_t const source_cube = control::get("green_function.source.cube", 1.);
       int32_t n_source_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
@@ -626,27 +611,33 @@ namespace green_function {
       if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
       if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
 
-      // we assume that the source blocks lie compact and preferably close to each other      
+      // we assume that the source blocks lie compact and preferably close to each other
 
       // determine the largest and smallest indices of target blocks
       // given a max distance r_trunc between source blocks and target blocks
 
       // assume that the source blocks lie compact in space
       uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
+      p.global_source_indices.resize(nrhs, -1); // [nrhs]
+#else  // 0
+      p.global_source_indices = get_right_hand_sides(n_original_Veff_blocks, control::get("green_function.source.cube", 1.), echo); // need MPI parallelization here
+      uint32_t const nrhs = p.global_source_indices.size();
+#endif // 0
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
 
       view2D<int32_t> global_source_coords(nrhs, 4, 0);
-      p.global_source_indices.resize(nrhs, -1); // [nrhs]
       p.nCols = nrhs;
       double center_of_mass_RHS[] = {0, 0, 0};
       double center_of_RHSs[]     = {0, 0, 0};
-      int32_t min_global_source_coords[] = {1 << 22, 1 << 22, 1 << 22}; // global coordinates
-      int32_t max_global_source_coords[] = {0, 0, 0}; // global coordinates
+      int32_t constexpr MinMaxLim = 1 << 22;
+      int32_t max_global_source_coords[] = {-MinMaxLim, -MinMaxLim, -MinMaxLim};
+      int32_t min_global_source_coords[] = { MinMaxLim,  MinMaxLim,  MinMaxLim};
       int32_t global_internal_offset[]   = {0, 0, 0};
       double max_distance_from_comass{0};
       double max_distance_from_center{0};
       { // scope: determine min, max, center
           double const by_nrhs = 1./std::max(1., double(nrhs));
+#if 0
           {   uint32_t irhs{0};
               for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
               for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
@@ -666,6 +657,17 @@ namespace green_function {
               }}} // xyz
               assert(nrhs == irhs);
           } // irhs
+#else // 0
+          for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
+              global_coordinates::get(global_source_coords[irhs], p.global_source_indices[irhs]);
+              for (int d = 0; d < 3; ++d) {
+                  auto const rhs_coord = global_source_coords(irhs,d);
+                  center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d]*by_nrhs;
+                  min_global_source_coords[d] = std::min(min_global_source_coords[d], rhs_coord);
+                  max_global_source_coords[d] = std::max(max_global_source_coords[d], rhs_coord);
+              } // d
+          } // irhs
+#endif // 0
           if (echo > 0) std::printf("# all sources within (%s) and (%s)\n",
               str(min_global_source_coords), str(max_global_source_coords));
 
@@ -1182,6 +1184,95 @@ namespace green_function {
       auto const nerr = p.dyadic_plan.consistency_check();
       if (nerr && echo > 0) std::printf("# dyadic_plan.consistency_check has %d errors\n", nerr);
 
+      return stat;
+  } // construct_Green_function
+
+  #undef str // === vec2str.c_str()
+
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
+
+
+  template <typename real_t, int R1C2=2, int Noco=1>
+  void try_action(green_action::plan_t & p, int const n_iterations=1, int const echo=9) {
+      if (n_iterations >= 0) { // scope: try to apply the operator
+          if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+          green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
+
+#ifdef  HAS_TFQMRGPU
+          p.echo = echo - 5;
+          if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
+          tfqmrgpu::solve(action); // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
+          if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f %s GPU memory\n", p.gpu_mem*GByte, _GByte);
+          auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+          int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
+          if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
+          {   SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+              tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
+          } // timer
+          if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
+                                                             p.residuum_reached,    p.iterations_needed);
+          if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
+          free_memory(memory_buffer);
+          return;
+#endif // HAS_TFQMRGPU
+
+          uint32_t const nnzbX = p.colindx.size();
+          int constexpr LM = Noco*64;
+          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
+          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
+          for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
+              x[0][0][0][i] = 0; // init x
+          } // i
+
+          auto const nnzb = p.colindx.size();
+          auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
+          set(colIndex, nnzb, p.colindx.data()); // copy into GPU memory
+
+          bool const toy = control::get("green_function.benchmark.toy", 0.);
+
+          // benchmark the action
+          for (int iteration = 0; iteration < n_iterations; ++iteration) {
+              SimpleTimer timer(__FILE__, __LINE__);
+              if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
+              if (toy) {
+                  action.toy_multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
+              } else {
+                  action.multiply(y, x, colIndex, nnzbX, p.nCols);
+              }
+              std::swap(x, y);
+          } // iteration
+
+          free_memory(colIndex);
+          free_memory(y);
+          free_memory(x);
+      } // n_iterations >= 0
+  } // try_action
+
+
+  inline status_t test_Green_function(int const echo=0) {
+
+      bool const already_initialized = mpi_parallel::init();
+
+      uint32_t ng[3] = {0, 0, 0}; // grid sizes
+      int8_t   bc[3] = {0, 0, 0}; // boundary conditions
+      double   hg[3] = {1, 1, 1}; // grid spacings
+      std::vector<double> Veff(0); // local potential
+      int natoms{0}; // number of atoms
+      std::vector<double> xyzZinso(0); // atom info
+      std::vector<std::vector<double>> AtomMatrices(0); // non-local potential
+
+      auto const *const filename = control::get("green_function.hamiltonian.file", "Hmt.xml");
+      auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
+      if (stat) {
+          warn("failed to load_Hamiltonian with status=%d", int(stat));
+          return stat;
+      } // stat
+
+      green_action::plan_t p;
+      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
+
       int const n_iterations = control::get("green_function.benchmark.iterations", 1.); 
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
       if (n_iterations < 0) {
@@ -1206,33 +1297,8 @@ namespace green_function {
           } // switch action
       } // n_iterations < 0
 
-      return 0;
-  } // construct_Green_function
-
-  #undef str // === vec2str.c_str()
-
-#ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
-
-  inline status_t test_Green_function(int const echo=0) {
-      uint32_t ng[3] = {0, 0, 0}; // grid sizes
-      int8_t   bc[3] = {0, 0, 0}; // boundary conditions
-      double   hg[3] = {1, 1, 1}; // grid spacings
-      std::vector<double> Veff(0); // local potential
-      int natoms{0}; // number of atoms
-      std::vector<double> xyzZinso(0); // atom info
-      std::vector<std::vector<double>> AtomMatrices(0); // non-local potential
-
-      auto const *const filename = control::get("green_function.hamiltonian.file", "Hmt.xml");
-      auto const stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
-      if (stat) {
-          warn("failed to load_Hamiltonian with status=%d", int(stat));
-          return stat;
-      } // stat
-
-      green_action::plan_t p;
-      return construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
+      if (!already_initialized) mpi_parallel::finalize();
+      return stat;
   } // test_Green_function
 
   inline status_t all_tests(int const echo=0) {

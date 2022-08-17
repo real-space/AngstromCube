@@ -32,7 +32,7 @@ namespace global_coordinates {
 
   inline status_t get(uint32_t xyz[3], int64_t i63) {
       // retrieve global_coordinates from i63 identifyer
-      // mind that the coordinates will be cast into the half-open range [0, 2^21)
+      // coordinates will be cast into the half-open range [0, 2^21)
       uint32_t x{0}, y{0}, z{0};
       for (int b21 = 0; b21 < 21; ++b21) {
           x |= (i63 & 0x1) << b21;   i63 >>= 1;
@@ -49,6 +49,18 @@ namespace global_coordinates {
       int32_t  constexpr b21 = 1 << 21;
       return int32_t(xyz) - (xyz >= b20)*b21; // subtract 2^21 if larger equal 2^20
   } // get
+
+  inline status_t get(int32_t xyz[3], int64_t i63) {
+      // retrieve global_coordinates from i63 identifyer
+      // coordinates will be cast into the half-open range [-2^20, 2^20)
+      uint32_t uxyz[3];
+      auto const stat = get(uxyz, i63);
+      for (int d = 0; d < 3; ++d) {
+          xyz[d] = get(uxyz[d]);
+      } // d
+      return stat;
+  } // get
+
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
