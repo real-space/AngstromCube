@@ -98,7 +98,7 @@ namespace control {
                       int const line = std::get<2>(pair.second);
                       bool const is_default = (default_value_tag == line);
                       if (show_default || !is_default) {
-                          auto const string = std::get<0>(pair.second);
+                          auto const & string = std::get<0>(pair.second);
                           double const numeric = string2double(string.c_str());
                           char buffer[32]; double2string(buffer, numeric);
                           if (show_details) {

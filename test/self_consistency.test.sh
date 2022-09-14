@@ -23,14 +23,14 @@ exe=../src/a43
 # printf " 1 \n#cell 8 8 8 i i i \n" > $base.xyz
 # echo "C  0 0 0" >> $base.xyz
 
-base=scf.methane
-printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
-dist=0.63
-echo "C  0 0 0"                 >> $base.xyz
-echo "H   -$dist -$dist -$dist" >> $base.xyz
-echo "H    $dist  $dist -$dist" >> $base.xyz
-echo "H    $dist -$dist  $dist" >> $base.xyz
-echo "H   -$dist  $dist  $dist" >> $base.xyz
+# base=scf.methane
+# printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
+# dist=0.63
+# echo "C  0 0 0"                 >> $base.xyz
+# echo "H   -$dist -$dist -$dist" >> $base.xyz
+# echo "H    $dist  $dist -$dist" >> $base.xyz
+# echo "H    $dist -$dist  $dist" >> $base.xyz
+# echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
 # printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
@@ -82,17 +82,17 @@ echo "H   -$dist  $dist  $dist" >> $base.xyz
 # echo "Au   -1.016  1.016  1.016" >> $base.xyz
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
-# base=scf.C-diamond
-# printf " 8 \n#cell 3.536 3.536 3.536 p p p \n" > $base.xyz
-# ## 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
-# echo "C  -1.326 -1.326 -1.326" >> $base.xyz
-# echo "C   0.442  0.442 -1.326" >> $base.xyz
-# echo "C  -0.442 -0.442 -0.442" >> $base.xyz
-# echo "C   1.326  1.326 -0.442" >> $base.xyz
-# echo "C  -1.326  0.442  0.442" >> $base.xyz
-# echo "C   0.442 -1.326  0.442" >> $base.xyz
-# echo "C  -0.442  1.326  1.326" >> $base.xyz
-# echo "C   1.326 -0.442  1.326" >> $base.xyz
+base=scf.C-diamond
+printf " 8 \n#cell 3.536 3.536 3.536 p p p \n" > $base.xyz
+## 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
+echo "C  -1.326 -1.326 -1.326" >> $base.xyz
+echo "C   0.442  0.442 -1.326" >> $base.xyz
+echo "C  -0.442 -0.442 -0.442" >> $base.xyz
+echo "C   1.326  1.326 -0.442" >> $base.xyz
+echo "C  -1.326  0.442  0.442" >> $base.xyz
+echo "C   0.442 -1.326  0.442" >> $base.xyz
+echo "C  -0.442  1.326  1.326" >> $base.xyz
+echo "C   1.326 -0.442  1.326" >> $base.xyz
 
 # base=scf.C_chain.sho
 # printf " 1 \n#cell 1.420282 10 10 p p p \n" > $base.xyz
@@ -163,8 +163,8 @@ element_H="1s* 1 0 2p | 0.9 sigma .25 V=parabola"
 element_C="2s* 2 2p* 2 0 3d | 1.2 sigma .43 V=parabola"
 
 element_Al="3s* 2 3p* 1 0 3d | 2.05 sigma .645"
+element_Si="3s* 2 3p* 2 0 3d | 2.0 sigma .643"
 element_P=" 3s* 2 3p* 3 0 3d | 1.8 sigma .512"
-
 
 ## partial wave method {recreate_second, energy_ordering, classical, ...}
 # single_atom.partial.wave.method=recreate_second
@@ -183,7 +183,7 @@ single_atom.echo=3
 # single_atom.nn.limit=2
 
 ## bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
-single_atom.echo.mask=3
+single_atom.echo.mask=1
 
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
 # single_atom.optimize.sigma=1
@@ -234,7 +234,7 @@ grid.eigensolver.repeat=9
 start.waves.scale.sigma=6
 
 ## load start waves from file (basis=grid), store wave functions to file
-#start.waves=$base.waves.dat
+start.waves=$base.waves.dat
 store.waves=$base.waves.dat
 
 ## configuration for basis=pw

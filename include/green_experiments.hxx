@@ -87,7 +87,10 @@ namespace green_experiments {
           if (echo > 0) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
           green_function::update_phases(p, k_point, Noco, echo);
 
-          double max_resonance{-9e9}, E_resonance{-9};
+          double E_resonance{-9};
+#ifdef  HAS_TFQMRGPU
+          double max_resonance{-9e9};
+#endif // HAS_TFQMRGPU
           for (int iE = 0; iE < nE; ++iE) {
               double const E_real = iE*dE + E0;
               std::complex<double> E_param(E_real, E_imag);

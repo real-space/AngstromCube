@@ -14,7 +14,7 @@
 #include "status.hxx" // status_t
 
 namespace fermi_distribution {
-  
+
   template <typename real_t> inline
   real_t FermiDirac(real_t const x, real_t *derivative=nullptr) { 
       if (std::abs(x) > 36) {
@@ -95,7 +95,7 @@ namespace fermi_distribution {
       if (number_of_electrons > nstates*spinfactor) {
           warn("unable to host %g electrons in %g states (spin factor is %d)", number_of_electrons, nstates, spinfactor);
       }
-      
+
       double const n_electrons = number_of_electrons/spinfactor;
       double const kTinv = 1./std::max(1e-9, kT);
 
@@ -131,7 +131,7 @@ namespace fermi_distribution {
       if (res > 1e-9) {
           warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res*spinfactor, iter); 
       } else {
-          if (echo > 3) std::printf("# %s at %.9f %s has a DOS of %g states\n", __func__, eF*eV, _eV, DoS*kT*spinfactor);
+          if (echo > 3) std::printf("# %s at %.9f %s has a DoS of %g states\n", __func__, eF*eV, _eV, DoS*kT*spinfactor);
       }
       if (DoS_at_eF) *DoS_at_eF = DoS;
       return eF;
@@ -204,7 +204,7 @@ namespace fermi_distribution {
       inline double minimum_temperature() const { return 1e-9; }
 
       inline bool is_initialized() const { return (Fermi_level_not_initialized != _mu); }
-      
+
       void set_Fermi_level(double const E_Fermi=Fermi_level_not_initialized, int const echo=0) {
           _mu = E_Fermi;
           if (Fermi_level_not_initialized != _mu) {
@@ -213,7 +213,7 @@ namespace fermi_distribution {
               if (echo > 0) std::printf("# reset FermiLevel\n");
           }
       } // set_Fermi_level
-      
+
       void add(double const E_Fermi, double const weight=1, int const echo=0) { _accu.add(E_Fermi, std::max(weight, 0.0)); }
 
       template <typename real_t>

@@ -1878,7 +1878,7 @@ namespace single_atom {
 #endif // DEVEL
 
         char const method = ('?' != generation_method) ? generation_method :
-                      *control::get("single_atom.partial.wave.method", "r");
+                      *control::get("single_atom.partial.wave.method", "recreate_second");
 
         int const Gram_Schmidt_iterations = (GS_iterations >= 0) ? GS_iterations :
                               control::get("single_atom.gram.schmidt.repeat", 2.);
@@ -2046,7 +2046,7 @@ namespace single_atom {
 
 //                 if (echo > 1) std::printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
                 show_state_analysis(echo - 5, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name(valence), ir_cut[TRU]);
-                
+
                 if (recreate_second == method && '*' == partial_wave_char[iln] && 1 == nrn) {
                     if (echo > 7) std::printf("\n# %s recreate_second for %s\n", label, vs.tag);
                     int const iln0 = ln_off + (nrn - 1); // index of the previous partial wave

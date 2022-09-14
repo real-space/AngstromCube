@@ -523,10 +523,10 @@ namespace sigma_config {
   status_t test_parsing(int const echo=0) {
 
       int const iZ_show = control::get("sigma_config.test.Z", -120); // use -127 to check also the custom configuration strings and vacuum
+      if (echo > 0) std::printf("# running with +sigma_config.test.Z=%i\n", iZ_show);
       if (iZ_show >= 0) {
 
           // parse one selected element and show the configuration string used
-          if (echo > 0) std::printf("\n# running with +sigma_config.test.Z=%i\n", iZ_show);
           char Sy[4];
           auto const iZ = chemical_symbol::get(Sy, iZ_show);
           char const *actual_config{nullptr};

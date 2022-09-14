@@ -43,13 +43,14 @@
 \newcommand{\bra}[1]{\left\langle #1 \right|}
 \newcommand{\braket}[2]{\left\langle \left. #1 \right| #2 \right\rangle}
 \newcommand{\braketop}[3]{\left\langle \left. #1 \right| #2 \left| #3 \right. \right\rangle}
-\newcommand{\codename}{A4cube}
+\newcommand{\fullcodename}{\AA{}ngstr\"{o}mCube}
+\newcommand{\codename}{A43}
 
 \begin{document}
 \pagestyle{plain}
 
-\title       {\codename{} - User Manual}
-\titlerunning{\codename{}}
+\title       {\fullcodename{} User Manual}
+\titlerunning{\codename{} User Manual}
 
 \author{%
   Paul F.~Baumeister\inst{1} % \and %
@@ -207,7 +208,7 @@ This helps to keep the code base small and, hence, maintainable.
 
 \section{Basic Handling} \label{sec:basic-handling}
 %
-\codename{} comes as a single executable named \ttt{a43} which
+\fullcodename{} or short \codename{} comes as a single executable named \ttt{a43} which
 offers many functionalities accessible by options. Type \ttt{./a43 -h}
 to get a first help function:
 \begin{verbatim}
@@ -262,7 +263,7 @@ Meaning of verbosity levels
      0 & No output whatsoever \\
      1 & Minimal output       \\
      3 & Default low          \\
-   5-7 & High detail          \\
+  5--7 & High detail          \\
    $\geq$ 8 & Debugging       \\
 \hline
 \end{tabular}
@@ -376,8 +377,8 @@ enables useful syntax highlighting in common text editors.
 Lines in a control file are either 
 \begin{itemize}
     \item empty
-    \item silent commented starting from \ttt{\#}
-    \item commented with \ttt{\#!} which appears in the log output or
+    \item silent comments starting from \ttt{\#}
+    \item comments with \ttt{\#!} which appear in the log output or
     \item $variablename$\ttt{=}$value$
 \end{itemize}
 where $value$ is the string between \ttt{=} and the line end and may contain whitespace characters.
@@ -391,9 +392,28 @@ A repeated $variablename$ will launch a warning about redefinition.
 
 \subsubsection{List of Control Variables}
 %
-Use \ttt{+control.show=1} to display all environment variables used during a successful execution.
+Use e.g.~\ttt{+control.show=1} to display all used environment variables used during a successful execution.
+Set \ttt{+control.show=2} to show only the unused variables, \ttt{4} for those variables have their default values, \ttt{6} for both.
+In order to get information where the variable's value originated and how many times it was used, invert the same number as above into their negatives, i.e.~\ttt{-1}, \ttt{-2}, \ttt{-4} and \ttt{-6}.
+See Tab \ref{tab:control-show-details} for decoding. 
 %
 %
+\begin{table}[ht!]
+\caption[Variable value origins]{
+Variable value origins
+} \label{tab:control-show-details}
+\centering
+\begin{tabular}{|l|l|}
+\hline
+  	 \ttt{Detail}    & Meaning   \\
+\hline
+     \verb+def  0+   & Variable has its default value      \\
+     \verb+set  0+   & Value was set using \ttt{control::set()} \\
+     \ttt{argv \#}   & Command line argument number \\
+     \ttt{line \#}   & Line number in the \ttt{control.file} \\
+\hline
+\end{tabular}
+\end{table}
 
 
 \subsection{Parallel Computing} \label{sec:parallelization}

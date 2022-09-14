@@ -207,6 +207,47 @@ namespace load_balancer {
       return load_now;
   } // plane_balancer
 
+
+  template <typename int_t>
+  inline double get(
+        uint32_t const comm_size
+      , int32_t  const comm_rank
+      , int_t const nb[3]
+      , int const echo=0
+      , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
+      , int32_t *owner_rank=nullptr // export the rank of each task
+  ) {
+      // distribute a rectangular box of nb[X] x nb[Y] x nb[Z] with all weights 1
+
+      assert(0 <= comm_rank && comm_rank < comm_size);
+      auto const nall = size_t(nb[X])*size_t(nb[Y])*size_t(nb[Z]);
+      assert(nall > 0);
+      assert(nall <= (size_t(1) << 32) && "uint32_t is not long enough!");
+
+      double w8sum_all{0};
+      int constexpr W = 3;
+      view2D<float> xyzw(nall, 4, 0.f);
+      std::vector<double> w8s(nall, 0);
+
+      for (int iz = 0; iz < nb[Z]; ++iz) {
+      for (int iy = 0; iy < nb[Y]; ++iy) {
+      for (int ix = 0; ix < nb[X]; ++ix) {
+          auto const iall = size_t(iz*nb[Y] + iy)*nb[X] + ix;
+//        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
+          auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
+          w8s[iall]    = w8;
+          w8sum_all   += w8;
+          xyzw(iall,W) = w8;
+          xyzw(iall,X) = ix;
+          xyzw(iall,Y) = iy;
+          xyzw(iall,Z) = iz;
+      }}} // ix iy iz
+
+      return plane_balancer(comm_size, comm_rank, nall, xyzw, w8s.data(), w8sum_all, echo
+                                          , rank_center, owner_rank);
+  } // get
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

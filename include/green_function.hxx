@@ -55,6 +55,8 @@
 #include "control.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
 //int8_t constexpr Isolated_Boundary = 0, Periodic_Boundary = 1;
+#include "load_balancer.hxx" // ::get
+
 
  /*
   *  Future plan:
@@ -481,42 +483,67 @@ namespace green_function {
 
 
   std::vector<int64_t> get_right_hand_sides(
-        int32_t const n_original_Veff_blocks[3]
-      , int const source_cube=1
+        int32_t const nb[3] // number of blocks
       , int const echo=0
   ) {
-      // generate a box of sources
-      int32_t n_source_blocks[3] = {0, 0, 0};
-      for (int d = 0; d < 3; ++d) {
-          n_source_blocks[d] = n_original_Veff_blocks[d];
-          if (source_cube) n_source_blocks[d] = std::min(n_original_Veff_blocks[d], source_cube);
-      } // d
-      if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
-      if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
+      std::vector<int64_t> global_source_indices;
+      uint32_t nrhs{0};
+      int const fake_size = control::get("green_function.fake.comm", 0.);
+      auto const comm_size = (fake_size > 0) ? fake_size : mpi_parallel::size();
+      if (comm_size > 1) {
+          size_t const nall = size_t(nb[Z]) * size_t(nb[Y]) * size_t(nb[X]);
+          if (echo > 3) std::printf("# MPI parallelization of %ld right hand sides\n", nall);
+          assert(nall > 0);
+          int const fake_rank = control::get("green_function.fake.rank", fake_size - 1.);
+          auto const comm_rank = (fake_rank > -1) ? fake_rank : mpi_parallel::rank();
+          std::vector<int32_t> owner_rank(nall, -1);
+          double rank_center[4];
+          load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
+          nrhs = size_t(rank_center[3]);
+          std::printf("# rank#%d of %d procs has %d tasks\n", comm_rank, comm_size, nrhs);
+          global_source_indices.resize(nrhs, 0);
+          uint32_t irhs{0};
+          for (size_t iall = 0; iall < nall; ++iall) {
+              if (comm_rank == owner_rank[iall]) {
+                  // assume that iall == (iz*n[Y] + iy)*n[X] + ix;
+                  int32_t const iz = iall/(nb[X]*nb[Y]);
+                  int32_t const iy = (iall - iz*nb[X]*nb[Y])/nb[X];
+                  int32_t const ix = iall - iz*nb[X]*nb[Y] - iy*nb[X];
+                  global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
+                  ++irhs;
+              }
+          } // iall
+          assert(nrhs == irhs);
+      } else {
 
-      // we assume that the source blocks lie compact and preferably close to each other
+          int const source_cube = control::get("green_function.source.cube", 1.);
+          // generate a box of sources
+          int32_t n_source_blocks[3] = {0, 0, 0};
+          for (int d = 0; d < 3; ++d) {
+              n_source_blocks[d] = nb[d];
+              if (source_cube) n_source_blocks[d] = std::min(nb[d], source_cube);
+          } // d
+          if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
+          if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
 
-      // determine the largest and smallest indices of target blocks
-      // given a max distance r_trunc between source blocks and target blocks
+          uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
 
-      // assume that the source blocks lie compact in space
-      uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
+          global_source_indices.resize(nrhs, 0);
+
+          uint32_t irhs{0};
+          for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
+          for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
+          for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
+              int32_t const ibxyz[3] = {ibx + (nb[X] - n_source_blocks[X])/2,
+                                        iby + (nb[Y] - n_source_blocks[Y])/2,
+                                        ibz + (nb[Z] - n_source_blocks[Z])/2};
+              global_source_indices[irhs] = global_coordinates::get(ibxyz);
+              ++irhs;
+          }}} // xyz
+          assert(nrhs == irhs);
+      }
+
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
-
-      std::vector<int64_t> global_source_indices(nrhs, 0);
-
-      uint32_t irhs{0};
-      for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
-      for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
-      for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-          int32_t const ibxyz[] = {ibx + (n_original_Veff_blocks[X] - n_source_blocks[X])/2,
-                                   iby + (n_original_Veff_blocks[Y] - n_source_blocks[Y])/2,
-                                   ibz + (n_original_Veff_blocks[Z] - n_source_blocks[Z])/2};
-          global_source_indices[irhs] = global_coordinates::get(ibxyz);
-          ++irhs;
-      }}} // xyz
-      assert(nrhs == irhs);
-
       return global_source_indices;
   } // get_right_hand_sides
 
@@ -601,34 +628,17 @@ namespace green_function {
               ng[X]*1e-6*ng[Y]*ng[Z], n_all_Veff_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
       } // echo
 
-#if 0
-      int32_t const source_cube = control::get("green_function.source.cube", 1.);
-      int32_t n_source_blocks[3] = {0, 0, 0};
-      for (int d = 0; d < 3; ++d) {
-          n_source_blocks[d] = n_original_Veff_blocks[d];
-          if (source_cube) n_source_blocks[d] = std::min(n_original_Veff_blocks[d], source_cube);
-      } // d
-      if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
-      if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
-
-      // we assume that the source blocks lie compact and preferably close to each other
-
-      // determine the largest and smallest indices of target blocks
-      // given a max distance r_trunc between source blocks and target blocks
-
-      // assume that the source blocks lie compact in space
-      uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
-      p.global_source_indices.resize(nrhs, -1); // [nrhs]
-#else  // 0
-      p.global_source_indices = get_right_hand_sides(n_original_Veff_blocks, control::get("green_function.source.cube", 1.), echo); // need MPI parallelization here
+      // we assume that the source blocks lie compact in space and preferably close to each other
+      p.global_source_indices = get_right_hand_sides(n_original_Veff_blocks, echo); // need MPI parallelization here
       uint32_t const nrhs = p.global_source_indices.size();
-#endif // 0
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
 
       view2D<int32_t> global_source_coords(nrhs, 4, 0);
       p.nCols = nrhs;
       double center_of_mass_RHS[] = {0, 0, 0};
       double center_of_RHSs[]     = {0, 0, 0};
+      // determine the largest and smallest indices of target blocks
+      // given a max distance r_trunc between source blocks and target blocks
       int32_t constexpr MinMaxLim = 1 << 22;
       int32_t max_global_source_coords[] = {-MinMaxLim, -MinMaxLim, -MinMaxLim};
       int32_t min_global_source_coords[] = { MinMaxLim,  MinMaxLim,  MinMaxLim};
@@ -637,27 +647,6 @@ namespace green_function {
       double max_distance_from_center{0};
       { // scope: determine min, max, center
           double const by_nrhs = 1./std::max(1., double(nrhs));
-#if 0
-          {   uint32_t irhs{0};
-              for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
-              for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
-              for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-                  int32_t const ibxyz[] = {ibx + (n_original_Veff_blocks[X] - n_source_blocks[X])/2,
-                                           iby + (n_original_Veff_blocks[Y] - n_source_blocks[Y])/2,
-                                           ibz + (n_original_Veff_blocks[Z] - n_source_blocks[Z])/2, 0};
-                  set(global_source_coords[irhs], 4, ibxyz);
-                  p.global_source_indices[irhs] = global_coordinates::get(ibxyz);
-                  for (int d = 0; d < 3; ++d) {
-                      int32_t const rhs_coord = global_source_coords(irhs,d);
-                      center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d]*by_nrhs;
-                      min_global_source_coords[d] = std::min(min_global_source_coords[d], rhs_coord);
-                      max_global_source_coords[d] = std::max(max_global_source_coords[d], rhs_coord);
-                  } // d
-                  ++irhs;
-              }}} // xyz
-              assert(nrhs == irhs);
-          } // irhs
-#else // 0
           for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
               global_coordinates::get(global_source_coords[irhs], p.global_source_indices[irhs]);
               for (int d = 0; d < 3; ++d) {
@@ -667,7 +656,6 @@ namespace green_function {
                   max_global_source_coords[d] = std::max(max_global_source_coords[d], rhs_coord);
               } // d
           } // irhs
-#endif // 0
           if (echo > 0) std::printf("# all sources within (%s) and (%s)\n",
               str(min_global_source_coords), str(max_global_source_coords));
 
@@ -1267,6 +1255,7 @@ namespace green_function {
       auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
+          if (!already_initialized) mpi_parallel::finalize();
           return stat;
       } // stat
 
@@ -1294,6 +1283,7 @@ namespace green_function {
               case 811: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
 #endif // HAS_TFQMRGPU
               default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", action);
+                       ++stat;
           } // switch action
       } // n_iterations < 0
 
