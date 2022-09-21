@@ -76,8 +76,8 @@ namespace davidson_solver {
           s[jket] = tmp*factor; // init
       } // jket
   } // vector_norm2s
-  
-  
+
+
   template <typename real_t>
   void show_matrix(
         real_t const mat[]
@@ -350,7 +350,7 @@ namespace davidson_solver {
       stat += test_eigensolve<std::complex<double>>(echo);
       stat += test_eigensolve<std::complex<float>> (echo);
       stat += test_eigensolve<double>(echo);
-      stat += test_eigensolve<float> (echo); // test complation and convergence
+      stat += test_eigensolve<float> (echo); // test compilation and convergence
       return stat;
   } // all_tests
 

@@ -32,4 +32,4 @@ char const element_symbols[] =
 #ifdef __cplusplus
 } // extern "C"
 #endif
-  
+

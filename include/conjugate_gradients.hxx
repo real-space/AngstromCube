@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::fflush, stdout, std::snprintf
-#include <complex> // std::real, std::imag
+#include <cstdio> // std::printf, ::fflush, stdout, ::snprintf
+#include <complex> // std::real, ::imag
 #include <vector> // std::vector<T>
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
@@ -351,7 +351,7 @@ namespace conjugate_gradients {
       stat += test_eigensolve<std::complex<double>>(echo);
       stat += test_eigensolve<std::complex<float>> (echo);
       stat += test_eigensolve<double>(echo);
-      stat += test_eigensolve<float> (echo); // test complation and convergence
+      stat += test_eigensolve<float> (echo); // test compilation and convergence
       return stat;
   } // all_tests
 

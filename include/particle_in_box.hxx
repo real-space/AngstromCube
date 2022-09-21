@@ -1,6 +1,6 @@
 /*
- *  This file is meant to be include inside the namespaces 
- *      davidson_solver 
+ *  This file is meant to be include inside the namespaces
+ *      davidson_solver
  *  and 
  *      conjugate_gradients
  *  as it will envoke eigensolve(...) from them.
@@ -36,9 +36,9 @@
       if (0 == swm) { // scope: create good start wave functions
           double const k = constants::pi/8.78; // ground state wave vector
           double wxyz[8] = {1, 0,0,0, 0,0,0, 0};
-          for (int iz = 0; iz < g('z'); ++iz) { wxyz[3] = iz - 3.5; double const cos_z = std::cos(k*wxyz[3]);
-          for (int iy = 0; iy < g('y'); ++iy) { wxyz[2] = iy - 3.5; double const cos_y = std::cos(k*wxyz[2]);
-          for (int ix = 0; ix < g('x'); ++ix) { wxyz[1] = ix - 3.5; double const cos_x = std::cos(k*wxyz[1]);
+          for (int iz = 0; iz < g('z'); ++iz) { wxyz[3] = iz - 3.5; auto const cos_z = std::cos(k*wxyz[3]);
+          for (int iy = 0; iy < g('y'); ++iy) { wxyz[2] = iy - 3.5; auto const cos_y = std::cos(k*wxyz[2]);
+          for (int ix = 0; ix < g('x'); ++ix) { wxyz[1] = ix - 3.5; auto const cos_x = std::cos(k*wxyz[1]);
               if (nbands > 4) {
                   wxyz[4] = wxyz[1]*wxyz[2]; // x*y (ell=2)
                   wxyz[5] = wxyz[2]*wxyz[3]; // y*z (ell=2)

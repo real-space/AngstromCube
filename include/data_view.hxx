@@ -35,7 +35,7 @@ namespace data_view {
 template <typename T>
 class view2D {
 public:
-  
+
   view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown), _mem(0) { 
       // debug_printf("# view2D() default constructor\n");
   } // default constructor
@@ -180,12 +180,12 @@ private:
       } // n
   } // gemm
 
-         
-         
+
+
 template <typename T>
 class view3D {
 public:
-  
+
   view3D() : _data(nullptr), _n0(0), _n1(0), _n2(DimUnknown), _mem(0) { } // default constructor
 
   view3D(T* const ptr, size_t const n1, size_t const stride)
@@ -236,7 +236,7 @@ public:
   //     _mem  = 0; // we are just a shallow copy
   //     return *this;
   // } // move assignment
-  
+
 #define _VIEW3D_HAS_PARENTHESIS
 #ifdef  _VIEW3D_HAS_PARENTHESIS
 #define _access return _data[(i2*_n1 + i1)*_n0 + i0]
@@ -246,7 +246,7 @@ public:
       CHECK_INDEX(_n1, i1, 1);
       CHECK_INDEX(_n0, i0, 0);
       _access; }
-      
+
   T       & operator () (size_t const i2, size_t const i1, size_t const i0)       {
       if (_n2 > DimUnknown)
       CHECK_INDEX(_n2, i2, 2);
@@ -304,7 +304,7 @@ inline void set(view3D<T> & y, size_t const n2, T const a) {
 template <typename T>
 class view4D {
 public:
-  
+
   view4D() : _data(nullptr), _n0(0), _n1(0), _n2(0), _n3(DimUnknown) { } // default constructor
 
   view4D(T* const ptr, size_t const n2, size_t const n1, size_t const stride) 
@@ -357,7 +357,7 @@ public:
   //     _mem  = 0; // we are just a shallow copy
   //     return *this;
   // } // move assignment
-  
+
 #define _VIEW4D_HAS_PARENTHESIS
 #ifdef  _VIEW4D_HAS_PARENTHESIS
 #define _access return _data[((i3*_n2 + i2)*_n1 + i1)*_n0 + i0]
@@ -388,7 +388,7 @@ public:
       CHECK_INDEX(_n2, i2, 2);
       CHECK_INDEX(_n1, i1, 1);
       _access; }
-      
+
   T*       operator () (size_t const i3, size_t const i2, size_t const i1)       {
       if (_n3 > DimUnknown)
       CHECK_INDEX(_n3, i3, 3);
@@ -446,7 +446,7 @@ namespace data_view {
 
   inline int test_view2D(int const echo=9) {
       int constexpr n1 = 3, n0 = 5;
-      if (echo > 0) std::printf("\n# %s(%i,%i)\n", __func__, n1, n0);
+      if (echo > 3) std::printf("\n# %s(%i,%i)\n", __func__, n1, n0);
 
       // view2D<double> a(n1,8); // memory allocation
       auto a = view2D<double>(n1,8);
@@ -455,26 +455,24 @@ namespace data_view {
           for (int j = 0; j < n0; ++j) {
               #ifdef _VIEW2D_HAS_PARENTHESIS
               a(i,j) = i + 0.1*j;
-              if (echo > 0) std::printf("# a2D(%i,%i) = %g\n", i, j, a(i,j));
+              if (echo > 3) std::printf("# a2D(%i,%i) = %g\n", i,j, a(i,j));
 //               assert(a.at(i,j) == a[i][j]);
               assert(a(i,j) == a[i][j]);
               #else
-              a[i][j] = i + 0.1*j;
-              if (echo > 0) std::printf("# a2D(%i,%i) = %g\n", i, j, a[i][j]);
+                #error "view2D needs parenthesis!"
               #endif
           } // j
       } // i
 
       int ii = 1;
-      if (echo > 0) std::printf("\n# ai = a1D[%i][:]\n", ii);
+      if (echo > 3) std::printf("\n# ai = a1D[%i][:]\n", ii);
       auto const ai = a[ii]; // pointer into contiguous memory
       for (int j = 0; j < n0; ++j) {
-          if (echo > 0) std::printf("# ai[%i] = %g\n", j, ai[j]);
+          if (echo > 3) std::printf("# ai[%i] = %g\n", j, ai[j]);
           #ifdef _VIEW2D_HAS_PARENTHESIS
-//           assert(a.at(ii,j) == ai[j]);
           assert(a(ii,j) == ai[j]);
           #else
-          assert(a[ii][j] == ai[j]);
+            #error "view2D needs parenthesis!"
           #endif
       } // j
 
@@ -483,30 +481,52 @@ namespace data_view {
 
   inline int test_view3D(int const echo=9) {
       int constexpr n2 = 3, n1 = 2, n0 = 5;
-      if (echo > 0) std::printf("\n# %s(%i,%i,%i)\n", __func__, n2, n1, n0);
-      view3D<double> a(n2,n1,8); // memory allocation
+      if (echo > 3) std::printf("\n# %s(%i,%i,%i)\n", __func__, n2, n1, n0);
+      view3D<float> a(n2,n1,8); // memory allocation with stride padding
       assert(a.stride() >= n0);
       for (int h = 0; h < n2; ++h) {
         for (int i = 0; i < n1; ++i) {
           for (int j = 0; j < n0; ++j) {
               a(h,i,j) = h + 0.1*i + 0.01*j;
-              if (echo > 0) std::printf("# a3D(%i,%i,%i) = %g\n", h, i, j, a(h,i,j));
+              if (echo > 5) std::printf("# a3D(%i,%i,%i) = %g\n", h,i,j, a(h,i,j));
               #ifdef _VIEW3D_HAS_INDEXING
               assert(a(h,i,j) == a[h][i][j]);
               #endif
           } // j
-        } // h
-      } // i
+        } // i
+      } // h
 
       return 0;
   } // test_view3D
 
-  inline status_t test_bench_view2D(int const echo=1) {
+  inline int test_view4D(int const echo=9) {
+      int constexpr n3 = 1, n2 = 2, n1 = 3, n0 = 4;
+      if (echo > 3) std::printf("\n# %s(%i,%i,%i,%i)\n", __func__, n3, n2, n1, n0);
+      view4D<float> a(n3,n2,n1,n0); // memory allocation
+      assert(a.stride() >= n0);
+      for (int g = 0; g < n3; ++g) {
+        for (int h = 0; h < n2; ++h) {
+          for (int i = 0; i < n1; ++i) {
+            for (int j = 0; j < n0; ++j) {
+                a(g,h,i,j) = g*10 + h + 0.1*i + 0.01*j;
+                if (echo > 7) std::printf("# a4D(%i,%i,%i,%i) = %g\n", g,h,i,j, a(g,h,i,j));
+                #ifdef _VIEW4D_HAS_INDEXING
+                assert(a(g,h,i,j) == a[g][h][i][j]);
+                #endif
+            } // j
+          } // i
+        } // h
+      } // g
+
+      return 0;
+  } // test_view4D
+
+  inline status_t test_bench_view2D(int const echo=1, int const nrep=1e7) {
 #ifdef DEVEL
+      // benchmark which way is faster, [][] or (,)
       if (echo < 1) return 0;
       view2D<int> a(2, 2, 0);
-      int const nrep = 1e7; // int(control::get("data_view.bench.nrepeat", 2e7));
-      {   SimpleTimer t(__FILE__, __LINE__, "a[i][j]");
+      {   SimpleTimer t(__FILE__, __LINE__, "a[i][j]", echo);
           for (int irep = 0; irep < nrep; ++irep) {
               a[1][1] = a[1][0];
               a[1][0] = a[0][1];
@@ -514,17 +534,17 @@ namespace data_view {
               a[0][0] = irep;
           } // irep
       } // timer
-      std::printf("# a[i][j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
+      if (echo > 3) std::printf("# a[i][j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
       std::fflush(stdout);
-      {   SimpleTimer t(__FILE__, __LINE__, "a(i,j)");
+      {   SimpleTimer t(__FILE__, __LINE__, "a(i,j)", echo);
           for (int irep = 0; irep < nrep; ++irep) {
               a(1,1) = a(1,0);
-              a(1,0) = a(0,1); // This version is 1.5x faster
+              a(1,0) = a(0,1); // This version is about 1.5x slower
               a(0,1) = a(0,0);
               a(0,0) = irep;
           } // irep
       } // timer
-      std::printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
+      if (echo > 3) std::printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
       std::fflush(stdout);
 #endif // DEVEL
       return 0;
@@ -534,11 +554,12 @@ namespace data_view {
       status_t status = 0;
       status += test_view2D(echo);
       status += test_view3D(echo);
+      status += test_view4D(echo);
       status += test_bench_view2D(echo);
       return status;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace data_view
 

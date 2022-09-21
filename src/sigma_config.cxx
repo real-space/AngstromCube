@@ -1,4 +1,4 @@
-#include <cstdio> // std::printf, std::snprintf
+#include <cstdio> // std::printf, ::snprintf
 #include <cmath> // std::floor
 #include <cstdint> // int8_t
 #include <vector> // std::vector<T>
@@ -14,8 +14,6 @@
 #include "spherical_state.hxx" // core, semicore, valence, csv_undefined, csv_name
 
 namespace sigma_config {
-
-  char const ellchar[12] = "spdfghijkl?";
 
 #define EXPERIMENTAL
 
@@ -222,11 +220,11 @@ namespace sigma_config {
         int8_t mrn;
     }; // parsed_word_t
 
-    
+
     element_t const & get(
           double const Zcore // nuclear charge
         , int const echo // =0 log-level
-        , char const **configuration // =nullptr string that has been parsed
+        , char const **configuration // =nullptr export the string that has been parsed
     ) {
         char symbol[4];
         int const iZ = chemical_symbol::get(symbol, Zcore);
@@ -245,7 +243,7 @@ namespace sigma_config {
         e.rcut = 2.;
         e.sigma = .5;
         e.numax = -1; // automatic
-        set(e.method, 16, '\0');
+        set(e.method, 15, '\0');
         set(e.nn, 8, uint8_t(0));
 
         if (nullptr == config) {
@@ -330,6 +328,8 @@ namespace sigma_config {
         int const nwords = iword; // how many words were in the string
         if (echo > 8) std::printf("# process %d words\n", nwords);
 
+        char constexpr ellchar[12] = "spdfghijkl?";
+
         if (echo > 7) {
             // repeat what was just parsed
             std::printf("# repeat config string '");
@@ -357,7 +357,7 @@ namespace sigma_config {
         std::vector<int8_t> csv(max_inl, csv_undefined);
 
         int ncmx[8]; set(ncmx, 8, 0);
-        set_default_core_shells(ncmx, e.Z);      
+        set_default_core_shells(ncmx, e.Z);
 
         int constexpr max_nstack = 4;
         double stack[max_nstack] = {0, 0, 0, 0};
@@ -373,7 +373,7 @@ namespace sigma_config {
                 if (echo > 21) std::printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
             } else if (KeyMethod == w.key) {
 //              warn("method specifier in config string for %s ignored : %s", symbol, config);
-                std::strncpy(e.method, local_potential_method + 2, 15); // +2 to strip the "v=" or "V="
+                std::strncpy(e.method, local_potential_method + 2, 14); // +2 to strip the "v=" or "V="
                 if (echo > 9) std::printf("# found local potential method = \'%s\'\n", e.method);
             } else if (KeyWarn == w.key) {
                 warn("config string for %s may be experimental: %s", symbol, config);
@@ -563,13 +563,14 @@ namespace sigma_config {
       } // iZ_show >= 0
       return 0; // success (all parsing errors are fatal)
   } // test_parsing
-  
+
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_parsing(echo);
+      if (echo > 7) std::printf("\n# %s sizeof(element_t) = %ld Byte\n", __func__, sizeof(element_t));
       return stat;
   } // all_tests
 
-#endif
+#endif // UNIT_TESTS
 
 } // namespace sigma_config

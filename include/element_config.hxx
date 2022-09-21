@@ -27,7 +27,7 @@ namespace element_config {
   } // element_symbol
 
   char const ellchar[] = "spdfgh+";
-  
+
   inline sigma_config::element_t const & get(
         double const Z_core // nuclear charge
       , double const ionization
@@ -141,7 +141,7 @@ namespace element_config {
                                                        Sy, tag,                                Sy, real_hole_charge);
                           assert(enn_hole == enn && ell_hole == ell);
                       } // core hole active
-                      
+
                       int csv{csv_undefined};
                       auto const charge_outside = show_state_analysis(echo, Sy, rg, wave.data(), tag, occ, E, "?", ir_cut);
                       if (core_state_localization > 0) {
@@ -272,7 +272,7 @@ namespace element_config {
   } // test_show_all_elements
 
 //  core electron configurations for predefined cores:
-// 
+//
 //  rare gases        [frozen d]        [frozen f]
 //  __ '    '   0
 //  He '1   '   2
@@ -282,7 +282,7 @@ namespace element_config {
 //  Xe '554 '  54     5d '5554'  78     4f '5544'  68
 //  Rn '6654'  86     6d '6665' 110     6d '6655' 100
 //  uo '7765' 118
-// 
+//
 //   1s
 //   2s 2p
 //   3s 3p 3d
