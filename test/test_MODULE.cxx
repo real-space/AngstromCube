@@ -3,7 +3,7 @@
 #include <cassert> // assert
 #include "status.hxx" // status_t
 #include "control.hxx" // ::command_line_interface, ::get
-#include "recorded_warnings.hxx" // warn, error
+// #include "recorded_warnings.hxx" // warn, error
 #include "MODULE.hxx" // ::all_tests
 int main(int const argc, char const *argv[]) {
     status_t stat(0);

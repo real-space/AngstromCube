@@ -18,10 +18,9 @@
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "rapidxml/rapidxml_utils.hpp" // ::file<>
 
-  #include "xml_reading.hxx" // ::find_attribute, ::find_child
+  #include "xml_reading.hxx" // ::find_attribute, ::find_child, ::read_sequence
 #endif // HAS_RAPIDXML
 
-#include "xml_reading.hxx" // ::read_sequence
 #include "unit_system.hxx" // eV, _eV, Ang, _Ang
 #include "print_tools.hxx" // printf_vector
 #include "control.hxx" // ::get
@@ -37,7 +36,7 @@ namespace pawxml_import {
       double e;
       float f, rc;
       int8_t n, l;
-  }; // struct pawxmlstate_t 
+  }; // struct pawxmlstate_t
 
   struct pawxml_t {
       double Z, core, valence;
@@ -247,7 +246,7 @@ namespace pawxml_import {
           p.dkin = vals; // store
       } else warn("no <kinetic_energy_differences> found in xml-file '%s'", filename);
 
-// not covert:      
+// not covered:
 //   <exact_exchange_X_matrix>  </exact_exchange_X_matrix>
 //   <exact_exchange core-core="-3.462071"/>
 
@@ -257,7 +256,7 @@ namespace pawxml_import {
   } // parse_pawxml
 
 
-      
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -303,7 +302,7 @@ namespace pawxml_import {
               } // val
               std::fprintf(f, "\n\t</%s>\n", radial_quantities[iq]);
           } // iq
-          
+
           // radial_state_quantities
           for (auto & s : p.states) {
               char id[8]; std::snprintf(id, 7, "%s-%d%c", p.Sy, s.n, ellchar[s.l]);

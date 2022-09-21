@@ -280,22 +280,24 @@ namespace fermi_distribution {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t test_integration(int const echo=3, int const n=580) {
-      if (echo > 6) std::printf("\n## %s %s (%d points)\n", __FILE__, __func__, n);
-      double s0{0}, s1{0}, dfde;
-      double const de = .0625;
-      for (int ie = -n; ie < n; ++ie) { double const e = (ie + .5)*de;
+  inline status_t test_integration(int const echo=3, int const n=580, double const de=.0625) {
+      if (echo > 6) std::printf("\n## plot Fermi-Dirac distribution (%d points)\n", n);
+      double s0{0}, s1{0};
+      for (int ie = -n; ie < n; ++ie) {
+          double const e = (ie + .5)*de;
+          double dfde;
           double const f = FermiDirac(e, &dfde);
           if (echo > 6) std::printf("%g %g %g\n", e, f, -dfde);
           s0 += f;
           s1 -= dfde;
       } // e
-      if (echo > 2) std::printf("# Fermi-Dirac distribution deviation %.1e %.1e\n", s0/n - 1, s1*de - 1);
-      return 0;
+      double const dev[] = {s0/n - 1, s1*de - 1};
+      if (echo > 2) std::printf("# Fermi-Dirac distribution deviation %.1e %.1e\n", dev[0], dev[1]);
+      return (std::abs(dev[0]) > 2e-15) + (std::abs(dev[1]) > 1e-15);
   } // test_integration
 
   inline status_t test_bisection(int const echo=3, int const n=99) {
-      if (echo > 6) std::printf("\n## %s %s (%d states)\n", __FILE__, __func__, n);
+      if (echo > 8) std::printf("\n## %s %s (%d states)\n", __FILE__, __func__, n);
       std::vector<double> ene(n), wgt(n, 1);
       for (int i = 0; i < n; ++i) ene[i] = simple_math::random(-10., 10.);
       double const eF = Fermi_level(nullptr, ene.data(), wgt.data(), n, 3e-2, n*.75, 1, echo);
@@ -305,8 +307,8 @@ namespace fermi_distribution {
 
   inline status_t test_FermiLevel_class(int const echo=0) {
       if (echo > 6) std::printf("\n# %s %s\n", __FILE__, __func__);
-      double const n_electrons = 12;
-      auto mu = FermiLevel_t(n_electrons);
+      auto const n_electrons = 12.;
+      FermiLevel_t mu(n_electrons);
       mu.set_temperature(.01, echo);
       for (double eF = -1.5; eF < 2; eF += 0.25) {
           mu.add(eF, 1, echo - 5);

@@ -5,8 +5,8 @@
 // #endif
 
 struct radial_grid_t {
-    float rmax = 0.f; // max radius
     int   n = 0; // number of points
+    float rmax = 0.f; // max radius
     double const*    r = nullptr; // r[0:n)
     double const*   dr = nullptr; // dr[0:n)
     double const*  rdr = nullptr; // r*dr[0:n)

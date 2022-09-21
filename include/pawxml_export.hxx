@@ -1,11 +1,13 @@
 #pragma once
 
-#include <cstdio> // std::printf, ::fprintf, ::FILE, ::fopen, ::fclose, ::snprintf
+#include <cstdio> // std::printf, ::fprintf, ::fopen, ::fclose, ::snprintf
+#include <vector> // std::vector<T>
 
 #include "chemical_symbol.hxx" // ::get
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::get_prefactor, ::find_grid_index, ::get_formula
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT
+#include "data_view.hxx" // view2D<T>, view3D<T>
 #include "control.hxx" // ::get
 
 namespace pawxml_export {
@@ -13,7 +15,7 @@ namespace pawxml_export {
   template <class PartialWave>
   int write_to_file(
         double const Z // number of protons in the core
-      , radial_grid_t const rg[TRU_AND_SMT] // TRU and SMT
+      , radial_grid_t const rg[TRU_AND_SMT] // TRU and SMT radial grid
       , std::vector<PartialWave> const & valence_states
       , char const valence_states_active[]
       , view3D<double> const & kinetic_energy_differences // (ts,nln,nln)
@@ -53,7 +55,7 @@ namespace pawxml_export {
       } // generate a default file name
       if (echo > 0) std::printf("# %s %s Z=%g iZ=%d filename='%s'\n", Sy, __func__, Z, iZ, filename);
 
-      std::FILE *const f = std::fopen(filename, "w");
+      auto *const f = std::fopen(filename, "w");
       if (nullptr == f) {
           if (echo > 0) std::printf("# %s %s: Error opening file '%s'", Sy, __func__, filename);
           return __LINE__;
@@ -228,5 +230,7 @@ namespace pawxml_export {
       if (echo > 3) std::printf("# %s %s file '%s' written\n", Sy, __func__, filename);
       return 0; // 0:success
   } // write_to_file
+
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 
 } // namespace pawxml_export
