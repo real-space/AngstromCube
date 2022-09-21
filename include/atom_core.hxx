@@ -57,13 +57,6 @@ namespace atom_core {
       std::sprintf(filename, "%s.%03g", basename, Z);
   } // get_Zeff_file_name
 
-  double initial_density( // returns total charge
-        double r2rho[] // result: r^2*rho_initial(r)
-      , radial_grid_t const & g // radial grid descriptor
-      , double const Z // number of protons
-      , double const charged=0 // excess electrons
-  ); // declaration only
-
   void rad_pot(
         double rV[] // result: r*V(r)
       , radial_grid_t const & g // radial grid descriptor
@@ -84,13 +77,6 @@ namespace atom_core {
       assert(enn > ell && "atomic quantum numbers"); 
       return (enn*(enn - 1))/2 + ell;
   } // nl_index
-
-  inline char ellchar(ell_QN_t const ell) {
-      char constexpr special_ellchars[] = "spd";
-      if (ell < 0) return '?';
-      if (ell < 3) return special_ellchars[ell];
-      return 99 + ell; // "fghijk ..." // ToDo: actually 'i' does not belong in here
-  } // ellchar
 
   inline double neutral_atom_total_energy_LDA(double const Z) {
       // fitting LDA total energies/Z^2 for Z=10..120

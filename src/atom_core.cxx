@@ -45,6 +45,13 @@
 
 namespace atom_core {
 
+  inline char ellchar(ell_QN_t const ell) {
+      char constexpr special_ellchars[] = "spd";
+      if (ell < 0) return '?';
+      if (ell < 3) return special_ellchars[ell];
+      return 99 + ell; // "fghijk ..." // ToDo: actually 'i' does not belong in here
+  } // ellchar
+
   enum energy_contributions {
       E_tot = 0, // total energy: E_eig - E_Htr - E_vxc + E_exc
       E_kin,     // kinetic energy: E_eig - 2 E_Htr - E_vxc - E_Cou
@@ -88,7 +95,7 @@ namespace atom_core {
         double r2rho[] // result: r^2*rho_initial(r)
       , radial_grid_t const & g // radial grid descriptor
       , double const Z // number of protons
-      , double const charged // =0 // excess electrons
+      , double const charged=0 // excess electrons
   ) {
       auto const alpha = 0.3058*std::pow(Z, 1./3.);
       auto const beta = std::sqrt(108./constants::pi)*std::max(0., Z - 2)*alpha;
@@ -246,7 +253,7 @@ namespace atom_core {
       std::vector<double> r2rho4pi(g.n);
       std::vector<double> rV_new(g.n, -Z); // init as Hydrogen-like potential
       std::vector<double> rV_old(g.n, -Z); // init as Hydrogen-like potential
-      
+
       double mix{0}; // init mixing coefficient for the potential
       double const alpha = 0.33; // limit case potential mixing coefficient
 
@@ -258,15 +265,17 @@ namespace atom_core {
 
       int icyc{0};
       { // start scope
-          bool loading_failed = (0 != int(read_Zeff_from_file(rV_old.data(), g, Z, "pot/Zeff", -1.)));
+          auto const read_stat = read_Zeff_from_file(rV_old.data(), g, Z, "pot/Zeff", -1.);
+          bool loading_failed = (0 != int(read_stat));
           full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old.data(), g.r));
 
           if (Z != std::round(Z))
 
           if (loading_failed) {
               if (Z != std::round(Z)) {
+                  auto const read_stat_noninteger = read_Zeff_from_file(rV_old.data(), g, std::round(Z), "pot/Zeff", -1);
                   // maybe loading failed because there is no file for non-integer core charges
-                  loading_failed = (0 != int(read_Zeff_from_file(rV_old.data(), g, std::round(Z), "pot/Zeff", -1)));
+                  loading_failed = (0 != int(read_stat_noninteger));
               }
               if (loading_failed) {
                 // use guess density if loading failed

@@ -395,7 +395,7 @@ namespace green_function {
           p.AtomImageLmax[iai] = atom_data[iai].numax; // SHO basis size
           if (echo > 9) std::printf("# atom image #%ld has lmax= %d\n", iai, p.AtomImageLmax[iai]);
           SHOsum[iac].push_back(uint32_t(iai));
-          set(p.AtomImagePhase[iai], 4, phase0); // TODO construct correct phases
+          set(p.AtomImagePhase[iai], 4, phase0); // TODO construct correct phases, phase0 is just a dummy
       } // iai, copy into GPU memory
 
       p.sparse_SHOsum = sparse_t<>(SHOsum, false, "SHOsum", echo);
@@ -412,7 +412,7 @@ namespace green_function {
           auto const ia = p.global_atom_index[iac];
           int const nc = sho_tools::nSHO(atom_numax[ia]);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-          p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefect sum
+          p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
           p.AtomLmax[iac] = atom_numax[ia];
           char name[64]; std::snprintf(name, 63, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
@@ -421,7 +421,7 @@ namespace green_function {
           assert(2*nc*nc <= AtomMatrices[ia].size());
           // use MPI communication to find values in atom owner processes
       } // iac
-      p.nAtoms = nac;
+      p.nAtoms = nac; // number of contributing atoms
 
       update_atom_matrices(p, E_param, AtomMatrices, Noco, echo);
 
@@ -1183,21 +1183,24 @@ namespace green_function {
 
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  void try_action(green_action::plan_t & p, int const n_iterations=1, int const echo=9) {
-      if (n_iterations >= 0) { // scope: try to apply the operator
+  void test_action(green_action::plan_t & p, int const iterations=1, int const echo=9) {
+      if (iterations >= 0) { // scope: try to apply the operator
           if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
           green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
 #ifdef  HAS_TFQMRGPU
           p.echo = echo - 5;
           if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
-          tfqmrgpu::solve(action); // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
+          // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
+          tfqmrgpu::solve(action); // compute GPU memory requirements
           if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f %s GPU memory\n", p.gpu_mem*GByte, _GByte);
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
           {   SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+
               tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
+
           } // timer
           if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
                                                              p.residuum_reached,    p.iterations_needed);
@@ -1218,25 +1221,21 @@ namespace green_function {
           auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
           set(colIndex, nnzb, p.colindx.data()); // copy into GPU memory
 
-          bool const toy = control::get("green_function.benchmark.toy", 0.);
-
           // benchmark the action
-          for (int iteration = 0; iteration < n_iterations; ++iteration) {
+          for (int iteration = 0; iteration < iterations; ++iteration) {
               SimpleTimer timer(__FILE__, __LINE__);
               if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
-              if (toy) {
-                  action.toy_multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
-              } else {
-                  action.multiply(y, x, colIndex, nnzbX, p.nCols);
-              }
+
+              action.multiply(y, x, colIndex, nnzbX, p.nCols);
+
               std::swap(x, y);
           } // iteration
 
           free_memory(colIndex);
           free_memory(y);
           free_memory(x);
-      } // n_iterations >= 0
-  } // try_action
+      } // iterations >= 0
+  } // test_action
 
 
   inline status_t test_Green_function(int const echo=0) {
@@ -1262,22 +1261,22 @@ namespace green_function {
       green_action::plan_t p;
       stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
 
-      int const n_iterations = control::get("green_function.benchmark.iterations", 1.); 
+      int const iterations = control::get("green_function.benchmark.iterations", 1.); 
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
-      if (n_iterations < 0) {
-          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
-      } else { // n_iterations < 0
+      if (iterations < 0) {
+          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", iterations);
+      } else { // iterations < 0
           // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
           int const action = control::get("green_function.benchmark.action", 412.);
           switch (action) {
-              case 422: try_action<float ,2,2>(p, n_iterations, echo); break; // complex non-collinear
-              case 822: try_action<double,2,2>(p, n_iterations, echo); break; // complex non-collinear
+              case 422: test_action<float ,2,2>(p, iterations, echo); break; // complex non-collinear
+              case 822: test_action<double,2,2>(p, iterations, echo); break; // complex non-collinear
 
-              case 412: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
-              case 812: try_action<double,2,1>(p, n_iterations, echo); break; // complex
+              case 412: test_action<float ,2,1>(p, iterations, echo); break; // complex
+              case 812: test_action<double,2,1>(p, iterations, echo); break; // complex
 #ifndef HAS_TFQMRGPU
-              case 411: try_action<float ,1,1>(p, n_iterations, echo); break; // real
-              case 811: try_action<double,1,1>(p, n_iterations, echo); break; // real
+              case 411: test_action<float ,1,1>(p, iterations, echo); break; // real
+              case 811: test_action<double,1,1>(p, iterations, echo); break; // real
 #else  // HAS_TFQMRGPU
               case 411:                                                       // real
               case 811: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
@@ -1285,7 +1284,7 @@ namespace green_function {
               default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", action);
                        ++stat;
           } // switch action
-      } // n_iterations < 0
+      } // iterations < 0
 
       if (!already_initialized) mpi_parallel::finalize();
       return stat;

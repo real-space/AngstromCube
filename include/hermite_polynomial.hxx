@@ -47,7 +47,16 @@ namespace hermite_polynomial {
       double const hg = 1.25/(1 << 9);
       if (echo > 3) std::printf("# %s: numax = %d\n", __func__, numax);
       real_t hh[M][M]; // overlap matrix
-      for (int ij = 0; ij < M*M; ++ij) { hh[0][ij] = 0; } // clear
+      double prefactor[M];
+      for (int i = 0; i < M; ++i) {
+          for (int j = 0; j < M; ++j) {
+              hh[i][j] = 0; // clear
+          } // j
+          prefactor[i] = 1;
+      } // i
+
+      double max_dev[] = {0, 0}; // {off-diagonal, diagonal}
+      for (int twice = 0; twice < 2; ++twice) {
 
       for (int ix = 0; ix < nx; ++ix) {
           real_t const x = (ix - .5*(nx - 1))*hg;
@@ -61,17 +70,18 @@ namespace hermite_polynomial {
           if (echo > 6) {
               std::printf("%g  ", x);
               for (int nu = 0; nu <= numax; ++nu) {
-                  std::printf(" %g", hp[nu]);
+                  std::printf(" %g", hp[nu]*prefactor[nu]);
               } // nu
               std::printf("\n");
           } // echo
       } // ix
       if (echo > 5) std::printf("\n\n");
 
+      if (0 == twice) { // first time
+
       for (int ij = 0; ij < M*M; ++ij) { hh[0][ij] *= hg; } // grid spacing
 
       double const pi_factor = 1./std::sqrt(constants::pi);
-      double max_dev[] = {0, 0}; // {off-diagonal, diagonal}
       for (int nu = 0; nu <= numax; ++nu) {
           double const diag = hh[nu][nu];
           if (echo > 4) std::printf("# nu = %d norm^2 = %g --> %g\n", nu, diag, diag*pi_factor*(1 << nu));
@@ -84,6 +94,7 @@ namespace hermite_polynomial {
               max_dev[d] = std::max(max_dev[d], std::abs(double(hh[nu][nup]) - d));
           } // nup
           assert(std::abs(hh[nu][nu] - 1) < 1e-7);
+          prefactor[nu] = scal;
       } // nu
 
       if (echo > 5) {
@@ -100,6 +111,10 @@ namespace hermite_polynomial {
 
       if (echo > 1) std::printf("# %s<%s> largest deviation from unit matrix is %.1e and %.1e on the"
           " diagonal\n", __func__, (sizeof(real_t) == 8)?"double":"float", max_dev[0], max_dev[1]);
+
+      } // first time
+      } // twice
+      
       return (max_dev[0] + max_dev[1] > threshold);
   } // test_Hermite_polynomials
 

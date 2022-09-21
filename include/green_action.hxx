@@ -64,7 +64,7 @@ namespace green_action {
       int8_t numax; // SHO basis size
   }; // atom_t 48 Byte, only used in CPU parts
 
-  // Suggestion: this could replace AtomPos + AtomLmax in the long run
+  // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
   struct atom_image_t {
       double pos[3]; // atom position
       float  oneoversqrtsigma; // Gaussian spread, 1/sqrt(sigma)
@@ -103,10 +103,10 @@ namespace green_action {
       int   iterations_needed   = -99;
 
       // =====================================================================================
+      // additional members to define the ultra-sparse PAW Hamiltonian action
 
       int echo = 9;
 
-      // additional members to define the action
       std::vector<int64_t> global_target_indices; // [nRows]
       std::vector<int64_t> global_source_indices; // [nCols]
       double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
@@ -168,7 +168,8 @@ namespace green_action {
   class action_t { // an action as used in tfQMRgpu
   public:
       typedef floating_point_t real_t;
-      static int constexpr LM = Noco*n64;
+      static int constexpr LM = Noco*n64,
+                           LN = LM; // LN is needed to support rectangular blocks in tfQMRgpu
       //
       // This action is an implicit linear operator onto block-sparse structured data.
       // compatible with the core algorithm of the tfqmrgpu-2.0 library.
@@ -208,6 +209,7 @@ namespace green_action {
           // but we could fill matB with unit blocks here
           // assert(p->subset.size() == p->nCols);
           // clear_on_gpu<real_t[2][LM][LM]>(matB, p->nCols);
+          // assert(LM == LM);
           // for (int icol = 0; icol < p->nCols; ++icol) {
           //     for (int i = 0; i < LM; ++i) {
           //        matB[icol][0][i][i] = real_t(1);
@@ -216,270 +218,6 @@ namespace green_action {
       } // transfer
 
       bool has_preconditioner() const { return false; }
-
-      double toy_multiply( // returns the number of flops performed
-            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
-          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
-          , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
-          , uint32_t const nnzb // == nnzb, number of nonzero blocks, typically colIndex.size()
-          , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
-          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzb
-          , cudaStream_t const streamId=0 // CUDA stream to run on
-          , bool const precondition=false
-      )
-        // Toy CPU implementation of green_kinetic and green_potential
-      {
-          auto const echo = p->echo;
-
-          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
-#ifdef HAS_NO_CUDA
-
-      // Action of the SHO-PAW Hamiltonian H onto a trial Green function G:
-      // indicies named according to H_{ij} G_{jk} = HG_{ik}
-      //                          or A_{ij} X_{jk} =  Y_{ik}
-      //
-      //      projection:
-      //      apc.set(0); // clear, WARNING: dimension of apc in comments are not up-to-date
-      //      for (jRow < nRows) // reduction
-      //        for (RowStart[jRow] <= jnz < Rowstart[jRow + 1]) // reduction
-      //          for (jai < nai) // parallel (with data-reuse on Green function element)
-      //             for (jprj < nSHO(jai))
-      //                for (k64 < 64) // vector parallel
-      //                  for (ri < R1C2) // vector parallel
-      //                    for (j64 < 64) // reduction
-      //                    {
-      //                        apc[apc_start[jai] + jprj][ColIndex[jnz]][ri][k64] +=
-      //                        sho_projector[jprj][j64] *
-      //                        G[jnz][ri][j64][k64];
-      //                    }
-//        for (int iai = 0; iai < p->natom_images; ++iai) {
-              // project at position p->atom_data[iai].pos
-              // into apc[(p->ApcStart[iai]:p->ApcStart[iai + 1])*p->nCols][2][64]
-//        } // iai
-
-      //
-      //      meanwhile: kinetic energy including the local potential
-      //      HG = finite_difference_kinetic_energy(G);
-      //      for (d < 3) // serial
-      //        for (istick < nstick[d]) // parallel
-      //          while (jnz >= 0, jnz from index_list[d][istick])
-      //            for (j4 < 4) // serial (data-reuse)
-      //              for (-8 <= imj <= 8) // reduction
-      //                for (j16 < 16) // parallel
-      //                for (ri < 2) // vector parallel
-      //                  for (k64 < 64) // vector parallel
-      //                  {
-      //                      HG[inz][ri][i4,j16][k64] +=
-      //                       G[jnz][ri][j4,j16][k64] * T_FD[|imj|]
-      //                  }
-
-          // clear y
-          for (size_t inz = 0; inz < nnzb; ++inz) {
-              for (int cij = 0; cij < R1C2*LM*LM; ++cij) {
-                  y[inz][0][0][cij] = 0;
-              } // cij
-          } // inz
-
-          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
-
-          // kinetic energy
-          auto const max_block_index = p->colindx.size();
-          for (int dd = 0; dd < 3; ++dd) { // derivative direction
-//            simple_stats::Stats<> ts;
-              auto const & fd = p->kinetic_plan[dd];
-              for (uint32_t il = 0; il < fd.nRows(); ++il) {
-//                SimpleTimer list_timer(__FILE__, __LINE__, "FD-list", 0);
-                  //
-                  // Warning: this implementation of the finite-difference stencil
-                  // is only correct for LM==1, where it performs the lowest order
-                  // kinetic energy stencil -0.5*[1 -2 1], but it features the same 
-                  // memory traffic profile as an 8th order FD-stencil for LM=64=4*4*4.
-                  //
-                  auto const *const list = fd.colIndex() + fd.rowStart()[il]; // we will load at least 2 indices from list
-
-                  real_t block[4][R1C2][LM][LM]; // 4 temporary blocks
-
-                  set(block[1][0][0], R1C2*LM*LM, real_t(0)); // initialize zero, a non-existing block
-
-                  int ilist{0}; // counter for index list
-                  int inext = list[ilist++]; // load next index of x
-                  // initially load one block in advance
-                  assert(inext > -1 && "the 1st index must be valid!");
-                  assert(inext < max_block_index);
-                  set(block[2][0][0], R1C2*LM*LM, x[inext][0][0]); // initial load of an existing block
-
-                  // main loop
-                  while (inext > -1) {
-                      auto const ihere = inext; // central index of x == index of y
-                      inext = list[ilist++]; // get next index
-                      // now ilist == 2 in the first iteration
-                      if (inext > -1) {
-                          assert(inext < max_block_index);
-                          set(block[(ilist + 1) & 0x3][0][0], R1C2*LM*LM, x[inext][0][0]); // load of an existing block
-                      } else {
-                          set(block[(ilist + 1) & 0x3][0][0], R1C2*LM*LM, real_t(0)); // non-existing block
-                      } // load
-
-                      assert(ihere > -1 && "fatal error!");
-                      // compute
-                      add_product(y[ihere][0][0], R1C2*LM*LM, block[(ilist    ) % 0x3][0][0], real_t( 1.0)); // coefficient -0.5*c_{0}    == 1
-                      add_product(y[ihere][0][0], R1C2*LM*LM, block[(ilist - 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
-                      add_product(y[ihere][0][0], R1C2*LM*LM, block[(ilist + 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
-
-                  } // while inext > -1
-//                ts.add(list_timer.stop());
-//                ts.add(ilist - 1); // how many blocks have been loaded and computed?
-              } // il
-//            if (echo > 6) std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.mean(), ts.dev(), ts.min(), ts.max());
-              // ===== synchronize to avoid race conditions on y ========
-          } // dd
-
-          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
-
-      //
-      //      when projection is done: multiply atomic matrices to projection coefficients
-      //      aac.set(0); // clear
-      //      for (iai < nai) // parallel
-      //        for (iRHS < nRHSs) // parallel
-      //          for (iprj < nSHO(iai)) // parallel
-      //            for (jprj < nSHO(iai)) // reduction
-      //              for (kprj < nSHO(iai)) // parallel
-      //                for (k64 < 64) // vector parallel
-      //                {
-      //                    aac[apc_start[iai] + iprj][iRHS][complex][k64] +=
-      //                    AtomMatricesrix[ia[iai]][iprj][jprj][complex] *
-      //                    apc[apc_start[iai] + jprj][iRHS][complex][k64];
-      //                 }
-      //                 // with indirection list ia[iai]
-      //
-      //      after both, addition:
-      //      for (iRow < nRows) // parallel
-      //        for (RowStart[iRow] <= inz < Rowstart[iRow + 1]) // parallel
-      //          for (iai < nai) // reduction
-      //            for (iprj < nSHO(iai)) // reduction
-      //              for (i64 < 64)
-      //                for (ri < 2) // vector parallel
-      //                  for (k64 < 64) // vector parallel
-      //                  {
-      //                      HG[inz][ri][i64][k64] += 
-      //                      aac[apc_start[iai] + iprj][ColIndex[inz]][ri][k64] *
-      //                      sho_projector[iprj][i64];
-      //                  }
-      //
-
-
-      //
-      //    furthermore, we have to multiply the local potential Veff[veff_index[iRow]],
-      //    the confinement potential and apply the truncation mask
-      //    which can be computed on the fly using source_coords[icol][0:2] and target_coords[iRow][0:2]
-      //    here, we need 3 numbers: inner_radius^2, truncation_radius^2, potential_prefactor and potential_power
-      //    then, if we determined d2 as the distance between any point in the source block from any other
-      //    point in the target block, we add the confinement potential
-      //        (d2 > inner_radius2)*potential_prefactor*(d2 - inner_radius2)^potential_power
-      //    where potential_power should be a template argument and then apply the mask
-      //        HG[...] *= (d2 < truncation_radius2)
-      //    to make the truncation sphere perfectly round. inner_radius2 < truncation_radius2 assumed.
-          float const truncation_radius2  = pow2(p->r_truncation);
-          float const inner_radius2       = pow2(p->r_confinement);
-          float const potential_prefactor = p->V_confinement;
-
-          double const *const hg = p->grid_spacing_trunc; // abbreviation
-
-          simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
-
-          for (uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
-              auto const *const target_coords = p->target_coords[iRow];
-
-              for (auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
-
-                  real_t V[LM]; // buffer, probably best using shared memory of the SMx
-                  if (p->veff_index[inz] >= 0) {
-                      set(V, LM, p->Veff[0][p->veff_index[inz]]); // load potential values through indirection list
-                  } else { set(V, LM, real_t(0)); }
-
-                  // apply the local effective potential to all elements in this row
-                  for (int i = 0; i < LM; ++i) {
-                      for (int c = 0; c < R1C2; ++c) add_product(y[inz][c][i], LM, x[inz][c][i], V); // real [and imag]
-                  } // i
-
-                  // apply i,j-dependent potentials like the confinement and truncation mask
-
-                  int const iCol = p->colindx[inz];
-                  auto const *const source_coords = p->source_coords[iCol];
-                  int const block_coord_diff[] = {
-                      int(source_coords[0]) - int(target_coords[0]),
-                      int(source_coords[1]) - int(target_coords[1]),
-                      int(source_coords[2]) - int(target_coords[2])};
-                  int constexpr n4 = (LM >= 64) ? 4 : 2;
-                  for (int i4z = 0; i4z < n4; ++i4z) {
-                  for (int i4y = 0; i4y < n4; ++i4y) {
-                  for (int i4x = 0; i4x < n4; ++i4x) {
-                      int const i64 = (i4z*n4 + i4y)*n4 + i4x;
-                      double vec[3];
-                      for (int j4z = 0; j4z < n4; ++j4z) { vec[2] = (block_coord_diff[2]*n4 + i4z - j4z)*hg[2];
-                      for (int j4y = 0; j4y < n4; ++j4y) { vec[1] = (block_coord_diff[1]*n4 + i4y - j4y)*hg[1];
-                      for (int j4x = 0; j4x < n4; ++j4x) { vec[0] = (block_coord_diff[0]*n4 + i4x - j4x)*hg[0];
-                          int const j64 = (j4z*n4 + j4y)*n4 + j4x;
-                          // distance^2
-                          auto const d2 = pow2(vec[0]) + pow2(vec[1]) + pow2(vec[2]);
-
-                          stats_d2.add(d2);
-//                           if (d2 > 71.18745) std::printf("# d2= %g iCol=%i (%i %i %i)*4 + (%i %i %i)  iRow=%i (%i %i %i)*4 + (%i %i %i)\n", d2,
-//                               iCol, source_coords[0], source_coords[1], source_coords[2], i4x, i4y, i4z,
-//                               iRow, target_coords[0], target_coords[1], target_coords[2], j4x, j4y, j4z);
-
-                          // confinement potential
-                          if (d2 >= inner_radius2) {
-                              // truncation mask (hard)
-                              if (d2 >= truncation_radius2) { // mask
-                                  for (int c = 0; c < R1C2; ++c) { // real and imag
-                                      y[inz][c][i64][j64] = real_t(0);
-                                  } // c
-                                  stats_outer.add(d2);
-                              } else {
-                                  real_t const V_confinement = potential_prefactor * pow4(d2 - inner_radius2); // V_confinement ~ distance^8
-                                  for (int c = 0; c < R1C2; ++c) { // real and imag
-                                      y[inz][c][i64][j64] += x[inz][c][i64][j64] * V_confinement;
-                                  } // c
-                                  stats_Vconf.add(V_confinement);
-                                  stats_conf.add(d2);
-                              }
-                          } else { // inner_radius2
-                              stats_inner.add(d2);
-                          } // inner_radius2
-                          // we can also define a soft mask: 
-                          //    for d2 < truncation_radius2: 
-                          //        y *= pow4(d2/truncation_radius2 - 1)
-                          //    else
-                          //        y = 0
-
-                      }}} // j4xyz
-                  }}} // i4xyz
-
-              } // inz
-          } // iRow
-
-          if (echo > 1) {
-              std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.mean()*eV, stats_Vconf.dev()*eV, _eV);
-              // how many grid points do we expect?
-              double const f = 4.*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
-              double const Vi = pow3(p->r_confinement)*f,
-                           Vo = pow3(p->r_truncation)*f;
-              std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
-              std::printf("# stats  inner %g conf %g outer %g grid points\n", 
-                             stats_inner.num(), stats_Vconf.num(), stats_outer.num());
-              std::printf("# stats       distance^2 %g [%g, %g] Bohr^2\n", stats_d2.mean(),    stats_d2.min(),    stats_d2.max());
-              std::printf("# stats inner distance^2 %g [%g, %g] Bohr^2\n", stats_inner.mean(), stats_inner.min(), stats_inner.max());
-              std::printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n", stats_conf.mean(),  stats_conf.min(),  stats_conf.max());
-              std::printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n", stats_outer.mean(), stats_outer.min(), stats_outer.max());
-          } // echo
-
-#endif // HAS_NO_CUDA
-
-          return 0; // no flops performed so far
-      } // toy_multiply
-
-
 
 
       double multiply( // returns the number of flops performed
@@ -537,7 +275,7 @@ namespace green_action {
 
   inline status_t test_construction_and_destruction(int const echo=0) {
       {   plan_t plan;
-          debug_printf("# start constructors for action_t\n");
+          debug_printf("# %s for action_t\n", __func__);
           { action_t<float ,1,1> action(&plan); }
           { action_t<float ,2,1> action(&plan); }
           { action_t<float ,2,2> action(&plan); }
