@@ -202,7 +202,7 @@ namespace green_potential {
       stat += test_multiply<double,2,2>(echo);
       return stat;
   } // test_multiply
-  
+
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_multiply(echo);

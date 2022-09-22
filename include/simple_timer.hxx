@@ -39,6 +39,12 @@
 
   }; // class SimpleTimer
 
+
+
+
+
+
+
 namespace simple_timer {
 
 #ifdef  NO_UNIT_TESTS
@@ -85,6 +91,6 @@ namespace simple_timer {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace simple_timer

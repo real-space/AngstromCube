@@ -1,10 +1,10 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::remove, std::FILE
+#include <cstdio> // std::printf, ::remove
 #include <cassert> // assert
 #include <fstream> // std::ifstream
 #include <sstream> // std::istringstream
-#include <string> // std::string, std::getline
+#include <string> // std::string, ::getline
 
 #include <complex> // std::complex<T>
 #include "complex_tools.hxx" // is_complex, to_complex_t
@@ -29,7 +29,7 @@ namespace debug_tools {
           if (echo > 1) std::printf("# %s Error opening file %s!\n", __func__, filename);
           return 1;
       } // failed to open
-      
+
       char const rc_name[][8] = {"real", "complex"};
       bool const read_complex = is_complex<real_t>();
 
@@ -85,7 +85,7 @@ namespace debug_tools {
   template <char const write_read_delete='w'>
   status_t manage_stop_file(int & number, int const echo=0, char const *filename="running.a43") {
       if ('w' == (write_read_delete | 32)) {
-          std::FILE *f = std::fopen(filename, "w");
+          auto *const f = std::fopen(filename, "w");
           if (nullptr == f) {
               if (echo > 1) std::printf("# %s<%c> unable to open file \"%s\"for writing!\n", __func__, write_read_delete, filename);
               return 1;

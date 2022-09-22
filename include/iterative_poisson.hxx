@@ -19,7 +19,7 @@ namespace iterative_poisson {
       , int const miniter=3  // minimum number of iterations
       , int restart=4096 // number of iterations before restart, 1:steepest descent
   ); // declaration only
-  
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace iterative_poisson

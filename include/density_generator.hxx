@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // std::printf
-#include <complex> // std::norm, std::real
+#include <complex> // std::norm, ::real
 
 #include "status.hxx" // status_t
 #include "grid_operators.hxx" // ::grid_operator_t
@@ -78,7 +78,7 @@ namespace density_generator {
       return coeff_starts;
   } // prefetch_sum
 
-  
+
   template <class grid_operator_t>
   view2D<typename grid_operator_t::complex_t> atom_coefficients(
         std::vector<uint32_t> & coeff_starts
@@ -281,7 +281,7 @@ namespace density_generator {
 
       return stat;
   } // density
-  
+
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

@@ -16,6 +16,7 @@
 #include "recorded_warnings.hxx" // error, warn
 #include "complex_tools.hxx" // conjugate, to_complex_t
 #include "inline_math.hxx" // intpow
+#include "sho_projection.hxx" // ::sho_project, ::sho_add, ::sho_prefactor
 
 #include "chemical_symbol.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
@@ -443,7 +444,7 @@ namespace grid_operators {
           } // generate a default file name
           if (echo > 0) std::printf("# %s filename=%s\n", __func__, filename);
 
-          std::FILE *const f = std::fopen(filename, "w");
+          auto *const f = std::fopen(filename, "w");
           if (nullptr == f) {
               if (echo > 0) std::printf("# %s Error opening file %s for writing!\n", __func__, filename);
               return __LINE__;

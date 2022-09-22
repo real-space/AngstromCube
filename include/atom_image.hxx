@@ -3,14 +3,14 @@
 #include <cstdint> // int32_t, int8_t
 #include <cstdio> // std::printf
 #include <vector> // std::vector<T>
-#include "sho_tools.hxx" // ::nSHO, ::construct_index_table, ::order_zyx
+#include "sho_tools.hxx" // ::nSHO
 #include "inline_math.hxx" // align<N_bits>
-#include "sho_projection.hxx" // ::sho_prefactor
+#include "sho_projection.hxx" // ::get_sho_prefactors
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace atom_image {
-  
+
   class atom_image_t {
     public:
 
@@ -38,7 +38,7 @@ namespace atom_image {
 
   class sho_atom_t { // an atom with SHO-projectors
     public:
-      
+
       sho_atom_t(void) : _sigma(1.), _numax(-1), _atom_id(-1) {} // default constructor
       sho_atom_t(
             double const sigma
@@ -153,6 +153,7 @@ namespace atom_image {
 #else // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=0) {
+      if (echo > 2) std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __FILE__, sizeof(atom_image_t));
       return (3*8 + 1*4 + 4*1 != sizeof(atom_image_t)); // make sure that this struct has 32 Byte
   } // all_tests
 

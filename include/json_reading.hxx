@@ -2,7 +2,6 @@
 
 #ifdef  HAS_RAPIDJSON
   #include <cassert> // assert
-//   #include <cstdlib> // std::atof, std::strtod
   #include <fstream> // std::ifstream
   #include <sstream> // std::ostringstream
   // git clone https://github.com/Tencent/rapidjson.git

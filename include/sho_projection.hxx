@@ -20,7 +20,7 @@ namespace sho_projection {
 
   template <typename real_t>
   inline real_t truncation_radius(real_t const sigma, int const numax=-1) { return 9*sigma; }
-  
+
   template <typename complex_t, int PROJECT0_OR_ADD1> inline
   status_t _sho_project_or_add(
         complex_t coeff[] // result if projecting, coefficients are zyx-ordered
@@ -103,7 +103,7 @@ namespace sho_projection {
           for (    int iy = 0; iy < num[1]; ++iy) {
               for (int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
-                  
+
                   complex_t val = values[ixyz]; // load
                   if (true) {
 //                    if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
@@ -113,9 +113,9 @@ namespace sho_projection {
                               for (int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const H1d_x = H1d[0][ix*M + nx];
                                   auto const H3d = H1d_z * H1d_y * H1d_x;
                                   if (1 == PROJECT0_OR_ADD1) {
-                                      val += coeff[iSHO] * H3d; // here, the addition happens                                          
+                                      val += coeff[iSHO] * H3d; // here, the addition happens
                                   } else {
-                                      coeff[iSHO] += val * H3d; // here, the projection happens                                          
+                                      coeff[iSHO] += val * H3d; // here, the projection happens
                                   }
                                   ++iSHO; // in sho_tools::zyx_order
                               } // nx
@@ -126,7 +126,7 @@ namespace sho_projection {
                   if (1 == PROJECT0_OR_ADD1) {
                       values[ixyz] = val; // store
                   } // write back (add)
-                  
+
               } // ix
           } // iy
       } // iz
@@ -161,7 +161,7 @@ namespace sho_projection {
   ) {
       return _sho_project_or_add<complex_t,0>(coeff, numax, center, sigma, (complex_t*)values, g, echo); // un-const values pointer
   } // sho_project
-  
+
   template <typename complex_t> 
   status_t sho_add( // wrapper function
         complex_t values[] // result gets modified, grid array
@@ -228,7 +228,7 @@ namespace sho_projection {
       return 0;
   } // renormalize_coefficients
 
-  
+
   inline double radial_L1_prefactor(int const ell, double const sigma) {
       return std::sqrt(2) / ( constants::sqrtpi * std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) );
   } // radial_L1_prefactor (L1-normalization)
@@ -274,7 +274,7 @@ namespace sho_projection {
       stat += renormalize_coefficients(vzyx_nrm.data(), vzyx, ellmax, sigma);
 
       std::vector<double> vnlm(nSHO, 0.0); // L2-normalized order_nlm
-      stat += u.transform_vector(vnlm.data(), sho_tools::order_nlm, 
+      stat += u.transform_vector(vnlm.data(), sho_tools::order_nlm,
                              vzyx_nrm.data(), sho_tools::order_zyx, ellmax, 0);
 
       stat += renormalize_radial_coeff(vlm, vnlm.data(), ellmax, sigma);
@@ -297,9 +297,9 @@ namespace sho_projection {
       std::vector<double> qnlm(nSHO, 0.0); // L2-normalized order_nlm
 
       stat += renormalize_radial_coeff(qnlm.data(), qlm, ellmax, sigma);
-      
+
       std::vector<double> qzyx_nrm(nSHO, 0.0); // L2-normalized order_zyx
-      stat += u.transform_vector(qzyx_nrm.data(), sho_tools::order_zyx, 
+      stat += u.transform_vector(qzyx_nrm.data(), sho_tools::order_zyx,
                                      qnlm.data(), sho_tools::order_nlm, ellmax, 0);
 
       // rescale with Cartesian L2 normalization factor, order_zyx unchanged

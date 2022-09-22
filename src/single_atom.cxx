@@ -4180,7 +4180,7 @@ namespace single_atom {
 
         // export into XML format
         auto const *filename = "pseudo_basis.xml";
-        std::FILE *const f = std::fopen(filename, "w");
+        auto *const f = std::fopen(filename, "w");
         if (f) {
             // XML file header
             std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);

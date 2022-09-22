@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // std::printf, ::fprintf, ::FILE, ::fopen, ::fclose, ::fflush, stdout
+#include <cstdio> // std::printf, ::fprintf, ::fopen, ::fclose, ::fflush, stdout
 
 #include "display_units.h" // Ang, _Ang
 #include "complex_tools.hxx" // is_complex
@@ -26,7 +26,7 @@ inline int dump_to_file(
     , char const *title=nullptr // title line in the file
     , int const echo=0 // report writing to stdout, 0: suppress report
 ) {
-    std::FILE *f = std::fopen(filename, "w");
+    auto *const f = std::fopen(filename, "w");
     if (nullptr == f) {
         if (echo > 1) std::printf("# %s Error opening file %s!\n", __func__, filename);
         return 1;

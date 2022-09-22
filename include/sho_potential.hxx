@@ -37,7 +37,7 @@ namespace sho_potential {
   ) {
       // contract Vaux with a 3D factorizable overlap tensor
       // ToDo: analyze if this can be expressed as potential_matrix(Vmat, t1D, one, 0, numax_i, numax_j)
-    
+
       int const ni = sho_tools::nSHO(numax_i);
       int const nj = sho_tools::nSHO(numax_j);
       int const nk = sho_tools::nSHO(numax_k);
@@ -93,7 +93,7 @@ namespace sho_potential {
       if (numax < 0) return stat;
       int const nc = sho_tools::nSHO(numax);
       int const m  = sho_tools::n1HO(numax);
-      
+
       view2D<double> inv3D(nc, nc, 0.0); // get memory
       view2D<double> mat1D(m, m, 0.0); // get memory
       stat += sho_overlap::moment_normalization(mat1D.data(), mat1D.stride(), sigma, echo);
@@ -245,11 +245,11 @@ namespace sho_potential {
         } // my
       } // mz
       assert( sho_tools::nSHO(numax_m) == mzyx );
-    
+
       return 0;
   } // potential_matrix
-  
-  
+
+
   template <typename real_t>
   status_t load_local_potential(
         std::vector<real_t> & vtot // output
@@ -294,6 +294,20 @@ namespace sho_potential {
       return stat;
   } // load_local_potential
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -316,7 +330,7 @@ namespace sho_potential {
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
-      
+
 //    for (int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary && "Periodic BCs not implemented!");
 
       real_space::grid_t g(dims);
@@ -326,7 +340,7 @@ namespace sho_potential {
       double const origin[] = {.5*(g[0] - 1)*g.h[0],
                                .5*(g[1] - 1)*g.h[1], 
                                .5*(g[2] - 1)*g.h[2]};
- 
+
       view2D<double> center(natoms, 4); // list of atomic centers
       for (int ia = 0; ia < natoms; ++ia) {
           for (int d = 0; d < 3; ++d) {
@@ -410,7 +424,7 @@ namespace sho_potential {
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           view2D<double> Sdiag(natoms, mxb, 0.0);
-          
+
           for (int ja = 0; ja < natoms; ++ja) {
               int const nbj = sho_tools::nSHO(numaxs[ja]);
               std::vector<double> coeff(nbj, 0.0);
@@ -507,7 +521,7 @@ namespace sho_potential {
                   std::vector<double> Vcoeff(sho_tools::nSHO(numax_V), 0.0);
                   stat += sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0); // 0:mute
                   // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
-                  
+
                   stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // 0:mute
                   // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
 #ifdef FULL_DEBUG
@@ -706,8 +720,8 @@ namespace sho_potential {
           { // scope: symmetrize the potential matrix elements
               double largest_asymmetry{0};
               auto & matrix = SV_matrix[1][On_site];
-              for (int ia = 0; ia < natoms; ++ia) {             
-                  for (int ja = 0; ja < natoms; ++ja) {         
+              for (int ia = 0; ia < natoms; ++ia) {
+                  for (int ja = 0; ja < natoms; ++ja) {
                       int const nbi = sho_tools::nSHO(numaxs[ia]);
                       int const nbj = sho_tools::nSHO(numaxs[ja]);
                       for (int ib = 0; ib < nbi; ++ib) {
@@ -756,7 +770,7 @@ namespace sho_potential {
                       } // echo
                       for (int ib = 0; ib < nbi; ++ib) {
                           int irm{0};
-                          double max_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}};                          
+                          double max_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}};
                           for (int m = 0; m < 3; ++m) { // method
                               if (method_active[m]) {
 

@@ -25,7 +25,7 @@ namespace finite_difference {
     int constexpr nnMaxImplemented = 13;
     switch (std::min(nn, nnMaxImplemented)) {
         // regular cases first
-      
+
         case 1: // use 3 points, lowest order
             c[1] = 1./(1.*h2);
             c[0] = -2./(1.*h2);
@@ -178,7 +178,7 @@ namespace finite_difference {
             warn("Finite difference in %c-direction switched off!", direction);
             c[0] = 0;
         break; 
-        
+
         default:
             warn("Cannot treat case of %i finite difference neighbors in %c-direction", nn, direction);
             return -1; // failed, does not return nn
@@ -195,14 +195,14 @@ namespace finite_difference {
     return nn;
   } // set_Laplacian_coefficients
 
-  
+
   template <typename real_t> // real_t may be float or double
   class stencil_t {
     public:
       real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative
     private:
       int8_t _nn[3]; // number of FD neighbors
-      
+
       void _constructor(double const grid_spacing[3], int const nneighbors[3], double const scale_factor) {
           for (int d = 0; d < 3; ++d) {
               for (int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
@@ -215,7 +215,7 @@ namespace finite_difference {
           } // spatial direction d
           scale_coefficients(scale_factor);
       } // _constructor
-      
+
     public:
 
       stencil_t(double const grid_spacing[3], int const nneighbors[3], double const scale_factor=1) {

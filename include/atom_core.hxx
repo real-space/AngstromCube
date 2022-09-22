@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // std::sprintf
-#include <cmath> // std::exp, std::sqrt
+#include <cmath> // std::exp, ::sqrt
 #include <cassert> // assert
 #include <algorithm> // std::max
 
@@ -72,9 +72,9 @@ namespace atom_core {
             std::exp(-.01*(enn - 1)*Z);
   } // guess_energy
 
-  inline int nl_index(int const enn, int const ell) { 
+  inline int nl_index(int const enn, int const ell) {
       assert(ell >= 0 && "angular momentum quantum number");
-      assert(enn > ell && "atomic quantum numbers"); 
+      assert(enn > ell && "atomic quantum numbers");
       return (enn*(enn - 1))/2 + ell;
   } // nl_index
 

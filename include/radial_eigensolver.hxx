@@ -19,7 +19,7 @@ namespace radial_eigensolver {
       , int const maxiter=999 // maximum number of iterations
       , float const threshold=1e-15 // threshold for eigenvalue convergence
   ); // declaration only
- 
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace radial_eigensolver

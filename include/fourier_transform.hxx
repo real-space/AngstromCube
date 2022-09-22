@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // std::printf
-#include <cmath> // std::cos, std::abs, std::sqrt
+#include <cmath> // std::cos, ::abs, ::sqrt
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
@@ -57,8 +57,8 @@ namespace fourier_transform {
       for (size_t i = 0; i < ngall; ++i) { // ToDo: OpenMP for, SIMD
           cvi[i] = std::complex<double>(in[i], in_imag[i]);
       } // i
-      auto const plan = fftw_plan_dft_3d(ng[2], ng[1], ng[0], (fftw_complex*) cvi.data(), 
-                                                              (fftw_complex*) cvo.data(), 
+      auto const plan = fftw_plan_dft_3d(ng[2], ng[1], ng[0], (fftw_complex*) cvi.data(),
+                                                              (fftw_complex*) cvo.data(),
                                   forward ? FFTW_FORWARD : FFTW_BACKWARD, FFTW_ESTIMATE);
       if (nullptr == plan) return __LINE__; // error
       fftw_execute(plan);
@@ -71,7 +71,7 @@ namespace fourier_transform {
 #endif // defined HAS_FFTW
 
       return -1; // has no FFT library
-#endif // defined HAS_NO_MKL     
+#endif // defined HAS_NO_MKL
   } // fft
 
   inline status_t fft(std::complex<double> out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
@@ -96,10 +96,16 @@ namespace fourier_transform {
 #endif // defined HAS_FFTW
 
       return -1; // has no FFT library
-#endif // defined HAS_NO_MKL     
+#endif // defined HAS_NO_MKL
   } // fft
-  
-  
+
+
+
+
+
+
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -159,5 +165,5 @@ namespace fourier_transform {
   } // all_tests
 
 #endif // NO_UNIT_TESTS
-  
+
 } // namespace fourier_transform

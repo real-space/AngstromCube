@@ -1,12 +1,14 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::snprintf, std::fprintf, std::fopen, std::close, std::remove
+#include <cstdio> // std::printf, ::snprintf, ::fprintf, ::fopen, ::fclose, ::remove
 #include <vector> // std::vector<T>
-#include <ctime> // std::strftime, ::tm, ::gmtime
 #include <cerrno> // errno, ERANGE
+#ifndef  NO_UNIT_TESTS
+  #include <ctime> // std::strftime, ::time, ::gmtime
+#endif // UNIT_TESTS
 
 #ifdef HAS_RAPIDXML
-  #include <cstdlib> // std::atof, std::strtod
+  #include <cstdlib> // std::atof, ::strtod
   #include <cstring> // std::strcmp
   // git clone https://github.com/dwd/rapidxml
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
@@ -21,13 +23,13 @@ namespace xml_reading {
 
 #ifdef HAS_RAPIDXML
     char const empty_string[] = "";
-  
+
     inline char const * find_attribute(
           rapidxml::xml_node<> const *node
         , char const *const name
         , char const *const default_value=""
         , int const echo=0
-    ) { 
+    ) {
         if (nullptr == node) return empty_string;
         for (auto attr = node->first_attribute(); attr; attr = attr->next_attribute()) {
             if (0 == std::strcmp(name, attr->name())) {
@@ -35,13 +37,13 @@ namespace xml_reading {
             } // found
         } // attr
         return default_value;
-    } // find_attribute 
-  
+    } // find_attribute
+
     inline rapidxml::xml_node<> const * find_child(
           rapidxml::xml_node<> const *node
         , char const *const name
         , int const echo=0
-    ) { 
+    ) {
         if (nullptr == node) return nullptr;
         for (auto child = node->first_node(); child; child = child->next_sibling()) {
             if (0 == std::strcmp(name, child->name())) {
@@ -49,7 +51,7 @@ namespace xml_reading {
             } // found
         } // attr
         return nullptr;
-    } // find_child 
+    } // find_child
 #endif
 
     template <typename real_t>
@@ -76,21 +78,35 @@ namespace xml_reading {
         return v;
     } // read_sequence
 
+
+
+
+
+
+
+
+
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
+
+// #define USE_TEMPORARY_FILE
+#ifdef  USE_TEMPORARY_FILE
+
     inline status_t temporary_file_extension(char str[], size_t const count) {
         auto const now = std::time(nullptr);
         auto const bytes_written = std::strftime(str, count, "%Y%b%d_%H%M%S", std::gmtime(&now));
         return (bytes_written < 1); // report failure
     } // temporary_file_extension
-  
-#ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+
+#endif // USE_TEMPORARY_FILE
+
+  inline double model_potential_function(int const izyx, int const nzyx) { return std::cos(izyx*1./nzyx); }
 
   inline status_t test_xml_reader(int const echo=0) {
 #ifdef HAS_RAPIDXML
       status_t stat(0);
-      
-// #define USE_TEMPORARY_FILE
+
 #ifdef  USE_TEMPORARY_FILE
 
       // create a temporary xml file before trying to read it
@@ -99,7 +115,7 @@ namespace xml_reading {
       std::snprintf(filename, 95, "test_%s.xml", temporary);
       if (echo > 0) std::printf("# %s: use test file \"%s\"\n", __func__, filename);
 
-      std::FILE *const f = std::fopen(filename, "w");
+      auto *const f = std::fopen(filename, "w");
       if (nullptr == f) {
           if (echo > 0) std::printf("# %s Error opening file %s for writing!\n", __func__, filename);
           return __LINE__;
@@ -145,8 +161,8 @@ namespace xml_reading {
       int const nzyx = 2*2*2;
       for (int izyx = 0; izyx < nzyx; ++izyx) {
           if (0 == (izyx & 3)) print2file("\n    ");
-          print2file(" %.6f", izyx*100./nzyx);
-      } // ia
+          print2file(" %.6f", model_potential_function(izyx, nzyx));
+      } // izyx
       print2file("\n  </potential>\n");
       print2file("</grid_Hamiltonian>\n");
 
@@ -155,7 +171,7 @@ namespace xml_reading {
 
       std::fclose(f);
       if (echo > 3) std::printf("# file %s written\n", filename);
-      
+
       // read the file in again
       rapidxml::file<> infile(filename);
       auto const mutable_string = infile.data();
@@ -275,10 +291,14 @@ namespace xml_reading {
                   } // value != ""
               } // d
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
-              Veff = read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
+              int const nzyx = ng[2]*ng[1]*ng[0];
+              Veff = read_sequence<double>(potential->value(), echo, nzyx);
               if (echo > 5) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
-                  Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
-              assert(Veff.size() == ng[2]*ng[1]*ng[0]);
+                  Veff.size(), ng[0], ng[1], ng[2], nzyx);
+              assert(Veff.size() == nzyx);
+              for (int izyx = 0; izyx < nzyx; ++izyx) {
+                  stat += (std::abs(Veff[izyx] - model_potential_function(izyx, nzyx)) > 1e-6);
+              } // izyx
           } else warn("grid_Hamiltonian has no potential in file %s", filename);
 
       } else warn("no grid_Hamiltonian found in file %s", filename);

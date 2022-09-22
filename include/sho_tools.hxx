@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::sprintf
+#include <cstdio> // std::printf, ::snprintf
 #include <cstdint> // int64_t
 #include <string> // std::string
 
@@ -280,7 +280,7 @@ namespace sho_tools {
   status_t quantum_number_table(
         uint_t idx[] // assumed stride 4
       , int const numax // size of SHO basis
-      , SHO_order_t const order // SHO input order      
+      , SHO_order_t const order // SHO input order
       , int const echo=0 // log-level
   ) {
       // list all triples of quantum numbers
@@ -332,7 +332,7 @@ namespace sho_tools {
               for (int y = 0; y <= numax - z; ++y) {
                   for (int x = 0; x <= numax - z - y; ++x) {
                       int const j = is_energy_ordered(order) ? Ezyx_index(x, y, z) : ii;
-                      std::sprintf(&label[j*nChar], "%c%c%c", sho_hex(z), sho_hex(y), sho_hex(x));
+                      std::snprintf(&label[j*nChar], nChar, "%c%c%c", sho_hex(z), sho_hex(y), sho_hex(x));
                       ++ii;
           }}} // x y z
           assert(nSHO(numax) == ii);
@@ -349,7 +349,7 @@ namespace sho_tools {
                       if (order_Elnm == order) j = Elnm_index(l, n, m);
                       if (order_lnm == order)  j =  lnm_index(numax, l, n, m);
                       if (order_nlm == order)  j =  nlm_index(numax, n, l, m);
-                      std::sprintf(&label[j*nChar], "%i%c%i", n, ellchar[l], m);
+                      std::snprintf(&label[j*nChar], nChar, "%i%c%i", n, ellchar[l], m);
                       ++ii;
           }}} // l m n
           assert(nSHO(numax) == ii);
@@ -365,7 +365,7 @@ namespace sho_tools {
                   if (order_nl == order) { j = nl_index(numax, n, l); } else
                   if (order_ln == order) { j = ii; assert( ln_index(numax, l, n) == ii ); }
                   assert(j >= 0);
-                  std::sprintf(&label[j*nChar], "%c%i", ellchar[l], n);
+                  std::snprintf(&label[j*nChar], nChar, "%c%i", ellchar[l], n);
                   ++ii;
           }} // l n
           assert(nSHO_radial(numax) == ii);
@@ -573,7 +573,7 @@ namespace sho_tools {
       std::printf("\n\n");
       return 0;
   } // test_sho_hex
-  
+
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_radial_indices(echo);

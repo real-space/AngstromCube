@@ -2,7 +2,7 @@
 
 #include <cstdio> // std::printf
 #include <cassert> // assert
-#include <cmath> // std::sqrt, std::abs
+#include <cmath> // std::sqrt, ::abs
 
 #include "status.hxx" // status_t
 
@@ -24,7 +24,7 @@ namespace bisection_tools {
         real_t suggest_x() const { return ('*' == _mode) ? std::sqrt(_x[0] * _x[1]) : (_x[0] + _x[1])/2; }
 
       public:
-        
+
         bisector_t( // constructor
               real_t const range_begin
             , real_t const range_end
@@ -44,7 +44,7 @@ namespace bisection_tools {
             _x[1] = range_end;
         } // constructor
 
-        
+
         bool root( // return decision if we need to continue
               real_t & new_x // result: next x-value to try
             , real_t const last_y // input: last y-value
@@ -86,7 +86,7 @@ namespace bisection_tools {
 
                 // suggest a new x-value
                 new_x = suggest_x();
-//              std::printf("# %s suggest x= %g\n", __func__, new_x);                
+//              std::printf("# %s suggest x= %g\n", __func__, new_x);
             }
             ++_iter;
             return true; // run again
@@ -121,19 +121,19 @@ namespace bisection_tools {
 
                 // suggest a new x-value
                 new_x = suggest_x();
-//              std::printf("# %s suggest x= %g\n", __func__, new_x);                
+//              std::printf("# %s suggest x= %g\n", __func__, new_x);
             }
             ++_iter;
             return true; // run again
         } // extremum
 #endif // DEVEL
-        
+
         int get_iterations_needed() const { return _is_converged ? _iter : -_iter; }
         int is_converged() const { return _is_converged; }
 
   }; // bisector_t
-  
-  
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -173,6 +173,6 @@ namespace bisection_tools {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace bisection_tools

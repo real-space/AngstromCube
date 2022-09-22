@@ -22,7 +22,7 @@ namespace bessel_transform {
       , bool const back=false
       , int const echo=3 // log-level
   ) {
-    
+
       if (echo > 8) std::printf("# %s(out=%p, in=%p, g=%p, nq=%d, dq=%.3f, back=%d, echo=%d);\n",
                            __func__, (void*)out, (void*)in, (void*)&g, nq, dq, back, echo);
 

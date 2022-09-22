@@ -7,7 +7,7 @@ extern "C" {
 #endif
 
 
-typedef struct { 
+typedef struct {
   double G;
   int32_t lm;
   int16_t lm1, lm2;

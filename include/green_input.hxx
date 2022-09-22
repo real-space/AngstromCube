@@ -157,7 +157,7 @@ namespace green_input {
 #ifdef DEVEL
                   if (0 == Veff.size() && control::get(empty_potential, 0.) > 0) {
                       Veff.resize(ngall, 0.0); // very useful for 
-                  } else 
+                  } else
 #endif // DEVEL
                   {
                       error("expected %d*%d*%d = %ld potential values but found %ld, try +%s=1 to override",

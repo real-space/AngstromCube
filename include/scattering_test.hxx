@@ -43,7 +43,7 @@ namespace scattering_test {
       return nnodes;
   } // count_nodes
 
- 
+
   template <typename real_t>
   status_t expand_sho_projectors( // pure SHO basis functions
         real_t prj[]  // output projectors [nln*stride]
@@ -400,14 +400,14 @@ namespace scattering_test {
           } // ien
           std::printf("\n\n");
       } // echo
-      
+
       return stat;
   } // logarithmic_derivative
-  
-  
-  
-  
-  
+
+
+
+
+
   inline status_t eigenstate_analysis(
         radial_grid_t const & gV // radial grid descriptor for Vsmt
       , double const Vsmt[] // smooth potential given on radial grid
@@ -686,7 +686,7 @@ namespace scattering_test {
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
-  
+
   inline status_t test_eigenstate_analysis(int const echo=3, int const ellmax=7) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
@@ -792,6 +792,6 @@ namespace scattering_test {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace scattering_test

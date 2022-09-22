@@ -162,7 +162,7 @@ namespace brillouin_zone {
   } // needs_complex
 
 
-  inline char get_special_kpoint(char const *const keyword, double v[3], char const *const def="?") {
+  inline char get_special_kpoint(double v[3], char const *const keyword, char const *const def="?") {
       v[0] = 0; v[1] = 0; v[2] = 0; // clear
       char const cin = *control::get(keyword, def);
       switch (cin | 32) { // convert to lower case
@@ -186,8 +186,8 @@ namespace brillouin_zone {
       , int const echo=0 // log-level
   ) {
       double from[3], to[3], dk;
-      auto const c_from = get_special_kpoint("hamiltonian.kpath.from", from, "Gamma");
-      auto const c_to   = get_special_kpoint("hamiltonian.kpath.to", to, "X");
+      auto const c_from = get_special_kpoint(from, "hamiltonian.kpath.from", "Gamma");
+      auto const c_to   = get_special_kpoint(to,   "hamiltonian.kpath.to",   "X");
       dk = control::get("hamiltonian.kpath.spacing", 0.01);
       auto const length = std::sqrt(pow2(to[0] - from[0]) + pow2(to[1] - from[1]) + pow2(to[2] - from[2]));
       int const nk = std::ceil(length/std::max(dk, 1e-9));
@@ -204,6 +204,12 @@ namespace brillouin_zone {
                           from[0], from[1], from[2], c_from, to[0], to[1], to[2], c_to, nk, length*by_nk);
       return npath;
   } // get_kpoint_path
+
+
+
+
+
+
 
 
 

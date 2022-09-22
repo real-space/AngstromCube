@@ -119,13 +119,13 @@ namespace green_sparse {
       __host__ __device__ RowIndex_t        nNonzeros() const { return (nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
 
   private:
-    
+
       __host__ bool invalid_row_index_(RowIndex_t const iRow) const {
           if (iRow >= nRows_)  return true;  // invalid
           else if (iRow < 0)   return true;  // invalid
           else                 return false; //   valid
       } // invalid_row_index_
-    
+
   public:
 
 #if 0 // are these methods ever needed?

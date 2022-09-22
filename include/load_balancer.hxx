@@ -2,7 +2,7 @@
 
 #include <cstdio> // std::printf
 #include <cassert> // assert
-#include <vector> // std::vector<T>
+#include <vector> // std::vector
 #include <numeric> // std::iota
 #include <cstdint> // uint32_t
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::snprintf
+#include <cstdio> // std::printf, ::snprintf
 
 #include "status.hxx" // status_t
 #include "control.hxx" // ::get
@@ -187,7 +187,7 @@ namespace potential_generator {
 
 
 #ifdef DEVEL
-  
+
   inline status_t potential_projections(
         real_space::grid_t const & g // dense grid descriptor
       , double const cell[]
@@ -227,21 +227,21 @@ namespace potential_generator {
       int const use_Bessel_projection = control::get("potential_generator.use.bessel.projection", 0.);
       if (use_Bessel_projection) 
       { // scope: use a Bessel projection around each atom position to compare 3D and radial quantities
-        
+
           double constexpr Y00sq = pow2(solid_harmonics::Y00);
-          
+
           view2D<double> periodic_images;
           int const n_periodic_images = boundary_condition::periodic_images(periodic_images,
                                           cell, g.boundary_conditions(), rcut, echo - 4);
 
-        
+
           std::vector<radial_grid_t const*> rg(na, nullptr); // pointers to smooth radial grid descriptors
           {   // break the interface to get the radial grid descriptors
               auto const dcpp = reinterpret_cast<double const *const *>(rg.data());
               auto const dpp  =       const_cast<double       *const *>(dcpp);
               stat += single_atom::atom_update("radial grids", na, 0, 0, 0, dpp);
           }
-          
+
           double const* const value_pointers[] = {Ves, Vxc, Vtot, rho, cmp, Laplace_Ves.data()};
           char const *  array_names[] = {"Ves", "Vxc", "Vtot", "rho", "cmp", "LVes"};
           //     Ves; // analyze the electrostatic potential
@@ -276,7 +276,7 @@ namespace potential_generator {
                   } // scope
 
                   scale(qc.data(), nq, Y00sq);
-                  
+
                   std::vector<double> qcq2(nq, 0.0);
                   for (int iq = 1; iq < nq; ++iq) { // start from 1 to avoid the q=0 term
                       qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform

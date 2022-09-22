@@ -18,10 +18,10 @@ namespace exchange_correlation {
       real_t const mag=0,     // [optional in] magnetization
       real_t *Vup=nullptr);   // [optional out] up-spin potential
 
-  
+
   // define here which one is the default LDA flavor
   char const default_LDA[] = "PW";
-  
+
   template <typename real_t> inline
   real_t LDA_kernel(          // returns the XC-energy
       real_t const rho,       // [in] density

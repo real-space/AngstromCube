@@ -8,7 +8,7 @@
 #include "inline_math.hxx" // align
 
 namespace radial_grid {
-  
+
   char const* get_formula(char const equation) {
       if (equation_equidistant == equation) return "r=a*i";
       auto const eq_reciprocal  = "r=a*i/(n-i)";
@@ -52,7 +52,7 @@ namespace radial_grid {
       , char equation // [optional] how to generate the grid
       , double const anisotropy // [optional] anisotropy parameter for exponential
   ) {
-     
+
       auto const mR = 128; // multiplicator for the outer radius of reciprocal grids
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
       bool static warn_reciprocal{true}; // NOT thread-safe
@@ -72,7 +72,7 @@ namespace radial_grid {
       auto const g = get_memory(nr_aligned);
 
       double & d = g->anisotropy;
-      
+
       auto const r = (double*)g->r, drdi = (double*)g->dr; // un-const the pointers
 
 //    std::printf("# create a mesh with R= %g Bohr, n=%d, formula=%s\n", R, nr, get_formula(equation));
@@ -169,7 +169,7 @@ namespace radial_grid {
 
   void destroy_radial_grid(radial_grid_t* g, char const *name) {
 //    std::printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g->memory_owner);
-      if (g->memory_owner) delete [] g->r;
+      if (g->memory_owner) delete[] g->r;
       g->n = 0;
       g->rmax = 0;
       g->anisotropy = 0;

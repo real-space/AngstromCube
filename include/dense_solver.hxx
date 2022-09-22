@@ -139,8 +139,8 @@ namespace dense_solver {
           } // iE
           if (echo > 0) std::printf("\n");
       } // green_function
-      
-      
+
+
       status_t stat_eig(0);
       for (int h0s1 = 1; h0s1 >= 0; --h0s1) { // loop must run down and serial
           if (echo > 0) std::printf("\n");
@@ -359,7 +359,7 @@ namespace dense_solver {
                   std::complex<real_t> const diag = (i == j);
                   devN = std::max(devN, std::abs(cN - diag));
                   devT = std::max(devT, std::abs(cT - diag));
-                  if (echo > 9) std::printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,        
+                  if (echo > 9) std::printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,
                       std::real(mat(i,j)), std::imag(mat(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
                       std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
               } // j

@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdio> // std::printf
 
-#include <vector> // std::vector<T>
+#include <vector> // std::vector
 
 // #define CRTP_printf(...) std::printf(__VA_ARGS__)
 #define CRTP_printf(...)
@@ -45,7 +45,7 @@ class LinOp {
 
 
 namespace linear_operator {
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -78,7 +78,7 @@ namespace linear_operator {
       std::vector<real_t> diagonal_; // vector of diagonal elements
   }; // class DiagOp
 
-  
+
   inline status_t test_DiagOp(int const echo=4) {
     if (echo > 0) std::printf("# %s\n", __func__);
 
@@ -98,7 +98,7 @@ namespace linear_operator {
     } // echo
 
     return 0;
-  }
+  } // test_DiagOp
 
   inline status_t all_tests(int const echo=0) {
     if (echo > 0) std::printf("# %s\n", __func__);
@@ -110,6 +110,6 @@ namespace linear_operator {
 // in addition to .apply() what else do we need to run a general tfqmr inverter?
 // nrm2, dotp, axpy, xpay + routines for the extraction of the results
 
-#endif
+#endif // NO_UNIT_TESTS
 
 } // namespace linear_operator

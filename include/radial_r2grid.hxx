@@ -6,7 +6,7 @@
 #include "status.hxx" // status_t
 
 namespace radial_r2grid {
-  
+
   /*
    *  The radial_r2grid is a radial grid descriptor
    *  with equidistant spacing in r^2, i.e.

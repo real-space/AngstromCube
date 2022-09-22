@@ -79,42 +79,42 @@ namespace hermite_polynomial {
 
       if (0 == twice) { // first time
 
-      for (int ij = 0; ij < M*M; ++ij) { hh[0][ij] *= hg; } // grid spacing
+          for (int ij = 0; ij < M*M; ++ij) { hh[0][ij] *= hg; } // grid spacing
 
-      double const pi_factor = 1./std::sqrt(constants::pi);
-      for (int nu = 0; nu <= numax; ++nu) {
-          double const diag = hh[nu][nu];
-          if (echo > 4) std::printf("# nu = %d norm^2 = %g --> %g\n", nu, diag, diag*pi_factor*(1 << nu));
-          assert(diag > 0);
-          auto const scal = 1./std::sqrt(diag);
-          for (int nup = 0; nup <= numax; ++nup) {
-              hh[nu][nup] *= scal;
-              hh[nup][nu] *= scal;
-              int const d = (nu == nup); // d=1:diagonal d=0:off-diagonal
-              max_dev[d] = std::max(max_dev[d], std::abs(double(hh[nu][nup]) - d));
-          } // nup
-          assert(std::abs(hh[nu][nu] - 1) < 1e-7);
-          prefactor[nu] = scal;
-      } // nu
-
-      if (echo > 5) {
-          std::printf("# %s  %d x %d overlap matrix, deviation from unity\n", __func__, M, M);
+          double const pi_factor = 1./std::sqrt(constants::pi);
           for (int nu = 0; nu <= numax; ++nu) {
-              std::printf("# nu = %d ", nu);
+              double const diag = hh[nu][nu];
+              if (echo > 4) std::printf("# nu = %d norm^2 = %g --> %g\n", nu, diag, diag*pi_factor*(1 << nu));
+              assert(diag > 0);
+              auto const scal = 1./std::sqrt(diag);
               for (int nup = 0; nup <= numax; ++nup) {
-                  std::printf("%9.1e", hh[nu][nup] - (nu == nup));
+                  hh[nu][nup] *= scal;
+                  hh[nup][nu] *= scal;
+                  int const d = (nu == nup); // d=1:diagonal d=0:off-diagonal
+                  max_dev[d] = std::max(max_dev[d], std::abs(double(hh[nu][nup]) - d));
               } // nup
-              std::printf("\n");
+              assert(std::abs(hh[nu][nu] - 1) < 1e-7);
+              prefactor[nu] = scal;
           } // nu
-          std::printf("\n\n");
-      } // echo
 
-      if (echo > 1) std::printf("# %s<%s> largest deviation from unit matrix is %.1e and %.1e on the"
-          " diagonal\n", __func__, (sizeof(real_t) == 8)?"double":"float", max_dev[0], max_dev[1]);
+          if (echo > 5) {
+              std::printf("# %s  %d x %d overlap matrix, deviation from unity\n", __func__, M, M);
+              for (int nu = 0; nu <= numax; ++nu) {
+                  std::printf("# nu = %d ", nu);
+                  for (int nup = 0; nup <= numax; ++nup) {
+                      std::printf("%9.1e", hh[nu][nup] - (nu == nup));
+                  } // nup
+                  std::printf("\n");
+              } // nu
+              std::printf("\n\n");
+          } // echo
 
-      } // first time
+          if (echo > 1) std::printf("# %s<%s> largest deviation from unit matrix is %.1e and %.1e on the"
+              " diagonal\n", __func__, (sizeof(real_t) == 8)?"double":"float", max_dev[0], max_dev[1]);
+
+          } // first time
       } // twice
-      
+
       return (max_dev[0] + max_dev[1] > threshold);
   } // test_Hermite_polynomials
 

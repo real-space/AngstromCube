@@ -8,7 +8,7 @@
 #ifndef NO_UNIT_TESTS
   #include <cstdio> // std::printf
   #include "simple_math.hxx" // ::random
-#endif
+#endif // NO_UNIT_TESTS
 
 namespace global_coordinates {
   // global coordinates make a unique identifyer from each tuple of 3D integer coordinates.
@@ -60,6 +60,12 @@ namespace global_coordinates {
       } // d
       return stat;
   } // get
+
+
+
+
+
+
 
 
 #ifdef  NO_UNIT_TESTS

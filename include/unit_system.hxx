@@ -97,6 +97,6 @@ namespace unit_system {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
-  
+#endif // NO_UNIT_TESTS
+
 } // namespace unit_system

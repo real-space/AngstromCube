@@ -6,7 +6,7 @@
 #include "data_view.hxx" // view2D<T>
 
 namespace sho_basis {
-  
+
   status_t load(
         std::vector<view2D<double>> & basis
       , std::vector<int> & indirection

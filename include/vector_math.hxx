@@ -4,7 +4,7 @@
 #include <ostream>
 
 namespace vector_math {
-  
+
   template<int N, typename T>
   class vec {
   private:
@@ -219,8 +219,7 @@ namespace vector_math {
         if((iw >> i) & 1) v[i] += (v[i] > 0 ? -w[i] : w[i]);
       }
     }
-    
-    friend T dot(const vec & v, const vec & w) {              // dot-product, added by Paul F Baumeister:
+    friend T dot(const vec & v, const vec & w) {                // dot-product, added by Paul F Baumeister:
       T temp = 0;
       for (int i=0; i<N; i++) temp += v[i] * w[i]; // missing conjugate for complex!
       return temp;

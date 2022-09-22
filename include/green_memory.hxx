@@ -32,7 +32,7 @@
     typedef int cudaError;
     inline cudaError cudaDeviceSynchronize(void) { return 0; } // dummy
   #endif // HAS_TFQMRGPU
-#endif // HAS_NO_CUDA      
+#endif // HAS_NO_CUDA
 
 // #define DEBUG
 

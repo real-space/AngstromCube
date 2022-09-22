@@ -12,7 +12,7 @@ namespace radial_potential {
       , radial_grid_t const & g // radial grid descriptor
       , double const rho4pi[] // 4*\pi*density(r)
   ); // declaration only
-  
+
   void Hartree_potential(
         double vHt[] // result: Hartree-potential_lm(r)
       , radial_grid_t const & g // radial grid descriptor

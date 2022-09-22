@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::fflush, stdout
+#include <cstdio> // std::printf, ::fflush, stdout
 
 #include "status.hxx" // status_t
 
@@ -26,7 +26,7 @@ namespace dense_operator {
       complex_t const *Hmt, *Smt; // Hamiltonian matrix, Overlap matrix
       complex_t const *Cnd; // Preconditioning operator
       int nB, nBa;
-      
+
       inline status_t matrix_vector_multiplication(complex_t mvec[]
                      , complex_t const mat[], complex_t const vec[], int const echo=0) const {
           if (echo > 19) {
@@ -44,9 +44,9 @@ namespace dense_operator {
           , complex_t const *Hmt         // Hamiltonian
           , complex_t const *Smt=nullptr // Overlap matrix, optional
           , complex_t const *Cnd=nullptr // diagonal preconditioner, optional
-      ) 
+      )
         : Hmt{Hmt}, Smt{Smt}, Cnd{Cnd}, nB{nB}, nBa{stride}
-      { 
+      {
           assert( nB <= nBa );
       } // constructor
 

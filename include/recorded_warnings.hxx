@@ -49,7 +49,7 @@ namespace recorded_warnings {
 
   // hidden function, please use the macro 'warn' above to create a new warning
   std::pair<char*,int> _new_warning(char const *file, int const line, char const *func); // declaration only
-  
+
   int constexpr MaxMessageLength = 255;
 
   template <class... Args>
@@ -86,7 +86,7 @@ namespace recorded_warnings {
   } // _print_warning_message
 
   status_t clear_warnings(int const echo=1); // declaration only
-  
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace recorded_warnings

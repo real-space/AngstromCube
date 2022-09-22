@@ -30,7 +30,7 @@ namespace real_space {
       grid_t(void) : dims{0,0,0,1}, bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} { set(cell[0], 12, 0.0); } // default constructor
 
       grid_t(int const d0, int const d1, int const d2, int const dim_outer=1)
-       : bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {
+        : bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {
           dims[0] = std::max(1, d0); // x
           dims[1] = std::max(1, d1); // y
           dims[2] = std::max(1, d2); // z
@@ -226,6 +226,13 @@ namespace real_space {
       return 0; // success
   } // Bessel_projection
 
+
+
+
+
+
+
+
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -242,27 +249,26 @@ namespace real_space {
       int const dims[] = {32, 31, 30};
       grid_t g(dims);
       g.set_grid_spacing(0.333);
-      double const cnt[] = {g[0]*.42*g.h[0], 
-                            g[1]*.51*g.h[1], 
+      double const cnt[] = {g[0]*.42*g.h[0],
+                            g[1]*.51*g.h[1],
                             g[2]*.60*g.h[2]}; // center is slightly shifted from exact grid point positions
       int const nr2 = 1 << 11;
-      float const rcut = 4;
-      float const inv_hr2 = nr2/(rcut*rcut);
+      float const rcut = 4, inv_hr2 = nr2/(rcut*rcut);
       double const hr2 = 1./inv_hr2;
       double r2c[nr2], rad_integral{0};
       if (echo > 4) std::printf("\n# values on the radial grid\n");
       for (int ir2 = 0; ir2 < nr2; ++ir2) { // sample r^2
           double const r2 = ir2*hr2, r = std::sqrt(r2);
           r2c[ir2] = std::exp(-r2); // function evaluation here
-          if (echo > 4) std::printf("%g %g\n", r, r2c[ir2]); // plot function value vs r
+          if (echo > 4) std::printf("%g %g\n", r, r2c[ir2]); // plot function value vs radius r
           rad_integral += r2c[ir2] * r;
       } // ir2
       rad_integral *= 2*constants::pi/inv_hr2;
+
       if (echo > 2) std::printf("\n# add_function()\n\n");
       double added{0};
-      auto values = new double[g.all()];
-      set(values, g.all(), 0.0);
-      add_function(values, g, r2c, nr2, inv_hr2, &added, cnt);
+      std::vector<double> values(g.all(), 0.0);
+      add_function(values.data(), g, r2c, nr2, inv_hr2, &added, cnt);
       if (echo > 6) std::printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
       double xyz_integral{0};
       for (        int iz = 0; iz < g('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
@@ -271,16 +277,15 @@ namespace real_space {
                   auto const ixyz = (iz*g('y') + iy)*g('x') + ix;
                   auto const val = values[ixyz];
                   if (0 != val) {
-                      if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
+                      if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs radius r
                       xyz_integral += val;
                   } // non-zero
               } // ix
           } // iy
       } // iz
-      delete[] values;
       xyz_integral *= g.dV(); // volume element
       auto const diff = xyz_integral - rad_integral;
-      if (echo > 1) std::printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.3f %%)\n", 
+      if (echo > 1) std::printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.3f %%)\n",
                                   xyz_integral, rad_integral, diff, 100*diff/rad_integral);
       return std::abs(diff/rad_integral) > 4e-4;
   } // test_add_function

@@ -1780,7 +1780,8 @@ namespace angular_grid {
   ) {
       auto const g = get_grid(ellmax, echo);
       if (nullptr == g) return -1;
-      double const *b{nullptr}; int ldb{0}, N{0}, K{0};
+      int N, K, ldb;
+      double const *b;
       if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
       else      { K = pow2(1 + ellmax); N = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
       return linear_algebra::gemm(M, N, K, out, M, b, ldb, in, M);

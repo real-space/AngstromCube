@@ -83,7 +83,7 @@
 #else
     ;
 #endif
-    
+
     fortran_callable(initialize)
         ( int32_t const *na // number of atoms
         , double const Z_core[] // core charges

@@ -61,7 +61,7 @@ namespace pseudo_tools {
       double* x = bvec; // rename memory
       auto const info = linear_algebra::linear_solve(nm, Amat[0], 4, bvec, 4, 1);
 
-#ifdef DEVEL      
+#ifdef DEVEL
       if (echo > 7) {
           std::printf("# %s xvec     ", __func__);
           printf_vector(" %16.9f", x, nm);
@@ -135,7 +135,7 @@ namespace pseudo_tools {
       //  L'(x) = sum_j y_j sum_{k!=j} 1/(x_j - x_k)                                 prod_{m!=j, m!=k}       (x - x_m)/(x_j - x_m)
       //
       //  L''(x) = sum_j y_j sum_{k!=j} 1/(x_j - x_k) sum_{l!=j, l!=k} 1/(x_j - x_l) prod_{m!=j, m!=k, m!=l} (x - x_m)/(x_j - x_m)
-      
+
       for (int j = 0; j < n; ++j) {
           double d0j{1}, d1j{0}, d2j{0};
           for (int k = 0; k < n; ++k) {
@@ -144,19 +144,19 @@ namespace pseudo_tools {
                   double d1l{1}, d2l{0};
                   for (int l = 0; l < n; ++l) {
                       if (l != j && l != k) {
-                          
+
                           double d2m{1};
                           for (int m = 0; m < n; ++m) {
                               if (m != j && m != k && m != l) {
                                   d2m *= (x0 - x[m])/(x[j] - x[m]);
                               } // exclude
                           } // m
-                          
+
                           d1l *= (x0 - x[l])/(x[j] - x[l]);
                           d2l += d2m/(x[j] - x[l]);
                       } // exclude
                   } // l
-                  
+
                   d0j *= (x0 - x[k])/(x[j] - x[k]);
                   d1j += d1l/(x[j] - x[k]);
                   d2j += d2l/(x[j] - x[k]);
@@ -166,7 +166,7 @@ namespace pseudo_tools {
           d1 += d1j * y[j];
           d2 += d2j * y[j];
       } // j
-      
+
       if(value_x0) *value_x0 = d0;
       if(deriv1st) *deriv1st = d1;
       if(deriv2nd) *deriv2nd = d2;
@@ -189,7 +189,7 @@ namespace pseudo_tools {
       // replace the true singular potential by a smooth pseudopotential inside the augmentation sphere
       int const nr_diff = ir_cut[TRU] - ir_cut[SMT];
       double const r_cut = rg[TRU].r[ir_cut[TRU]];
-      
+
       assert(rg[TRU].r[nr_diff] == rg[SMT].r[0]);
       assert(r_cut == rg[SMT].r[ir_cut[SMT]]);
 
@@ -235,7 +235,7 @@ namespace pseudo_tools {
                   }
               } // order
           } // echo
-          
+
           if ((1 == rpow) && (echo > 27)) {
               for (int order = 1; order < 16; ++order) {
                   unsigned const Lagrange_order = 2*order + 1;
@@ -258,7 +258,7 @@ namespace pseudo_tools {
           unsigned const Lagrange_order = 1 + 2*std::min(std::max(1, n_Lagrange_points ), 15);
           double d0{0}, d1{0}, d2{0};
           stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
-          if (echo > 7) std::printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", 
+          if (echo > 7) std::printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n",
                                   label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
 
           if (d1 <= 0) warn("%s positive potential slope for sinc-fit expected but found %g", label, d1);
@@ -275,7 +275,7 @@ namespace pseudo_tools {
               V_s = d2/(-k_s*k_s*sin_kr);
               V_0 = d1 - V_s*k_s*cos_kr;
               double const d0_new = 0.5*d0 + 0.5*(V_s*sin_kr + r_cut*V_0); // 50% mixing
-              if (echo > 27) std::printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", 
+              if (echo > 27) std::printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n",
                                        label, max_iter - iter, V_s, k_s, V_0, d0, d0 - d0_new);
               k_s += 1e-2*(d0 - d0_new); // maybe needs saturation function like atan
               ++iterations_needed;
@@ -343,7 +343,7 @@ namespace pseudo_tools {
       // now factorize A in a custom fashion
       for (int i = 0; i < n; ++i) {
 
-          if (op[i] & 32) { // all lower case chars, e.g. 'l' or 'u'          
+          if (op[i] & 32) { // all lower case chars, e.g. 'l' or 'u'
               auto const diag = L(i,i);
               auto const dinv = 1./diag; // ToDo: check if we can safely divide by L(i,i)
               for (int k = 0; k < n; ++k) {
@@ -356,7 +356,7 @@ namespace pseudo_tools {
           } // which one to scale?
 
           for (int j = i + 1; j < n; ++j) {
-            
+
               if (op[j] & 1) { // all odd chars, e.g. 'u' or 'U'
                   // clear out upper right corner of L
                   auto const c = L(i,j)/L(i,i); // ToDo: check if we can safely divide by L(i,i)

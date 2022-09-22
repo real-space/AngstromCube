@@ -71,7 +71,7 @@
 
       return charge_outside; // fraction of charge outside the augmentation radius
   } // show_state_analysis
-  
+
   // ToDo: Would it make sense to define this function?
   // template <int Pseudo> show_state_analysis(echo, label, rg, energy_level<Pseudo> const & state);
-  
+

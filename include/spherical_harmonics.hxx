@@ -130,7 +130,7 @@ namespace spherical_harmonics {
 
       return;
   } // Ylm
-  
+
   template <typename real_t=double>
   void cleanup(int const echo=0) {
       if (echo > 5) std::printf("# %s %s<%s>: free internal memory\n",
@@ -139,6 +139,14 @@ namespace spherical_harmonics {
       double v[3];
       Ylm(&z, -1, v);
   } // cleanup
+
+
+
+
+
+
+
+
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

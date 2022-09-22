@@ -36,9 +36,9 @@ namespace radial_grid {
   int find_grid_index(radial_grid_t const & g, double const radius); // declaration only
 
   double get_prefactor(radial_grid_t const & g); // declaration only
-  
+
   char const* get_formula(char const equation='\0'); // declaration only
 
   status_t all_tests(int const echo=0); // declaration only
-  
+
 } // namespace radial_grid

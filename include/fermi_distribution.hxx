@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::fflush, stdout
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert
 #include <cmath> // std::exp
 #include <vector> // std::vector<T>
@@ -273,6 +273,10 @@ namespace fermi_distribution {
       int _spinfactor; // 2:spin-paired, 1:spin-resolved
 
   }; // class FermiLevel_t
+
+
+
+
 
 
 

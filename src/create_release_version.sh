@@ -31,10 +31,11 @@ echo "  and the following undefs"
 echo "      $undefs"
 
 target_dir=../release
+mkdir -p $target_dir
 
 ### delete the line that activates -D DEVEL in the development Makefile
 sed '/DEVEL/d' Makefile > $target_dir/Makefile
-### maybe some additional modifications of the FEATUREFLAGS in the Makefile 
+### maybe some additional modifications of the FEATUREFLAGS in the Makefile
 ### will be necessary
 
 echo "/*" > tmp_license_header_start

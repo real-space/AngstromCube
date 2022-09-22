@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // std::printf
-#include <cmath> // std::ceil, std::sqrt
+#include <cmath> // std::ceil, ::sqrt
 #include <cstdint> // int8_t
 
 #include "inline_math.hxx"
@@ -116,7 +116,7 @@ namespace boundary_condition {
       } // nullptr != string
       if (echo > 0) {
           char const bc_names[][12] = {"isolated", "periodic", "invalid", "mirror"};
-          std::printf("# interpret \"%s\" as %s boundary condition in %c-direction\n", 
+          std::printf("# interpret \"%s\" as %s boundary condition in %c-direction\n",
                       string, bc_names[bc & 0x3], dir);
       } // echo
       return bc;

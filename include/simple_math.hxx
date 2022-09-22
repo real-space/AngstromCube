@@ -34,7 +34,7 @@ namespace simple_math {
   inline T determinant(T a00, T a01, T a10, T a11) {
       return a00*a11 - a10*a01; 
   } // determinant
-  
+
   // a00 a01 a02
   // a10 a11 a12
   // a20 a21 a22
@@ -99,7 +99,7 @@ namespace simple_math {
   } // determinant
 
   float constexpr threshold = 1e-30;
-  
+
   template <typename real_t>
   inline real_t invert1x1(real_t inv[], int const is, real_t const a[], int const as=1, real_t const factor=1) {
       auto const det = determinant(1, a, as);
@@ -194,6 +194,13 @@ namespace simple_math {
   } // matrix_rotation
 
 
+
+
+
+
+
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -261,6 +268,6 @@ namespace simple_math {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace simple_math

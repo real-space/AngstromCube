@@ -9,9 +9,16 @@ namespace angular_grid {
 
   int get_grid_size(int const ellmax, int const echo=0); // declaration only
 
-  status_t transform(double out[], double const in[], int const stride, int const ellmax, bool const back=false, int const echo=0);
+  status_t transform(
+        double out[] // resulting matrix with stride
+      , double const in[] // input matrix with stride
+      , int const stride // stride for in and out
+      , int const ellmax // largest angular momentum
+      , bool const back=false // backtransform?
+      , int const echo=0 // log-level
+  ); // declaration only
 
-  std::vector<gaunt_entry_t> create_numerical_Gaunt(int const ellmax, int const echo=0);
+  std::vector<gaunt_entry_t> create_numerical_Gaunt(int const ellmax, int const echo=0); // declaration only
 
   void cleanup(int const echo=0); // declaration only
 

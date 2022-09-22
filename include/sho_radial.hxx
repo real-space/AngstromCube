@@ -70,7 +70,7 @@ namespace sho_radial {
       delete[] prod;
       return 1./std::sqrt(norm); // normalization prefactor
   } // radial_normalization
-  
+
   template <typename real_t>
   real_t radial_normalization(int const nrn, int const ell) {
       auto const coeff = new real_t[nrn + 1]; // coefficients of a polynomial in r^2
@@ -90,13 +90,20 @@ namespace sho_radial {
       } // i
       return value;
   } // expand_poly
-  
+
+
+
+
+
+
+
+
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   template <typename real_t>
-  real_t numerical_norm(real_t const c0[], int const nrn0, 
+  real_t numerical_norm(real_t const c0[], int const nrn0,
                         real_t const c1[], int const nrn1, int const ell) {
       double constexpr dr = 1./(1 << 12), rmax = 12.;
       int const nr = rmax / dr;
@@ -115,24 +122,23 @@ namespace sho_radial {
   } // numerical_norm
 
   inline status_t test_orthonormality(int const echo=1) {
-      int const numax = 9;
-      int const n = (numax*(numax + 4) + 4)/4; // sho_tools::nSHO_radial(numax);
+      int constexpr numax = 9;
+      int constexpr n = (numax*(numax + 4) + 4)/4; // sho_tools::nSHO_radial(numax);
       if (echo > 1) std::printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);
-      
+
       double c[n][8]; // polynomial coefficients
 
       ell_QN_t ell_list[n];
       enn_QN_t nrn_list[n];
       double   fac_list[n];
-      
+
       int i = 0;
-//       for (int ene = 0; ene <= numax; ++ene) { //  E_SHO = ene + 3/2
-//           for (int nrn = ene/2; nrn >= 0; --nrn) { // start from low ell withing the block, i.e. many radial nodes
-//               int const ell = ene - 2*nrn;
-//       for (int ell = 0; ell <= numax; ++ell) { //
-      for (int ell = numax; ell >= 0; --ell) { //
-          for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
-            
+      for (int ene = 0; ene <= numax; ++ene) { //  E_SHO == ene + 3/2, energy-ordered
+          for (int nrn = ene/2; nrn >= 0; --nrn) { // start from low ell withing the block, i.e. many radial nodes
+              int const ell = ene - 2*nrn;
+//       for (int ell = numax; ell >= 0; --ell) { // ell-ordered
+//           for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+
               ell_list[i] = ell;
               nrn_list[i] = nrn;
               radial_eigenstates(c[i], nrn, ell);
@@ -140,11 +146,11 @@ namespace sho_radial {
               assert(std::abs(fac - radial_normalization<double>(nrn, ell)) < 1e-12); // check that the other interface produces the same value,with -O0 we can even check for ==
               fac_list[i] = fac;
               if (echo > 2) std::printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
-              radial_eigenstates(c[i], nrn, ell, fac_list[i]); // overwrite the coefficient series with the normalized onces
+              radial_eigenstates(c[i], nrn, ell, fac_list[i]); // overwrite the coefficient set with the normalized set
 
               ++i; // count the number of states
           } // nrn
-      } // ene
+      } // ell
       assert(n == i); // check that nSHO_radial(numax) agrees
 
       double dev[] = {0, 0};
@@ -161,15 +167,32 @@ namespace sho_radial {
                           assert(std::abs(delta_ji - delta_ij) < 1e-15);
                       } // i != j
                   } // sanity check
-                  if (echo > 4 - i_equals_j) std::printf("%g ", delta_ij - i_equals_j);
+                  if (echo > 14 - i_equals_j) std::printf("%g ", delta_ij - i_equals_j);
                   // measure the deviation from unity for diagonal elements
                   dev[i_equals_j] = std::max(dev[i_equals_j], std::abs(delta_ij - i_equals_j));
               } // ell matches
           } // j
-          if (echo > 3) std::printf("\n");
+          if (echo > 13) std::printf("\n");
       } // i
       if (echo > 0) std::printf("# normalization of radial SHO eigenfunctions differs by %g from unity\n", dev[1]); // summary
       if (echo > 0) std::printf("# orthogonality of radial SHO eigenfunctions differs by %g from zero\n",  dev[0]); // summary
+
+      if (echo > 7) { // plot
+          std::printf("\n## radial SHO functions: ln= ");
+          for (int i = 0; i < n; ++i) {
+              std::printf(" %d%d", ell_list[i],nrn_list[i]);
+          } // i
+          for (int ir = 0; ir < 666; ++ir) {
+              double const r = ir*0.01, r2 = r*r; // radius
+              double const Gauss = std::exp(-0.5*r2);
+              std::printf("\n%.2f", r);
+              for (int i = 0; i < n; ++i) {
+                  std::printf(" %g", expand_poly(c[i], 1 + nrn_list[i], r2)*Gauss);
+              } // i
+          } // ir
+          std::printf("\n\n");
+      } // plot
+
       return (dev[0] + dev[1] > 5e-11);
   } // test_orthonormality
 
@@ -180,5 +203,5 @@ namespace sho_radial {
   } // all_tests
 
 #endif // NO_UNIT_TESTS
-  
+
 } // namespace sho_radial

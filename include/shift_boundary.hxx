@@ -145,7 +145,7 @@ namespace shift_boundary {
       double amat[3][4]; set(amat[0], 3*4, 0.0);
       if (1 == structure) { // sc
           for (int d = 0; d < 3; ++d) amat[d][d] = 2*ahalf;
-      } else      
+      } else
       if (2 == structure) { // bcc
           amat[0][0] = 2*ahalf; amat[0][1] = ahalf;
           amat[1][1] = 2*ahalf; amat[1][2] = ahalf;
@@ -207,7 +207,7 @@ namespace shift_boundary {
       if (echo > 3) std::printf("# %s after inversion largest deviation is %.1e (a*b) and %.1e (b*a)\n", 
                                    __func__, maxdev[0], maxdev[1]);
 
-      
+
       if (echo > 4) {
           int const ng = 16;          // number of grid points per lattic constant
           double const h = alat/ng;   // isotropic grid spacing
@@ -217,8 +217,8 @@ namespace shift_boundary {
                   .1*std::round(10*amat[i][0]/h), .1*std::round(10*amat[i][1]/h), .1*std::round(10*amat[i][2]/h));
           } // i
       } // echo
-      
-      
+
+
       // test: set up periodic+shifted BC and diagonalize the free electron Hamiltonian
       // check that
 
@@ -249,7 +249,7 @@ namespace shift_boundary {
 // #  |           |
 // #  A--- ---B---A
 // #    a sqrt 3
-// #        
+// #
    // cell    1 sqrt3 c/a
    // # from initially 4 atoms at the fractional coordinates
    // Cd      0   0   0     A
@@ -265,12 +265,12 @@ namespace shift_boundary {
 // #  A--- -+ B   A  
 // #    a sqrt 3
 
-   // cell    1 sqrt.75 c/a        
+   // cell    1 sqrt.75 c/a
    // Cd      0   0   0     A
    // Cd      1:2 1:6 1:2   B
 
    // and with another symmetry enabler, we can reduce to one atom:
-   // cell    1 sqrt.75 c/a/2        
+   // cell    1 sqrt.75 c/a/2
    // if we have a glide reflection boundary (shift mirror) by 1/6:
 
   //
@@ -280,12 +280,12 @@ namespace shift_boundary {
   //            B 15  14  13  12  11  10 |
   //            | 05  04  03  02  01  00 |       --> y-direction
   //  --+-------+-------()-------+-------+--
-  //    | 00  01  02  03  04  05 |      
+  //    | 00  01  02  03  04  05 |
   //    | 10  11  12  13  14  15 A
   //    | 20  21  22  23  24  25 |             ^
   //  --+-------+----------------+-------+--   | z-direction
   //            |                        |
-  // so we reflect at the point marked by () in order to map A onto B    
+  // so we reflect at the point marked by () in order to map A onto B
 
 
    // What do we need to simulate diamond structure with 1 atoms?
@@ -293,7 +293,7 @@ namespace shift_boundary {
         // the FCC approach with Cartesian cells is
         // cell (a, a/2, a/2)
         // which can, with a mirror plane be reduced to (a/2, a/2, a/2), [also for the wave functions??]
-        // this reduction cannot be done for diamond, as 
+        // this reduction cannot be done for diamond, as
         // in one of the cubes, there is the second base atom body centered.
         // however, if we reflect by a plane through atom #2 and rotate by pi around it,
         // so the cell may be shaped (a, a/2, a/4)

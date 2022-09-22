@@ -1,11 +1,11 @@
 #pragma once
 
-#include <complex> // std::complex<real_t>, std::norm
-#include <vector> // std::vector<T>
+#include <complex> // std::complex, ::norm
+#include <vector> // std::vector
 #include <cstdio> // std::printf
 
 #ifndef HAS_NO_MKL
-	#define HAS_MKL
+    #define HAS_MKL
 #endif // HAS_NO_MKL
 
 #ifndef NO_UNIT_TESTS
@@ -22,32 +22,32 @@ extern "C" {
   #define MKL_INT int
 
     // float64 linear_solve
-	void dgesv_(int const *n, int const *nrhs, double a[], int const *lda, 
-				int ipiv[], double b[], int const *ldb, int *info);
+    void dgesv_(int const *n, int const *nrhs, double a[], int const *lda, 
+                int ipiv[], double b[], int const *ldb, int *info);
 
     // float64 eigenvalues
-	void dsyev_(char const *jobz, char const *uplo, int const* n, double a[], int const *lda, 
-		        double w[], double work[], int const *lwork, int *info);
-	void zheev_(char const *jobz, char const *uplo, int const* n, std::complex<double> a[], int const *lda, 
-		        double w[], std::complex<double> work[], int const *lwork, double rwork[], int *info);
+    void dsyev_(char const *jobz, char const *uplo, int const* n, double a[], int const *lda, 
+                double w[], double work[], int const *lwork, int *info);
+    void zheev_(char const *jobz, char const *uplo, int const* n, std::complex<double> a[], int const *lda, 
+                double w[], std::complex<double> work[], int const *lwork, double rwork[], int *info);
     // float64 generalized_eigenvalues
     void dsygv_(int const *itype, char const *jobz, char const *uplo, int const* n, double a[], int const *lda,
-    			double b[], int const *ldb, double w[], double work[], int const *lwork, int *info);
+                double b[], int const *ldb, double w[], double work[], int const *lwork, int *info);
     void zhegv_(int const *itype, char const *jobz, char const *uplo, int const* n, std::complex<double> a[], int const *lda,
-    			std::complex<double> b[], int const *ldb, double w[],
+                std::complex<double> b[], int const *ldb, double w[],
                 std::complex<double> work[], int const *lwork, double rwork[], int *info);
     // float32 eigenvalues
-	void ssyev_(char const *jobz, char const *uplo, int const* n, float a[], int const *lda, 
-		        float w[], float work[], int const *lwork, int *info);
-	void cheev_(char const *jobz, char const *uplo, int const* n, std::complex<float> a[], int const *lda, 
-		        float w[], std::complex<float> work[], int const *lwork, float rwork[], int *info);
+    void ssyev_(char const *jobz, char const *uplo, int const* n, float a[], int const *lda, 
+                float w[], float work[], int const *lwork, int *info);
+    void cheev_(char const *jobz, char const *uplo, int const* n, std::complex<float> a[], int const *lda, 
+                float w[], std::complex<float> work[], int const *lwork, float rwork[], int *info);
     // float32 generalized_eigenvalues
     void ssygv_(int const *itype, char const *jobz, char const *uplo, int const* n, float a[], int const *lda,
-    			float b[], int const *ldb, float w[], float work[], int const *lwork, int *info);
+                float b[], int const *ldb, float w[], float work[], int const *lwork, int *info);
     void chegv_(int const *itype, char const *jobz, char const *uplo, int const* n, std::complex<float> a[], int const *lda,
-    			std::complex<float> b[], int const *ldb, float w[],
+                std::complex<float> b[], int const *ldb, float w[],
                 std::complex<float> work[], int const *lwork, float rwork[], int *info);
-    
+
     // LU decomposition of a general matrix
     void dgetrf_(int const *m, int const *n, double a[], int const *lda, int ipiv[], int *info);
     void sgetrf_(int const *m, int const *n, float  a[], int const *lda, int ipiv[], int *info);
@@ -60,7 +60,7 @@ extern "C" {
     void zgetri_(int const *n, std::complex<double> a[], int const *lda, int ipiv[], std::complex<double> work[], int const *lwork, int *info);
     void cgetri_(int const *n, std::complex<float>  a[], int const *lda, int ipiv[], std::complex<float>  work[], int const *lwork, int *info);
 #endif
-    
+
     // BLAS interface to matrix matrix multiplication
     void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
                 const double*, const int*, const double*, const int*, const double*, double*, const int*);
@@ -77,7 +77,7 @@ extern "C" {
 #include "status.hxx" // status_t
 
 namespace linear_algebra {
-  
+
   inline status_t inverse(int const n, double a[], int const lda) {
       int info{0};
       std::vector<MKL_INT> ipiv(2*n);
@@ -97,7 +97,7 @@ namespace linear_algebra {
 #endif
       return info;
   } // inverse
-  
+
   inline status_t inverse(int const n, float a[], int const lda) {
       int info{0};
       std::vector<MKL_INT> ipiv(2*n);
@@ -157,8 +157,8 @@ namespace linear_algebra {
 #endif
       return info;
   } // inverse
-  
-  
+
+
   inline status_t linear_solve(int const n, double a[], int const lda, double b[], int const ldb, int const nrhs=1) {
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef  HAS_MKL
@@ -169,7 +169,7 @@ namespace linear_algebra {
       return info;
 #endif
   } // linear_solve
-  
+
 
   inline status_t _eigenvalues(int const n, double a[], int const lda, double w[]) {
 #ifdef  HAS_MKL
@@ -193,7 +193,7 @@ namespace linear_algebra {
       return info;
 #endif
   } // (standard_)eigenvalues
-  
+
   inline status_t _generalized_eigenvalues(int const n, double a[], int const lda, double b[], int const ldb, double w[]) {
 //    std::printf("\n# call dsygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
@@ -219,10 +219,10 @@ namespace linear_algebra {
 #endif
   } // generalized_eigenvalues
 
-  
+
   // float32 version: copy the above, replace double by float and change d --> s, z --> c
 
-  
+
   inline status_t _eigenvalues(int const n, float a[], int const lda, float w[]) {
 #ifdef  HAS_MKL
       return LAPACKE_ssyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
@@ -245,7 +245,7 @@ namespace linear_algebra {
       return info;
 #endif
   } // (standard_)eigenvalues
-  
+
   inline status_t _generalized_eigenvalues(int const n, float a[], int const lda, float b[], int const ldb, float w[]) {
 //    std::printf("\n# call ssygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
@@ -345,10 +345,20 @@ namespace linear_algebra {
       return 0;
   } // gemm
 
+
+
+
+
+
+
+
+
+
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
-
 
   template <typename complex_t>
   inline double matrix_deviation(
@@ -451,6 +461,7 @@ namespace linear_algebra {
       stat += basic_tests<N, float >(echo);
       return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace linear_algebra

@@ -169,13 +169,13 @@ namespace solid_harmonics {
   /*
    *   lm_index is a combined index of the angular momentum integer quantum numbers
    *   ell >= 0 and emm with |emm| <= ell
-   *      
+   *
    *  emm       -5  | -4  | -3  | -2  | -1  |  0  |  1  |  2  |  3  |  4  |  5
    *  ell=0                                    0
-   *  ell=1                              1     2     3   
+   *  ell=1                              1     2     3
    *  ell=2                        4     5     6     7     8
-   *  ell=3                  9    10    11    12    13    14    15  
-   *  ell=4           16    17    18    19    20    21    22    23    24 
+   *  ell=3                  9    10    11    12    13    14    15
+   *  ell=4           16    17    18    19    20    21    22    23    24
    *  ell=5     25    26    27    28    29    30    31    32    33    34    35
    *   ...                                ....
    */

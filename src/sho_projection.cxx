@@ -1,6 +1,6 @@
 #include <cstdio> // std::printf
 #include <cassert> // assert
-#include <algorithm> // std::copy, std::fill
+#include <algorithm> // std::copy, ::fill
 #include <cmath> // std::floor
 #include <vector> // std::vector<T>
 
@@ -140,14 +140,14 @@ namespace sho_projection {
       sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
 
 //       solid_harmonics::cleanup();
-      
+
       std::vector<real_t> coeff(nSHO);
       double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
       status_t stat(0);
       for (int ell = 0; ell <= numax; ++ell) { // angular momentum quantum number
           for (int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
               int const lm = sho_tools::lm_index(ell, emm);
-              
+
               set(values.data(), g.all(), real_t(0)); // clear all values on the grid
 
               { // scope: construct non-decaying solid harmonics on the grid r^ell*X_{ell m}

@@ -1,7 +1,5 @@
-#include <cstdio> // std::printf, std::snprintf
-#ifndef  NO_UNIT_TESTS
-  #include <cmath> // std::abs
-#endif //   UNIT_TESTS
+#include <cstdio> // std::printf, ::snprintf
+#include <cmath> // std::round, ::abs
 
 #include "chemical_symbol.hxx"
 

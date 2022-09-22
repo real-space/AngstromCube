@@ -100,6 +100,15 @@
 
   inline bool is_integer(double const f) { return (f == std::round(f)); }
 
+
+
+
+
+
+
+
+
+
 #ifndef NO_UNIT_TESTS
     #include <cstdio> // std::printf
     #include <cassert> // assert
@@ -204,6 +213,6 @@ namespace inline_math {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace inline_math
