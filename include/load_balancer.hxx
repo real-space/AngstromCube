@@ -4,7 +4,7 @@
 #include <cassert> // assert
 #include <vector> // std::vector
 #include <numeric> // std::iota
-#include <cstdint> // uint32_t
+#include <cstdint> // uint32_t, uint16_t
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "data_view.hxx" // view2D<T>
@@ -61,7 +61,7 @@ namespace load_balancer {
       , double const w8sum_all=1. // denominator of all weights
       , int const echo=0 // verbosity
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
-      , int32_t *owner_rank=nullptr // export the rank of each task
+      , uint16_t *owner_rank=nullptr // export the rank of each task
   ) {
       // complexity is order(N^2) as each processes loops over all tasks in the first iteration
 
@@ -129,7 +129,9 @@ namespace load_balancer {
               for (size_t iuna = 0; iuna < nuna; ++iuna) { // parallel
                   auto const iall = indirect[iuna];
                   auto const *const xyz = xyzw[iall];
-                  auto const f = xyz[X]*vec[X] + xyz[Y]*vec[Y] + xyz[Z]*vec[Z]; // inner product
+                  auto const f = xyz[X]*vec[X] // inner product
+                               + xyz[Y]*vec[Y]
+                               + xyz[Z]*vec[Z];
                   v[iuna] = std::make_pair(float(f), uint32_t(iall));
               } // iall
 
@@ -192,7 +194,10 @@ namespace load_balancer {
 
       if (owner_rank) { // export mask
           for (size_t iall = 0; iall < nall; ++iall) {
-              if (UNASSIGNED == state[iall]) owner_rank[iall] = rank;
+              if (UNASSIGNED == state[iall]) {
+                  owner_rank[iall] = rank;
+                  assert(owner_rank[iall] == rank && "uint16_t too short for owner_ranks");
+              }
           } // iall
       } // owner_rank
 
@@ -210,24 +215,25 @@ namespace load_balancer {
 
   template <typename int_t>
   inline double get(
-        uint32_t const comm_size
-      , int32_t  const comm_rank
-      , int_t const nb[3]
-      , int const echo=0
+        uint32_t const comm_size // number of MPI processes in this communicator
+      , int32_t  const comm_rank // rank of this MPI process
+      , int_t const nb[3] // number of blocks in X/Y/Z direction
+      , int const echo=0 // log level
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
-      , int32_t *owner_rank=nullptr // export the rank of each task
+      , uint16_t *owner_rank=nullptr // export the owner rank of each task, [nb[Z]*nb[Y]*nb[X]]
   ) {
       // distribute a rectangular box of nb[X] x nb[Y] x nb[Z] with all weights 1
 
-      assert(0 <= comm_rank && comm_rank < comm_size);
+      assert(comm_rank >= 0);
+      assert(comm_rank < comm_size);
+
       auto const nall = size_t(nb[X])*size_t(nb[Y])*size_t(nb[Z]);
       assert(nall > 0);
       assert(nall <= (size_t(1) << 32) && "uint32_t is not long enough!");
 
       double w8sum_all{0};
-      int constexpr W = 3;
       view2D<float> xyzw(nall, 4, 0.f);
-      std::vector<double> w8s(nall, 0);
+      std::vector<float> w8s(nall, 0);
 
       for (int iz = 0; iz < nb[Z]; ++iz) {
       for (int iy = 0; iy < nb[Y]; ++iy) {

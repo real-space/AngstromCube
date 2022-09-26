@@ -53,9 +53,9 @@
 #include "green_dyadic.hxx" // ::dyadic_plan_t
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
+#include "load_balancer.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
 //int8_t constexpr Isolated_Boundary = 0, Periodic_Boundary = 1;
-#include "load_balancer.hxx" // ::get
 
 
  /*
@@ -496,7 +496,7 @@ namespace green_function {
           assert(nall > 0);
           int const fake_rank = control::get("green_function.fake.rank", fake_size - 1.);
           auto const comm_rank = (fake_rank > -1) ? fake_rank : mpi_parallel::rank();
-          std::vector<int32_t> owner_rank(nall, -1);
+          std::vector<uint16_t> owner_rank(nall, 0);
           double rank_center[4];
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
           nrhs = size_t(rank_center[3]);

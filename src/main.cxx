@@ -24,6 +24,7 @@
   #include "structure_solver.hxx" // ::all_tests
   #include "scattering_test.hxx" // ::all_tests
   #include "davidson_solver.hxx" // ::all_tests
+  #include "progress_report.hxx" // ::all_tests
   #include "chemical_symbol.hxx" // ::all_tests
   #include "linear_operator.hxx" // ::all_tests
   #include "sho_hamiltonian.hxx" // ::all_tests
@@ -131,6 +132,7 @@
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
           add_module_test(simple_timer);
+          add_module_test(progress_report);
           add_module_test(json_reading);
           add_module_test(xml_reading);
           add_module_test(data_view);

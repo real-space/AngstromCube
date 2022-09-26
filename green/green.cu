@@ -1,3 +1,9 @@
+/*
+ *    Green function code
+ *    for the real-space grid based single-particle Hamiltonians
+ *    as produced by density functional theory (DFT)
+ */
+
 
 #ifndef NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests

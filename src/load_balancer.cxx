@@ -75,7 +75,8 @@ namespace load_balancer {
       std::vector<double> load(nprocs, 0.0);
       view2D<double> rank_center(nprocs, 4, 0.0);
       bool constexpr compute_rank_centers = true;
-      std::vector<int32_t> owner_rank(nall, -1);
+      uint16_t constexpr no_owner = (1 << 16) - 1;
+      std::vector<uint16_t> owner_rank(nall, no_owner);
 
       if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
 
@@ -150,8 +151,8 @@ namespace load_balancer {
               for(int ix = 0; ix < n[X]; ++ix) {
                   auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
                   auto const owner = owner_rank[iall];
-                  strange += (-1 == owner); // under-assignement
-                  if (-1 == owner) warn("work item %d %d %d has not been assigned to any rank", ix,iy,iz);
+                  strange += (no_owner == owner); // under-assignement
+                  if (no_owner == owner) warn("work item %d %d %d has not been assigned to any rank", ix,iy,iz);
               } // ix
             } // iy
           } // iz
@@ -254,8 +255,8 @@ namespace load_balancer {
       if (echo > 0) std::printf("\n\n# %s start %d x %d x %d = %d with %d MPI processes\n", 
                       __func__, nxyz[X], nxyz[Y], nxyz[Z], nxyz[X]*nxyz[Y]*nxyz[Z], nprocs);
 
-//       stat += test_plane_balancer(nprocs, nxyz, echo);
-      stat += test_reference_point_cloud(nxyz, echo);
+      stat += test_plane_balancer(nprocs, nxyz, echo);
+//    stat += test_reference_point_cloud(nxyz, echo);
       return stat;
   } // all_tests
 

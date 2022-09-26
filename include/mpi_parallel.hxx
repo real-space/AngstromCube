@@ -66,6 +66,7 @@
   int MPI_Allreduce(void const *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
       std::memcpy(recvbuf, sendbuf, count*size_of(datatype)); ok; }
   int MPI_Barrier(MPI_Comm comm) { ok; }
+  double MPI_Wtime(void) { return 0; } // ToDo
   // add more MPI_ replacement functions here ...
   #undef  ok
 

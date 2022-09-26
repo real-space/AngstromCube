@@ -101,7 +101,7 @@ namespace conjugate_gradients {
       using doublecomplex_t = decltype(to_double_complex_t(complex_t(1)));
       using real_t = decltype(std::real(complex_t(1))); // base type
 
-      status_t stat = 0;
+      status_t stat(0);
       int const maxiter = control::get("conjugate_gradients.max.iter", 132);
       int const restart_every_n_iterations = std::max(1, 4);
 

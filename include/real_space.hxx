@@ -56,7 +56,7 @@ namespace real_space {
       } // destructor
 
       status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1) {
-          status_t stat = 0;
+          status_t stat(0);
           double const h3[3] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hz};
           for (int i3 = 0; i3 < 3; ++i3) {
               h[i3] = h3[i3]; // convert to double

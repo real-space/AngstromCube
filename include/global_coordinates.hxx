@@ -3,12 +3,12 @@
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
 
-#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-
 #ifndef NO_UNIT_TESTS
   #include <cstdio> // std::printf
   #include "simple_math.hxx" // ::random
 #endif // NO_UNIT_TESTS
+
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace global_coordinates {
   // global coordinates make a unique identifyer from each tuple of 3D integer coordinates.

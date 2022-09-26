@@ -242,8 +242,7 @@ namespace finite_difference {
           return diag;
       } // clear_diagonal_elements
 
-//   private:
-  public:
+    public:
       void scale_coefficients(double const f[3]) {
           for (int d = 0; d < 3; ++d) {
               for (int i = 0; i < nnArraySize; ++i) {
@@ -251,20 +250,26 @@ namespace finite_difference {
               } // i
           } // d
       } // scale_coefficients
-      
+
       void scale_coefficients(double const f) { double const f3[] = {f, f, f}; scale_coefficients(f3); }
-  public:
+    public:
       int8_t const * nearest_neighbors() const { return _nn; }
       int nearest_neighbors(int const d) const { assert(d >= 0); assert(d < 3); return _nn[d]; }
       real_t * Laplace_coefficients(int const d) { assert(d >= 0); assert(d < 3); return c2nd[d]; }
 
   }; // class stencil_t
 
-  template <typename complex_out_t, // result is stored in this precision 
-            typename complex_in_t, // input comes in this precision
-            typename real_fd_t> // computations are executed in this precision
-  status_t apply(complex_out_t out[], complex_in_t const in[], real_space::grid_t const & g, 
-                     stencil_t<real_fd_t> const & fd, double const factor=1, complex_in_t const boundary_phase[3][2]=nullptr) {
+  template <typename complex_out_t // result is stored in this precision 
+           ,typename complex_in_t // input comes in this precision
+           ,typename real_fd_t> // computations are executed in this precision
+  status_t apply(
+        complex_out_t out[]
+      , complex_in_t const in[]
+      , real_space::grid_t const & g
+      , stencil_t<real_fd_t> const & fd
+      , double const factor=1
+      , complex_in_t const boundary_phase[3][2]=nullptr
+  ) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors, typically 16
       typedef int16_t int_t;
@@ -368,13 +373,21 @@ namespace finite_difference {
       return 0; // success
   } // apply
 
+
+
+
+
+
+
+
+
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   template <typename real_t>
   inline status_t test_coefficients(int const echo=2) {
-      status_t stat = 0;
+      status_t stat(0);
       int const mantissa_bits = (sizeof(real_t) > 4)? 52 : 23; // 23:float, 52:double
       double const precision = 4./(1ul << mantissa_bits);
       if (echo > 4) std::printf("# expected precision for real_%ld is %.1e\n", sizeof(real_t), precision);
@@ -443,8 +456,8 @@ namespace finite_difference {
           std::vector<std::complex<real_t>> values(g.all()), result(g.all());
           for (int iphase = 0; iphase <= 180; iphase += 20) {
               double const k = (1 + dir + iphase/360.)*2*constants::pi/g[dir]; // wave vector of a single plane wave
-              boundary_phase[dir][0] = std::complex<real_t>(std::cos(iphase*constants::pi/180.),
-                                                           -std::sin(iphase*constants::pi/180.));
+              double const arg = iphase*constants::pi/180.;
+              boundary_phase[dir][0] = std::complex<real_t>(std::cos(arg), -std::sin(arg));
               boundary_phase[dir][1] = real_t(1)/boundary_phase[dir][0];
               for (size_t i = 0; i < g.all(); ++i) {
                   values[i] = std::complex<real_t>(std::cos(k*i), std::sin(k*i));
