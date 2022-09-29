@@ -488,14 +488,16 @@ namespace green_function {
   ) {
       std::vector<int64_t> global_source_indices;
       uint32_t nrhs{0};
-      int const fake_size = control::get("green_function.fake.comm", 0.);
-      auto const comm_size = (fake_size > 0) ? fake_size : mpi_parallel::size();
+      int const true_comm_size = mpi_parallel::size();
+      int const fake_comm = (true_comm_size > 1) ? 0 : control::get("green_function.fake.comm", 0.);
+      auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
       if (comm_size > 1) {
+
           size_t const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
-          if (echo > 3) std::printf("# MPI parallelization of %ld right hand sides\n", nall);
+          if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
           assert(nall > 0);
-          int const fake_rank = control::get("green_function.fake.rank", fake_size - 1.);
-          auto const comm_rank = (fake_rank > -1) ? fake_rank : mpi_parallel::rank();
+          int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
+                                                 : mpi_parallel::rank();
           std::vector<uint16_t> owner_rank(nall, 0);
           double rank_center[4];
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
@@ -513,8 +515,9 @@ namespace green_function {
                   ++irhs;
               }
           } // iall
-          assert(nrhs == irhs);
-      } else {
+          assert(nrhs == irhs && "number of right hand sides inconsistent");
+
+      } else { // comm_size > 1
 
           int const source_cube = control::get("green_function.source.cube", 1.);
           // generate a box of sources
@@ -541,7 +544,8 @@ namespace green_function {
               ++irhs;
           }}} // xyz
           assert(nrhs == irhs);
-      }
+
+      } // comm_size > 1
 
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
       return global_source_indices;
@@ -629,7 +633,7 @@ namespace green_function {
       } // echo
 
       // we assume that the source blocks lie compact in space and preferably close to each other
-      p.global_source_indices = get_right_hand_sides(n_original_Veff_blocks, echo); // need MPI parallelization here
+      p.global_source_indices = get_right_hand_sides(n_original_Veff_blocks, echo);
       uint32_t const nrhs = p.global_source_indices.size();
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
 
@@ -764,9 +768,7 @@ namespace green_function {
                   min_target_coords[d] = std::max(min_target_coords[d], 0);
                   max_target_coords[d] = std::min(max_target_coords[d], n - 1);
               }
-              auto const n_target_coords = int32_t(max_target_coords[d]) + 1 - min_target_coords[d];
-              assert(n_target_coords > 0);
-              num_target_coords[d] = n_target_coords;
+              num_target_coords[d] = std::max(0, max_target_coords[d] + 1 - min_target_coords[d]);
 
               min_targets[d] = min_target_coords[d];
               if (is_periodic[d]) {
@@ -1188,7 +1190,12 @@ namespace green_function {
           if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
           green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
+          uint32_t const nnzbX = p.colindx.size();
 #ifdef  HAS_TFQMRGPU
+          if (nnzbX < 1) {
+              if (echo > 4) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+              return;
+          }
           p.echo = echo - 5;
           if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
           // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
@@ -1209,7 +1216,6 @@ namespace green_function {
           return;
 #endif // HAS_TFQMRGPU
 
-          uint32_t const nnzbX = p.colindx.size();
           int constexpr LM = Noco*64;
           auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
           auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
