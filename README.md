@@ -53,28 +53,31 @@ The idea is to have a code that
 
 **Directories**
 The root folder of this repository contains the following directories:
-- bin       you can move your compiled executabales/libraries here but please do not git-add them
-- data      matrix element files for CHO and SHO transforms between radial and Cartesian bases
-- doc       documentation
-- external  put third party libraries here
-- green     source folder for the Green function executable ./green
-- src       source folder for the generator executabale ./a43
-- include   source folder for header files
-- julia     experimental modules in the Julia programming language
-- ref       reference output of certain unit tests
-- test      test scripts for certain modules
-
+| Directory    | Purpose                                                                                |
+|--------------|----------------------------------------------------------------------------------------|
+| bin          | you can move your compiled executabales/libraries here but please do not git-add them  |
+| data         | matrix element files for CHO and SHO transforms between radial and Cartesian bases     |
+| doc          | documentation                                                                          |
+| external     | put third party libraries here                                                         |
+| green        | source folder for the Green function executable ./green                                |
+| src          | source folder for the generator executabale ./a43                                      |
+| include      | source folder for header files                                                         |
+| julia        | experimental modules in the Julia programming language                                 |
+| ref          | reference output of certain unit tests                                                 |
+| test         | test scripts for certain modules                                                       |
 
 **Abbreviations**
-- SHO     Spherical Harmonic Oscillator
-- CHO     Circular Harmonic Oscillator
-- PAW     Projector Augmented Wave
-- GPU     Graphical Processing Unit
-- CPU     Central Processing Unit
-- MPI     Message Passing Interface
-- FFT     Fast Fourier Transform
-- LDA     Local Density Approximation
-- DFT     Density Functional Theory
-- GGA     Generalized Gradient Approximation
-- OpenMP  Open Multi-Processing
-- TeX     typesetting
+| Abbr.  | Explanation                                                                           |
+|--------|---------------------------------------------------------------------------------------|
+| DFT    | Density Functional Theory                                                             |
+| LDA    | Local Density Approximation                                                           |
+| GGA    | Generalized Gradient Approximation                                                    |
+| PAW    | Projector Augmented Wave                                                              |
+| CPU    | Central Processing Unit                                                               |
+| GPU    | Graphical Processing Unit                                                             |
+| SHO    | Spherical Harmonic Oscillator                                                         |
+| CHO    | Circular Harmonic Oscillator                                                          |
+| MPI    | Message Passing Interface                                                             |
+| FFT    | Fast Fourier Transform                                                                |
+| OpenMP | Open Multi-Processing                                                                 |
+| TeX    | typesetting                                                                           |
