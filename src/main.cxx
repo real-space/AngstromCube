@@ -383,7 +383,7 @@
       if (run_tests) stat += run_unit_tests(test_unit, echo);
 
       // finalize
-      {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show all, 4:show usage
+      {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show unused, 4:show defaults
           if (control_show && echo > 0) {
               stat += control::show_variables(control_show);
           }

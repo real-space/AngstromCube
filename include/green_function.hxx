@@ -491,7 +491,7 @@ namespace green_function {
       int const fake_size = control::get("green_function.fake.comm", 0.);
       auto const comm_size = (fake_size > 0) ? fake_size : mpi_parallel::size();
       if (comm_size > 1) {
-          size_t const nall = size_t(nb[Z]) * size_t(nb[Y]) * size_t(nb[X]);
+          size_t const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
           if (echo > 3) std::printf("# MPI parallelization of %ld right hand sides\n", nall);
           assert(nall > 0);
           int const fake_rank = control::get("green_function.fake.rank", fake_size - 1.);

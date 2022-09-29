@@ -2,6 +2,7 @@
 
 #include <chrono> // std::chrono::high_resolution_clock
 #include <cstring> // std::strcpy
+#include <cstdint> // int32_t
 #include <cstdio> // std::printf
 
 #include "status.hxx" // status_t
@@ -15,10 +16,10 @@
     // When stop() is called, the timer returns the elapsed time in seconds as double.
     private:
       std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
-      char file[60];
-      int  line;
-      char func[32];
-      int  echo;
+      char  file[56];
+      int32_t line;
+      int32_t echo;
+      char  func[32];
     public:
 
       SimpleTimer(char const *sourcefile, int const sourceline=0, char const *function=nullptr, int const echo=1) 
@@ -51,9 +52,9 @@ namespace simple_timer {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline int64_t fibonacci(int64_t const n) { 
-      if (n < 3) return 1; 
-      return fibonacci(n - 1) + fibonacci(n - 2); 
+  inline int64_t fibonacci(int64_t const n) {
+      if (n < 3) return 1;
+      return fibonacci(n - 1) + fibonacci(n - 2);
   } // fibonacci
 
   inline status_t test_basic_usage(int const echo=3) {
@@ -78,7 +79,7 @@ namespace simple_timer {
           s.add(timer.stop());
       } // scope
       auto const average_time = s.mean();
-      if (echo > 0) std::printf("# fibonacci(%lld) = %lld took %g +/- %.1e seconds per iteration\n", 
+      if (echo > 0) std::printf("# fibonacci(%lld) = %lld took %g +/- %.1e seconds per iteration\n",
                                              inp, result, average_time, s.dev());
       return (average_time < 0) + (reference != result);
   } // test_stop_function

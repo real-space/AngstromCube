@@ -5,15 +5,16 @@
         real-space grids,
         plane waves and
         factorizable local orbitals.
-    Furthermore, the Green functions formalism, near-sightedness and
-    PAW, in particular revPAW
-    (see Paul F. Baumeister, Shigeru Tsukamoto, proceedings of PASC19)
+    Furthermore, the Green functions formalism, near-sightedness
+    for linear-scaling and the projector augmented wave method (PAW), 
+    in particular the revised PAW methd (see Paul F. Baumeister and Shigeru Tsukamoto,
+      proceedings of PASC'19, https://dl.acm.org/doi/10.1145/3324989.3325717)
 
 ![A4cube logo](doc/fig/a43_logo_bold.png)
 
 **Name**
 The name refers to a cube with edge length 1 Angstrom
-which is abbreviated \AA in LaTeX code.
+which is abbreviated \AA in TeX code.
 This is because always 4x4x4 real-space grid points are grouped
 for performance which corresponds to roughly one \AA^3
 
@@ -49,3 +50,31 @@ The idea is to have a code that
     - strain calculation
     - exact exchange
     - phonons
+
+**Directories**
+The root folder of this repository contains the following directories:
+- bin       you can move your compiled executabales/libraries here but please do not git-add them
+- data      matrix element files for CHO and SHO transforms between radial and Cartesian bases
+- doc       documentation
+- external  put third party libraries here
+- green     source folder for the Green function executable ./green
+- src       source folder for the generator executabale ./a43
+- include   source folder for header files
+- julia     experimental modules in the Julia programming language
+- ref       reference output of certain unit tests
+- test      test scripts for certain modules
+
+
+**Abbreviations**
+- SHO     Spherical Harmonic Oscillator
+- CHO     Circular Harmonic Oscillator
+- PAW     Projector Augmented Wave
+- GPU     Graphical Processing Unit
+- CPU     Central Processing Unit
+- MPI     Message Passing Interface
+- FFT     Fast Fourier Transform
+- LDA     Local Density Approximation
+- DFT     Density Functional Theory
+- GGA     Generalized Gradient Approximation
+- OpenMP  Open Multi-Processing
+- TeX     typesetting
