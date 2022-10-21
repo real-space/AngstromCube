@@ -11,7 +11,7 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
-#include "unit_system.hxx" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "print_tools.hxx" // printf_vector
 #include "global_coordinates.hxx" // ::get
 #include "green_input.hxx" // ::load_Hamitonian
@@ -32,17 +32,7 @@
     #else  // HAS_NO_CUDA
         #include <cuda.h>
     #endif // HAS_NO_CUDA
-    #include "tfQMRgpu/include/tfqmrgpu_memWindow.h" // memWindow_t
-    #include "tfQMRgpu/include/tfqmrgpu_linalg.hxx" // ...
     #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
-
-#else  // HAS_TFQMRGPU
-
-    #include <utility> // std::pair<T>
-    typedef std::pair<size_t,size_t> memWindow_t;
-    #ifdef HAS_NO_CUDA
-        typedef size_t cudaStream_t;
-    #endif // HAS_NO_CUDA
 
 #endif // HAS_TFQMRGPU
 
@@ -76,7 +66,7 @@ namespace green_function {
   std::string vec2str(number_t const vec[3], double const f=1, char const *const sep=" ") {
       // convert a vector of 3 numbers into a string, with scaling f and separator
       char s[64];
-      std::snprintf(s, 63, "%g%s%g%s%g", vec[X]*f, sep, vec[Y]*f, sep, vec[Z]*f);
+      std::snprintf(s, 64, "%g%s%g%s%g", vec[X]*f, sep, vec[Y]*f, sep, vec[Z]*f);
       return std::string(s);
   } // vec2str
   #define str(...) vec2str(__VA_ARGS__).c_str()
@@ -294,7 +284,7 @@ namespace green_function {
 
       auto const nai = iai; // corrected number of atomic images
       if (echo > 3) std::printf("# %ld of %lu (%.2f %%) atom images have an overlap with projection spheres\n",
-                                    nai, nAtomImages, nai/(nAtomImages*.01));
+                                    nai, nAtomImages, nai/std::max(nAtomImages*.01, .01));
       auto const napc = AtomImageStarts[nai];
 
       if (echo > 3) std::printf("# sparse %g (%.2f %%) of dense %g\n", sparse, sparse/(std::max(1., dense)*.01), dense);
@@ -352,7 +342,7 @@ namespace green_function {
       p.sparse_SHOprj = get_memory<sparse_t<>>(nrhs, echo, "sparse_SHOprj");
       size_t nops{0};
       for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
-          char name[64]; std::snprintf(name, 63, "sparse_SHOprj[irhs=%i of %d]", irhs, nrhs);
+          char name[64]; std::snprintf(name, 64, "sparse_SHOprj[irhs=%i of %d]", irhs, nrhs);
           p.sparse_SHOprj[irhs] = sparse_t<>(SHOprj[irhs], false, name, echo - 2);
           // sparse_SHOprj: rows == atom images, cols == Green function non-zero elements
           nops += p.sparse_SHOprj[irhs].nNonzeros();
@@ -414,7 +404,7 @@ namespace green_function {
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
           p.AtomLmax[iac] = atom_numax[ia];
-          char name[64]; std::snprintf(name, 63, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
+          char name[64]; std::snprintf(name, 64, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
           // fill this with matrix values
@@ -483,7 +473,7 @@ namespace green_function {
 
 
   std::vector<int64_t> get_right_hand_sides(
-        int32_t const nb[3] // number of blocks
+        uint32_t const nb[3] // number of blocks
       , int const echo=0
   ) {
       std::vector<int64_t> global_source_indices;
@@ -524,7 +514,7 @@ namespace green_function {
           int32_t n_source_blocks[3] = {0, 0, 0};
           for (int d = 0; d < 3; ++d) {
               n_source_blocks[d] = nb[d];
-              if (source_cube) n_source_blocks[d] = std::min(nb[d], source_cube);
+              if (source_cube) n_source_blocks[d] = std::min(int(nb[d]), source_cube);
           } // d
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
           if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
@@ -537,9 +527,9 @@ namespace green_function {
           for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
           for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
           for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-              int32_t const ibxyz[3] = {ibx + (nb[X] - n_source_blocks[X])/2,
-                                        iby + (nb[Y] - n_source_blocks[Y])/2,
-                                        ibz + (nb[Z] - n_source_blocks[Z])/2};
+              int32_t const ibxyz[3] = {int32_t(ibx + (nb[X] - n_source_blocks[X])/2),
+                                        int32_t(iby + (nb[Y] - n_source_blocks[Y])/2),
+                                        int32_t(ibz + (nb[Z] - n_source_blocks[Z])/2)};
               global_source_indices[irhs] = global_coordinates::get(ibxyz);
               ++irhs;
           }}} // xyz
@@ -568,7 +558,7 @@ namespace green_function {
 
       p.E_param = energy_parameter ? *energy_parameter : 0;
 
-      int32_t n_original_Veff_blocks[3] = {0, 0, 0};
+      uint32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
           assert(n_original_Veff_blocks[d] > 0);
@@ -594,9 +584,9 @@ namespace green_function {
       } // mag
 
       { // scope: reorder Veff into block-structured p.Veff
-          for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
-          for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, parallel
-          for (int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
+          for (int32_t ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
+          for (int32_t iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, parallel
+          for (int32_t ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
               int const ibxyz[] = {ibx, iby, ibz};
               auto const Veff_index = index3D(n_original_Veff_blocks, ibxyz);
               for (int i4z = 0; i4z < 4; ++i4z) {
@@ -643,7 +633,7 @@ namespace green_function {
       double center_of_RHSs[]     = {0, 0, 0};
       // determine the largest and smallest indices of target blocks
       // given a max distance r_trunc between source blocks and target blocks
-      int32_t constexpr MinMaxLim = 1 << 22;
+      int32_t constexpr MinMaxLim = 1 << 21;
       int32_t max_global_source_coords[] = {-MinMaxLim, -MinMaxLim, -MinMaxLim};
       int32_t min_global_source_coords[] = { MinMaxLim,  MinMaxLim,  MinMaxLim};
       int32_t global_internal_offset[]   = {0, 0, 0};
@@ -730,7 +720,7 @@ namespace green_function {
           for (int d = 0; d < 3; ++d) {
 
               if (r_trunc >= 0) {
-                  char keyword[64]; std::snprintf(keyword, 63, "green_function.scale.grid.spacing.%c", 'x' + d); // this feature allows also truncation ellipsoids
+                  char keyword[64]; std::snprintf(keyword, 64, "green_function.scale.grid.spacing.%c", 'x' + d); // this feature allows also truncation ellipsoids
                   auto const scale_h = control::get(keyword, 1.);
                   if (scale_h >= 0) {
                       h[d] = hg[d]*scale_h;
@@ -738,7 +728,7 @@ namespace green_function {
                   } // scale_h >= 0
                   if (Periodic_Boundary == boundary_condition[d]) {
                       // periodic boundary conditions
-                      double const deformed_cell = h[d]*ng[d];
+                      auto const deformed_cell = h[d]*ng[d];
                       if (2*rtrunc > deformed_cell) {
                           if (h[d] > 0) {
                               warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s)\n#          "
@@ -763,7 +753,7 @@ namespace green_function {
               max_target_coords[d] = max_global_source_coords[d] + itr[d];
 
               if (Isolated_Boundary == boundary_condition[d]) {
-                  auto const n = n_original_Veff_blocks[d];
+                  int32_t const n = n_original_Veff_blocks[d];
                   // limit to global coordinates in [0, n)
                   min_target_coords[d] = std::max(min_target_coords[d], 0);
                   max_target_coords[d] = std::min(max_target_coords[d], n - 1);
@@ -845,16 +835,16 @@ namespace green_function {
                           // i = i4 - j4 --> i in [-3, 3],
                           //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
                           //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
-                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) { double const d2z = pow2((bz*4 + iz)*h[Z]);
-                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) { double const d2y = pow2((by*4 + iy)*h[Y]) + d2z;
-                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) { double const d2c = pow2((bx*4 + ix)*h[X]) + d2y;
+                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) { double const d2z   = pow2((bz*4 + iz)*h[Z]);
+                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) { double const d2yz  = pow2((by*4 + iy)*h[Y]) + d2z;
+                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) { double const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
 #if 0
-                              if (0 == irhs && (d2c < r2trunc) && echo > 17) {
+                              if (0 == irhs && (d2xyz < r2trunc) && echo > 17) {
                                   std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
-                                      __func__, bx,by,bz, ix,iy,iz, d2c, (d2c < r2trunc)?"in":"out");
+                                      __func__, bx,by,bz, ix,iy,iz, d2xyz, (d2xyz < r2trunc)?"in":"out");
                               }
 #endif // 0
-                              nci += (d2c < r2trunc); // add 1 if inside
+                              nci += (d2xyz < r2trunc); // add 1 if inside
                           }}} // ix iy iz
                           if (d2 < r2trunc_minus) assert(mci == nci); // for these, we could skip the 8-corners test
                           nci = (nci*27)/mci; // limit nci to [0, 27]
@@ -925,8 +915,8 @@ namespace green_function {
           if (echo > 0) {
               char const inout_class[][8] = {"inside", "partial", "outside",  "checked"};
               for (int i = 0; i < 4; ++i) {
-                  std::printf("# RHSs have [%7d,%9.1f +/-%5.1f,%7d ] blocks %s\n",
-                      int(inout[i].min()), inout[i].mean(), inout[i].dev(), int(inout[i].max()), inout_class[i]); 
+                  std::printf("# RHSs have [%7g,%9.1f +/-%5.1f, %7g] blocks %s\n",
+                      inout[i].min(), inout[i].mean(), inout[i].dev(), inout[i].max(), inout_class[i]); 
               } // i
           } // echo
 
@@ -953,7 +943,7 @@ namespace green_function {
 
           p.nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
           if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
-                               "average %.1f per source block\n", nnzb*.001, nnzb/double(nrhs));
+                               "average %.1f per source block\n", nnzb*.001, nnzb/std::max(nrhs*1., 1.));
           if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n", 
               p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001);
 
@@ -1193,13 +1183,15 @@ namespace green_function {
           uint32_t const nnzbX = p.colindx.size();
 #ifdef  HAS_TFQMRGPU
           if (nnzbX < 1) {
-              if (echo > 4) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+              if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
               return;
           }
           p.echo = echo - 5;
           if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
+
           // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
           tfqmrgpu::solve(action); // compute GPU memory requirements
+
           if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f %s GPU memory\n", p.gpu_mem*GByte, _GByte);
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
@@ -1223,9 +1215,8 @@ namespace green_function {
               x[0][0][0][i] = 0; // init x
           } // i
 
-          auto const nnzb = p.colindx.size();
-          auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
-          set(colIndex, nnzb, p.colindx.data()); // copy into GPU memory
+          auto colIndex = get_memory<uint16_t>(nnzbX, echo, "colIndex");
+          set(colIndex, nnzbX, p.colindx.data()); // copy into GPU memory
 
           // benchmark the action
           for (int iteration = 0; iteration < iterations; ++iteration) {

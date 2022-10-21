@@ -203,7 +203,7 @@ namespace green_kinetic {
           // store the number of lists
           uint32_t const n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
           if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
-                                n_lists, direction, n_lists/(max_lists*.01),
+                                n_lists, direction, n_lists/std::max(max_lists*.01, .01),
                                 length_stats.mean(), length_stats.dev(), length_stats.min(), length_stats.max());
           list.resize(n_lists);
 

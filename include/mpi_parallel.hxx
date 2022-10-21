@@ -30,6 +30,7 @@
 #ifndef HAS_NO_MPI
 
   #include <mpi.h> // MPI_*
+  auto const MPI_UINT16 = MPI_UNSIGNED_SHORT;
 
 #else // HAS_NO_MPI
 
@@ -49,11 +50,15 @@
   MPI_Op constexpr MPI_SUM = '+', MPI_MAX = 'M', MPI_MIN = 'm', MPI_OP_NULL = 0;//, MPI_PROD = '*';
 
   typedef int MPI_Datatype;
+  MPI_Datatype constexpr MPI_UINT16 = 2;
+  void const * const MPI_IN_PLACE = nullptr;
+
   inline size_t const size_of(MPI_Datatype const datatype) {
      switch (datatype) {
-       case 0: return 1;
+       case 0:          return 1; // 1 Byte
+       case MPI_UINT16: return 2; // 2 Byte
      }
-     warn("unknown MPI_Datatype %d", datatype);
+     warn("unknown MPI_Datatype %d", int(datatype));
      return 0;
   } // size_of
 
@@ -64,13 +69,11 @@
   int MPI_Comm_rank(MPI_Comm comm, int *rank) { assert(rank); *rank = 0; ok; }
   int MPI_Comm_size(MPI_Comm comm, int *size) { assert(size); *size = 1; ok; }
   int MPI_Allreduce(void const *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
-      std::memcpy(recvbuf, sendbuf, count*size_of(datatype)); ok; }
+      if (sendbuf) std::memcpy(recvbuf, sendbuf, count*size_of(datatype)); ok; }
   int MPI_Barrier(MPI_Comm comm) { ok; }
   double MPI_Wtime(void) { return 0; } // ToDo
   // add more MPI_ replacement functions here ...
   #undef  ok
-
-
 
 #endif // HAS_NO_MPI
 
@@ -189,11 +192,24 @@ namespace mpi_parallel {
       return stat;
   } // test_wrappers
 
+  inline status_t test_constants(int const echo=0) {
+      // check that MPI_UINT16 is correct for uint16_t
+      uint16_t a[] = {0, 1, 2, 3};
+      auto const np = mpi_parallel::size();
+      if (np > (1u << 14)) {
+          if (echo > 1) std::printf("# %s %s cannot test with more than 2^14 processes, found %d\n", __FILE__, __func__, np);
+          return 1;
+      }
+      MPI_Allreduce(MPI_IN_PLACE, a, 4, MPI_UINT16, MPI_SUM, MPI_COMM_WORLD);
+      return (0 != a[0]) + (np != a[1]) + (2*np != a[2]) + (3*np != a[3]);
+  } // test_constants
+
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       bool const already_initialized = mpi_parallel::init();
       stat += test_wrappers(echo);
       stat += test_simple(echo);
+      stat += test_constants(echo);
       if (!already_initialized) mpi_parallel::finalize();
       return stat;
   } // all_tests

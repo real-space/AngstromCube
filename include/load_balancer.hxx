@@ -213,11 +213,10 @@ namespace load_balancer {
   } // plane_balancer
 
 
-  template <typename int_t>
   inline double get(
         uint32_t const comm_size // number of MPI processes in this communicator
       , int32_t  const comm_rank // rank of this MPI process
-      , int_t const nb[3] // number of blocks in X/Y/Z direction
+      , uint32_t const nb[3] // number of blocks in X/Y/Z direction
       , int const echo=0 // log level
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
       , uint16_t *owner_rank=nullptr // export the owner rank of each task, [nb[Z]*nb[Y]*nb[X]]
@@ -227,7 +226,7 @@ namespace load_balancer {
       assert(comm_rank >= 0);
       assert(comm_rank < comm_size);
 
-      auto const nall = size_t(nb[X])*size_t(nb[Y])*size_t(nb[Z]);
+      auto const nall = nb[X]*size_t(nb[Y])*size_t(nb[Z]);
       assert(nall > 0);
       assert(nall <= (size_t(1) << 32) && "uint32_t is not long enough!");
 
@@ -235,10 +234,10 @@ namespace load_balancer {
       view2D<float> xyzw(nall, 4, 0.f);
       std::vector<float> w8s(nall, 0);
 
-      for (int iz = 0; iz < nb[Z]; ++iz) {
-      for (int iy = 0; iy < nb[Y]; ++iy) {
-      for (int ix = 0; ix < nb[X]; ++ix) {
-          auto const iall = size_t(iz*nb[Y] + iy)*nb[X] + ix;
+      for (uint32_t iz = 0; iz < nb[Z]; ++iz) {
+      for (uint32_t iy = 0; iy < nb[Y]; ++iy) {
+      for (uint32_t ix = 0; ix < nb[X]; ++ix) {
+          auto const iall = (iz*nb[Y] + iy)*nb[X] + ix;
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
           auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
           w8s[iall]    = w8;

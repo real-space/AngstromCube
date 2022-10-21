@@ -28,7 +28,7 @@ allclean: clean
 
 CU     = nvcc
 CC     = gcc
-CXX    = mpic++
+CXX    = mpic++ -Wno-unused-command-line-argument
 ### g++
 
 INC ?=
@@ -45,7 +45,7 @@ FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_TFQMRGPU
 INC += -I../../tfQMRgpu
 
-# ERRFLAGS = -Werror -Wall -Wfatal-errors
+ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
 ## for production: eliminate the unit tests
@@ -60,7 +60,7 @@ FEAFLAGS += -D DEVEL
 # OPTFLAGS = -O2
 OPTFLAGS = -O0
 OPTFLAGS += -g -Wall
-# OPTFLAGS += -pedantic
+OPTFLAGS += -pedantic
 # gcc-options
 # OPTFLAGS += -Wno-sign-compare -Wno-format -Wno-format-security
 

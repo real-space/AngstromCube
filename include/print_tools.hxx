@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdio> // std::printf
+#include <vector> // std::vector<T>
 
   template <typename T>
   int printf_vector( // returns the total number of chars written
@@ -17,10 +18,20 @@
       for (int i{0}; i < n; ++i) {
           n_chars_written += std::printf(format, vec[i]*scale + add);
       } // i
-      if (final) n_chars_written += std::printf(final);
+      if (final) n_chars_written += std::printf("%s", final);
       return n_chars_written;
   } // printf_vector
 
+  template <typename T>
+  int printf_vector( // returns the total number of chars written
+        char const *const format // printf-format, should contain '%' only once
+      , std::vector<T> const & vec // pointer to vector start
+      , char const *const final="\n"
+      , T const scale=T(1) // scale the vector components
+      , T const add=T(0)   // add to the scaled vector components
+  ) {
+      return printf_vector(format, vec.data(), vec.size(), final, scale, add);
+  } // printf_vector
 
   template <typename real_t>
   double print_stats(

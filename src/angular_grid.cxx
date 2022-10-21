@@ -42,10 +42,10 @@ namespace angular_grid {
                                 " for ellmax= %i from %d to %d\n", __func__, ellmax, npt, available[i]);
       return available[i];
   } // get_grid_size
-  
 
-  
-  
+
+
+
 //   status_t get_weights(double weights[], int const ellmax, int const echo) {
 //       auto const g = get_grid(ellmax, echo);
 //       if (nullptr != g) {
@@ -1746,7 +1746,7 @@ namespace angular_grid {
           g.grid2Xlm_stride = align<2>(g.npoints);
           g.Xlm2grid = new double[g.npoints*g.Xlm2grid_stride];
           g.grid2Xlm = new double[      nlm*g.grid2Xlm_stride];
-          
+
           // clear the matrix memories
           set(g.Xlm2grid, g.npoints*g.Xlm2grid_stride, 0.0);
           set(g.grid2Xlm,       nlm*g.grid2Xlm_stride, 0.0);
@@ -1905,7 +1905,7 @@ namespace angular_grid {
       return stat;
   } // test_spherical_harmonics
 
-  
+
   int test_identity_transform(int const echo=9, int const lmax=ellmax_implemented) { // terribly slow
       if (echo > 3) std::printf("\n# %s:\n", __func__);
       status_t stat(0);

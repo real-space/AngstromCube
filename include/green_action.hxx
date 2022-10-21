@@ -2,19 +2,13 @@
 
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
-#include <cmath> // std::sqrt
-#include <algorithm> // std::max
-#include <utility> // std::swap
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-// #include "simple_timer.hxx" // SimpleTimer
 
 #include "constants.hxx" // ::pi
 #include "green_memory.hxx" // get_memory, free_memory
-#include "simple_stats.hxx" // ::Stats<>
-#include "display_units.h" // eV, _eV
 
 #ifdef HAS_TFQMRGPU
 
@@ -26,8 +20,6 @@
         #include <cuda.h>
     #endif // HAS_NO_CUDA
     #include "tfQMRgpu/include/tfqmrgpu_memWindow.h" // memWindow_t
-    #include "tfQMRgpu/include/tfqmrgpu_linalg.hxx" // ...
-    #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
 #else  // HAS_TFQMRGPU
 

@@ -22,58 +22,58 @@ namespace control {
       std::snprintf(buffer, 31, "%.16e", number);
   } // double2string
 
-  inline double string2double(char const *string) {
+  inline double string2double(char const *const string) {
       return std::atof(string);
   } // string2double
 
 
-  int constexpr default_value_tag = 2e9;
+  int32_t constexpr default_value_tag = 2e9; // pass this as linenumber
   // hidden function: _manage_variables(echo, name, value) --> set
-  //                  _manage_variables(echo, name, value, linenumber) --> set to default
+  //                  _manage_variables(echo, name, value, linenumber) --> set_to_default
   //                  _manage_variables(echo, name) --> get
   //                  _manage_variables(echo) --> show_variables
   char const* _manage_variables(
         int const echo
-      , char const *name=nullptr
-      , char const *value=nullptr
+      , char const *const name=nullptr
+      , char const *const value=nullptr
       , int const linenumber=0
   ) {
+      bool constexpr warn_about_redefinitons = true;
 
       static std::map<std::string, std::tuple<std::string,uint32_t,int32_t>> _map; // hidden archive
+      // the hidden archive is sorted by the name string and contains the value string,
+      // an access counter and a reference to the line number to track where the value was set
 
-      if (name) {
+      if (nullptr != name) {
           assert(nullptr == std::strchr(name, '=')); // make sure that there is no '=' sign in the name
 
           std::string const varname(name);
-          if (value) {
+          auto & tuple = _map[varname];
+          if (nullptr != value) {
 
               // set
-              auto const newvalue = std::string(value);
-              bool constexpr warn_redefines = true;
-              if (warn_redefines) {
-                  auto const & oldvalue = std::get<0>(_map[varname]);
-                  auto const old = oldvalue.c_str();
-                  bool const redefined = (old && '\0' != *old);
+              if (warn_about_redefinitons) {
+                  auto const oldvalue = std::get<0>(tuple).c_str();
+                  assert(nullptr != oldvalue);
+                  bool const redefined = ('\0' != *oldvalue);
                   if (echo > 7) {
                       std::printf("# control sets \"%s\"", name);
-                      if (redefined) std::printf(" from \"%s\"", old);
+                      if (redefined) std::printf(" from \"%s\"", oldvalue);
                       std::printf(" to \"%s\"\n", value);
                   } // echo
                   if (redefined) {
-                      warn("variable \"%s\" was redefined from \"%s\" to \"%s\"", name, old, value);
+                      warn("variable \"%s\" was redefined from \"%s\" to \"%s\"", name, oldvalue, value);
                   } // redefined
-              } // warn_redefines
-              auto & tuple = _map[varname];
-              std::get<0>(tuple) = newvalue;
-              std::get<1>(tuple) = (default_value_tag == linenumber); // counter how many times this variable was evaluated
-              std::get<2>(tuple) = linenumber; // store line number in input file 
+              } // warn_about_redefinitons
+              std::get<0>(tuple) = value;
+              std::get<1>(tuple) = (default_value_tag == linenumber); // counter how many times this variable was evaluated: init as 1 for defaults, 0 otherwise
+              std::get<2>(tuple) = linenumber; // store line number in input file
                                                // or (if negative) command line argument number
               return value;
 
           } else { // value
 
               // get
-              auto & tuple = _map[varname];
               auto const oldvalue = std::get<0>(tuple).c_str();
               ++std::get<1>(tuple); // increment reading counter
               if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue);
@@ -95,17 +95,17 @@ namespace control {
               for (auto const & pair : _map) {
                   auto const times_used = std::get<1>(pair.second); // how many times was this value used?
                   if (show_unused || times_used > 0) {
-                      int const line = std::get<2>(pair.second);
+                      auto const line = std::get<2>(pair.second);
                       bool const is_default = (default_value_tag == line);
                       if (show_default || !is_default) {
-                          auto const & string = std::get<0>(pair.second);
-                          double const numeric = string2double(string.c_str());
-                          char buffer[32]; double2string(buffer, numeric);
                           if (show_details) {
                               std::printf("# used %dx, %s %d\t\t", times_used,
                                   is_default?"def ":((line > 0)?"argv":(line?"line":"set ")),
                                   is_default?0:std::abs(line));
-                          }
+                          } // show_details
+                          auto const & string = std::get<0>(pair.second);
+                          double const numeric = string2double(string.c_str());
+                          char buffer[32]; double2string(buffer, numeric);
                           if (string == buffer) {
                               // can be parsed as double, print with %g format
                               std::printf("# %s=%g\n", pair.first.c_str(), numeric);
@@ -124,58 +124,59 @@ namespace control {
 
   } // _manage_variables
 
-  void set(char const *name, char const *value, int const echo) {
+  void set(char const *const name, char const *const value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
-      assert(nullptr != value);
+      assert(nullptr != name  && "control::set(name, value) needs a valid string as name!");
+      assert(nullptr != value && "control::set(name, value) needs a valid string as value!");
       _manage_variables(echo, name, value); // set
   } // set<string>
 
-  char const* get(char const *name, char const *default_value) {
+  char const* get(char const *const name, char const *const default_value) {
+      assert(nullptr != name && "control::get(name, default_value) needs a valid string as name!");
       int const echo = default_echo_level;
-      auto const value = _manage_variables(echo, name); // query
+      auto const value = _manage_variables(echo, name); // get
       if (nullptr != value && '\0' != *value) {
           if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
           return value;
       } else {
           if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
-          return _manage_variables(echo, name, default_value, default_value_tag); // set to default
+          return _manage_variables(echo, name, default_value, default_value_tag); // set_to_default
       }
   } // get<string>
 
   status_t show_variables(int const echo) {
-      _manage_variables(echo);
+      _manage_variables(echo); // show_variables
       return 0;
   } // show_variables
 
-  inline char* find_equal_sign(char const *string) { 
-      return (char*)std::strchr(string, '=');
+  inline char const* find_equal_sign(char const *const string) { 
+      return (char const*)std::strchr(string, '=');
   } // find_equal_sign
 
-  status_t command_line_interface(char const *statement, int const iarg, int const echo) {
+  status_t command_line_interface(char const *const statement, int const iarg, int const echo) {
       auto const equal = find_equal_sign(statement);
       if (nullptr == equal) {
           warn("ignored statement \"%s\", maybe missing \'=\'", statement);
           return 1; // error, no '=' sign given
-      } else {
-          auto const equal_char = equal - statement;
-          assert('=' == statement[equal_char]);
-          char name[MaxNameLength]; // get a mutable string
-          std::strncpy(name, statement, std::min(MaxNameLength, int(equal_char))); // copy the statement up to '='
-          name[equal_char] = '\0'; // delete the '=' sign to mark the name
-          char const *value = equal + 1; // everything after the '=' marker
-          if (echo > 7) std::printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
-          _manage_variables(echo, name, value, iarg); // set the variable
-          return 0;
       }
+      auto const equal_char = equal - statement;
+      assert('=' == statement[equal_char]);
+      char name[MaxNameLength]; // get a mutable string
+      std::strncpy(name, statement, std::min(MaxNameLength, int(equal_char))); // copy the statement up to '='
+      name[equal_char] = '\0'; // delete the '=' sign to mark the name
+      char const *value = equal + 1; // everything after the '=' marker
+      if (echo > 7) std::printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
+      _manage_variables(echo, name, value, iarg); // set
+      return 0;
   } // command_line_interface
 
-  void set(char const *name, double const value, int const echo) {
+  void set(char const *const name, double const value, int const echo) {
       /* This version of set is only used in the tests below */
       char buffer[32]; double2string(buffer, value);
       return set(name, buffer, echo);
   } // set<double>
 
-  double get(char const *name, double const default_value) {
+  double get(char const *const name, double const default_value) {
       char buffer[32]; double2string(buffer, default_value);
       return string2double(get(name, buffer));
   } // get<double>
@@ -192,7 +193,7 @@ namespace control {
 //       return (end == std::string::npos) ? "" : s.substr(0, end + 1);
 //   } // right_trim
 
-  status_t read_control_file(char const *filename, int const echo) {
+  status_t read_control_file(char const *const filename, int const echo) {
       status_t stat(0);
       char const CommentChar = '#'; // commented lines in control files
       char const EchoComment = '!'; // comments that should appear in the log
@@ -247,6 +248,13 @@ namespace control {
 
       return stat;
   } // read_control_file
+
+
+
+
+
+
+
 
 
 #ifdef  NO_UNIT_TESTS
