@@ -40,6 +40,7 @@
 
 #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
+#include "green_potential.hxx" // ::exchange
 #include "green_dyadic.hxx" // ::dyadic_plan_t
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
@@ -474,6 +475,7 @@ namespace green_function {
 
   std::vector<int64_t> get_right_hand_sides(
         uint32_t const nb[3] // number of blocks
+      , std::vector<uint16_t> & owner_rank
       , int const echo=0
   ) {
       std::vector<int64_t> global_source_indices;
@@ -489,11 +491,11 @@ namespace green_function {
           int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
                                                  : mpi_parallel::rank();
           double rank_center[4];
-          std::vector<uint16_t> owner_rank(nall, 0);
+          owner_rank.resize(nall, 0);
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
           nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
           std::printf("# rank#%d of %d procs has %d tasks\n", comm_rank, comm_size, nrhs);
-          global_source_indices.resize(nrhs, 0);
+          global_source_indices.resize(nrhs, -1);
           uint32_t irhs{0};
           for (size_t iall = 0; iall < nall; ++iall) {
               if (comm_rank == owner_rank[iall]) {
@@ -519,17 +521,15 @@ namespace green_function {
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
           if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
 
-          nrhs = n_source_blocks[Z]*n_source_blocks[Y]*n_source_blocks[X];
+          nrhs = n_source_blocks[Z]*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
 
-          global_source_indices.resize(nrhs, 0);
+          global_source_indices.resize(nrhs, -1);
 
           uint32_t irhs{0};
-          for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
-          for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
-          for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-              int32_t const ibxyz[3] = {int32_t(ibx + (nb[X] - n_source_blocks[X])/2),
-                                        int32_t(iby + (nb[Y] - n_source_blocks[Y])/2),
-                                        int32_t(ibz + (nb[Z] - n_source_blocks[Z])/2)};
+          int32_t ibxyz[3];
+          for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) { ibxyz[Z] = ibz + (nb[Z] - n_source_blocks[Z])/2;
+          for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { ibxyz[Y] = iby + (nb[Y] - n_source_blocks[Y])/2;
+          for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) { ibxyz[X] = ibx + (nb[X] - n_source_blocks[X])/2;
               global_source_indices[irhs] = global_coordinates::get(ibxyz);
               ++irhs;
           }}} // xyz
@@ -558,54 +558,21 @@ namespace green_function {
 
       p.E_param = energy_parameter ? *energy_parameter : 0;
 
-      uint32_t n_original_Veff_blocks[3] = {0, 0, 0};
+      uint32_t n_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
-          n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
-          assert(n_original_Veff_blocks[d] > 0);
-          assert(ng[d] == 4*n_original_Veff_blocks[d] && "All grid dimensions must be a multiple of 4!");
-          assert(n_original_Veff_blocks[d] <= (1u << 21) && "Max grid is 2^21 blocks due to global_coordinates");
+          n_blocks[d] = (ng[d] >> 2); // divided by 4
+          assert(n_blocks[d] > 0);
+          assert(ng[d] == 4*n_blocks[d] && "All grid dimensions must be a multiple of 4!");
+          assert(n_blocks[d] <= (1u << 21) && "Max grid is 2^21 blocks due to global_coordinates");
       } // d
-      if (echo > 3) std::printf("# n_original_Veff_blocks %s\n", str(n_original_Veff_blocks));
+      if (echo > 3) std::printf("# n_blocks %s\n", str(n_blocks));
 
-      assert(Veff.size() == ng[Z]*size_t(ng[Y])*size_t(ng[X]));
 
-      size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
+      auto const n_all_blocks = n_blocks[Z]*size_t(n_blocks[Y])*size_t(n_blocks[X]);
 
       // regroup effective potential into blocks of 4x4x4
       assert(1 == Noco || 2 == Noco);
       p.noncollinear_spin = (2 == Noco);
-      p.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
-      for (int mag = 0; mag < 4; ++mag) p.Veff[mag] = nullptr;
-      for (int mag = 0; mag < Noco*Noco; ++mag) {
-          p.Veff[mag] = get_memory<double[64]>(n_all_Veff_blocks, echo, "Veff[mag]"); // in managed memory
-          for (size_t k = 0; k < n_all_Veff_blocks*64; ++k) {
-              p.Veff[mag][0][k] = 0; // clear
-          } // k
-      } // mag
-
-      { // scope: reorder Veff into block-structured p.Veff
-          for (int32_t ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
-          for (int32_t iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, parallel
-          for (int32_t ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
-              int const ibxyz[] = {ibx, iby, ibz};
-              auto const Veff_index = index3D(n_original_Veff_blocks, ibxyz);
-              for (int i4z = 0; i4z < 4; ++i4z) {
-              for (int i4y = 0; i4y < 4; ++i4y) { // grid point index in [0, 4) loops, parallel
-              for (int i4x = 0; i4x < 4; ++i4x) {
-                  int const i64 = (i4z*4 + i4y)*4 + i4x;
-                  size_t const izyx = (size_t(ibz*4 + i4z)
-                              *ng[Y] + size_t(iby*4 + i4y)) 
-                              *ng[X] + size_t(ibx*4 + i4x); // global grid point index
-                  assert(izyx < size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]));
-                  if (Noco > 1) {
-                      p.Veff[3][Veff_index][i64] = 0; // set clear
-                      p.Veff[2][Veff_index][i64] = 0; // set clear
-                      p.Veff[1][Veff_index][i64] = Veff[izyx]; // ToDo: needs to be V_upup
-                  } // non-collinear
-                  p.Veff[0][Veff_index][i64] = Veff[izyx]; // copy potential value
-              }}} // i4
-          }}} // xyz
-      } // scope
 
       // Cartesian cell parameters for the unit cell in which the potential is defined
       double const cell[] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
@@ -615,15 +582,16 @@ namespace green_function {
           std::printf("\n# Cell summary:\n");
           for (int d = 0; d < 3; ++d) {
               std::printf("#%8d %c-points,%7d blocks, spacing=%9.6f, cell.%c=%9.3f %s, boundary= %d\n",
-                  ng[d], 'x' + d, n_original_Veff_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, boundary_condition[d]);
+                  ng[d], 'x' + d, n_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, boundary_condition[d]);
           } // d
           std::printf("# ================ ============== ================== ====================== ============\n"
               "#%8.3f M points,%12.3f k, average=%9.6f, volume=%9.1f %s^3\n\n",
-              ng[X]*1e-6*ng[Y]*ng[Z], n_all_Veff_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
+              ng[X]*1e-6*ng[Y]*ng[Z], n_all_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
       } // echo
 
       // we assume that the source blocks lie compact in space and preferably close to each other
-      p.global_source_indices = get_right_hand_sides(n_original_Veff_blocks, echo);
+      std::vector<uint16_t> owner_rank(0);
+      p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, echo);
       uint32_t const nrhs = p.global_source_indices.size();
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
 
@@ -746,14 +714,14 @@ namespace green_function {
               } // r_trunc >= 0
 
               // how many blocks around the source block do we need to check
-              itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : n_original_Veff_blocks[d]/2;
+              itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : n_blocks[d]/2;
               assert(itr[d] >= 0);
 
               min_target_coords[d] = min_global_source_coords[d] - itr[d];
               max_target_coords[d] = max_global_source_coords[d] + itr[d];
 
               if (Isolated_Boundary == boundary_condition[d]) {
-                  int32_t const n = n_original_Veff_blocks[d];
+                  int32_t const n = n_blocks[d];
                   // limit to global coordinates in [0, n)
                   min_target_coords[d] = std::max(min_target_coords[d], 0);
                   max_target_coords[d] = std::min(max_target_coords[d], n - 1);
@@ -764,7 +732,7 @@ namespace green_function {
               if (is_periodic[d]) {
                   // prepare for all blocks in this direction
                   min_targets[d] = 0;
-                  num_target_coords[d] = n_original_Veff_blocks[d];
+                  num_target_coords[d] = n_blocks[d];
               } // is_periodic[d]
 
           } // d
@@ -858,7 +826,7 @@ namespace green_function {
                       for (int d = 0; d < 3; ++d) {
                           idx[d] = target_coords[d] - min_targets[d];
                           // TODO in the periodic case we have to make sure that we hit no element twice
-                          if (is_periodic[d]) idx[d] = (target_coords[d] + 999*n_original_Veff_blocks[d]) % n_original_Veff_blocks[d];
+                          if (is_periodic[d]) idx[d] = (target_coords[d] + 999*n_blocks[d]) % n_blocks[d];
                           assert(0 <= idx[d]); assert(idx[d] < num_target_coords[d]);
                       } // d
                       auto const idx3 = index3D(num_target_coords, idx); // flat index
@@ -1031,14 +999,14 @@ namespace green_function {
                           for (int d = 0; d < 3; ++d) {
                               mod[d] = global_target_coords[d];
                               if (Periodic_Boundary == boundary_condition[d]) {
-                                  mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
-                                  mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
+                                  mod[d] = global_target_coords[d] % n_blocks[d];
+                                  mod[d] += (mod[d] < 0)*n_blocks[d];
                               } else {
-                                  potential_given = potential_given && (mod[d] >= 0 && mod[d] < n_original_Veff_blocks[d]);
+                                  potential_given = potential_given && (mod[d] >= 0 && mod[d] < n_blocks[d]);
                               }
                           } // d
                           if (potential_given) {
-                              auto const iloc = index3D(n_original_Veff_blocks, mod);
+                              auto const iloc = index3D(n_blocks, mod);
                               veff_index = iloc; assert(iloc == veff_index && "safe assign");
                           } else { // potential_given
                               assert(Vacuum_Boundary == boundary_condition[X] ||
@@ -1057,7 +1025,7 @@ namespace green_function {
                               for (int d = 0; d < 3; ++d) {
                                   dv[d] = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d];
                               } // d
-                              auto const *const n = n_original_Veff_blocks; // abbreviation
+                              auto const *const n = n_blocks; // abbreviation
                               // with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
                               double d2shortest{9e37};
                               for (int iz = -is_periodic[Z]; iz <= is_periodic[Z]; ++iz) {
@@ -1081,7 +1049,7 @@ namespace green_function {
                           } // is_periodic[ANY]
 
                           for (int d = 0; d < 3; ++d) {
-                              auto const diff = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d] + n_original_Veff_blocks[d]*iimage[d];
+                              auto const diff = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d] + n_blocks[d]*iimage[d];
                               p.target_minus_source[inz][d] = diff; assert(diff == p.target_minus_source[inz][d] && "safe assign");
                           } // d
                           p.target_minus_source[inz][3] = 0; // not used
@@ -1150,6 +1118,45 @@ namespace green_function {
           green_kinetic::set_phase(p.phase, nullptr, echo); // init with Gamma point
 
       } // scope
+
+      p.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
+      for (int mag = 0; mag < 4; ++mag) p.Veff[mag] = nullptr;
+      if (1) { // scope: restructure and communicate potential
+
+          auto const Vinp = new double[nrhs*Noco*Noco][64];
+          // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
+          auto const n_all_grid_points = ng[Z]*size_t(ng[Y])*size_t(ng[X]);
+          assert(Veff.size() == n_all_grid_points);
+          for (uint16_t rhs{0}; rhs < nrhs; ++rhs) {
+              auto const *const ib = global_source_coords[rhs];
+              for (int i4z = 0; i4z < 4; ++i4z) { size_t const iz = ib[Z]*4 + i4z;
+              for (int i4y = 0; i4y < 4; ++i4y) { size_t const iy = ib[Y]*4 + i4y;
+              for (int i4x = 0; i4x < 4; ++i4x) { size_t const ix = ib[X]*4 + i4x;
+                  auto const izyx = (iz*ng[Y] + iy)*ng[X] + ix; // global grid point index
+                  assert(izyx < n_all_grid_points);
+                  auto const i64 = (i4z*4 + i4y)*4 + i4x;
+                  if (Noco > 1) {
+                      Vinp[rhs*4 + 3][i64] = 0.0;  // set clear V_y
+                      Vinp[rhs*4 + 2][i64] = 0.0;  // set clear V_x
+                      Vinp[rhs*4 + 1][i64] = Veff[izyx]; // set V_upup
+                  } // non-collinear
+                  Vinp[rhs*Noco*Noco][i64] = Veff[izyx]; // copy potential value to V_dndn
+              }}} // i4
+          } // rhs
+
+          for (int mag = 0; mag < Noco*Noco; ++mag) {
+              p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
+          } // mag
+
+          green_potential::exchange(p.Veff, Vinp,
+                    p.global_target_indices, // requests
+                    p.global_source_indices, // offerings
+                    owner_rank.data(),
+                    n_blocks, Noco, true, MPI_COMM_WORLD, echo);
+
+          delete[] Vinp;
+      } // scope
+
 
       auto const stat = construct_dyadic_plan(p.dyadic_plan
                             , cell, boundary_condition, hg
@@ -1271,7 +1278,7 @@ namespace green_function {
 
               case 412: test_action<float ,2,1>(p, iterations, echo); break; // complex
               case 812: test_action<double,2,1>(p, iterations, echo); break; // complex
-#ifndef HAS_TFQMRGPU
+#ifndef   HAS_TFQMRGPU
               case 411: test_action<float ,1,1>(p, iterations, echo); break; // real
               case 811: test_action<double,1,1>(p, iterations, echo); break; // real
 #else  // HAS_TFQMRGPU
