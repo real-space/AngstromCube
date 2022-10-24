@@ -189,8 +189,8 @@ namespace green_potential {
   template <typename rank_int_t=uint16_t>
   status_t exchange(
         double    (*const Veff[4])[64]  // output effective potentials, data layout Veff[Noco^2][nrows][64]
-      , double const (*const Vinp)[64]  //  input effective potentials, data layout Vinp[ncols*Noco^2 ][64]
       , std::vector<int64_t> const & requests  // indices requested by this MPI process, [nrows]
+      , double const (*const Vinp)[64]  //  input effective potentials, data layout Vinp[ncols*Noco^2 ][64]
       , std::vector<int64_t> const & offerings // indices offered by this MPI process, [ncols]
       , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
       , uint32_t const nb[3] // global bounding box, maybe group this with owner_rank into a translator object global_index --> owner_rank
@@ -389,7 +389,7 @@ namespace green_potential {
           if (me == rank) offerings.push_back(row);
       } // row
       uint32_t const nb[] = {2, 2, 1};
-      stat += exchange(Veff, Vinp, requests, offerings, owner_rank.data(), nb, Noco, true, MPI_COMM_WORLD, echo);
+      stat += exchange(Veff, requests, Vinp, offerings, owner_rank.data(), nb, Noco, true, MPI_COMM_WORLD, echo);
       for (int spin = 0; spin < Noco*Noco; ++spin) free(Veff[spin]);
       delete[] Vinp;
       return stat;

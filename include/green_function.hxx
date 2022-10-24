@@ -1148,11 +1148,10 @@ namespace green_function {
               p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
           } // mag
 
-          green_potential::exchange(p.Veff, Vinp,
-                    p.global_target_indices, // requests
-                    p.global_source_indices, // offerings
-                    owner_rank.data(),
-                    n_blocks, Noco, true, MPI_COMM_WORLD, echo);
+          green_potential::exchange(p.Veff, p.global_target_indices, // requests
+                                      Vinp, p.global_source_indices, // offerings
+                                      owner_rank.data(),
+                                      n_blocks, Noco, true, MPI_COMM_WORLD, echo);
 
           delete[] Vinp;
       } // scope
