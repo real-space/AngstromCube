@@ -488,19 +488,19 @@ namespace green_function {
           assert(nall > 0);
           int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
                                                  : mpi_parallel::rank();
-          std::vector<uint16_t> owner_rank(nall, 0);
           double rank_center[4];
+          std::vector<uint16_t> owner_rank(nall, 0);
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
-          nrhs = size_t(rank_center[3]);
+          nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
           std::printf("# rank#%d of %d procs has %d tasks\n", comm_rank, comm_size, nrhs);
           global_source_indices.resize(nrhs, 0);
           uint32_t irhs{0};
           for (size_t iall = 0; iall < nall; ++iall) {
               if (comm_rank == owner_rank[iall]) {
                   // assume that iall == (iz*n[Y] + iy)*n[X] + ix;
-                  int32_t const iz = iall/(nb[X]*nb[Y]);
-                  int32_t const iy = (iall - iz*nb[X]*nb[Y])/nb[X];
-                  int32_t const ix = iall - iz*nb[X]*nb[Y] - iy*nb[X];
+                  int32_t const iz = iall/(size_t(nb[X])*nb[Y]);
+                  int32_t const iy = (iall - iz*size_t(nb[X])*nb[Y])/nb[X];
+                  int32_t const ix = iall - (iz*size_t(nb[Y]) + iy)*nb[X];
                   global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
                   ++irhs;
               }
@@ -519,7 +519,7 @@ namespace green_function {
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
           if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
 
-          uint32_t const nrhs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
+          nrhs = n_source_blocks[Z]*n_source_blocks[Y]*n_source_blocks[X];
 
           global_source_indices.resize(nrhs, 0);
 
@@ -1129,7 +1129,7 @@ namespace green_function {
               // create lists for the finite-difference derivatives
               auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd]
                 , dd
-                , (1 == boundary_condition[dd]) // is periodic?
+                , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
                 , num_target_coords
                 , p.RowStart, p.colindx.data()
                 , iRow_of_coords

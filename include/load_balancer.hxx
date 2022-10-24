@@ -237,7 +237,7 @@ namespace load_balancer {
       for (uint32_t iz = 0; iz < nb[Z]; ++iz) {
       for (uint32_t iy = 0; iy < nb[Y]; ++iy) {
       for (uint32_t ix = 0; ix < nb[X]; ++ix) {
-          auto const iall = (iz*nb[Y] + iy)*nb[X] + ix;
+          auto const iall = (size_t(iz)*nb[Y] + iy)*nb[X] + ix;
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
           auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
           w8s[iall]    = w8;

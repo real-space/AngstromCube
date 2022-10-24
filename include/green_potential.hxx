@@ -172,6 +172,18 @@ namespace green_potential {
         return 0ul; // total number of floating point operations performed
     } // multiply potential
 
+  inline char const * spin_name(int const Noco, int const spin) {
+      if (1 == Noco && 0 == spin) return "";
+      if (2 == Noco) {
+          switch (spin) {
+            case 0: return " V_down";
+            case 1: return " V_up";
+            case 2: return " V_x";
+            case 3: return " V_y";
+          } // spin
+      } // 2 == Noco
+      return " ???";
+  } // spin_name
 
   // For MPI parallel calculations the potential values need to be exchanged
   template <typename rank_int_t=uint16_t>
@@ -220,7 +232,7 @@ namespace green_potential {
           for (int d = 0; d < 3; ++d) {
               assert(xyz[d] < nb[d]);
           } // d
-          auto const iall = (xyz[Z]*nb[Y] + xyz[Y])*nb[X] + xyz[X];
+          auto const iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
           assert(iall < nall);
 
           assert(me == owner_rank[iall] && "offerings must be owned");
@@ -248,11 +260,13 @@ namespace green_potential {
 
       // set up a memory window to read from
       MPI_Win window;
-      size_t const count = 64*sizeof(double); // too large?
-      status += MPI_Win_create((void*)Vinp, ncols*Noco*Noco*count, count, MPI_INFO_NULL, comm, &window);
+      size_t const disp_unit = 64*sizeof(double); // in Bytes
+      size_t const win_size  = ncols*Noco*Noco*disp_unit; // in Bytes
+      status += MPI_Win_create((void*)Vinp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
 
       // synchronize processes
-      status += MPI_Win_fence(0, window);
+      int const assertions = 0; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
+      status += MPI_Win_fence(assertions, window);
 
 #endif // HAS_NO_MPI
 
@@ -267,7 +281,7 @@ namespace green_potential {
           for (int d = 0; d < 3; ++d) {
               assert(xyz[d] < nb[d]);
           } // d
-          auto const iall = (xyz[Z]*nb[Y] + xyz[Y])*nb[X] + xyz[X];
+          auto const iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
           assert(iall < nall);
           auto const owner = owner_rank[iall];
           auto const iloc = local_index[iall];
@@ -288,14 +302,22 @@ namespace green_potential {
           for (int spin = 0; spin < Noco*Noco; ++spin) {
               auto const target_disp = iloc*Noco*Noco + spin;
               if (me == owner) {
-                  if (echo > 5 + 5*spin) std::printf("# exchange: rank #%i local copy of potential at cube id 0%llo\n", me, global_id);
+                  if (echo > 5 + 5*spin) std::printf("# exchange: rank #%i local copy of potential at cube id 0%llo%s\n", me, global_id, spin_name(Noco, spin));
                   set(Veff[spin][row], 64, Vinp[target_disp]);
                   ++stats[0];
               } else { // me == owner
                   ++stats[1];
 #ifndef   HAS_NO_MPI
-                  if (echo > 7 + 5*spin) std::printf("# exchange: rank #%i get potential at cube id 0%llo from rank #%i element %i\n", me, global_id, owner, iloc);
+                  if (echo > 7 + 5*spin) std::printf("# exchange: rank #%i get potential at cube id 0%llo from rank #%i element %i%s\n", me, global_id, owner, iloc, spin_name(Noco, spin));
                   status += MPI_Get(Veff[spin][row], 64, MPI_DOUBLE, owner, target_disp, 64, MPI_DOUBLE, window);
+                  /*
+                   *  Criticism for MPI_Get-solution:
+                   *    each time called it pushes a request into the remote process and receives an MPI_Put with the data from that process.
+                   *    After the construction of the Green function, the structure of requested potential elements does not change any more.
+                   *    Latencies would be lower if we separated it into two phases:
+                   *    a) communicate where to push, e.g. with MPI_Alltoall and MPI_Alltoallv before the loop over energy parameters.
+                   *    b) MPI_Put the data
+                   */
 #else  // HAS_NO_MPI
                   error("Without MPI all potential elements must reside in the same process, me=%i, owner=%i", me, owner);
 #endif // HAS_NO_MPI
@@ -305,7 +327,7 @@ namespace green_potential {
 
 #ifndef   HAS_NO_MPI
       // synchronize processes
-      status += MPI_Win_fence(0, window);
+      status += MPI_Win_fence(assertions, window);
       // MPI_Win_free is only needed if we use MPI_Win_alloc above
 #endif // HAS_NO_MPI
 
@@ -353,16 +375,23 @@ namespace green_potential {
   template <int Noco=1>
   inline status_t test_exchange(int echo=0) {
       status_t stat(0);
-      unsigned constexpr nrows = 4;
+      std::vector<int64_t> requests = {0, 3, 2, 1}; // needs to be a valid permutation
+      auto const nrows = requests.size();
       double (*Veff[Noco*Noco])[64];
       for (int spin = 0; spin < Noco*Noco; ++spin) Veff[spin] = (double(*)[64])malloc(nrows*64*sizeof(double));
-      double Vinp[nrows][64];
-      std::vector<int64_t> requests     = {0, 3, 2, 1}; assert(nrows == requests.size());
-      std::vector<int64_t> offerings    = {0, 1, 2, 3}; if (mpi_parallel::rank() > 0) offerings.resize(0);
-      std::vector<uint16_t> owner_rank  = {0, 0, 0, 0};
+      auto const Vinp = new double[nrows][64];
+      int const me = mpi_parallel::rank(), np = mpi_parallel::size(); assert(np > 0);
+      std::vector<int64_t> offerings(0);
+      std::vector<uint16_t> owner_rank(nrows, 0);
+      for(int row{0}; row < nrows; ++row) {
+          int const rank = row % np; // block-cyclic distribution
+          owner_rank[row] = rank;
+          if (me == rank) offerings.push_back(row);
+      } // row
       uint32_t const nb[] = {2, 2, 1};
       stat += exchange(Veff, Vinp, requests, offerings, owner_rank.data(), nb, Noco, true, MPI_COMM_WORLD, echo);
       for (int spin = 0; spin < Noco*Noco; ++spin) free(Veff[spin]);
+      delete[] Vinp;
       return stat;
   } // test_exchange
 
