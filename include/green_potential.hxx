@@ -188,10 +188,10 @@ namespace green_potential {
   // For MPI parallel calculations the potential values need to be exchanged
   template <typename rank_int_t=uint16_t>
   status_t exchange(
-        double    (*const Veff[4])[64]  // output effective potentials, data layout Veff[Noco^2][nrows][64]
-      , std::vector<int64_t> const & requests  // indices requested by this MPI process, [nrows]
-      , double const (*const Vinp)[64]  //  input effective potentials, data layout Vinp[ncols*Noco^2 ][64]
-      , std::vector<int64_t> const & offerings // indices offered by this MPI process, [ncols]
+        double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nrows][64]
+      , std::vector<int64_t> const & requests  // indices requested by this MPI process,         [nrows]
+      , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2 ][64]
+      , std::vector<int64_t> const & offerings //  indices offered  by this MPI process, [ncols]
       , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
       , uint32_t const nb[3] // global bounding box, maybe group this with owner_rank into a translator object global_index --> owner_rank
       , int const Noco=1 // 1:no spin, 2: (non-collinear) spin
@@ -283,6 +283,7 @@ namespace green_potential {
           } // d
           auto const iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
           assert(iall < nall);
+
           auto const owner = owner_rank[iall];
           auto const iloc = local_index[iall];
 

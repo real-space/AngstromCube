@@ -499,13 +499,12 @@ namespace green_function {
               printf_vector(" %i", owner_rank);
           } // echo
           auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
-          if (echo > -9) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs); // all ranks print this!
+          if (echo > 5) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs);
           {
-              simple_stats::Stats<> ntasks;
-              ntasks.add(nrhs);
-//               ntasks.allreduce();
-              mpi_parallel::allreduce(ntasks);
-              if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", ntasks.min(), ntasks.mean(), ntasks.dev(), ntasks.max());
+              simple_stats::Stats<> nt; // number of tasks
+              nt.add(nrhs);
+              mpi_parallel::allreduce(nt);
+              if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
           }
           global_source_indices.resize(nrhs, -1);
           uint32_t irhs{0};
@@ -550,7 +549,7 @@ namespace green_function {
 
       } // comm_size > 1
 
-      if (echo > 0) std::printf("# total number of source blocks is %ld\n", global_source_indices.size());
+      if (echo > 5) std::printf("# total number of source blocks is %ld\n", global_source_indices.size());
       return global_source_indices;
   } // get_right_hand_sides
 
@@ -614,7 +613,7 @@ namespace green_function {
       double center_of_RHSs[]     = {0, 0, 0};
       // determine the largest and smallest indices of target blocks
       // given a max distance r_trunc between source blocks and target blocks
-      int32_t constexpr MinMaxLim = 1 << 21;
+      int32_t constexpr MinMaxLim = 1 << 21; // global coordinates with int64_t can only hold up to 3*21 bits
       int32_t max_global_source_coords[] = {-MinMaxLim, -MinMaxLim, -MinMaxLim};
       int32_t min_global_source_coords[] = { MinMaxLim,  MinMaxLim,  MinMaxLim};
       int32_t global_internal_offset[]   = {0, 0, 0};

@@ -16,16 +16,16 @@ namespace simple_stats {
   class Stats {
     public:
 
-    Stats(int const value=0) { clear(); } // default constructor
+    Stats(int const value=0) { set(); } // default constructor
 
-    void clear() {
-        for (int p = 0; p < 3; ++p) {
-            v[p] = 0;
-        } // p
-        mini =  1.7e38;
-        maxi = -1.7e38;
-        times = 0;
-    } // clear
+//     void clear() {
+//         times = 0;
+//         for (int p = 0; p < 3; ++p) {
+//             v[p] = 0;
+//         } // p
+//         mini =  1.7e38;
+//         maxi = -1.7e38;
+//     } // clear
 
     void add(real_t const x, real_t const weight=1) {
         auto const w8 = std::abs(weight);
@@ -52,7 +52,7 @@ namespace simple_stats {
 // #endif // HAS_NO_MPI
 //     } // allreduce
 
-    void get(double values[8]) const {
+    void get(double values[8]) const { // export values for MPI_Allreduce
         values[0] = v[0];
         values[1] = v[1];
         values[2] = v[2];
@@ -63,13 +63,21 @@ namespace simple_stats {
         values[7] =  maxi; // these need MPI_MAX
     } // get
 
-    void set(double const values[8]) {
-        v[0] =  values[0];
-        v[1] =  values[1];
-        v[2] =  values[2];
-        times = values[4];
-        mini = -values[6];
-        maxi =  values[7];
+    void set(double const values[8]=nullptr) { // import values after MPI_Allreduce
+        if (nullptr != values) {
+            times = values[4];
+            mini = -values[6];
+            maxi =  values[7];
+            v[0] =  values[0];
+            v[1] =  values[1];
+            v[2] =  values[2];
+        } else { // nullptr
+            times = 0;
+            float constexpr LIM = 1.7e38;
+            mini =  LIM;
+            maxi = -LIM;
+            for (int p = 0; p < 3; ++p) v[p] = 0;
+        } // nullptr
     } // set
 
     real_t min() const { return mini; }

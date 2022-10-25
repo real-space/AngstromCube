@@ -186,7 +186,7 @@ namespace fermi_distribution {
           if (echo > 0) std::printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
           set_temperature(kT, echo);
           set(_band_energy, 2, 0.0);
-          _accu.clear();
+          _accu.set();
       } // constructor
 
       bool set_temperature(double const kT=default_temperature, int const echo=0) {
@@ -256,7 +256,7 @@ namespace fermi_distribution {
           _mu = _accu.mean(); // average
           if (echo > 0) std::printf("# %s old= %g, new= %g %s\n", __func__,
               old_mu*(Fermi_level_not_initialized != old_mu)*eV, _mu*eV,_eV);
-          _accu.clear(); // reset for the next SCF iteration
+          _accu.set(); // reset for the next SCF iteration
           set(_band_energy, 2, 0.0);
           return 0; // result not implemented, yet, TODO
       } // correct_Fermi_level
