@@ -9,6 +9,7 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "data_view.hxx" // view2D<T>
 #include "inline_math.hxx" // set, pow2, scale
+#include "print_tools.hxx" // printf_vector
 
 
 namespace load_balancer {
@@ -180,25 +181,34 @@ namespace load_balancer {
 
       } // while np > 1
 
-      if (rank_center && load_now > 0) {
-          // compute the center of weight again, for display and export
-          double cow[4];
-          auto const w8sum = center_of_weight(cow, nuna, indirect.data(), xyzw);
-          if (echo > 13) std::printf("# rank#%i assign %.3f %% center %g %g %g, %g items\n",
-                                        rank, w8sum*100/w8sum_all, cow[X], cow[Y], cow[Z], cow[W]);
-          set(rank_center, 4, cow); // export
+      if (rank_center) {
+          set(rank_center, 4, 0.0);
+          if (load_now > 0) {
+              // compute the center of weight again, for display and export
+              double cow[4];
+              auto const w8sum = center_of_weight(cow, nuna, indirect.data(), xyzw);
+              if (echo > 13) std::printf("# rank#%i assign %.3f %% center %g %g %g, %g items\n",
+                                            rank, w8sum*100/w8sum_all, cow[X], cow[Y], cow[Z], cow[W]);
+              set(rank_center, 4, cow); // export
+          } // load_now > 0
       } // rank_center
 
       if (echo > 9) std::printf("# rank#%i assign %.3f %%, target %.3f %%\n\n",
                                    rank, load_now*100/w8sum_all, 100./nprocs);
 
-      if (owner_rank) { // export mask
+      if (owner_rank) {
           for (size_t iall = 0; iall < nall; ++iall) {
               if (UNASSIGNED == state[iall]) {
                   owner_rank[iall] = rank;
                   assert(owner_rank[iall] == rank && "uint16_t too short for owner_ranks");
-              }
+              } // unassigned
           } // iall
+          // Beware: only the owned entried of owner_rank have been modified, so
+          //         an MPI_MAX-Allreduce needs to be performed after returning.
+          if (echo > 9) {
+              std::printf("# rank#%i owner_rank before MPI_MAX ", rank);
+              printf_vector(" %i", owner_rank, nall);
+          } // echo
       } // owner_rank
 
       if (1) { // parallelized consistency check

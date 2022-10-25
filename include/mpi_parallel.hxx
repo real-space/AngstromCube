@@ -51,12 +51,16 @@
 
   typedef int MPI_Datatype;
   MPI_Datatype constexpr MPI_UINT16 = 2;
+  MPI_Datatype constexpr MPI_DOUBLE = -8;
+  MPI_Datatype constexpr MPI_UNSIGNED_LONG = 8;
   void const * const MPI_IN_PLACE = nullptr;
 
   inline size_t const size_of(MPI_Datatype const datatype) {
      switch (datatype) {
        case 0:          return 1; // 1 Byte
        case MPI_UINT16: return 2; // 2 Byte
+       case MPI_DOUBLE: return 8; // 8 Byte
+       case MPI_UNSIGNED_LONG: return 8; // 8 Byte
      }
      warn("unknown MPI_Datatype %d", int(datatype));
      return 0;
@@ -64,20 +68,21 @@
 
   // This is a replacement if you do not have MPI installed
   #define ok   return MPI_SUCCESS
-  int MPI_Init(int *argc, char ***argv) { ok; }
-  int MPI_Finalize(void) { ok; }
-  int MPI_Comm_rank(MPI_Comm comm, int *rank) { assert(rank); *rank = 0; ok; }
-  int MPI_Comm_size(MPI_Comm comm, int *size) { assert(size); *size = 1; ok; }
-  int MPI_Allreduce(void const *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+  inline int MPI_Init(int *argc, char ***argv) { ok; }
+  inline int MPI_Finalize(void) { ok; }
+  inline int MPI_Comm_rank(MPI_Comm comm, int *rank) { assert(rank); *rank = 0; ok; }
+  inline int MPI_Comm_size(MPI_Comm comm, int *size) { assert(size); *size = 1; ok; }
+  inline int MPI_Allreduce(void const *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
       if (sendbuf) std::memcpy(recvbuf, sendbuf, count*size_of(datatype)); ok; }
-  int MPI_Barrier(MPI_Comm comm) { ok; }
-  double MPI_Wtime(void) { return 0; } // ToDo
+  inline int MPI_Barrier(MPI_Comm comm) { ok; }
+  inline double MPI_Wtime(void) { return 0; } // ToDo
   // add more MPI_ replacement functions here ...
   #undef  ok
 
 #endif // HAS_NO_MPI
 
 #include <cstdio> // std::printf
+#include "simple_stats.hxx" // ::Stats<double>
 
 namespace mpi_parallel {
 
@@ -104,23 +109,23 @@ namespace mpi_parallel {
 
   // MPI utilities
 
-  int init(int argc=0, char **argv=nullptr) { // forward the arguments of main
+  inline int init(int argc=0, char **argv=nullptr) { // forward the arguments of main
       static bool already{false};
       if (already) return 1; // has already been initialized
       already = true;
       return MPI_Check(MPI_Init(&argc, &argv));
   } // init
 
-  MPI_Comm comm() { return MPI_COMM_WORLD; }
+  inline MPI_Comm comm() { return MPI_COMM_WORLD; }
 
-  unsigned size(MPI_Comm const comm=MPI_COMM_WORLD) {
+  inline unsigned size(MPI_Comm const comm=MPI_COMM_WORLD) {
       int size{0};
       MPI_Check(MPI_Comm_size(comm, &size));
       assert( size > 0 );
       return size;
   } // size
 
-  int rank(MPI_Comm const comm=MPI_COMM_WORLD, unsigned const check_size=0) { // check_size=0: do not check
+  inline int rank(MPI_Comm const comm=MPI_COMM_WORLD, unsigned const check_size=0) { // check_size=0: do not check
       int rank{-1};
       MPI_Check(MPI_Comm_rank(comm, &rank));
       assert( rank >= 0 );
@@ -128,25 +133,42 @@ namespace mpi_parallel {
       return rank;
   } // rank
 
-  template <typename T> MPI_Datatype get();
-//   template <> MPI_Datatype get<int8_t>  { return MPI_INTEGER1; }
-//   template <> MPI_Datatype get<int16_t> { return MPI_INTEGER2; }
-//   template <> MPI_Datatype get<int32_t> { return MPI_INTEGER4; }
-//   template <> MPI_Datatype get<int64_t> { return MPI_INTEGER8; }
+  template <typename T> MPI_Datatype get(T t=0);
+  template <> inline MPI_Datatype get<uint16_t>(uint16_t t) { return MPI_UINT16; }
+  template <> inline MPI_Datatype get<double>(double t) { return MPI_DOUBLE; }
+  template <> inline MPI_Datatype get<size_t>(size_t t) { return MPI_UNSIGNED_LONG; }
 
   template <typename T>
-  int allreduce(T *recv, MPI_Op const op=MPI_SUM, MPI_Comm const comm=MPI_COMM_WORLD, int const count=1, T const *send=nullptr) {
-      if (!send) send = recv; // need a deep copy here?
+  inline int allreduce(T *recv, MPI_Op const op=MPI_SUM, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, T const *send=nullptr) {
+      if (!send) send = (T const *)MPI_IN_PLACE;
       return MPI_Allreduce(send, recv, count, get<T>(), op, comm);
   } // allreduce
 
-  int barrier(MPI_Comm const comm=MPI_COMM_WORLD) { 
+  template <typename T>
+  inline int max(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
+      return allreduce(recv, MPI_MAX, comm, count); }
+
+  template <typename T>
+  inline int sum(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
+      return allreduce(recv, MPI_SUM, comm, count); }
+
+  inline int barrier(MPI_Comm const comm=MPI_COMM_WORLD) { 
       return MPI_Check(MPI_Barrier(comm));
   } // barrier
 
-  int finalize(void) {
+  inline int finalize(void) {
       return MPI_Check(MPI_Finalize());
   } // finalize
+
+
+  inline int allreduce(simple_stats::Stats<double> & stats, MPI_Comm const comm=MPI_COMM_WORLD) {
+      double v[8];
+      stats.get(v);
+      auto const status_sum = sum(v, 5, comm);
+      auto const status_max = max(v + 6, 2, comm); // MPI_MAX on {v[6], v[7]}
+      stats.set(v);
+      return status_sum + status_max;
+  } // allreduce
 
 } // namespace mpi_parallel
 
@@ -192,15 +214,16 @@ namespace mpi_parallel {
       return stat;
   } // test_wrappers
 
+  template <typename T=uint16_t>
   inline status_t test_constants(int const echo=0) {
-      // check that MPI_UINT16 is correct for uint16_t
-      uint16_t a[] = {0, 1, 2, 3};
+      // check that get<T>() produces the right constant, in particular MPI_UINT16 is correct for uint16_t
+      T a[] = {0, 1, 2, 3};
       auto const np = mpi_parallel::size();
       if (np > (1u << 14)) {
           if (echo > 1) std::printf("# %s %s cannot test with more than 2^14 processes, found %d\n", __FILE__, __func__, np);
           return 1;
       }
-      MPI_Allreduce(MPI_IN_PLACE, a, 4, MPI_UINT16, MPI_SUM, MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, a, 4, get<T>(), MPI_SUM, MPI_COMM_WORLD);
       return (0 != a[0]) + (np != a[1]) + (2*np != a[2]) + (3*np != a[3]);
   } // test_constants
 
@@ -210,6 +233,8 @@ namespace mpi_parallel {
       stat += test_wrappers(echo);
       stat += test_simple(echo);
       stat += test_constants(echo);
+      stat += test_constants<double>(echo);
+      stat += test_constants<size_t>(echo);
       if (!already_initialized) mpi_parallel::finalize();
       return stat;
   } // all_tests

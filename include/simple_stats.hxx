@@ -8,6 +8,7 @@
 #endif // NO_UNIT_TESTS
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+// #include "mpi_parallel.hxx" // ::max, ::sum
 
 namespace simple_stats {
 
@@ -37,6 +38,40 @@ namespace simple_stats {
         ++times;
     } // add
 
+//     int allreduce(MPI_Comm const comm=MPI_COMM_WORLD) {
+// #ifdef    HAS_NO_MPI
+//         return 0;
+// #else  // HAS_NO_MPI
+//         real_t minmax[2] = {-mini, maxi};
+//         auto const status_max = mpi_parallel::max(minmax, 2, comm);
+//         auto const status_sum = mpi_parallel::sum(     v, 3, comm);
+//         auto const status_tim = mpi_parallel::sum(&times, 1, comm);
+//         mini = -minmax[0];
+//         maxi =  minmax[1];
+//         return status_max + status_sum + status_tim;
+// #endif // HAS_NO_MPI
+//     } // allreduce
+
+    void get(double values[8]) const {
+        values[0] = v[0];
+        values[1] = v[1];
+        values[2] = v[2];
+        values[3] = 0; // reserved for extension to 3rd cumulant
+        values[4] = times;
+        values[5] = 0; // not in use
+        values[6] = -mini; // these need MPI_MAX
+        values[7] =  maxi; // these need MPI_MAX
+    } // get
+
+    void set(double const values[8]) {
+        v[0] =  values[0];
+        v[1] =  values[1];
+        v[2] =  values[2];
+        times = values[4];
+        mini = -values[6];
+        maxi =  values[7];
+    } // set
+
     real_t min() const { return mini; }
     real_t max() const { return maxi; }
     real_t num() const { return v[0]; }
@@ -54,7 +89,7 @@ namespace simple_stats {
       size_t times;
       real_t mini, maxi;
       real_t v[3];
-  }; // class Stats<T>
+  }; // class Stats<real_t>
 
 
 

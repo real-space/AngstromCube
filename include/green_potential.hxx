@@ -375,12 +375,14 @@ namespace green_potential {
   template <int Noco=1>
   inline status_t test_exchange(int echo=0) {
       status_t stat(0);
-      std::vector<int64_t> requests = {0, 3, 2, 1}; // needs to be a valid permutation
+      uint32_t const nb[] = {2, 2, 1};
+      std::vector<int64_t> requests = {0, 3, 2, 1};
       auto const nrows = requests.size();
       double (*Veff[Noco*Noco])[64];
       for (int spin = 0; spin < Noco*Noco; ++spin) Veff[spin] = (double(*)[64])malloc(nrows*64*sizeof(double));
       auto const Vinp = new double[nrows][64];
-      int const me = mpi_parallel::rank(), np = mpi_parallel::size(); assert(np > 0);
+      int const me = mpi_parallel::rank(),
+                np = mpi_parallel::size(); assert(np > 0);
       std::vector<int64_t> offerings(0);
       std::vector<uint16_t> owner_rank(nrows, 0);
       for(int row{0}; row < nrows; ++row) {
@@ -388,7 +390,6 @@ namespace green_potential {
           owner_rank[row] = rank;
           if (me == rank) offerings.push_back(row);
       } // row
-      uint32_t const nb[] = {2, 2, 1};
       stat += exchange(Veff, requests, Vinp, offerings, owner_rank.data(), nb, Noco, true, MPI_COMM_WORLD, echo);
       for (int spin = 0; spin < Noco*Noco; ++spin) free(Veff[spin]);
       delete[] Vinp;

@@ -11,6 +11,7 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
+#include "simple_stats.hxx" // ::Stats<>
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "print_tools.hxx" // printf_vector
 #include "global_coordinates.hxx" // ::get
@@ -479,22 +480,33 @@ namespace green_function {
       , int const echo=0
   ) {
       std::vector<int64_t> global_source_indices;
-      uint32_t nrhs{0};
       int const true_comm_size = mpi_parallel::size();
       int const fake_comm = (true_comm_size > 1) ? 0 : control::get("green_function.fake.comm", 0.);
       auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
+      auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
+      owner_rank.resize(nall, 0);
       if (comm_size > 1) {
 
-          size_t const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
           if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
           assert(nall > 0);
           int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
                                                  : mpi_parallel::rank();
           double rank_center[4];
-          owner_rank.resize(nall, 0);
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
-          nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
-          std::printf("# rank#%d of %d procs has %d tasks\n", comm_rank, comm_size, nrhs);
+          if (fake_comm < 1) mpi_parallel::max(owner_rank.data(), nall);
+          if (echo > 9) {
+              std::printf("# rank#%i owner_rank after  MPI_MAX ", comm_rank);
+              printf_vector(" %i", owner_rank);
+          } // echo
+          auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
+          if (echo > -9) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs); // all ranks print this!
+          {
+              simple_stats::Stats<> ntasks;
+              ntasks.add(nrhs);
+//               ntasks.allreduce();
+              mpi_parallel::allreduce(ntasks);
+              if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", ntasks.min(), ntasks.mean(), ntasks.dev(), ntasks.max());
+          }
           global_source_indices.resize(nrhs, -1);
           uint32_t irhs{0};
           for (size_t iall = 0; iall < nall; ++iall) {
@@ -507,6 +519,7 @@ namespace green_function {
                   ++irhs;
               }
           } // iall
+          if (nrhs != irhs) error("rank#%i number of right hand sides=%d inconsistent with number of owned tasks=%d", comm_rank, nrhs, irhs);
           assert(nrhs == irhs && "number of right hand sides inconsistent");
 
       } else { // comm_size > 1
@@ -521,7 +534,7 @@ namespace green_function {
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
           if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
 
-          nrhs = n_source_blocks[Z]*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
+          auto const nrhs = n_source_blocks[Z]*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
 
           global_source_indices.resize(nrhs, -1);
 
@@ -537,7 +550,7 @@ namespace green_function {
 
       } // comm_size > 1
 
-      if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
+      if (echo > 0) std::printf("# total number of source blocks is %ld\n", global_source_indices.size());
       return global_source_indices;
   } // get_right_hand_sides
 
