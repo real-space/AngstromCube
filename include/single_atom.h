@@ -280,7 +280,8 @@
     {
         *status = single_atom::atom_update("memory cleanup", *na);
         std::printf("# finalized %d LiveAtoms\n", *na);
-        if (control::get("control.show", 0.) > 0) control::show_variables(3);
+        int const control_show = control::get("control.show", 0.);
+        if (0 != control_show) control::show_variables(control_show);
         recorded_warnings::show_warnings(3);
         // std::fflush(stdout);
     } // live_atom_finalize_

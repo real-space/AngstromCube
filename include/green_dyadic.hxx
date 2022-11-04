@@ -10,6 +10,7 @@
 #include "inline_math.hxx" // pow2, pow3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 #include "constants.hxx" // ::sqrtpi
+#include "mpi_parallel.hxx" // ::rank
 
 #ifndef NO_UNIT_TESTS
     #include "control.hxx" // ::get
@@ -1455,8 +1456,8 @@ namespace green_dyadic {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-//       stat += test_Hermite_polynomials_1D(echo);
-//       stat += test_SHOprj_and_SHOadd(echo);
+      stat += test_Hermite_polynomials_1D(echo);
+      stat += test_SHOprj_and_SHOadd(echo);
       stat += test_exchange(echo);
       return stat;
   } // all_tests

@@ -83,7 +83,7 @@ namespace green_sparse {
           if (echo > 5) std::printf("# sparse_t %s columns per row stats [%g, %g +/- %g, %g]\n", name, st.min(), st.mean(), st.dev(), st.max());
           if (echo > 9) { 
               std::printf("# sparse_t.rowStart"); if (echo > 19) std::printf("(%p)", (void*)rowStart_); 
-              std::printf("[0..%d]=", nRows_);  printf_vector(" %d", rowStart_, nRows_);
+              std::printf("[0..%d]=", nRows_);  printf_vector(" %d", rowStart_, nRows_ + 1);
               std::printf("# sparse_t.colIndex"); if (echo > 19) std::printf("(%p)", (void*)colIndex_); 
               std::printf("[0..%ld-1]= ", nnz); printf_vector(" %d", colIndex_, nnz);
           } // echo
@@ -195,7 +195,7 @@ namespace green_sparse {
           list[i].resize(i + 1); // lower triangular matrix
           for (int j = 0; j <= i; ++j) list[i][j] = j;
       } // i
-      sparse_t<uint8_t> s(list, false, "lowerTriangularMatrix"); // test constructor
+      sparse_t<uint8_t> s(list, false, "lowerTriangularMatrix", echo); // test constructor
       if (echo > 3) std::printf("# %s nRows= %d, nNonzeros= %d\n", __func__, s.nRows(), s.nNonzeros());
       if (echo > 6) std::printf("# %s last element = %d\n", __func__, int(s.colIndex()[s.nNonzeros() - 1]));
       if (echo > 6) { std::printf("# rowIndex "); printf_vector(" %d", s.rowIndex(), s.nNonzeros()); }

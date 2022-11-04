@@ -40,10 +40,10 @@ int main(int argc, char *argv[]) {
                         lmax_qlm, lmax_vlm, nve, &status);
     printf("# live_atom_initialize = %d\n", status);
 
-    
+
     live_atom_get_core_density_(&na, pointers, &status);
     printf("# live_atom_get_core_density = %d\n", status);
-    
+
     for (ia = 0; ia < 0; ++ia) {
         printf("# r, memory(r) for atom #%i\n", ia);
         for (ir2 = 0; ir2 < nr2; ++ir2) {

@@ -29,7 +29,7 @@ single_atom.echo=3
 # single_atom.local.potential.method=sinc
 
 ## bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
-single_atom.echo.mask=1
+single_atom.echo.mask=0
 
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
 # single_atom.optimize.sigma=1

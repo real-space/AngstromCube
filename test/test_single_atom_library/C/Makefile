@@ -1,11 +1,11 @@
 ###
-### Makefile to test the usage of libliveatom.a with Fortran
+### Makefile to test the usage of libliveatom.a with C
 ###
 
 CC=gcc
-LD=g++
+LD=gcc
 CC_FLAGS=
-LD_FLAGS= 
+LD_FLAGS=
 
 ### name of the execution file
 EXECUTABLE= test_live_atom

@@ -5,6 +5,7 @@
 #include <cerrno> // errno, ERANGE
 #ifndef  NO_UNIT_TESTS
   #include <ctime> // std::strftime, ::time, ::gmtime
+  #include <cmath> // std::cos
 #endif // UNIT_TESTS
 
 #ifdef HAS_RAPIDXML
