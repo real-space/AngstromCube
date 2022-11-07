@@ -3098,8 +3098,8 @@ namespace single_atom {
         double const spherical_charge_deficits = dot_product(3, spherical_charge_deficit, take_spherical_density);
         qlm_compensator[00] += (spherical_charge_deficits - Z_core)*Y00;
         if (echo > 5) std::printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[00]*Y004pi);
-        
-        
+
+
         { // scope: measure the ionization inside the sphere, should be small
             double sph_charge{0};
             for (int csv = core; csv <= valence; ++csv) {
@@ -3110,7 +3110,7 @@ namespace single_atom {
             if (echo > 2) std::printf("# %s true full density has %g electrons inside the sphere\n", label, s00_charge);
             if (echo > 2) std::printf("# %s density shows an ionization of %g electrons inside the sphere\n", label, s00_charge - sph_charge);
         } // scope
-            
+
 
         { // scope: construct the augmented density
             int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
@@ -3119,7 +3119,7 @@ namespace single_atom {
             set(aug_density, nlm_aug, 0.0); // clear all entries
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_cmp, sigma_compensator);
-             
+
 #ifdef DEVEL
             if (echo > 19) {
                 std::printf("\n## r, aug_density, true_density, smooth_density, spherical_density:\n");
@@ -3198,7 +3198,7 @@ namespace single_atom {
                         if (echo > 7) std::printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
                                                             label, full_potential[SMT](00,0)*Y00*eV,_eV);
                     } // SMT only
-                    
+
                     double E_dc{0}, E_xc{0};
 
                     auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts].r2dr); // dot_product with diagonal metric
@@ -3267,13 +3267,13 @@ namespace single_atom {
 
             add_or_project_compensators<2>(Ves, vlm.data(), rg[ts], ellmax_cmp, sigma_compensator);
 
-            
+
             double E_Hartree{0};
             for (int ilm = 0; ilm < pow2(1 + ellmax_pot); ++ilm) {
                 E_Hartree += 0.5*dot_product(nr, Ves[ilm], rho_aug[ilm], rg[ts].r2dr);
             } // ilm
             energy_es[ts] = E_Hartree;
-            
+
             if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
                 std::vector<double> v_test(pow2(1 + ellmax_cmp), 0.0);
                 add_or_project_compensators<1>(Ves, v_test.data(), rg[SMT], ellmax_cmp, sigma_compensator); // project to compensators with ellmax_cmp=0
@@ -3309,7 +3309,7 @@ namespace single_atom {
         } // ts smooth and true
         if (0 != stat) warn("%s angular grid transformations failed with status sum = %i", label, int(stat));
 
-        
+
         auto const df = Y00*eV; assert(df > 0); // display factor
         if (local_potential_method >= 0) {
             // construct the zero_potential V_bar
@@ -3318,7 +3318,7 @@ namespace single_atom {
                 label, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT].n - 1]*df, _eV);
 
             set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
-            
+
             std::vector<double> V_smt(rg[SMT].n);
             auto const stat_pseudo = pseudo_tools::pseudize_local_potential<0>(V_smt.data(),
                                     full_potential[TRU][00], rg, ir_cut, local_potential_method, label, echo, Y00);
@@ -3746,7 +3746,7 @@ namespace single_atom {
             auto const overlap_ln = aHSm[1];
             for (int ell = 0; ell <= numax; ++ell) {
                 if (nn[ell] > 0) {
-                 
+
                     int const nmx = sho_tools::nn_max(numax, ell);
                     assert(nmx >= 1);
                     std::vector<double> eigvals(nmx + 2, 0.0);
@@ -3864,7 +3864,7 @@ namespace single_atom {
             std::printf("# %s diff      %20.9f\n", label, (E_tot[TRU] - energy_ref[TRU])*eV);
             std::printf("# %s\n\n", label);
         } // echo
-        
+
     } // total_energy_contributions
 
 
@@ -3883,11 +3883,11 @@ namespace single_atom {
             update_energy_parameters(echo);
             update_partial_waves(echo);
             fit_basis_functions(echo);
-            
+
             // update quantities derived from the partial waves
             update_kinetic_energy_deficit(echo);
             update_charge_deficit(echo);
-            
+
             // check scattering properties for the reference potential
             check_spherical_matrix_elements(echo); 
             if (freeze_partial_waves) {
@@ -4023,12 +4023,12 @@ namespace single_atom {
     int    const get_numax() const { return numax; }
 
   private:
-    
+
     void set_label(char const *chemical_symbol) {
         if (atom_id < 0) std::snprintf(label, 15, "%s", chemical_symbol); 
         else std::snprintf(label, 15, "%s#%i", chemical_symbol, atom_id); 
     } // set_label
-    
+
 
     status_t perturbation_theory(int const echo=0) const {
         SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
@@ -4246,7 +4246,7 @@ namespace single_atom {
 
   // instead of having a switch only onto  the first char of a string (as in atom_update),
   // we could use a switch onto int or long with these functions
-  
+
 // #define __IS_A_CXX14_COMPILER__
 
   inline uint64_t constexpr string2long(char const s[8]) {
@@ -4341,7 +4341,7 @@ namespace single_atom {
       if (-9 == echo) echo = int(control::get("single_atom.echo", 0.)); // initialize only on the 1st call to atom_update()
 
       if (nullptr == what) return -1;
-      
+
       char const how = what[0] | 32; // first char, convert to lowercase
       if (echo > 4) std::printf("\n# %s %s what=\"%s\" --> \'%c\'\n\n", __FILE__, __func__, what, how);
 
@@ -4484,7 +4484,7 @@ namespace single_atom {
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
           break;
-              
+
           case 'q': // interface usage: atom_update("qlm charges", natoms, null, null, null, qlm);
           {
               double *const *const qlm = dpp; assert(nullptr != qlm);
@@ -4519,7 +4519,7 @@ namespace single_atom {
               assert(!dp); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
           break;
-          
+
           case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, null, nelements, null, atom_mat);
           {
               double *const *const atom_mat = dpp; assert(nullptr != atom_mat);
@@ -4539,7 +4539,7 @@ namespace single_atom {
           }
           break;
 
-          case 'e': // interface usage: atom_update("energies", natoms, delta_Etot, null, null, dpp=atom_ene=null);
+          case 'e': // interface usage: atom_update("energies", natoms, dp=delta_Etot, null, null, dpp=atom_ene=null);
           {
               double *const *const atom_ene = dpp;
               for (size_t ia = 0; ia < a.size(); ++ia) {
@@ -4548,7 +4548,7 @@ namespace single_atom {
               assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
           }
           break;
-          
+
           default:
           {
               if (echo > 0) std::printf("# %s: first argument \'%s\' undefined, no action!\n", __func__, what);

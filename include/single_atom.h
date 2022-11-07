@@ -43,10 +43,10 @@
     #ifndef __cplusplus
         #error "C-Interface and C++Implementations share a file!"
     #endif
-    #include "control.hxx" // ::set, ::read_control_file
+    #include "control.hxx" // ::set, ::read_control_file, ::get, ::show_variables
     #include "unit_system.hxx" // ::set
     #include "recorded_warnings.hxx" // warn, ::show_warnings
-#endif
+#endif // SINGLE_ATOM_SOURCE
 
 #define fortran_callable(NAME) void live_atom_##NAME##_
 
@@ -269,6 +269,24 @@
         std::printf("# got_energy_contributions for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_energy_contributions_
+#else
+    ;
+#endif
+
+    fortran_callable(update)
+        ( char const *what
+        , int32_t const *na
+        , double  *dp
+        , int32_t *ip
+        , float   *fp
+        , double *const *dpp
+        , int32_t *status)
+#ifdef SINGLE_ATOM_SOURCE
+    {   // forward to the atom_update function for new features
+        *status = single_atom::atom_update(what, *na, dp, ip, fp, dpp);
+        std::printf("# update('%s') for %d LiveAtoms\n", what, *na);
+        // std::fflush(stdout);
+    } // live_atom_update_
 #else
     ;
 #endif
