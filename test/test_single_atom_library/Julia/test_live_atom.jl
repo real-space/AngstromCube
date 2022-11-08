@@ -8,15 +8,13 @@ plot = false
 
 status = zeros(Int32, 1)
 
+@ccall LA.live_atom_init_env_("control.sh"::Cstring, status::Ref{Int32})::Cvoid
+# ccall(("live_atom_init_env_", LA), Cvoid, (Cstring, Ref{Int32}), "control.sh", status)
+println("### live_atom_init_env_ = ", status[1])
 
 @ccall LA.live_atom_set_env_("called.from"::Cstring, "Julia"::Cstring, status::Ref{Int32})::Cvoid
 # ccall(("live_atom_set_env_", LA), Cvoid, (Cstring, Cstring, Ref{Int32}), "called.from", "Julia", status)
 println("### live_atom_init_env = ", status[1])
-
-
-@ccall LA.live_atom_init_env_("control.sh"::Cstring, status::Ref{Int32})::Cvoid
-# ccall(("live_atom_init_env_", LA), Cvoid, (Cstring, Ref{Int32}), "control.sh", status)
-println("### live_atom_init_env_ = ", status[1])
 
 # the total number of atoms
 const natoms = 1

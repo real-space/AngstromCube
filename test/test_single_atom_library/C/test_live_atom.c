@@ -1,20 +1,23 @@
 #include <stdint.h> // int32_t, int8_t
-#include "single_atom.h" // interface
 #include <stdio.h> // printf
 #include <math.h> // sqrt
+#include "single_atom.h" // single_atom_*_
 
 int main(int argc, char *argv[]) {
     // constants
 #ifndef NA
-#define NA 12 // number of atoms
+#define NA 4 // number of atoms
 #endif
 
     // variables
     int32_t status = 0, stride = 0;
     int ia, ir2, iq;
     double Z_core[NA], sigma[NA], rcut[NA], ionic[NA], magn[NA], nve[NA], energy[NA];
+    float fp[NA];
     int const nr2 = 1 << 12;
     double memory[NA][nr2];
+    double waves[NA][6][nr2];
+    double occupations[NA][6][2];
     double* pointers[NA];
     int32_t atom_id[NA], numax[NA], lmax_qlm[NA], lmax_vlm[NA];
     int8_t nn[NA][8];
@@ -45,12 +48,15 @@ int main(int argc, char *argv[]) {
     printf("# live_atom_get_core_density = %d\n", status);
 
     for (ia = 0; ia < 0; ++ia) {
-        printf("# r, memory(r) for atom #%i\n", ia);
+        printf("# r, core_density(r) for atom #%i\n", ia);
         for (ir2 = 0; ir2 < nr2; ++ir2) {
             printf("%.6f %.3e\n", sqrt(ir2/ar2), memory[ia][ir2]);
         } // ir2
         printf("\n");
     } // ia
+
+    live_atom_get_start_waves_(&na, waves, occupations, &status);
+    printf("# live_atom_get_start_waves = %d\n", status);
 
     live_atom_get_compensation_charge_(&na, pointers, &status);
     printf("# live_atom_get_compensation_charge = %d\n", status);
@@ -67,11 +73,15 @@ int main(int argc, char *argv[]) {
     live_atom_get_projectors_(&na, sigma, numax, &status);
     printf("# live_atom_get_projectors = %d\n", status);
 
-    live_atom_get_energy_contributions_(&na, energy, &status); // SEGFAULTs
+    live_atom_get_energy_contributions_(&na, energy, &status);
     printf("# live_atom_get_energy_contributions = %d\n", status);
+
+    live_atom_update_("direct", &na, ionic, numax, fp, pointers, &status);
+    printf("# live_atom_update(\"direct\") = %d\n", status);
 
     live_atom_finalize_(&na, &status);
     printf("# live_atom_finalize = %d\n", status);
+
 #undef NA
 //  printf("# %s:%d\n", __FILE__, __LINE__); // here
 } // main
