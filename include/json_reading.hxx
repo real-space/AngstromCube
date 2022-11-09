@@ -120,14 +120,14 @@ namespace json_reading {
               natoms = sho_atoms["number"].GetInt();
           }
           if (sho_atoms.HasMember("atoms")) {
+              assert(sho_atoms["atoms"].IsArray());
               auto const atoms_object = sho_atoms["atoms"].GetObject();
-//               assert(atoms_object.IsArray());
-//               auto const atoms = atoms_object.GetArray();
-//               assert(natoms == atoms.Size());
-//               for (unsigned ia = 0; ia < natoms; ++ia) {
-//                   auto const atom = atoms[ia].GetObject();
-//                   assert(atom.IsObject());
-//               } // ia
+              auto const atoms = atoms_object.GetArray();
+              assert(natoms == atoms.Size());
+              for (unsigned ia = 0; ia < natoms; ++ia) {
+                  auto const atom = atoms[ia].GetObject();
+                  assert(atom.IsObject());
+              } // ia
           } // has atoms
       } // has sho_atoms
       if (echo > 0) std::printf("# %s: found %d SHO atoms\n", filename, natoms);
