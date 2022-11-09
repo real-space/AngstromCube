@@ -747,20 +747,20 @@ namespace single_atom {
 
 
 
-        // 
+        //
         // Partial Waves
-        // 
+        //
         // The set of partial waves describes the valence energy window
         //
 
         int nlnn{0};
-        for (int ell = 0; ell <= numax; ++ell) { 
+        for (int ell = 0; ell <= numax; ++ell) {
             nlnn += nn[ell]; // count active partial waves
         } // ell
         for (int ts = TRU; ts <= SMT; ++ts) {
             partial_wave_radial_part[ts] = view3D<double>(2, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function and kinetic wave
         } // ts
-        
+
         double constexpr energy_derivative = -8.0;
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher, special function for -8.0:energy derivative
 #ifndef DEVEL
@@ -1046,8 +1046,8 @@ namespace single_atom {
 
 
 
-    
-    
+
+
 #ifdef HAS_RAPIDXML
 
     LiveAtom( // constructor method from pawxml
@@ -1205,9 +1205,9 @@ namespace single_atom {
         if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                     label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
 
-        // 
+        //
         // Partial Waves
-        // 
+        //
         // The set of partial waves describes the valence energy window
         //
 
@@ -1307,7 +1307,7 @@ namespace single_atom {
                                 set(projectors[iln], rg[SMT].n, tsp[2].data());
                             }
                         } // ist >= 0
-                        
+
                         // add to inital valence density
                         if (vs.occupation > 0) {
                             assert(vs.wave[TRU]); // make sure the pointer is not null
@@ -1383,7 +1383,7 @@ namespace single_atom {
 
         regenerate_partial_waves = false; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = true; // do not try to regenerate_partial_waves on a radial_exponential_grid
-        
+
         { // scope: copy remaining radial functions
             auto const sq4pi = std::sqrt(4*constants::pi);
             // true core density
@@ -1398,7 +1398,7 @@ namespace single_atom {
         } // scope
         if (echo > 0) std::printf("# %s zero_potential at origin %g %s\n", label, zero_potential[0]*Y00*eV, _eV);
 
-        
+
         { // scope: copy kinetic energy difference matrix of partial waves
             int const nstates = p.states.size();
             assert(nstates*nstates == p.dkin.size());
@@ -1443,7 +1443,7 @@ namespace single_atom {
         bool const synthetic_density_matrix = true;
         update_density(density_mixing, echo, synthetic_density_matrix);
         update_potential(0.f, nullptr, echo);
-        
+
 
     } // constructor from pawxml
 
@@ -1452,14 +1452,14 @@ namespace single_atom {
 
 
 
-    
+
 
     ~LiveAtom() { // destructor
         radial_grid::destroy_radial_grid(&rg[SMT], ts_name[SMT]);
         radial_grid::destroy_radial_grid(&rg[TRU], ts_name[TRU]);
     } // destructor
 
-    
+
 
     void initialize_Gaunt(int const echo=0) {
         if (gaunt_init < 0) {
@@ -1468,8 +1468,8 @@ namespace single_atom {
         } // not initialized
     } // initialize_Gaunt
 
-    
-    
+
+
     void update_spherical_states(
           float const mixing[3]
         , int const echo=0
@@ -1675,11 +1675,11 @@ namespace single_atom {
         std::printf("\n");
     } // show_ell_block_diagonal
 
-    
-    
-    
-    
-    
+
+
+
+
+
     void show_projector_coefficients(char const *attribute="", double const sigma=1, int const echo=0) const {
         // Total energy of SHO state is (nu + 3/2) sigma^-2 in Hartree, nu=ell+2*nrn
         // Kinetic energy is half of the total energy (due to x <--> p symmetry)
@@ -3949,7 +3949,7 @@ namespace single_atom {
         // export smooth spherical functions on r2-grids
 
         std::vector<double> mixed_spherical;
-        char   const *qnt_name{nullptr};   
+        char   const *qnt_name{nullptr};
         double const *qnt_vector{nullptr};
         if ('z' == what) { qnt_name = "zero_potential";  qnt_vector = zero_potential.data(); } else
         if ('c' == what) { qnt_name = "core_density";    qnt_vector = spherical_density[SMT][core]; } else
@@ -4391,10 +4391,10 @@ namespace single_atom {
           }
           break;
 
-          case '#': // interface usage: atom_update("#core electrons", natoms, dp=ne[]);
+          case '#': // interface usage: atom_update("#core electrons",     natoms, dp=ne[]);
                     // interface usage: atom_update("#semicore electrons", natoms, dp=ne[]);
-                    // interface usage: atom_update("#valence electrons", natoms, dp=ne[]);
-                    // interface usage: atom_update("#all electrons", natoms, dp=ne[]);
+                    // interface usage: atom_update("#valence electrons",  natoms, dp=ne[]);
+                    // interface usage: atom_update("#all electrons",      natoms, dp=ne[]);
           {
               double *ne = dp; assert(nullptr != ne);
               for (size_t ia = 0; ia < a.size(); ++ia) {
@@ -4404,9 +4404,9 @@ namespace single_atom {
           }
           break;
 
-          case 'c': // interface usage: atom_update("core densities",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
-          case 'v': // interface usage: atom_update("valence densities", natoms, null, nr2=2^12, ar2=16.f, qnt=rho_v);
-          case 'z': // interface usage: atom_update("zero potentials",   natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
+          case 'c': // interface usage: atom_update("core densities",    natoms, dp=null, ip=nr2=2^12, fp=ar2=16.f, dpp=qnt=rho_c);
+          case 'v': // interface usage: atom_update("valence densities", natoms, dp=null, ip=nr2=2^12, fp=ar2=16.f, dpp=qnt=rho_v);
+          case 'z': // interface usage: atom_update("zero potentials",   natoms, dp=null, ip=nr2=2^12, fp=ar2=16.f, dpp=qnt=v_bar);
           {
               double *const *const qnt = dpp; assert(nullptr != qnt);
               for (size_t ia = 0; ia < a.size(); ++ia) {
@@ -4419,7 +4419,7 @@ namespace single_atom {
           }
           break;
 
-          case 'r': // interface usage: atom_update("radial grid", natoms, null, null, null, (double**)rg_ptr);
+          case 'r': // interface usage: atom_update("radial grid", natoms, dp=null, ip=null, fp=null, dpp=(double**)rg_ptr);
           {
 #ifdef  DEVEL
               assert(nullptr != dpp);
@@ -4435,7 +4435,7 @@ namespace single_atom {
           }
           break;
 
-          case 's': // interface usage: atom_update("sigma compensator", natoms, sigma);
+          case 's': // interface usage: atom_update("sigma compensator", natoms, dp=sigma);
           {
               double *const sigma = dp; assert(nullptr != sigma);
               for (size_t ia = 0; ia < a.size(); ++ia) {
@@ -4445,7 +4445,7 @@ namespace single_atom {
           }
           break;
 
-          case 'p': // interface usage: atom_update("projectors", natoms, sigma, numax);
+          case 'p': // interface usage: atom_update("projectors", natoms, dp=sigma, numax);
           {
               double  *const sigma = dp; assert(nullptr != sigma);
               int32_t *const numax = ip; assert(nullptr != numax);
@@ -4468,7 +4468,7 @@ namespace single_atom {
           }
           break;
 
-          case 'a': // interface usage: atom_update("atomic density matrix", natoms, null, null, mix_rho[3], atom_rho);
+          case 'a': // interface usage: atom_update("atomic density matrix", natoms, dp=null, ip=null, fp=mix_rho[3]=null, dpp=atom_rho);
           {
               double const *const *const atom_rho = dpp; assert(nullptr != atom_rho);
               float const *const mix_rho = fp ? fp : &mix_defaults[1];
@@ -4479,13 +4479,13 @@ namespace single_atom {
                   for (int i = 0; i < ncoeff; ++i) {
                       set(a[ia]->density_matrix[i], ncoeff, &atom_rho[ia][i*ncoeff + 0]);
                   } // i
-                  a[ia]->update_density(mix_rho, echo_mask[ia]*echo);                  
+                  a[ia]->update_density(mix_rho, echo_mask[ia]*echo);
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
           break;
 
-          case 'q': // interface usage: atom_update("qlm charges", natoms, null, null, null, qlm);
+          case 'q': // interface usage: atom_update("qlm charges", natoms, dp=null, ip=null, fp=null, dpp=qlm);
           {
               double *const *const qlm = dpp; assert(nullptr != qlm);
               for (size_t ia = 0; ia < a.size(); ++ia) {
@@ -4496,8 +4496,8 @@ namespace single_atom {
           }
           break;
 
-          case 'l': // interface usage: atom_update("lmax qlm", natoms, dp=null, lmax, fp=mix_spherical=null);
-                    // interface usage: atom_update("lmax vlm", natoms, dp= ~0 , lmax, fp=mix_spherical=null);
+          case 'l': // interface usage: atom_update("lmax qlm", natoms, dp=null, ip=lmax, fp=mix_spherical=null);
+                    // interface usage: atom_update("lmax vlm", natoms, dp= ~0 , ip=lmax, fp=mix_spherical=null);
           {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               float const mix_spherical = fp ? std::min(std::max(0.f, fp[0]), 1.f) : 0;
@@ -4510,7 +4510,7 @@ namespace single_atom {
           }
           break;
 
-          case 'n': // interface usage: atom_update("numax", natoms, null, numax);
+          case 'n': // interface usage: atom_update("numax", natoms, dp=null, ip=numax);
           {
               int32_t *const numax = ip; assert(nullptr != numax);
               for (size_t ia = 0; ia < a.size(); ++ia) {
@@ -4520,7 +4520,7 @@ namespace single_atom {
           }
           break;
 
-          case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, null, nelements, null, atom_mat);
+          case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, dp=null, ip=nelements, fp=null, dpp=atom_mat);
           {
               double *const *const atom_mat = dpp; assert(nullptr != atom_mat);
               for (size_t ia = 0; ia < a.size(); ++ia) {
@@ -4539,7 +4539,7 @@ namespace single_atom {
           }
           break;
 
-          case 'e': // interface usage: atom_update("energies", natoms, dp=delta_Etot, null, null, dpp=atom_ene=null);
+          case 'e': // interface usage: atom_update("energies", natoms, dp=delta_Etot, ip=null, fp=null, dpp=atom_ene=null);
           {
               double *const *const atom_ene = dpp;
               for (size_t ia = 0; ia < a.size(); ++ia) {

@@ -1,12 +1,14 @@
+#! /usr/bin/env julia
 ######################################################
 ### interface the LiveAtom library
 ######################################################
+# import Pkg; Pkg.add("Formatting")
 
 const LA = "libliveatom.so"
 
 plot = false
 
-status = zeros(Int32, 1)
+status = zeros(Int32, 1) # int32_t *status is the last argument of all calls to LiveAtom
 
 @ccall LA.live_atom_init_env_("control.sh"::Cstring, status::Ref{Int32})::Cvoid
 # ccall(("live_atom_init_env_", LA), Cvoid, (Cstring, Ref{Int32}), "control.sh", status)
@@ -18,11 +20,14 @@ println("### live_atom_init_env = ", status[1])
 
 # the total number of atoms
 const natoms = 1
+const ar2 = 16.
+const nr2 = 2^12
+pointers = Vector{Vector{Float64}}(undef, natoms) # this can be passed to double** arguments
 
 # initialize the atoms using pot/Zeff.00Z files
 Z_core = ones(Float64, natoms)
 atom_id = zeros(Int32, natoms)
-numax = zeros(Int32, natoms)
+numax = ones(Int32, natoms)
 sigma = ones(Float64, natoms)
 rcut = ones(Float64, natoms)
 nn = zeros(Int8, 8, natoms)
@@ -34,9 +39,12 @@ lmax_qlm = ones(Int32, natoms)
 lmax_vlm = ones(Int32, natoms)
 n_valence_electrons = zeros(Float64, natoms)
 
+# numax .*= -9 # if we want to signal to load pawxml files
+
 for ia = 1:natoms
-    Z_core[ia] = 10 + ia
+    Z_core[ia] = ia
     atom_id[ia] = ia - 1
+    pointers[ia] = zeros(Float64, nr2)
 end # ia
 @ccall LA.live_atom_initialize_(
               natoms::Ref{Int32}
@@ -59,12 +67,6 @@ println("### live_atom_initialize_ = ", status[1])
 
 
 # get the smooth core density
-const ar2 = 16.
-const nr2 = 2^12
-pointers = Vector{Vector{Float64}}(undef, natoms)
-for ia = 1:natoms
-    pointers[ia] = zeros(Float64, nr2)
-end # ia
 @ccall LA.live_atom_get_core_density_(natoms::Ref{Int32}, pointers::Ref{Ptr{Float64}}, status::Ref{Int32})::Cvoid
 println("### live_atom_get_core_density_ = ", status[1])
 if plot
@@ -78,25 +80,17 @@ if plot
     end # ia
 end # plot
 
-if false
+if true
     # get start waves
     waves = zeros(Float64, 4096, 6, natoms)
     occupation = zeros(Float64, 2, 6, natoms)
     @ccall LA.live_atom_get_start_waves_(natoms::Ref{Int32}, waves::Ref{Float64}, occupation::Ref{Float64}, status::Ref{Int32})::Cvoid
     println("### get_start_waves_ = ", status[1])
-    if false
+    if plot
         for ia = 1:natoms
-            print("### r, waves(r) for atom #", ia, " occupied ")
-            for i6 = 1:6
-                print(" ", occupation[1,i6,ia], "+", occupation[2,i6,ia])
-            end # i6
-            println()
+            println("### r, waves(r) for atom #", ia, " occupied ", join(occupation[1,:,ia] + occupation[2,:,ia], ' '))
             for ir2 = 1:nr2
-                print(sqrt((ir2 - 1)/ar2), " ")
-                for i6 = 1:6
-                    print(" ", waves[ir2,i6,ia])
-                end # i6
-                println()
+                println(sqrt((ir2 - 1)/ar2), " ", join(waves[ir2,:,ia], ' '))
             end # ir2
             println("")
         end # ia
@@ -150,7 +144,8 @@ end # plot
 # get hamiltonian matrix
 @ccall LA.live_atom_get_hamiltonian_matrix_(natoms::Ref{Int32}, pointers::Ref{Ptr{Float64}}, status::Ref{Int32})::Cvoid
 println("### get_hamiltonian_matrix_ = ", status[1])
-if true
+if plot
+    using Formatting
     for ia = 1:natoms
         nsho = nSHO(numax[ia])
         println("### ",nsho," x ",nsho," Hamiltonian for atom #", ia," in Hartree")
@@ -158,7 +153,7 @@ if true
         for i = 1:nsho
             print("### i=",i,"  ")
             for j = 1:nsho
-              print(" ", Hmt[i*nsho + j])
+                print(Formatting.sprintf1(" %.3f", Hmt[(i - 1)*nsho + j]))
             end # j
             println()
         end # i

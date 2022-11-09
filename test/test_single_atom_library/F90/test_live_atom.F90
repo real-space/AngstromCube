@@ -39,6 +39,7 @@ implicit none
 
   do ia = 1, na
     Z_core(ia) = 32 + ia
+    atom_id(ia) = ia - 1
     pointers(ia)%p => memory(:,ia)
   enddo ! ia
 
