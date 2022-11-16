@@ -151,7 +151,7 @@ namespace green_input {
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               Veff = xml_reading::read_sequence<double>(potential->value(), echo, ngall);
               if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %ld\n",
-                  Veff.size(), ng[0], ng[1], ng[2], ngall);
+                                                        Veff.size(), ng[0], ng[1], ng[2], ngall);
               if (Veff.size() != ngall) {
                    if (echo > 0) std::printf("expected %d*%d*%d = %ld potential values but found %ld\n",
                                                         ng[2], ng[1], ng[0], ngall, Veff.size());

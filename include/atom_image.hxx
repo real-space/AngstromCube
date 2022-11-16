@@ -3,6 +3,7 @@
 #include <cstdint> // int32_t, int8_t
 #include <cstdio> // std::printf
 #include <vector> // std::vector<T>
+
 #include "sho_tools.hxx" // ::nSHO
 #include "inline_math.hxx" // align<N_bits>
 #include "sho_projection.hxx" // ::get_sho_prefactors

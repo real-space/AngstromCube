@@ -81,7 +81,7 @@ exe=../src/a43
 # echo "Au    1.016 -1.016  1.016" >> $base.xyz
 # echo "Au   -1.016  1.016  1.016" >> $base.xyz
 
-### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
+### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 (2009), al. et Blaha
 base=scf.C-diamond
 printf " 8 \n#cell 3.536 3.536 3.536 p p p \n" > $base.xyz
 ## 3.536 / 8 == 0.442, 0.442 * 3 == 1.326

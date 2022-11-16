@@ -490,7 +490,7 @@ namespace green_function {
           if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
           assert(nall > 0);
           int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
-                                                 : mpi_parallel::rank();
+                                                : mpi_parallel::rank();
           double rank_center[4];
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
           if (fake_comm < 1) mpi_parallel::max(owner_rank.data(), nall);
@@ -511,12 +511,12 @@ namespace green_function {
           for (size_t iall = 0; iall < nall; ++iall) {
               if (comm_rank == owner_rank[iall]) {
                   // assume that iall == (iz*n[Y] + iy)*n[X] + ix;
-                  int32_t const iz = iall/(size_t(nb[X])*nb[Y]);
-                  int32_t const iy = (iall - iz*size_t(nb[X])*nb[Y])/nb[X];
-                  int32_t const ix = iall - (iz*size_t(nb[Y]) + iy)*nb[X];
+                  int32_t const iz = iall/(int64_t(nb[X])*nb[Y]);
+                  int32_t const iy = (iall - iz*int64_t(nb[X])*nb[Y])/nb[X];
+                  int32_t const ix = iall - (iz*int64_t(nb[Y]) + iy)*nb[X];
                   global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
                   ++irhs;
-              }
+              } // owned
           } // iall
           if (nrhs != irhs) error("rank#%i number of right hand sides=%d inconsistent with number of owned tasks=%d", comm_rank, nrhs, irhs);
           assert(nrhs == irhs && "number of right hand sides inconsistent");
@@ -524,11 +524,12 @@ namespace green_function {
       } else { // comm_size > 1
 
           int const source_cube = control::get("green_function.source.cube", 1.);
-          // generate a box of sources
-          int32_t n_source_blocks[3] = {0, 0, 0};
+          // generate a box of source points
+          int32_t n_source_blocks[3] = {0, 0, 0}, off[3];
           for (int d = 0; d < 3; ++d) {
               n_source_blocks[d] = nb[d];
               if (source_cube) n_source_blocks[d] = std::min(int(nb[d]), source_cube);
+              off[d] = (nb[d] - n_source_blocks[d])/2;
           } // d
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
           if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
@@ -538,11 +539,10 @@ namespace green_function {
           global_source_indices.resize(nrhs, -1);
 
           uint32_t irhs{0};
-          int32_t ibxyz[3];
-          for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) { ibxyz[Z] = ibz + (nb[Z] - n_source_blocks[Z])/2;
-          for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) { ibxyz[Y] = iby + (nb[Y] - n_source_blocks[Y])/2;
-          for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) { ibxyz[X] = ibx + (nb[X] - n_source_blocks[X])/2;
-              global_source_indices[irhs] = global_coordinates::get(ibxyz);
+          for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
+          for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {
+          for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
+              global_source_indices[irhs] = global_coordinates::get(ibx + off[X], iby + off[Y], ibz + off[Z]);
               ++irhs;
           }}} // xyz
           assert(nrhs == irhs);
