@@ -577,8 +577,8 @@ namespace geometry_analysis {
           float hypothetical_bond{0};
           int half_bond_lengths_modified{0};
           for (int is = 0; is < nspecies; ++is) {
-              char keyword[32];
-              std::snprintf(keyword, 31, "geometry_analysis.half.bond.%s", Sy_of_species_null[is]);
+              char keyword[64];
+              std::snprintf(keyword, 64, "geometry_analysis.half.bond.%s", Sy_of_species_null[is]);
               double const default_half_bond = default_bond_length(Z_of_species[is]);
               half_bond_length[is] = control::get(keyword, default_half_bond);
               if (default_half_bond != half_bond_length[is]) {

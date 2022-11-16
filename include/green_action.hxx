@@ -172,7 +172,7 @@ namespace green_action {
       action_t(plan_t *plan) 
         : p(plan), apc(nullptr), aac(nullptr)
       {
-          assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
+          assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
           debug_printf("# construct %s\n", __func__);
           char* buffer{nullptr};
           take_memory(buffer);

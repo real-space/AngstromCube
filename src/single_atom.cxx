@@ -850,7 +850,7 @@ namespace single_atom {
                         } else { // occ > 0
                             if (nrn > 0) {
                                 char asterisk[8] = "*******"; asterisk[nrn] = '\0';
-                                std::snprintf(vs.tag, 7, "%c%s", ellchar[ell], asterisk); // create a state label
+                                std::snprintf(vs.tag, 8, "%c%s", ellchar[ell], asterisk); // create a state label
                                 partial_wave_char[iln] = '*'; // set as excited
 #ifdef DEVEL
                                 if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';

@@ -106,9 +106,11 @@ namespace load_balancer {
                   } // jrank
               } // load
           } // irank
-          auto const maxdist = std::sqrt(maxdist2);
+          auto const maxdist = std::sqrt(maxdist2), mindist = std::sqrt(mindist2);
           if (echo > 1) std::printf("# shortest distance between centers is %g between rank#%i and #%i, longest is %g\n", 
-                                        std::sqrt(mindist2), ijmin[0], ijmin[1], maxdist);
+                                        mindist, ijmin[0], ijmin[1], maxdist);
+          if (echo > 9) std::printf("# longest distance between centers is %g between rank#%i and #%i, shortest is %g\n", 
+                                        maxdist, ijmax[0], ijmax[1], mindist);
           double const wbin = control::get("load_balancer.bin.width", 0.25), invbin = 1./wbin;
           int const nbin = int(maxdist/wbin) + 1;
           std::vector<uint32_t> hist(nbin, 0);

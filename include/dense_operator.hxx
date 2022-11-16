@@ -74,7 +74,7 @@ namespace dense_operator {
 #else // NO_UNIT_TESTS
 
   inline status_t test_construct_and_destroy(int const echo=0) {
-      double matrix[3][4];
+      double const matrix[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
       dense_operator_t<double> const op(3, 4, matrix[0]);
       return op.get_degrees_of_freedom() - 3;
   } // test_construct_and_destroy

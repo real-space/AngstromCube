@@ -89,7 +89,7 @@ namespace pawxml_export {
               std::fprintf(f, "    <state");
               std::fprintf(f, " n=\"%d\"", vs.enn); // ToDo: do not show principal quantum number for excited states
               std::fprintf(f, " l=\"%d\"", vs.ell);
-              char occ[16]; occ[0] = '\0'; if (vs.occupation > 1e-24) std::snprintf(occ, 15, " f=\"%g\"", vs.occupation);
+              char occ[32]; occ[0] = '\0'; if (vs.occupation > 1e-24) std::snprintf(occ, 32, " f=\"%g\"", vs.occupation);
               std::fprintf(f, "%-7s rc=\"%.3f\" e=\"%9.6f\" id=\"%s-%s\"/>\n", occ, r_cut, vs.energy, Sy,vs.tag);
           } // active
       } // iln
