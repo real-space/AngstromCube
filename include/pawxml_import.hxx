@@ -74,11 +74,11 @@ namespace pawxml_import {
           try {
               doc.parse<0>(infile.data());
           } catch (...) {
-              error("failed to parse %s", filename);
+              warn("failed to parse \"%s\"", filename);
               p.parse_status = 2; return p; // error
           } // try + catch
       } catch (...) {
-          error("failed to open %s", filename);
+          warn("failed to open \"%s\"", filename);
           p.parse_status = 1; return p; // error
       } // try + catch
 
@@ -268,7 +268,7 @@ namespace pawxml_import {
       if (echo > 7) std::printf("# %s file=%s\n", __func__, filename);
       auto const p = parse_pawxml(filename, echo);
 
-      auto const repeat_file = control::get("pawxml_import.test.repeat", 0.0);
+      int const repeat_file = control::get("pawxml_import.test.repeat", 0.);
       if (repeat_file) {
           // create an XML file that should reproduce this
           char outfile[992]; std::snprintf(outfile, 991, "%s.repeat.xml", filename);
@@ -285,7 +285,7 @@ namespace pawxml_import {
           std::fprintf(f, "\t<valence_states>\n");
           char const ellchar[8] = "spdfghi";
           for (auto & s : p.states) {
-              char id[8]; std::snprintf(id, 7, "%s-%d%c", p.Sy, s.n, ellchar[s.l]);
+              char id[8]; std::snprintf(id, 8, "%s-%d%c", p.Sy, s.n, ellchar[s.l]);
               std::fprintf(f, "\t\t<state n=\"%d\" l=\"%d\" f=\"%g\" rc=\"%g\" e=\"%g\" id=\"%s\"/>\n",
                                         s.n,     s.l,     s.f,     s.rc,     s.e,       id);
           } // states
@@ -304,7 +304,7 @@ namespace pawxml_import {
           } // iq
 
           // radial_state_quantities
-          for (auto & s : p.states) {
+          for (auto const & s : p.states) {
               char id[8]; std::snprintf(id, 7, "%s-%d%c", p.Sy, s.n, ellchar[s.l]);
               for (int iq = 0; iq < 3; ++iq) {
                   std::fprintf(f, "\t<%s state=\"%s\" grid=\"g1\">\n", radial_state_quantities[iq], id);
@@ -315,12 +315,15 @@ namespace pawxml_import {
               } // iq
           } // s
 
-          std::fprintf(f, "\t<kinetic_energy_differences>");
-          for (int i = 0; i < p.states.size(); ++i) {
-              for (int j = 0; j < p.states.size(); ++j) {
-                  std::fprintf(f, "%s%g", j?" ":"\n\t\t", p.dkin[i*p.states.size() + j]);
-              } // j
-          } // i
+          {
+              std::fprintf(f, "\t<kinetic_energy_differences>");
+              int const n = p.states.size();
+              for (int i = 0; i < n; ++i) {
+                  for (int j = 0; j < n; ++j) {
+                      std::fprintf(f, "%s%g", j?" ":"\n\t\t", p.dkin[i*n + j]);
+                  } // j
+              } // i
+          }
           std::fprintf(f, "\n\t</kinetic_energy_differences>\n");
           std::fprintf(f, "</paw_setup>\n");
           std::fclose(f);

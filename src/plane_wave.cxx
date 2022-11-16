@@ -677,10 +677,10 @@ namespace plane_wave {
           tPW_stats.add(timer.stop());
       } // ikp
 
-      if (echo > 3) std::printf("\n# average number of plane waves is %.3f +/- %.3f min %g max %g\n",
-                                nPW_stats.mean(), nPW_stats.dev(), nPW_stats.min(), nPW_stats.max());
-      if (echo > 3) std::printf("# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
-                                tPW_stats.mean(), tPW_stats.dev(), tPW_stats.min(), tPW_stats.max());
+      if (echo > 3) std::printf("\n# number of plane waves is [%g, %.3f +/- %.3f, %g]\n",
+                                nPW_stats.min(), nPW_stats.mean(), nPW_stats.dev(), nPW_stats.max());
+      if (echo > 3) std::printf("# time per k-point is [%.3f, %.3f +/- %.3f, %.3f] seconds\n",
+                                tPW_stats.min(), tPW_stats.mean(), tPW_stats.dev(), tPW_stats.max());
 
       return stat;
   } // solve

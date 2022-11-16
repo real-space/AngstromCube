@@ -48,7 +48,7 @@ namespace sho_projection {
       real_space::grid_t g(dims);
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
-      if (echo > 1) std::printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
+      if (echo > 1) std::printf("# %s %s: for sigma= %g numax= %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
       double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
       auto const icoeff = new uint8_t[nSHO][4];
@@ -79,7 +79,7 @@ namespace sho_projection {
 
           if (echo > 8) {
               int const nu_show = std::min(echo, numax);
-              std::printf("# coefficients (up to nu = %i):\n", nu_show);
+              std::printf("# coefficients (up to nu= %i):\n", nu_show);
               int iSHO = 0;
               for (int nz = 0; nz <= numax; ++nz) {
                   for (int ny = 0; ny <= numax - nz; ++ny) {
@@ -99,7 +99,7 @@ namespace sho_projection {
               sho_tools::construct_index_table(energy_ordered.data(), numax, sho_tools::order_zyx, loop_ordered.data());
 
               int const nu_show = std::min(echo, numax);
-              std::printf("# coefficients (ordered, up to nu = %i):\n", nu_show);
+              std::printf("# coefficients (ordered, up to nu= %i):\n", nu_show);
               for (int nzyx = 0; nzyx < sho_tools::nSHO(nu_show); ++nzyx) {
                   int const izyx = loop_ordered[nzyx];
                   assert( nzyx == energy_ordered[izyx] );
@@ -122,12 +122,12 @@ namespace sho_projection {
   template <typename real_t=double>
   status_t test_renormalize_electrostatics(int const echo=2, int const numax=2) {
       double const sigma = 1.0;
-      if (echo > 0) std::printf("\n# %s with sigma = %g\n", __func__, sigma);
+      if (echo > 0) std::printf("\n# %s with sigma= %g\n", __func__, sigma);
       int const dims[] = {42, 41, 40};
       real_space::grid_t g(dims);
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
-      if (echo > 1) std::printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
+      if (echo > 1) std::printf("# %s %s: for sigma= %g numax= %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
       double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
 

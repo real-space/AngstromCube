@@ -259,13 +259,7 @@ public:
 #define _VIEW3D_HAS_PARENTHESIS_2ARGS
 #ifdef  _VIEW3D_HAS_PARENTHESIS_2ARGS
 #define _access return &_data[(i2*_n1 + i1)*_n0]
-  T* const operator () (size_t const i2, size_t const i1) const {
-      if (_n2 > DimUnknown)
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
-      _access; }
-
-  T*       operator () (size_t const i2, size_t const i1)       {
+  T* operator () (size_t const i2, size_t const i1) const {
       if (_n2 > DimUnknown)
       CHECK_INDEX(_n2, i2, 2);
       CHECK_INDEX(_n1, i1, 1);
@@ -382,14 +376,7 @@ public:
 #define _VIEW4D_HAS_PARENTHESIS_3ARGS
 #ifdef  _VIEW4D_HAS_PARENTHESIS_3ARGS
 #define _access return &_data[((i3*_n2 + i2)*_n1 + i1)*_n0]
-  T* const operator () (size_t const i3, size_t const i2, size_t const i1) const {
-      if (_n3 > DimUnknown)
-      CHECK_INDEX(_n3, i3, 3);
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
-      _access; }
-
-  T*       operator () (size_t const i3, size_t const i2, size_t const i1)       {
+  T* operator () (size_t const i3, size_t const i2, size_t const i1) const {
       if (_n3 > DimUnknown)
       CHECK_INDEX(_n3, i3, 3);
       CHECK_INDEX(_n2, i2, 2);

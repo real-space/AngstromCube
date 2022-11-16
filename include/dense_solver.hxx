@@ -375,8 +375,8 @@ namespace dense_solver {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_inverse<double>(echo);
       stat += test_inverse<float >(echo);
+      stat += test_inverse<double>(echo);
       return stat;
   } // all_tests
 

@@ -220,6 +220,7 @@ namespace brillouin_zone {
   inline status_t test_mesh(int const echo=0, unsigned const n=8) {
       view2D<double> mesh;
       auto const nm = get_kpoint_mesh(mesh, n, echo);
+      if (echo > 5) std::printf("# %s(n= %d) returns %d points\n", __func__, n, nm);
       return (nm < 1); // error if less than 1 (the Gamma points) is in the mesh
   } // test_mesh
 

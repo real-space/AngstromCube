@@ -20,7 +20,7 @@
 
   template <typename complex_t>
   inline status_t test_eigensolve(int const echo=9) {
-      int const nbands = std::min(8, int(control::get("particle_in_box.test.num.bands", 4)));
+      int const nbands = std::min(int(control::get("particle_in_box.test.num.bands", 4)), 8);
       if (echo > 3) std::printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
       status_t stat(0);
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L

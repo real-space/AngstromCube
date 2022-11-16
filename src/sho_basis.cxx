@@ -46,11 +46,11 @@ namespace sho_basis {
           try {
               doc.parse<0>(infile.data());
           } catch (...) {
-              error("failed to parse %s", filename);
+              warn("failed to parse \"%s\"", filename);
               return 2; // error
           } // try + catch
       } catch (...) {
-          error("failed to open %s", filename);
+          warn("failed to open \"%s\"", filename);
           return 1; // error
       } // try + catch
 

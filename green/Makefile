@@ -45,7 +45,9 @@ FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_TFQMRGPU
 INC += -I../../tfQMRgpu
 
-ERRFLAGS = -Werror -Wall -Wfatal-errors
+ERRFLAGS =
+# ERRFLAGS += -Werror
+ERRFLAGS += -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
 ## for production: eliminate the unit tests
@@ -62,7 +64,10 @@ OPTFLAGS = -O0
 OPTFLAGS += -g -Wall
 OPTFLAGS += -pedantic
 # gcc-options
-# OPTFLAGS += -Wno-sign-compare -Wno-format -Wno-format-security
+# OPTFLAGS += -Wno-format-security
+OPTFLAGS += -Wno-sign-compare
+OPTFLAGS += -Wno-format
+OPTFLAGS += -Wno-unknown-pragmas
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread
@@ -84,6 +89,8 @@ ifdef ENABLE_GPU
 	INC += -I/usr/local/cuda/include
 	FEAFLAGS += -DUSE_NVTX
 	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt -lcurand  #-rdynamic
+    LDFLAGS  += -lmpi
+#	FEAFLAGS += -D HAS_NO_CUDA
 else
 	FEAFLAGS += -D HAS_NO_CUDA
 endif
