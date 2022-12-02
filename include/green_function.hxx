@@ -538,7 +538,7 @@ namespace green_function {
 
           global_source_indices.resize(nrhs, -1);
 
-          uint32_t irhs{0};
+          size_t irhs{0};
           for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
           for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {
           for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
@@ -590,7 +590,7 @@ namespace green_function {
       double const cell[] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
       double const cell_volume = cell[X]*cell[Y]*cell[Z];
       double const average_grid_spacing = std::cbrt(std::abs(hg[X]*hg[Y]*hg[Z]));
-      if (echo > 1) { 
+      if (echo > 1) {
           std::printf("\n# Cell summary:\n");
           for (int d = 0; d < 3; ++d) {
               std::printf("#%8d %c-points,%7d blocks, spacing=%9.6f, cell.%c=%9.3f %s, boundary= %d\n",
@@ -780,7 +780,7 @@ namespace green_function {
               auto const *const source_coords = global_source_coords[irhs]; // global source block coordinates
               simple_stats::Stats<> stats[3];
               int constexpr max_nci = 27;
-              std::vector<int> hist(1 + max_nci, 0); // distribution of nci
+              std::vector<uint32_t> hist(1 + max_nci, 0); // distribution of nci
               std::vector<simple_stats::Stats<>> stats_d2(1 + max_nci);
               size_t hit_single{0}, hit_multiple{0};
               int64_t idx3_diagonal{-1};
@@ -802,9 +802,7 @@ namespace green_function {
 //                                                 && target_coords[d] <= max_target_coords[d]);
 
                   // d2 is the distance^2 of the block centers
-                  double const d2 = pow2(bx*4*h[X])
-                                  + pow2(by*4*h[Y])
-                                  + pow2(bz*4*h[Z]);
+                  auto const d2 = pow2(bx*4*h[X]) + pow2(by*4*h[Y]) + pow2(bz*4*h[Z]);
 
                   int nci{0}; // init number of corners inside
                   if (d2 < r2trunc_plus) { // potentially inside, check all 8 or 27 corner cases
@@ -815,9 +813,9 @@ namespace green_function {
                           // i = i4 - j4 --> i in [-3, 3],
                           //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
                           //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
-                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) { double const d2z   = pow2((bz*4 + iz)*h[Z]);
-                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) { double const d2yz  = pow2((by*4 + iy)*h[Y]) + d2z;
-                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) { double const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
+                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) { auto const d2z   = pow2((bz*4 + iz)*h[Z]);
+                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) { auto const d2yz  = pow2((by*4 + iy)*h[Y]) + d2z;
+                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) { auto const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
 #if 0
                               if (0 == irhs && (d2xyz < r2trunc) && echo > 17) {
                                   std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
@@ -843,15 +841,17 @@ namespace green_function {
                       } // d
                       auto const idx3 = index3D(num_target_coords, idx); // flat index
                       assert(idx3 < product_target_blocks);
-                      if (false == sparsity_RHS[idx3]) {
+                      if (sparsity_RHS[idx3]) {
+                          ++hit_multiple;
+                      } else {
                           sparsity_RHS[idx3] = true;
                           column_indices[idx3].push_back(irhs);
-                          for (int d = 0; d < 3; ++d) stats[d].add(target_coords[d]);
+                          for (int d = 0; d < 3; ++d) {
+                              stats[d].add(target_coords[d]);
+                          } // d
                           ++hit_single;
-                      } else {
-                          ++hit_multiple;
                       } // has not been hit yet
-                      if (0 == bx && 0 == by && 0 == bz) {
+                      if (0 == bz && 0 == by && 0 == bx) {
                           assert(-1 == idx3_diagonal);
                           assert(-1 == tag_diagonal[idx3]);
                           tag_diagonal[idx3] = irhs;
@@ -887,7 +887,10 @@ namespace green_function {
                   auto const partial = total_checked - hist[0] - hist[max_nci];
                   if (echo > 6) std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
                                 irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
-                  inout[0].add(hist[max_nci]); inout[1].add(partial); inout[2].add(hist[0]); inout[3].add(total_checked);
+                  inout[0].add(hist[max_nci]);
+                  inout[1].add(partial);
+                  inout[2].add(hist[0]);
+                  inout[3].add(total_checked);
               } // echo
               assert(idx3_diagonal > -1 && "difference vector (0,0,0) must be hit once");
               assert(tag_diagonal[idx3_diagonal] == irhs && "diagonal inconsistent");
