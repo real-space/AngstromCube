@@ -47,8 +47,8 @@ clean:
 allclean: clean
 	-rm -f ${EXECUTABLE}
 
-CC     = gcc
-CXX    = g++
+CC     ?= gcc
+CXX    ?= g++
 ##MPI
 # CC  = mpicc
 # CXX = mpic++
@@ -81,9 +81,10 @@ endif
 FEAFLAGS += -D DEVEL
 
 # normal mode
-# OPTFLAGS = -Ofast
-# OPTFLAGS = -O2
-OPTFLAGS = -O0
+OPTFLAGS=
+# OPTFLAGS += -Ofast
+# OPTFLAGS += -O2
+OPTFLAGS += -O0
 OPTFLAGS += -g -pedantic -Wall
 # gcc-options
 OPTFLAGS += -Wno-format
