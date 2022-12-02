@@ -58,6 +58,7 @@
   #include "sigma_config.hxx" // ::all_tests
   #include "dense_solver.hxx" // ::all_tests
   #include "json_reading.hxx" // ::all_tests
+  #include "green_input.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
   #include "simple_math.hxx" // ::all_tests
@@ -197,6 +198,7 @@
           add_module_test(atom_image);
           add_module_test(plane_wave);
           add_module_test(grid_operators);
+          add_module_test(green_input);
           add_module_test(green_sparse);
           add_module_test(green_function);
           add_module_test(green_kinetic);

@@ -16,6 +16,7 @@
   #include "green_sparse.hxx" // ::all_tests
   #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
+  #include "green_input.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
@@ -94,6 +95,7 @@
           add_module_test(sho_tools);
 
           if (chapters) std::printf("\n\n\n\n#\n# Green function modules\n#\n\n\n\n");
+          add_module_test(green_input);
           add_module_test(green_sparse);
           add_module_test(green_function);
           add_module_test(green_kinetic);

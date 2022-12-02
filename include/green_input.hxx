@@ -157,7 +157,7 @@ namespace green_input {
                       if (echo > 5) std::printf("# %s = %d\n", axyz, ng[d]);
                   } // value != ""
               } // d
-              auto const ngall = ng[0]*size_t(ng[1])*size_t(ng[2]);
+              auto const ngall = (ng[0])*size_t(ng[1])*size_t(ng[2]);
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               Veff = xml_reading::read_sequence<double>(potential->value(), echo, ngall);
               if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %ld\n",
@@ -184,5 +184,22 @@ namespace green_input {
       return 0;
 #endif // HAS_RAPIDXML
   } // load_Hamiltonian
+
+  inline status_t test_loading(int const echo=0) {
+      uint32_t ng[3]; // numbers of grid points
+      int8_t bc[3]; // boundary conditions
+      double hg[3]; // grid spacings
+      std::vector<double> Veff;
+      int natoms;
+      std::vector<double> xyzZinso;
+      std::vector<std::vector<double>> atom_mat;
+      return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, control::get("green_input.hamiltonian.file", "Hmt.xml"), echo);
+  } // test_loading
+
+  status_t all_tests(int echo=0) {
+      status_t stat(0);
+      stat += test_loading(echo);
+      return stat;
+  } // all_tests
 
 } // namespace green_input
