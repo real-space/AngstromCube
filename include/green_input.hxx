@@ -62,9 +62,8 @@ namespace green_input {
       xyzZinso.resize(0);
       atom_mat.resize(0);
 
-      auto const grid_Hamiltonian = doc.first_node();//"grid_Hamiltonian");
+      auto const grid_Hamiltonian = doc.first_node("grid_Hamiltonian");
       if (grid_Hamiltonian) {
-          if (echo > 0) std::printf("# 1st node should be a grid_Hamiltonian, found %s\n", grid_Hamiltonian->name());
           auto const sho_atoms = xml_reading::find_child(grid_Hamiltonian, "sho_atoms", echo);
           if (sho_atoms) {
               auto const number = xml_reading::find_attribute(sho_atoms, "number", "0", echo);
