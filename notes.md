@@ -35,7 +35,7 @@
     For a method that is cheaper than the RS-grid based
     Green function version, we should implement
     a local-orbital method.
-    Although, numerical atomic orbitals have shown the be
+    Although, numerical atomic orbitals have shown to be
     a great basis in terms of physics, AAcube will have
     all the machinery to use PAW, so we can use pseudo
     atomic orbitals. Here, we can suggest another 

@@ -40,10 +40,20 @@ namespace green_input {
       warn("Unable to load_Hamiltonian when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #else  // HAS_RAPIDXML
-      rapidxml::file<> infile(filename);
 
       rapidxml::xml_document<> doc;
-      doc.parse<0>(infile.data());
+      try {
+          rapidxml::file<> infile(filename);
+          try {
+              doc.parse<0>(infile.data());
+          } catch (...) {
+              warn("failed to parse \"%s\"", filename);
+              return -2; // error
+          } // try + catch
+      } catch (...) {
+          warn("failed to open \"%s\"", filename);
+          return -1; // error
+      } // try + catch
 
       set(ng, 3, 0u);
       set(hg, 3, 1.0);
@@ -70,12 +80,12 @@ namespace green_input {
                   double pos[3] = {0, 0, 0};
                   auto const position = xml_reading::find_child(atom, "position", echo);
                   for (int d = 0; d < 3; ++d) {
-                      char axyz[] = {0, 0}; axyz[0] = 'x' + d; // "x", "y", "z"
+                      char const axyz[] = {char('x' + d), '\0'}; // "x", "y", "z"
                       auto const value = xml_reading::find_attribute(position, axyz);
                       if (*value != '\0') {
                           pos[d] = std::atof(value);
-                          if (echo > 5) std::printf("# %s = %.15g\n", axyz, pos[d]);
-                      } else warn("no attribute '%c' found in <atom><position> in file %s", *axyz, filename);
+                          if (echo > 5) std::printf("# %s= %.15g\n", axyz, pos[d]);
+                      } else warn("no attribute '%c' found in <atom><position> in file \"%s\"", *axyz, filename);
                       xyzZinso[ia*8 + d] = pos[d];
                   } // d
 
@@ -86,7 +96,7 @@ namespace green_input {
                       if (*value != '\0') {
                           numax = std::atoi(value);
                           if (echo > 5) std::printf("# numax= %d\n", numax);
-                      } else warn("no attribute 'numax' found in <projectors> in file %s", filename);
+                      } else warn("no attribute 'numax' found in <projectors> in file \"%s\"", filename);
                   }
                   double sigma{-1};
                   {
@@ -94,7 +104,7 @@ namespace green_input {
                       if (*value != '\0') {
                           sigma = std::atof(value);
                           if (echo > 5) std::printf("# sigma= %g\n", sigma);
-                      } else warn("no attribute 'sigma' found in <projectors> in file %s", filename);
+                      } else warn("no attribute 'sigma' found in <projectors> in file \"%s\"", filename);
                   }
                   xyzZinso[ia*8 + 5] = numax;
                   xyzZinso[ia*8 + 6] = sigma;
@@ -110,12 +120,12 @@ namespace green_input {
                               matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
                           set(atom_mat[ia].data() + h0s1*nSHO*nSHO, nSHO*nSHO, v.data()); // copy
-                      } else warn("atom with global_id=%s has no %s matrix!", gid, matrix_name);
+                      } else warn("atom with global_id=%s has no %s matrix in file \"%s\"", gid, matrix_name, filename);
                   } // h0s1
                   ++ia; // count up the number of atoms
               } // atom
               assert(natoms == ia); // sanity
-          } else warn("no <sho_atoms> found in grid_Hamiltonian in file %s", filename);
+          } else warn("no <sho_atoms> found in grid_Hamiltonian in file \"%s\"", filename);
 
           auto const spacing = xml_reading::find_child(grid_Hamiltonian, "spacing", echo);
           for (int d = 0; d < 3; ++d) {
@@ -159,17 +169,17 @@ namespace green_input {
                   auto const empty = control::get(empty_keyword, 1.); // 0:error, 1:warn, 2:okay
                   if (empty > 0) { // ok
                       Veff.resize(ngall, 0.0); // very useful for testing
-                      if (empty < 2) warn("%d*%d*%d = %ld potential values set to zero due to +%s=%g",
-                                           ng[2], ng[1], ng[0], ngall, empty_keyword, empty);
+                      if (empty < 2) warn("in file \"%s\" %d*%d*%d = %ld potential values set to zero due to +%s=%g",
+                                           filename, ng[2], ng[1], ng[0], ngall, empty_keyword, empty);
                   } else {
                       error("expected %d*%d*%d = %ld potential values but found %ld, try +%s=1 to override",
                               ng[2], ng[1], ng[0], ngall, Veff.size(), empty_keyword);
                       return -1;
                   }
               } // Veff.size != ngall
-          } else warn("grid_Hamiltonian has no potential in file %s", filename);
+          } else warn("grid_Hamiltonian has no potential in file \"%s\"", filename);
 
-      } else warn("no grid_Hamiltonian found in file %s", filename);
+      } else warn("no grid_Hamiltonian found in file \"%s\"", filename);
 
       return 0;
 #endif // HAS_RAPIDXML

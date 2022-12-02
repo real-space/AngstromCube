@@ -63,7 +63,7 @@
           else      { std::printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
       } // echo
 
-      std::vector<std::tuple<char const*, status_t, double>> results;
+      std::vector<std::tuple<char const*, double, status_t>> results;
       { // testing scope
 
 #define   add_module_test(MODULE_NAME) {                                            \
@@ -74,7 +74,7 @@
                      " for %s ==================\n\n", module_name);                \
                   auto const stat = show ? 0 : MODULE_NAME::all_tests(echo);        \
                   double const time = timer.stop();                                 \
-                  results.push_back(std::make_tuple(module_name, stat, time));      \
+                  results.push_back(std::make_tuple(module_name, time, stat));      \
               }                                                                     \
           } // add_module_test
 
@@ -117,10 +117,10 @@
           int nonzero_status{0};
           for (auto result : results) {
               auto const name = std::get<0>(result);
-              auto const stat = std::get<1>(result);
-              auto const time = std::get<2>(result);
+              auto const time = std::get<1>(result);
+              auto const stat = std::get<2>(result);
               if (echo > 0) {
-                  if (show) { 
+                  if (show) {
                       std::printf("#    module= %s\n", name);
                   } else {
                       std::printf("#    module= %-24s status= %i", name, int(stat));

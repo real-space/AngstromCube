@@ -523,12 +523,12 @@ namespace green_function {
 
       } else { // comm_size > 1
 
-          int const source_cube = control::get("green_function.source.cube", 1.);
+          uint32_t const source_cube = control::get("green_function.source.cube", 1.);
           // generate a box of source points
           int32_t n_source_blocks[3] = {0, 0, 0}, off[3];
           for (int d = 0; d < 3; ++d) {
               n_source_blocks[d] = nb[d];
-              if (source_cube) n_source_blocks[d] = std::min(int(nb[d]), source_cube);
+              if (source_cube) n_source_blocks[d] = std::min(nb[d], source_cube);
               off[d] = (nb[d] - n_source_blocks[d])/2;
           } // d
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
