@@ -5,6 +5,7 @@
 #include <cstdio> // std::printf
 #include <cstdlib> // std::atoi, ::atof
 #include <cstdint> // int8_t
+#include <string> // std::string, ::string:npos
 
 #include "status.hxx" // status_t
 
@@ -23,6 +24,8 @@
   #include "control.hxx" // ::get
 #endif // DEVEL
 
+#include "json_reading.hxx" // ::load_Hamiltonian
+
 namespace green_input {
 
   inline status_t load_Hamiltonian(
@@ -33,9 +36,22 @@ namespace green_input {
       , int & natoms
       , std::vector<double> & xyzZinso
       , std::vector<std::vector<double>> & atom_mat
-      , char const *const filename="Hmt.xml" // input
+      , char const *const filename="Hmt.json" // input
       , int const echo=0 // log-level
   ) {
+      assert(nullptr != filename);
+      if (std::string::npos != std::string(filename).find(".json")) {
+          if (echo > 0) std::printf("# filename \"%s\" looks like .json formatted\n", filename);
+          auto const json_stat = json_reading::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, filename, echo);
+          if (0 == json_stat) {
+              return 0;
+          } else {
+              if (echo > 0) std::printf("# failed to read file \"%s\" in .json format, try .xml\n", filename);
+          }
+      } else {
+          if (echo > 0) std::printf("# filename \"%s\" looks like .xml formatted\n", filename);
+      } // filename contains ".json"
+
 #ifndef HAS_RAPIDXML
       warn("Unable to load_Hamiltonian when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
@@ -193,7 +209,7 @@ namespace green_input {
       int natoms;
       std::vector<double> xyzZinso;
       std::vector<std::vector<double>> atom_mat;
-      return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, control::get("green_input.hamiltonian.file", "Hmt.xml"), echo);
+      return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, control::get("green_input.hamiltonian.file", "Hmt.json"), echo);
   } // test_loading
 
   status_t all_tests(int echo=0) {
