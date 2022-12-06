@@ -17,10 +17,6 @@
 
 namespace json_reading {
 
-#ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
-
   template <class C>
   std::vector<double> read_json_array(C const & object, char const *const name="?", int const echo=0) {
       std::vector<double> vector(0);
@@ -60,11 +56,18 @@ namespace json_reading {
   } // read_json_matrix
 
 
-  inline status_t test_json_reader(int const echo=0) {
-      status_t stat(0);
+  inline status_t load_Hamiltonian(
+        uint32_t grid[3] // numbers of grid points
+      , int8_t boundary[3] // boundary conditions
+      , double spacing[3] // grid spacings
+      , std::vector<double> & potential
+      , int & natoms
+      , std::vector<double> & xyzZinso
+      , std::vector<std::vector<double>> & atom_mat
+      , char const *const filename="Hmt.xml" // input
+      , int const echo=0 // log-level
+  ) {
 #ifdef  HAS_RAPIDJSON
-
-      auto const filename = "Hmt.json";
       std::ifstream const file_stream(filename); // taking file as inputstream
       if (file_stream) {
           if (echo > 7) std::printf("# %s: opening \"%s\"\n", __func__, filename);
@@ -93,7 +96,6 @@ namespace json_reading {
           if (echo > 0) std::printf("# %s: comment = \"%s\"\n", filename, doc["comment"].GetString());
       } // has comment
 
-      double spacing[] = {1, 1, 1};
       if (doc.HasMember("spacing")) {
           auto const array = read_json_array(doc["spacing"], "spacing", echo);
           for (unsigned i = 0; i < array.size(); i++) {
@@ -102,7 +104,6 @@ namespace json_reading {
       } // has spacing
       if (echo > 0) std::printf("# %s: grid spacing %g %g %g Bohr\n", filename, spacing[0], spacing[1], spacing[2]);
 
-      int boundary[] = {0, 0, 0};
       if (doc.HasMember("boundary")) {
           auto const array = read_json_array(doc["boundary"], "boundary", echo);
           for (unsigned i = 0; i < array.size(); i++) {
@@ -111,8 +112,6 @@ namespace json_reading {
       } // has boundary
       if (echo > 0) std::printf("# %s: cell boundary %d %d %d\n", filename, boundary[0], boundary[1], boundary[2]);
 
-      int grid[] = {4, 4, 4};
-      std::vector<double> potential(0);
       if (doc.HasMember("potential")) {
           assert(doc["potential"].IsObject());
           auto const pot = doc["potential"].GetObject();
@@ -138,7 +137,7 @@ namespace json_reading {
       double const cell[] = {grid[0]*spacing[0], grid[1]*spacing[1], grid[2]*spacing[2]};
       double const rel[] = {1/cell[0], 1/cell[1], 1/cell[2]}; // for relative positions
 
-      unsigned natoms{0};
+      natoms = 0;
       if (doc.HasMember("sho_atoms")) {
           assert(doc["sho_atoms"].IsObject());
           auto const sho_atoms = doc["sho_atoms"].GetObject();
@@ -149,16 +148,19 @@ namespace json_reading {
               assert(sho_atoms["atoms"].IsArray());
               auto const atoms = sho_atoms["atoms"].GetArray();
               assert(natoms == atoms.Size());
+              xyzZinso.resize(8*natoms, 0.0);
+              atom_mat.resize(natoms);
               std::vector<int32_t> atom_id(natoms, -1);
               std::vector<int8_t> numax(natoms, -1);
               std::vector<double> sigma(natoms, 1.);
               for (unsigned ia = 0; ia < natoms; ++ia) {
                   assert(atoms[ia].IsObject());
                   auto const atom = atoms[ia].GetObject();
-
+                  int nsho{0};
                   if (atom.HasMember("atom_id")) {
                       if (atom["atom_id"].IsInt()) {
                           atom_id[ia] = atom["atom_id"].GetInt();
+                          xyzZinso[ia*8 + 4] = atom_id[ia];
                           if (echo > 7) std::printf("# atom_id = %i\n", atom_id[ia]);
                       }
                   } // has atom_id
@@ -173,23 +175,36 @@ namespace json_reading {
                       if (prj.HasMember("numax")) {
                           assert(prj["numax"].IsInt());
                           numax[ia] = prj["numax"].GetInt();
+                          xyzZinso[ia*8 + 5] = numax[ia];
+                          nsho = sho_tools::nSHO(numax[ia]);
+                          atom_mat[ia].resize(2*nsho*nsho, 0.0);
                       } // has numax
                       if (prj.HasMember("sigma")) {
                           assert(prj["sigma"].IsFloat());
                           sigma[ia] = prj["sigma"].GetDouble();
+                          xyzZinso[ia*8 + 6] = sigma[ia];
                       } // has sigma
                   } // has projectors
-                  if (atom.HasMember("hamiltonian")) {
-                      auto const values = read_json_matrix(atom["hamiltonian"], "hamiltonian", echo/8);
-                  } // has hamiltonian
-                  if (atom.HasMember("overlap")) {
-                      auto const values = read_json_matrix(atom["overlap"], "overlap", echo/8);
-                  } // has overlap
+                  for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
+                      auto const *const hs = h0s1 ? "overlap" : "hamiltonian";
+                      if (atom.HasMember(hs)) {
+                          auto const values = read_json_matrix(atom[hs], hs, echo/8);
+                          for (int i = 0; i < nsho; ++i) {
+                              assert(nsho == values[i].size());
+                              for (int j = 0; j < nsho; ++j) {
+                                  atom_mat[ia][(h0s1*nsho + i)*nsho + j] = values[i][j];
+                              } // j
+                          } // i
+                      } // has matrix
+                  } // {hamiltonian, overlap}
                   if (atom.HasMember("position")) {
                       auto const pos = read_json_array(atom["position"], "atom position", echo/4);
                       assert(3 == pos.size());
                       if (echo > 3) std::printf("# atom #%i numax= %i sigma= %.3f Bohr at position %g %g %g\n",
                               atom_id[ia], numax[ia], sigma[ia], pos[0]*rel[0], pos[1]*rel[1], pos[2]*rel[2]);
+                      for (int d = 0; d < 3; ++d) { xyzZinso[ia*8 + d] = pos[d]; }
+                      xyzZinso[ia*8 + 3] = 0; // number of protons in the core is unknown
+                      xyzZinso[ia*8 + 7] = 0; // spare entry
                   } // has position
 
               } // ia
@@ -198,10 +213,26 @@ namespace json_reading {
       if (echo > 0) std::printf("# %s: found %d SHO atoms\n", filename, natoms);
       if (echo > 0) std::printf("# %s: cell size is %g %g %g Bohr\n", filename, cell[0], cell[1], cell[2]);
 
+      return 0;
 #else  // HAS_RAPIDJSON
       warn("Unable to check usage of rapidjson when compiled without -D HAS_RAPIDJSON", 0);
+      return -1;
 #endif // HAS_RAPIDJSON
-      return stat;
+  } // load_Hamiltonian
+
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
+
+  inline status_t test_json_reader(int const echo=0) {
+      uint32_t ng[3];
+      int8_t bc[3];
+      double hg[3];
+      std::vector<double> Veff;
+      int natoms{0};
+      std::vector<double> xyzZinso;
+      std::vector<std::vector<double>> atom_mat;
+      return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, "Hmt.json", echo);
   } // test_json_reader
 
   inline status_t all_tests(int const echo=0) {
