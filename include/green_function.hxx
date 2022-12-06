@@ -523,7 +523,7 @@ namespace green_function {
 
       } else { // comm_size > 1
 
-          uint32_t const source_cube = control::get("green_function.source.cube", 1.);
+          uint32_t const source_cube = control::get("green_function.source.cube", -1.);
           // generate a box of source points
           int32_t n_source_blocks[3] = {0, 0, 0}, off[3];
           for (int d = 0; d < 3; ++d) {
@@ -532,12 +532,12 @@ namespace green_function {
               off[d] = (nb[d] - n_source_blocks[d])/2;
           } // d
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
-          if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
 
           auto const nrhs = n_source_blocks[Z]*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
 
-          global_source_indices.resize(nrhs, -1);
+          if (echo > 3) std::printf("# n_source_blocks %s = %ld\n", str(n_source_blocks, 1, " x "), nrhs);
 
+          global_source_indices.resize(nrhs, -1);
           size_t irhs{0};
           for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
           for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {

@@ -4,8 +4,8 @@
 #include <vector> // std::vector<T>
 
 #ifdef  HAS_RAPIDJSON
-  #include <algorithm> // std::min
   #include <cassert> // assert
+  #include <algorithm> // std::min
   #include <fstream> // std::ifstream
   #include <sstream> // std::ostringstream
   // git clone https://github.com/Tencent/rapidjson.git
