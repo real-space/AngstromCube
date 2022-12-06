@@ -26,20 +26,27 @@ clean:
 allclean: clean
 	-rm -f ${EXECUTABLE}
 
-CU     = nvcc
-CC     = gcc
-CXX    = mpic++ -Wno-unused-command-line-argument
+CU    ?= nvcc
+CC    ?= gcc
+CXX   ?= mpic++ -Wno-unused-command-line-argument
+CXX    = g++ -Wno-unused-command-line-argument
 ### g++
 
 INC ?=
 INC += -I../include
 INC += -I../external
 
+LDFLAGS=
+
 ERRFLAGS =
 FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
+FEAFLAGS += -D HAS_NO_MPI
+# LDFLAGS  += -lmpi
+
 FEAFLAGS += -D HAS_RAPIDXML
+FEAFLAGS += -D HAS_RAPIDJSON
 
 ## use the tfQMRgpu library to invert the shifted Hamiltonian
 FEAFLAGS += -D HAS_TFQMRGPU
@@ -69,8 +76,8 @@ OPTFLAGS += -Wno-sign-compare
 OPTFLAGS += -Wno-format
 OPTFLAGS += -Wno-unknown-pragmas
 
-# LDFLAGS = -mkl
-LDFLAGS = ## -lmkl_intel_thread
+# LDFLAGS += -mkl
+LDFLAGS += ## -lmkl_intel_thread
 
 CUOPTFLAGS =
 #### production mode
@@ -89,7 +96,6 @@ ifdef ENABLE_GPU
 	INC += -I/usr/local/cuda/include
 	FEAFLAGS += -DUSE_NVTX
 	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt -lcurand  #-rdynamic
-    LDFLAGS  += -lmpi
 #	FEAFLAGS += -D HAS_NO_CUDA
 else
 	FEAFLAGS += -D HAS_NO_CUDA

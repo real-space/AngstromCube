@@ -21,6 +21,7 @@
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
+  #include "json_reading.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
   #include "inline_math.hxx" // ::all_tests
@@ -87,6 +88,7 @@
           add_module_test(inline_math);
           add_module_test(data_view);
           add_module_test(xml_reading);
+          add_module_test(json_reading);
           add_module_test(unit_system);
           add_module_test(boundary_condition);
           add_module_test(global_coordinates);
