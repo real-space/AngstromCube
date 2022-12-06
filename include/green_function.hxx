@@ -523,7 +523,7 @@ namespace green_function {
 
       } else { // comm_size > 1
 
-          uint32_t const source_cube = control::get("green_function.source.cube", 1.);
+          uint32_t const source_cube = control::get("green_function.source.cube", -1.);
           // generate a box of source points
           int32_t n_source_blocks[3] = {0, 0, 0}, off[3];
           for (int d = 0; d < 3; ++d) {
@@ -532,12 +532,12 @@ namespace green_function {
               off[d] = (nb[d] - n_source_blocks[d])/2;
           } // d
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
-          if (echo > 3) std::printf("# n_source_blocks %s\n", str(n_source_blocks));
 
           auto const nrhs = n_source_blocks[Z]*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
 
-          global_source_indices.resize(nrhs, -1);
+          if (echo > 3) std::printf("# n_source_blocks %s = %ld\n", str(n_source_blocks, 1, " x "), nrhs);
 
+          global_source_indices.resize(nrhs, -1);
           size_t irhs{0};
           for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
           for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {
@@ -885,7 +885,7 @@ namespace green_function {
                       } // hist[nci] > 0
                   } // nci
                   auto const partial = total_checked - hist[0] - hist[max_nci];
-                  if (echo > 6) std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
+                  if (echo > 8) std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
                                 irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
                   inout[0].add(hist[max_nci]);
                   inout[1].add(partial);
@@ -1232,7 +1232,7 @@ namespace green_function {
           int constexpr LM = Noco*64;
           auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
           auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
-          for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
+          for (size_t i = 0; i < nnzbX*size_t(R1C2*LM*LM); ++i) {
               x[0][0][0][i] = 0; // init x
           } // i
 
@@ -1279,7 +1279,7 @@ namespace green_function {
       green_action::plan_t p;
       stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
 
-      int const iterations = control::get("green_function.benchmark.iterations", 1.); 
+      int const iterations = control::get("green_function.benchmark.iterations", 1.);
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
       if (iterations < 0) {
           if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", iterations);

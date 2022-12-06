@@ -1,8 +1,10 @@
 #pragma once
 
-#include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
+#include <cstdio> // std::printf
+#include <cmath> // std::exp
+#include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory, dim3, real_t_name
@@ -10,7 +12,7 @@
 #include "inline_math.hxx" // pow2, pow3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 #include "constants.hxx" // ::sqrtpi
-#include "mpi_parallel.hxx" // ::rank
+#include "mpi_parallel.hxx" // ::rank, ::size
 
 #ifndef NO_UNIT_TESTS
     #include "control.hxx" // ::get
@@ -1039,7 +1041,7 @@ namespace green_dyadic {
 
     std::vector<double> __host__ sho_normalization(int8_t const lmax, double const sigma=1) {
         int const n1ho = sho_tools::n1HO(lmax);
-        std::vector<double> v1(n1ho, constants::sqrtpi * sigma);
+        std::vector<double> v1(n1ho, constants::sqrtpi*sigma);
         double fac{1};
         for (int nu = 0; nu <= lmax; ++nu) {
             v1[nu] *= fac;

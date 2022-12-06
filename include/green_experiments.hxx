@@ -28,7 +28,6 @@
 #include "green_action.hxx" // ::plan_t, ::action_t
 #include "green_function.hxx" // ::update_phases, ::construct_Green_function
 #include "control.hxx" // ::get
-// #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
 
 namespace green_experiments {
 
@@ -130,9 +129,9 @@ namespace green_experiments {
               auto const *const k_point = k_path[ik];
               std::printf("%g %g", k_point[3], bandstructure[ik]*eV);
               for (int lat = -2; lat <= 2; ++lat) {
-                  double const E_free_electron = 0.5*(pow2((k_point[0] + lat)*reci[0]) 
-                                                    + pow2(k_point[1]*reci[1])
-                                                    + pow2(k_point[2]*reci[2]));
+                  auto const E_free_electron = 0.5*(pow2((k_point[0] + lat)*reci[0]) 
+                                                  + pow2(k_point[1]*reci[1])
+                                                  + pow2(k_point[2]*reci[2]));
                   std::printf(" %g", E_free_electron*eV);
               } // lat
               std::printf("\n");

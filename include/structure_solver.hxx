@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
+#include <cstdio> // std::printf, ::snprintf
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
 
@@ -79,7 +79,25 @@ namespace structure_solver {
         psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), 0.0); // get memory (potentially large)
 
         int const na = list_of_atoms.size();
-        auto const start_wave_file = control::get("start.waves", "");
+        auto start_wave_file = control::get("start.waves", "");
+        assert(nullptr != start_wave_file);
+        if ('\0' != *start_wave_file) {
+            if (echo > 1) std::printf("# try to read start waves from file \'%s\'\n", start_wave_file);
+            if (run) {
+                auto const errors = debug_tools::read_from_file(psi(0,0), start_wave_file, nbands, psi.stride(), gc.all(), "wave functions", echo);
+                if (errors) {
+                    warn("failed to read start wave functions from file \'%s\'", start_wave_file);
+                    start_wave_file = ""; // --> generate atomic orbitals instead
+                } else {
+                    if (echo > 1) std::printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
+                    for (int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
+                        if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
+                        if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
+                    } // ikpoints
+                } // errors
+            } // run
+        } // start wave method
+
         if ('\0' == *start_wave_file) {
             if (echo > 1) std::printf("# initialize grid wave functions as %d atomic orbitals on %d atoms\n", nbands, na);
             float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
@@ -103,20 +121,6 @@ namespace structure_solver {
                 } // iband
             } // ikpoint
             op.set_kpoint(); // reset k-point
-        } else {
-            if (echo > 1) std::printf("# try to read start waves from file \'%s\'\n", start_wave_file);
-            if (run) {
-                auto const nerrors = debug_tools::read_from_file(psi(0,0), start_wave_file, nbands, psi.stride(), gc.all(), "wave functions", echo);
-                if (nerrors) {
-                    error("failed to read start wave functions from file \'%s\'", start_wave_file);
-                } else {
-                    if (echo > 1) std::printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
-                }
-            } // run
-            for (int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
-                if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
-                if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
-            } // ikpoints
         } // start wave method
 
     } // constructor

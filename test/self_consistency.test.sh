@@ -5,39 +5,49 @@ exe=../src/a43
 # base=scf.H-fcc
 # a=2.12132
 # c=0.53033
-# printf " 4 \n#cell $a $a $a p p p \n" > $base.xyz
+# echo " 4" > $base.xyz
+# echo "#cell $a $a $a p p p" >> $base.xyz
 # echo "H   -$c -$c -$c" >> $base.xyz
 # echo "H    $c  $c -$c" >> $base.xyz
 # echo "H    $c -$c  $c" >> $base.xyz
 # echo "H   -$c  $c  $c" >> $base.xyz
 
 # base=scf.C-sc
-# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $base.xyz
+# echo " 1" > $base.xyz
+# printf "#cell 2.5 2.5 2.5 p p p" >> $base.xyz
 # echo "C 0 0 0" >> $base.xyz
 
 # base=scf.vacuum
-# printf " 1 \n#cell 4 4 4 i i i \n" > $base.xyz
+# echo " 1" > $base.xyz
+# echo "#cell 4 4 4 i i i" >> $base.xyz
 # echo "__  0 0 0" >> $base.xyz
 
 # base=scf.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $base.xyz
+# echo " 1" > $base.xyz
+# echo "#cell 8 8 8 i i i" >> $base.xyz
 # echo "C  0 0 0" >> $base.xyz
 
 # base=scf.methane
-# printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
-# dist=0.63
-# echo "C  0 0 0"                 >> $base.xyz
-# echo "H   -$dist -$dist -$dist" >> $base.xyz
-# echo "H    $dist  $dist -$dist" >> $base.xyz
-# echo "H    $dist -$dist  $dist" >> $base.xyz
-# echo "H   -$dist  $dist  $dist" >> $base.xyz
+# echo " 5" > $base.xyz
+# echo "#cell 16 16 16 i i i" >> $base.xyz
+base=scf.mini-methane
+echo " 5" > $base.xyz
+echo "#cell 8 8 8 i i i" >> $base.xyz
+dist=0.63
+echo "C  0 0 0"                 >> $base.xyz
+echo "H   -$dist -$dist -$dist" >> $base.xyz
+echo "H    $dist  $dist -$dist" >> $base.xyz
+echo "H    $dist -$dist  $dist" >> $base.xyz
+echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
-# printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
+# echo " 1" > $base.xyz
+# echo "#cell 2 8 8 p i i\n" >> $base.xyz
 # echo "C  0 0 0" >> $base.xyz
 
 # base=scf.C-dimer
-# printf " 2 \n#cell 8 8 8 i i i \n" > $base.xyz
+# echo " 2" > $base.xyz
+# echo "#cell 8 8 8 i i i" >> $base.xyz
 # echo "C  -0.65 0 0" >> $base.xyz
 # echo "C   0.65 0 0" >> $base.xyz
 ## test translational invariance
@@ -45,21 +55,24 @@ exe=../src/a43
 # echo "C  0 0  0.775" >> $base.xyz
 
 # base=scf.AlP
-# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $base.xyz
-# printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $base.xyz
-# printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $base.xyz
-# printf " 2 \n#cell 21.167 21.167 21.167 i i i \n" > $base.xyz
-# printf " 2 \n#cell 8.0 8.0 8.0 i i i \n" > $base.xyz
+# echo " 2" > $base.xyz
+# echo "#cell 4.233418 4.233418 8.466836 p p p" >> $base.xyz
+# echo "#cell 10.5835 10.5835 12.7003 p p p" >> $base.xyz
+# echo "#cell 21.16708996 21.16708996 25.400507952 p p p" >> $base.xyz
+# echo "#cell 21.167 21.167 21.167 i i i" >> $base.xyz
+# echo "#cell 8.0 8.0 8.0 i i i" >> $base.xyz
 # echo "Al   0 0 -1.058354499" >> $base.xyz
 # echo "P    0 0  1.058354499" >> $base.xyz
 
 # base=scf.Al2
-# printf " 2 \n#cell 8.0 8.0 4.0 p p p \n" > $base.xyz
+# echo " 2" > $base.xyz
+# echo "#cell 8.0 8.0 4.0 p p p" >> $base.xyz
 # echo "Al   0 0 -1." >> $base.xyz
 # echo "Al   0 0  1." >> $base.xyz
 
 # base=scf.Al-fcc
-# printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $base.xyz
+# echo " 4" > $base.xyz
+# echo "#cell 4.0 4.0 4.0 p p p" >> $base.xyz
 # echo "Al   -1.0 -1.0 -1.0" >> $base.xyz
 # echo "Al    1.0  1.0 -1.0" >> $base.xyz
 # echo "Al    1.0 -1.0  1.0" >> $base.xyz
@@ -67,7 +80,8 @@ exe=../src/a43
 
 ### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
 # base=scf.Cu-fcc
-# printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $base.xyz
+# echo " 4" > $base.xyz
+# echo "#cell 3.522 3.522 3.522 p p p" >> $base.xyz
 # echo "Cu   -.8805 -.8805 -.8805" >> $base.xyz
 # echo "Cu    .8805  .8805 -.8805" >> $base.xyz
 # echo "Cu    .8805 -.8805  .8805" >> $base.xyz
@@ -75,32 +89,36 @@ exe=../src/a43
 
 ### Au LDA lattice constant 4.065 from Wikipedia
 # base=scf.Au-fcc
-# printf " 4 \n#cell 4.064 4.064 4.064 p p p \n" > $base.xyz
+# echo " 4" > $base.xyz
+# echo "#cell 4.064 4.064 4.064 p p p" >> $base.xyz
 # echo "Au   -1.016 -1.016 -1.016" >> $base.xyz
 # echo "Au    1.016  1.016 -1.016" >> $base.xyz
 # echo "Au    1.016 -1.016  1.016" >> $base.xyz
 # echo "Au   -1.016  1.016  1.016" >> $base.xyz
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 (2009), al. et Blaha
-base=scf.C-diamond
-printf " 8 \n#cell 3.536 3.536 3.536 p p p \n" > $base.xyz
+# base=scf.C-diamond
+# echo " 8" > $base.xyz
+# echo "#cell 3.536 3.536 3.536 p p p" >> $base.xyz
 ## 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
-echo "C  -1.326 -1.326 -1.326" >> $base.xyz
-echo "C   0.442  0.442 -1.326" >> $base.xyz
-echo "C  -0.442 -0.442 -0.442" >> $base.xyz
-echo "C   1.326  1.326 -0.442" >> $base.xyz
-echo "C  -1.326  0.442  0.442" >> $base.xyz
-echo "C   0.442 -1.326  0.442" >> $base.xyz
-echo "C  -0.442  1.326  1.326" >> $base.xyz
-echo "C   1.326 -0.442  1.326" >> $base.xyz
+# echo "C  -1.326 -1.326 -1.326" >> $base.xyz
+# echo "C   0.442  0.442 -1.326" >> $base.xyz
+# echo "C  -0.442 -0.442 -0.442" >> $base.xyz
+# echo "C   1.326  1.326 -0.442" >> $base.xyz
+# echo "C  -1.326  0.442  0.442" >> $base.xyz
+# echo "C   0.442 -1.326  0.442" >> $base.xyz
+# echo "C  -0.442  1.326  1.326" >> $base.xyz
+# echo "C   1.326 -0.442  1.326" >> $base.xyz
 
 # base=scf.C_chain.sho
-# printf " 1 \n#cell 1.420282 10 10 p p p \n" > $base.xyz
+# echo " 1" > $base.xyz
+# echo "#cell 1.420282 10 10 p p p" >> $base.xyz
 # echo "C   0 0 0" >> $base.xyz
 
 ### silicon LDA lattice constant 5.378 Ang in diamond structure
 # base=scf.silicon
-# printf " 8 \n#cell 5.378 5.378 5.378 p p p \n" > $base.xyz
+# echo " 8" > $base.xyz
+# echo "#cell 5.378 5.378 5.378 p p p" >> $base.xyz
 ### 5.378 / 8 == 0.67225, 0.67225 * 3 == 2.01675
 # echo "Si  -2.01675 -2.01675 -2.01675" >> $base.xyz
 # echo "Si   0.67225  0.67225 -2.01675" >> $base.xyz
@@ -255,7 +273,8 @@ store.waves=$base.waves.dat
 # dense_solver.test.overlap.eigvals=0
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
-# hamiltonian.export=0
+# hamiltonian.export=-1
+# hamiltonian.export.format=json
 # hamiltonian.export.format=xml
 
 # Make structure_solver produce the same as potential_generator
