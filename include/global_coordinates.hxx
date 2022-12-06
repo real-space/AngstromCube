@@ -1,7 +1,6 @@
 #pragma once
 
-#include <cstdint> // int64_t, int32_t, uint32_t, int8_t
-#include <cassert> // assert
+#include <cstdint> // int64_t, int32_t, uint32_t
 
 #ifndef NO_UNIT_TESTS
   #include <cstdio> // std::printf
@@ -16,13 +15,15 @@ namespace global_coordinates {
   // Negative values are allowed as input but will be folded back into the positive range.
 
   inline int64_t get(int32_t x, int32_t y, int32_t z) {
-      // interleave bit pattern of the lowest 21 bits to 63 bits
+      // interleave bit pattern of the lowest 21 bits to 63 bits:
+      // result: sign,z20,y20,x20,z19,y19,x19, ... ,z1,y1,x1,z0,y0,x0
+      // with sign == 0 for any valid global coordinate
       int64_t i63{0};
       for (int b21 = 0; b21 < 21; ++b21) {
           int64_t const i3 = (x & 0x1) + 2*(y & 0x1) + 4*(z & 0x1);
           int64_t const i3_shifted = i3 << (b21*3);
           i63 |= i3_shifted;
-          x >>= 1; y >>= 1; z >>= 1; // delete the least significant bit of the coordinates
+          x >>= 1; y >>= 1; z >>= 1; // delete the least significant bit of the 3 coordinates
       } // b21
       return i63; // when printing i63, use format %22.22lo
   } // get

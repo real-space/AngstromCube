@@ -303,13 +303,13 @@ namespace green_potential {
           for (int spin = 0; spin < Noco*Noco; ++spin) {
               auto const target_disp = iloc*Noco*Noco + spin;
               if (me == owner) {
-                  if (echo > 5 + 5*spin) std::printf("# exchange: rank #%i local copy of potential at cube id o%llo%s\n", me, global_id, spin_name(Noco, spin));
+                  if (echo > 7 + 5*spin) std::printf("# exchange: rank #%i local copy of potential at cube id o%llo%s\n", me, global_id, spin_name(Noco, spin));
                   set(Veff[spin][row], 64, Vinp[target_disp]);
                   ++stats[0];
               } else { // me == owner
                   ++stats[1];
 #ifndef   HAS_NO_MPI
-                  if (echo > 7 + 5*spin) std::printf("# exchange: rank #%i get potential at cube id o%llo from rank #%i element %i%s\n", me, global_id, owner, iloc, spin_name(Noco, spin));
+                  if (echo > 9 + 5*spin) std::printf("# exchange: rank #%i get potential at cube id o%llo from rank #%i element %i%s\n", me, global_id, owner, iloc, spin_name(Noco, spin));
                   status += MPI_Get(Veff[spin][row], 64, MPI_DOUBLE, owner, target_disp, 64, MPI_DOUBLE, window);
                   /*
                    *  Criticism for MPI_Get-solution:

@@ -885,7 +885,7 @@ namespace green_function {
                       } // hist[nci] > 0
                   } // nci
                   auto const partial = total_checked - hist[0] - hist[max_nci];
-                  if (echo > 6) std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
+                  if (echo > 8) std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
                                 irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
                   inout[0].add(hist[max_nci]);
                   inout[1].add(partial);
@@ -1232,7 +1232,7 @@ namespace green_function {
           int constexpr LM = Noco*64;
           auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
           auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
-          for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
+          for (size_t i = 0; i < nnzbX*size_t(R1C2*LM*LM); ++i) {
               x[0][0][0][i] = 0; // init x
           } // i
 
@@ -1279,7 +1279,7 @@ namespace green_function {
       green_action::plan_t p;
       stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
 
-      int const iterations = control::get("green_function.benchmark.iterations", 1.); 
+      int const iterations = control::get("green_function.benchmark.iterations", 1.);
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
       if (iterations < 0) {
           if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", iterations);

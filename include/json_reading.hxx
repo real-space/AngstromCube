@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdio> // std::printf
+#include <vector> // std::vector<T>
+
 #ifdef  HAS_RAPIDJSON
   #include <algorithm> // std::min
   #include <cassert> // assert

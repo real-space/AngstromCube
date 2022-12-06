@@ -610,11 +610,11 @@ namespace green_kinetic {
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
           real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // 
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , uint32_t const num[3] // number of sticks in X,Y,Z direction
-        , int32_t  const *const *const __restrict__ x_list // 
-        , int32_t  const *const *const __restrict__ y_list // 
-        , int32_t  const *const *const __restrict__ z_list // 
+        , int32_t  const *const *const __restrict__ x_list //
+        , int32_t  const *const *const __restrict__ y_list //
+        , int32_t  const *const *const __restrict__ z_list //
         , double   const hgrid[3] // grid spacing in X,Y,Z
         , int      const FD_range[3] // finite-difference stencil range (in grid points)
         , double   const phase[3][2][2] // complex Bloch phase factors
@@ -639,7 +639,7 @@ namespace green_kinetic {
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
           real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // 
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , green_sparse::sparse_t<int32_t> const kinetic_plan[3]
         , double   const hgrid[3] // grid spacing in X,Y,Z
         , double const phase[3][2][2] // complex Bloch phase factors [direction][forward:backward][real:imag]
@@ -728,8 +728,7 @@ namespace green_kinetic {
               for (int ix = 0; ix < 4; ++ix) {
                   int const i64 = (iz*4 + iy)*4 + ix;
                   if (echo > 9) {
-                      double const x = (inzb*4 + ix)*hgrid[0];
-                      std::printf("%g  %g %g  %g %g\n", x,
+                      std::printf("%g  %g %g  %g %g\n", (inzb*4 + ix)*hgrid[0],
                            Tpsi[inzb][Re][i64][0],  Tpsi[inzb][Im][i64][0]*(2 == R1C2),
                           t*psi[inzb][Re][i64][0], t*psi[inzb][Im][i64][0]*(2 == R1C2));
                   } // echo
@@ -743,7 +742,7 @@ namespace green_kinetic {
           } // inzb
           deviation = std::sqrt(dev2);
           if (echo > 5) std::printf("# deviation of a periodic Bloch wave with wave vector k= %g is %.1e (abs)"
-                            " and %.1e (rms) at norm^2 %g\n\n", wave_vector[0], deva, deviation, norm2);
+                                  " and %.1e (rms) at norm^2 %g\n\n", wave_vector[0], deva, deviation, norm2);
       } // scope
 
       free_memory(Tpsi);

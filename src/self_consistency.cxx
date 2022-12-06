@@ -1,8 +1,8 @@
-#include <cstdio> // std::printf, ::snprintf
+#include <cstdint> // int8_t
 #include <cassert> // assert
+#include <cstdio> // std::printf, ::snprintf
 #include <algorithm> // std::copy, ::min, ::max
 #include <vector> // std::vector
-#include <cstdint> // int8_t
 
 #include "self_consistency.hxx"
 
