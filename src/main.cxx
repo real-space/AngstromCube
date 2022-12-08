@@ -33,6 +33,7 @@
   #include "bisection_tools.hxx" // ::all_tests
   #include "green_potential.hxx" // ::all_tests
   #include "green_function.hxx" // ::all_tests
+  #include "green_parallel.hxx" // ::all_tests
   #include "poisson_solver.hxx" // ::all_tests
   #include "brillouin_zone.hxx" // ::all_tests
   #include "sho_projection.hxx" // ::all_tests
@@ -206,6 +207,7 @@
           add_module_test(green_dyadic);
           add_module_test(green_action);
           add_module_test(green_experiments);
+          add_module_test(green_parallel);
 
           if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
           add_module_test(conjugate_gradients);

@@ -5,4 +5,4 @@ exe=../green/green
 echo "#" $exe "$@"
 
 echo -n "# " ## comment out "make: Nothing to be done for `all'."
-(cd ../green/ && make -j) && $exe "$@"
+make -j -C ../green/ && $exe "$@"

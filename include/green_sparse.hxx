@@ -37,6 +37,9 @@ namespace green_sparse {
   class sparse_t { // compressed sparse row (CSR) style sparsity descriptor
   public:
 
+      static bool constexpr row_signed = std::is_signed<RowIndex_t>::value;
+      static bool constexpr col_signed = std::is_signed<ColIndex_t>::value;
+
       sparse_t() : rowStart_(nullptr), colIndex_(nullptr), rowIndex_(nullptr), nRows_(0) {
           debug_printf("# sparse_t default constructor\n");
       } // default constructor
@@ -116,7 +119,7 @@ namespace green_sparse {
       __host__ __device__ RowIndex_t const * rowStart() const { return rowStart_; };
       __host__ __device__ ColIndex_t const * colIndex() const { return colIndex_; };
       __host__ __device__ RowIndex_t            nRows() const { return nRows_; }
-      __host__ __device__ RowIndex_t        nNonzeros() const { return (nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
+      __host__ __device__ RowIndex_t        nNonzeros() const { return (row_signed && nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
 
   private:
 

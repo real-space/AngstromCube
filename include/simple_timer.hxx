@@ -22,7 +22,7 @@
       char  func[32];
     public:
 
-      SimpleTimer(char const *sourcefile, int const sourceline=0, char const *function=nullptr, int const echo=1) 
+      SimpleTimer(char const *sourcefile, int const sourceline=0, char const *function=nullptr, int const echo=1)
       : line(sourceline), echo(echo) {
           std::strcpy(file, sourcefile);
           if (nullptr != function) std::strcpy(func, function); else func[0] = 0;
