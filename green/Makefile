@@ -29,7 +29,7 @@ allclean: clean
 CU    ?= nvcc
 CC    ?= gcc
 CXX   ?= mpic++ -Wno-unused-command-line-argument
-CXX    = g++ -Wno-unused-command-line-argument
+# CXX    = g++ -Wno-unused-command-line-argument
 ### g++
 
 INC ?=
@@ -42,8 +42,8 @@ ERRFLAGS =
 FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
-FEAFLAGS += -D HAS_NO_MPI
-# LDFLAGS  += -lmpi
+# FEAFLAGS += -D HAS_NO_MPI
+LDFLAGS  += -lmpi
 
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
