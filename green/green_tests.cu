@@ -14,8 +14,9 @@
   #include "green_sparse.hxx" // ::all_tests
   #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
-  #include "green_input.hxx" // ::all_tests
 #endif // not NO_UNIT_TESTS
+
+#include "green_tests.hxx"
 
 #include <cstdio> // std::printf
 #include <cassert> // assert
@@ -49,7 +50,6 @@ namespace green_tests {
               }                                                                     \
           } // add_module_test
 
-          add_module_test(green_input);
           add_module_test(green_sparse);
           add_module_test(green_kinetic);
           add_module_test(green_potential);
