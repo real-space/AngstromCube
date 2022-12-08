@@ -3,7 +3,6 @@
 #include <string> // std::string
 #include <cstdlib> // std::atof
 #include <map> // std::map<T1,T2>
-// #include <utility> // std::pair<T1,T2>
 #include <tuple> // std::tuple<T1,...,Tn>, ::get
 #include <cstring> // std::strchr, ::strncpy
 #include <cmath> // std::sqrt
@@ -19,7 +18,7 @@ namespace control {
   int constexpr MaxNameLength = 64; // max variable name length
 
   inline void double2string(char buffer[32], double const number) {
-      std::snprintf(buffer, 31, "%.16e", number);
+      std::snprintf(buffer, 32, "%.16e", number);
   } // double2string
 
   inline double string2double(char const *const string) {
@@ -198,15 +197,11 @@ namespace control {
       char const CommentChar = '#'; // commented lines in control files
       char const EchoComment = '!'; // comments that should appear in the log
 
-      if (nullptr == filename) {
-          if (echo > 1) std::printf("# no control file passed\n");
-          return stat; // 0
-      }
-
+      assert(nullptr != filename);
       if ('\0' == *filename) {
           if (echo > 1) std::printf("# no control file given\n");
           return stat; // 0
-      }
+      } // filename != ""
 
       std::ifstream infile(filename, std::ifstream::in);
       if (infile.fail()) {
