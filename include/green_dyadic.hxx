@@ -1156,7 +1156,8 @@ namespace green_dyadic {
       int  const nb    = control::get("green_dyadic.test.nb", 14.);
       int  const natoms = 1, nrhs = 1, nnzb = pow3(nb);
       int  const nsho = sho_tools::nSHO(lmax);
-      auto psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "psi");
+      auto psi  = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "psi");
+      auto Vpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "Vpsi");
       set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64ull), real_t(0)); // clear
       auto apc = get_memory<real_t[R1C2][Noco   ][Noco*64]>(natoms*nsho*nrhs, echo, "apc");
       set(apc[0][0][0], natoms*nsho*nrhs*R1C2*pow2(Noco)*64, real_t(0)); // clear
@@ -1259,7 +1260,7 @@ namespace green_dyadic {
               AtomMatrices[ia] = get_memory<double>(pow2(Noco)*2*pow2(nsho), echo, "AtomMatrix[ia]");
               set(AtomMatrices[ia], pow2(Noco)*2*pow2(nsho), 0.0);
           } // ia
-          multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, AtomMatrices, sparse_SHOadd, RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
+          multiply<real_t,R1C2,Noco>(Vpsi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, AtomMatrices, sparse_SHOadd, RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
           for (int ia = 0; ia < natoms; ++ia) {
               free_memory(AtomMatrices[ia]);
           } // ia
@@ -1275,6 +1276,7 @@ namespace green_dyadic {
       free_memory(AtomLmax);
       free_memory(AtomPos);
       free_memory(apc);
+      free_memory(Vpsi);
       free_memory(psi);
       return 0;
   } // test_SHOprj_and_SHOadd

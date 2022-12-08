@@ -180,19 +180,21 @@ namespace green_potential {
 
   template <typename real_t, int R1C2=2, int Noco=1>
   inline status_t test_multiply(int const echo=0) {
-      auto psi   = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
-      auto Vloc  = get_memory<double[64]>(1*Noco*Noco);
-      auto vloc_index = get_memory<int32_t>(1);         vloc_index[0] = 0;
-      auto shift = get_memory<int16_t[3+1]>(1);         set(shift[0], 3+1, int16_t(0));
-      auto hGrid = get_memory<double>(3+1);             set(hGrid, 3+1, 1.);
+      auto psi   = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1, echo, "psi");
+      auto Vpsi  = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1, echo, "Vpsi");
+      auto Vloc  = get_memory<double[64]>(1*Noco*Noco, echo, "Vloc");
+      auto vloc_index = get_memory<int32_t>(1, echo, "vloc_index");    vloc_index[0] = 0;
+      auto shift = get_memory<int16_t[3+1]>(1, echo, "shift");         set(shift[0], 3+1, int16_t(0));
+      auto hGrid = get_memory<double>(3+1, echo, "hGrid");             set(hGrid, 3+1, 1.);
       int const nnzb = 1;
 
-      multiply<real_t,R1C2,Noco>(psi, psi, &Vloc, vloc_index, shift, hGrid, nnzb);
+      multiply<real_t,R1C2,Noco>(Vpsi, psi, &Vloc, vloc_index, shift, hGrid, nnzb);
 
       free_memory(hGrid);
       free_memory(shift);
       free_memory(vloc_index);
       free_memory(Vloc);
+      free_memory(Vpsi);
       free_memory(psi);
       return 0;
   } // test_multiply
