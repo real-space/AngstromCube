@@ -1,3 +1,4 @@
+### JUSUF: module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 
 ## Check whether CUDA compiler is available
 ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
@@ -31,7 +32,7 @@ allclean: clean
 
 CU    ?= nvcc
 CC    ?= gcc
-CXX   ?= mpic++ -Wno-unused-command-line-argument
+CXX    = mpic++ -Wno-unused-command-line-argument
 # CXX    = g++ -Wno-unused-command-line-argument
 ### g++
 
@@ -48,8 +49,8 @@ CXXOPTFLAGS ?=
 
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
-FEAFLAGS += -D HAS_NO_MPI
-# LDFLAGS  += -lmpi
+# FEAFLAGS += -D HAS_NO_MPI
+LDFLAGS  += -lmpi
 
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON

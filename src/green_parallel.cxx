@@ -9,6 +9,8 @@
 
 #include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::max, ::allreduce
 #include "sho_tools.hxx" // ::nSHO
+#include "global_coordinates.hxx" // ::get
+#include "print_tools.hxx" // printf_vector
 
 namespace green_parallel {
 
