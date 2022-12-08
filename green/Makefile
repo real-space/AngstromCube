@@ -16,6 +16,7 @@ OBJECTS = \
 	recorded_warnings.o \
 	display_units.o \
 	load_balancer.o \
+	green_tests.o \
 	green.o
 
 

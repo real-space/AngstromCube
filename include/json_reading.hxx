@@ -14,6 +14,7 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "recorded_warnings.hxx" // warn
+#include "sho_tools.hxx" // ::nSHO
 
 namespace json_reading {
 

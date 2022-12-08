@@ -9,14 +9,14 @@
   #include "global_coordinates.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
-  #include "green_experiments.hxx" // ::all_tests
-  #include "green_potential.hxx" // ::all_tests
-  #include "green_function.hxx" // ::all_tests
-  #include "green_kinetic.hxx" // ::all_tests
-  #include "green_sparse.hxx" // ::all_tests
-  #include "green_dyadic.hxx" // ::all_tests
-  #include "green_action.hxx" // ::all_tests
-  #include "green_input.hxx" // ::all_tests
+//   #include "green_experiments.hxx" // ::all_tests
+//   #include "green_potential.hxx" // ::all_tests
+//   #include "green_function.hxx" // ::all_tests
+//   #include "green_kinetic.hxx" // ::all_tests
+//   #include "green_sparse.hxx" // ::all_tests
+//   #include "green_dyadic.hxx" // ::all_tests
+//   #include "green_action.hxx" // ::all_tests
+//   #include "green_input.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
@@ -29,6 +29,8 @@
   #include "data_view.hxx" // ::all_tests
   #include "control.hxx" // ::all_tests
 #endif // not NO_UNIT_TESTS
+
+#include "green_tests.hxx" // ::add_tests
 
 #include <cstdlib> // std::abs, ::abort
 
@@ -97,14 +99,15 @@
           add_module_test(sho_tools);
 
           if (chapters) std::printf("\n\n\n\n#\n# Green function modules\n#\n\n\n\n");
-          add_module_test(green_input);
-          add_module_test(green_sparse);
-          add_module_test(green_function);
-          add_module_test(green_kinetic);
-          add_module_test(green_potential);
-          add_module_test(green_dyadic);
-          add_module_test(green_action);
-          add_module_test(green_experiments);
+          green_tests::add_tests(results, input_name, show, all, echo);
+//           add_module_test(green_input);
+//           add_module_test(green_sparse);
+//           add_module_test(green_function);
+//           add_module_test(green_kinetic);
+//           add_module_test(green_potential);
+//           add_module_test(green_dyadic);
+//           add_module_test(green_action);
+//           add_module_test(green_experiments);
 
 #undef    add_module_test
 
