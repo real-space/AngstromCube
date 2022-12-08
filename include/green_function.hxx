@@ -1213,7 +1213,11 @@ namespace green_function {
           // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
           tfqmrgpu::solve(action); // compute GPU memory requirements
 
-          if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f %s GPU memory\n", p.gpu_mem*GByte, _GByte);
+          {
+              simple_stats::Stats<> mem; mem.add(p.gpu_mem); green_parallel::allreduce(mem);
+              if (echo > 5) std::printf("# tfqmrgpu::solve requires [%.3f, %.3f +/- %g, %.3f] %s GPU memory\n",
+                                  mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte);
+          }
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
