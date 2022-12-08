@@ -32,17 +32,20 @@ allclean: clean
 CU    ?= nvcc
 CC    ?= gcc
 CXX   ?= mpic++ -Wno-unused-command-line-argument
-CXX    = g++ -Wno-unused-command-line-argument
+# CXX    = g++ -Wno-unused-command-line-argument
 ### g++
 
 INC ?=
 INC += -I../include
 INC += -I../external
 
-LDFLAGS=
+LDFLAGS ?=
+ERRFLAGS ?=
+FEAFLAGS ?=
+OPTFLAGS ?=
+CUOPTFLAGS ?=
+CXXOPTFLAGS ?=
 
-ERRFLAGS =
-FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 FEAFLAGS += -D HAS_NO_MPI
@@ -67,12 +70,13 @@ ERRFLAGS += -Wall -Wfatal-errors
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
 FEAFLAGS += -D DEVEL
 
+
 # normal mode
-# OPTFLAGS = -Ofast
-# OPTFLAGS = -O2
-OPTFLAGS = -O0
+# OPTFLAGS += -Ofast
+# OPTFLAGS += -O2
+OPTFLAGS += -O0
 OPTFLAGS += -g -Wall
-OPTFLAGS += -pedantic
+CXXOPTFLAGS += -pedantic
 # gcc-options
 # OPTFLAGS += -Wno-format-security
 OPTFLAGS += -Wno-sign-compare
@@ -122,7 +126,7 @@ CCFLAGS  = -std=gnu99 ${FLAGS}
 # P100
 CUFLAGS  = -std=c++11 ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11 ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
-CXXFLAGS = -std=c++11 ${FLAGS}
+CXXFLAGS = -std=c++11 ${FLAGS} ${CXXOPTFLAGS}
 
 ifdef ENABLE_GPU
 else

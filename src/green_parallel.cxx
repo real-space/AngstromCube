@@ -1,3 +1,4 @@
+#include <cstdint> // uint16_t
 #include <cstdio> // std::printf
 #include <vector> // std::vector<T>
 
