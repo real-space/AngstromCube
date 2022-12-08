@@ -138,7 +138,7 @@ namespace green_function {
       , int const Noco=1
       , int const echo=0 // verbosity
   ) {
-      SimpleTimer timer(__FILE__, __LINE__, __func__);
+      SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
       p.nrhs = nrhs;
 
@@ -1078,7 +1078,7 @@ namespace green_function {
               }}} // idx
               assert(p.nRows == iRow && "counting 2nd time");
               assert(nnzb == p.RowStart[p.nRows] && "sparse matrix consistency");
-              std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
+              if (echo > 2) std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
               if (warn_needs_shortest > 0) {
                   warn("for %.3f k block pairs the nearest periodic images are only evaluated on the block level", warn_needs_shortest*1e-3);
               } // warn_needs_shortest

@@ -887,7 +887,9 @@ namespace green_dyadic {
       } // empty and default constructor
 
       ~dyadic_plan_t() {
+#ifdef DEBUG
           std::printf("# destruct %s\n", __func__);
+#endif // DEBUG
           free_memory(AtomImageStarts);
           free_memory(AtomStarts);
           if (AtomMatrices) for (uint32_t ia = 0; ia < nAtoms; ++ia) free_memory(AtomMatrices[ia]);
