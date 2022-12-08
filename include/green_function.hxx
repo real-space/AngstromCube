@@ -1215,8 +1215,8 @@ namespace green_function {
 
           {
               simple_stats::Stats<> mem; mem.add(p.gpu_mem); green_parallel::allreduce(mem);
-              if (echo > 5) std::printf("# tfqmrgpu::solve requires [%.3f, %.3f +/- %g, %.3f] %s GPU memory\n",
-                                  mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte);
+              if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.1f %s total\n",
+                mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
           }
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
