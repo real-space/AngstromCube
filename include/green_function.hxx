@@ -1281,7 +1281,8 @@ namespace green_function {
       } // stat
 
       green_action::plan_t p;
-      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
+      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo,
+                        nullptr, int(control::get("green_function.benchmark.noco", 1.)));
 
       int const iterations = control::get("green_function.benchmark.iterations", 1.);
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
