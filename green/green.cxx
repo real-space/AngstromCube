@@ -259,7 +259,7 @@
       } // iarg
       //
       // in addition to command_line_interface, we can modify the control environment by a file
-      stat += control::read_control_file(control::get("control.file", ""), verbosity);
+      stat += control::read_control_file(control::get("control.file", ""), (0 == myrank)*verbosity);
       //
       int const echo = (0 == myrank)*control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
       //
