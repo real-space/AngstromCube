@@ -21,7 +21,7 @@
 #include "green_sparse.hxx" // ::sparse_t<,>
 
 #ifndef NO_UNIT_TESTS
-  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
+  #include "green_parallel.hxx" // ::init, ::finalize, ::rank
 
 #ifdef HAS_TFQMRGPU
 
@@ -138,7 +138,7 @@ namespace green_function {
       , int const Noco=1
       , int const echo=0 // verbosity
   ) {
-      SimpleTimer timer(__FILE__, __LINE__, __func__);
+      SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
       p.nrhs = nrhs;
 
@@ -480,7 +480,7 @@ namespace green_function {
       , int const echo=0
   ) {
       std::vector<int64_t> global_source_indices;
-      int const true_comm_size = mpi_parallel::size();
+      int const true_comm_size = green_parallel::size();
       int const fake_comm = (true_comm_size > 1) ? 0 : control::get("green_function.fake.comm", 0.);
       auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
       auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
@@ -490,10 +490,10 @@ namespace green_function {
           if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
           assert(nall > 0);
           int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
-                                                : mpi_parallel::rank();
+                                                : green_parallel::rank();
           double rank_center[4];
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
-          if (fake_comm < 1) mpi_parallel::max(owner_rank.data(), nall);
+          if (fake_comm < 1) green_parallel::max(owner_rank.data(), nall);
           if (echo > 9) {
               std::printf("# rank#%i owner_rank after  MPI_MAX ", comm_rank);
               printf_vector(" %i", owner_rank);
@@ -503,7 +503,7 @@ namespace green_function {
           {
               simple_stats::Stats<> nt; // number of tasks
               nt.add(nrhs);
-              mpi_parallel::allreduce(nt);
+              green_parallel::allreduce(nt);
               if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
           }
           global_source_indices.resize(nrhs, -1);
@@ -1078,7 +1078,7 @@ namespace green_function {
               }}} // idx
               assert(p.nRows == iRow && "counting 2nd time");
               assert(nnzb == p.RowStart[p.nRows] && "sparse matrix consistency");
-              std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
+              if (echo > 2) std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
               if (warn_needs_shortest > 0) {
                   warn("for %.3f k block pairs the nearest periodic images are only evaluated on the block level", warn_needs_shortest*1e-3);
               } // warn_needs_shortest
@@ -1163,10 +1163,10 @@ namespace green_function {
               p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
           } // mag
 
-          green_potential::exchange(p.Veff, p.global_target_indices, // requests
+          green_parallel::potential_exchange(p.Veff, p.global_target_indices, // requests
                                       Vinp, p.global_source_indices, // offerings
                                       owner_rank.data(),
-                                      n_blocks, Noco, true, MPI_COMM_WORLD, echo);
+                                      n_blocks, Noco, true, echo);
 
           delete[] Vinp;
       } // scope
@@ -1213,7 +1213,11 @@ namespace green_function {
           // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
           tfqmrgpu::solve(action); // compute GPU memory requirements
 
-          if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f %s GPU memory\n", p.gpu_mem*GByte, _GByte);
+          {
+              simple_stats::Stats<> mem; mem.add(p.gpu_mem); green_parallel::allreduce(mem);
+              if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.1f %s total\n",
+                mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
+          }
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
@@ -1258,7 +1262,7 @@ namespace green_function {
 
   inline status_t test_Green_function(int const echo=0) {
 
-      bool const already_initialized = mpi_parallel::init();
+      bool const already_initialized = green_parallel::init();
 
       uint32_t ng[3] = {0, 0, 0}; // grid sizes
       int8_t   bc[3] = {0, 0, 0}; // boundary conditions
@@ -1272,12 +1276,13 @@ namespace green_function {
       auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
-          if (!already_initialized) mpi_parallel::finalize();
+          if (!already_initialized) green_parallel::finalize();
           return stat;
       } // stat
 
       green_action::plan_t p;
-      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo);
+      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo,
+                        nullptr, int(control::get("green_function.benchmark.noco", 1.)));
 
       int const iterations = control::get("green_function.benchmark.iterations", 1.);
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
@@ -1304,7 +1309,7 @@ namespace green_function {
           } // switch action
       } // iterations < 0
 
-      if (!already_initialized) mpi_parallel::finalize();
+      if (!already_initialized) green_parallel::finalize();
       return stat;
   } // test_Green_function
 

@@ -1,3 +1,4 @@
+### JUSUF: module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 
 ## Check whether CUDA compiler is available
 ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
@@ -16,6 +17,9 @@ OBJECTS = \
 	recorded_warnings.o \
 	display_units.o \
 	load_balancer.o \
+	green_parallel.o \
+	green_input.o \
+	green_tests.o \
 	green.o
 
 
@@ -28,22 +32,25 @@ allclean: clean
 
 CU    ?= nvcc
 CC    ?= gcc
-CXX   ?= mpic++ -Wno-unused-command-line-argument
-CXX    = g++ -Wno-unused-command-line-argument
+CXX    = mpic++ -Wno-unused-command-line-argument
+# CXX    = g++ -Wno-unused-command-line-argument
 ### g++
 
 INC ?=
 INC += -I../include
 INC += -I../external
 
-LDFLAGS=
+LDFLAGS ?=
+ERRFLAGS ?=
+FEAFLAGS ?=
+OPTFLAGS ?=
+CUOPTFLAGS ?=
+CXXOPTFLAGS ?=
 
-ERRFLAGS =
-FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
-FEAFLAGS += -D HAS_NO_MPI
-# LDFLAGS  += -lmpi
+# FEAFLAGS += -D HAS_NO_MPI
+LDFLAGS  += -lmpi
 
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
@@ -64,12 +71,13 @@ ERRFLAGS += -Wall -Wfatal-errors
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
 FEAFLAGS += -D DEVEL
 
+
 # normal mode
-# OPTFLAGS = -Ofast
-# OPTFLAGS = -O2
-OPTFLAGS = -O0
+# OPTFLAGS += -Ofast
+# OPTFLAGS += -O2
+OPTFLAGS += -O0
 OPTFLAGS += -g -Wall
-OPTFLAGS += -pedantic
+CXXOPTFLAGS += -pedantic
 # gcc-options
 # OPTFLAGS += -Wno-format-security
 OPTFLAGS += -Wno-sign-compare
@@ -119,7 +127,7 @@ CCFLAGS  = -std=gnu99 ${FLAGS}
 # P100
 CUFLAGS  = -std=c++11 ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11 ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
-CXXFLAGS = -std=c++11 ${FLAGS}
+CXXFLAGS = -std=c++11 ${FLAGS} ${CXXOPTFLAGS}
 
 ifdef ENABLE_GPU
 else

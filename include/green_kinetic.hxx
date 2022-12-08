@@ -683,7 +683,7 @@ namespace green_kinetic {
       size_t const nnzb = 15;
       auto Tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "Tpsi");
       auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo,  "psi");
-      for (size_t i = 0; i < nnzb*R1C2*pow2(Noco*64); ++i) psi[0][0][0][i] = 0; // clear
+      set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64), real_t(0)); // clear
       auto indx = get_memory<int32_t>(4 + nnzb + 4);
       set(indx, 4 + nnzb + 4, 0); for (size_t i = 0; i < nnzb; ++i) indx[4 + i] = i + 1;
       uint32_t const num[] = {1, 1, 1}; // number of lists

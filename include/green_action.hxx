@@ -37,12 +37,15 @@
 #include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 
 
-#ifdef  debug_printf
-#undef  debug_printf
-#endif
+#ifdef    debug_printf
+  #undef  debug_printf
+#endif // debug_printf
 
-#define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
-// #define debug_printf(...)
+#ifdef    DEBUG
+  #define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
+#else  // DEBUG
+  #define debug_printf(...)
+#endif // DEBUG
 
 namespace green_action {
 
