@@ -175,6 +175,14 @@
       control::set("git.key", git_key); // store in the global variable environment
       if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
 #endif // _GIT_KEY
+      if (echo > 1) {
+#ifdef HAS_NO_MPI
+          std::printf("# version was compiled with -D HAS_NO_MPI\n");
+#endif //  NO_MPI
+#ifdef HAS_NO_CUDA
+          std::printf("# version was compiled with -D HAS_NO_CUDA\n");
+#endif //  NO_CUDA
+      } // echo
       return 0;
   } // show_version
 
@@ -207,7 +215,7 @@
                       return show_help(argv[0]);
                   } else
                   if ("version" == option) {
-                      return show_version(argv[0], 1);
+                      return show_version(argv[0], verbosity);
                   } else
                   if ("verbose" == option) {
                       verbosity = 6; // set verbosity high
