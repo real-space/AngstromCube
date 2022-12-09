@@ -108,7 +108,7 @@ ifeq ($(HOSTNAME),Pauls-MacBook-Pro.local)
 	LDFLAGS += -llapack
 	LDFLAGS += -lfftw3
 else
-	# on JUSUF module load Stages/2022 GCC/11.2.0 OpenMPI/4.1.2 imkl/2021.4.0
+	# on JUSUF:   module --force purge && module load Stages/2022 GCC/11.2.0 OpenMPI/4.1.2 imkl/2021.4.0
 	LDFLAGS += -lm
 	LDFLAGS += -lmkl_intel_lp64
 	LDFLAGS += -lmkl_intel_thread
