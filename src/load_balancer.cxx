@@ -19,8 +19,9 @@
 
 #include "status.hxx" // status_t
 #include "simple_stats.hxx" // ::Stats<>
+#include "recorded_warnings.hxx" // warn
 #include "constants.hxx" // ::pi
-#include "data_view.hxx" // view2D<T>
+// #include "data_view.hxx" // view2D<T>
 #include "control.hxx" // ::get
 
 namespace load_balancer {
@@ -55,7 +56,8 @@ namespace load_balancer {
 
       double w8sum_all{0};
       int constexpr W = 3;
-      view2D<float> xyzw(nall, 4, 0.f);
+//       view2D<float> xyzw(nall, 4, 0.f);
+      auto const xyzw = new float[nall][4];
       std::vector<double> w8s(nall, 0);
 
       for (int iz = 0; iz < n[Z]; ++iz) {
@@ -66,14 +68,19 @@ namespace load_balancer {
           auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
           w8s[iall]    = w8;
           w8sum_all   += w8;
-          xyzw(iall,W) = w8;
-          xyzw(iall,X) = ix;
-          xyzw(iall,Y) = iy;
-          xyzw(iall,Z) = iz;
+//           xyzw(iall,W) = w8;
+//           xyzw(iall,X) = ix;
+//           xyzw(iall,Y) = iy;
+//           xyzw(iall,Z) = iz;
+          xyzw[iall][W] = w8;
+          xyzw[iall][X] = ix;
+          xyzw[iall][Y] = iy;
+          xyzw[iall][Z] = iz;
       }}} // ix iy iz
 
       std::vector<double> load(nprocs, 0.0);
-      view2D<double> rank_center(nprocs, 4, 0.0);
+//       view2D<double> rank_center(nprocs, 4, 0.0);
+      auto const rank_center = new double[nprocs][4];
       bool constexpr compute_rank_centers = true;
       uint16_t constexpr no_owner = (1 << 16) - 1;
       std::vector<uint16_t> owner_rank(nall, no_owner);
@@ -84,6 +91,7 @@ namespace load_balancer {
           load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, echo
                                             , rank_center[rank], owner_rank.data());
       } // rank
+      delete[] xyzw;
 
       analyze_load_imbalance(load.data(), nprocs, echo);
 
@@ -143,7 +151,7 @@ namespace load_balancer {
                                     st2.min(), st2.mean(), st2.dev(), st2.max());
 
       } // compute_rank_centers
-
+      delete[] rank_center;
 
       // check masks
       if (1) {

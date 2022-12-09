@@ -16,7 +16,6 @@
   #include "density_generator.hxx" // ::all_tests
   #include "fourier_transform.hxx" // ::all_tests
   #include "iterative_poisson.hxx" // ::all_tests
-//   #include "green_experiments.hxx" // ::all_tests
   #include "self_consistency.hxx" // ::all_tests
   #include "radial_potential.hxx" // ::all_tests
   #include "bessel_transform.hxx" // ::all_tests
@@ -31,8 +30,6 @@
   #include "fourier_poisson.hxx" // ::all_tests
   #include "solid_harmonics.hxx" // ::all_tests
   #include "bisection_tools.hxx" // ::all_tests
-//   #include "green_potential.hxx" // ::all_tests
-//   #include "green_function.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
   #include "poisson_solver.hxx" // ::all_tests
   #include "brillouin_zone.hxx" // ::all_tests
@@ -45,12 +42,8 @@
   #include "complex_tools.hxx" // ::all_tests
   #include "vector_layout.hxx" // ::all_tests
   #include "sho_potential.hxx" // ::all_tests
-//   #include "green_kinetic.hxx" // ::all_tests
   #include "pawxml_import.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
-//   #include "green_sparse.hxx" // ::all_tests
-//   #include "green_dyadic.hxx" // ::all_tests
-//   #include "green_action.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "angular_grid.hxx" // ::all_tests
@@ -81,6 +74,13 @@
 
   // "green_*.hxx" headers requiring CUDA are included in green_tests.cu/green_tests.cxx
   #include "green_tests.hxx" // ::add_tests
+//   #include "green_experiments.hxx" // ::all_tests
+//   #include "green_potential.hxx" // ::all_tests
+//   #include "green_function.hxx" // ::all_tests
+//   #include "green_kinetic.hxx" // ::all_tests
+//   #include "green_sparse.hxx" // ::all_tests
+//   #include "green_dyadic.hxx" // ::all_tests
+//   #include "green_action.hxx" // ::all_tests
 
 #endif // not NO_UNIT_TESTS
 
