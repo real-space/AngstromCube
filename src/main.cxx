@@ -16,7 +16,7 @@
   #include "density_generator.hxx" // ::all_tests
   #include "fourier_transform.hxx" // ::all_tests
   #include "iterative_poisson.hxx" // ::all_tests
-  #include "green_experiments.hxx" // ::all_tests
+//   #include "green_experiments.hxx" // ::all_tests
   #include "self_consistency.hxx" // ::all_tests
   #include "radial_potential.hxx" // ::all_tests
   #include "bessel_transform.hxx" // ::all_tests
@@ -31,8 +31,8 @@
   #include "fourier_poisson.hxx" // ::all_tests
   #include "solid_harmonics.hxx" // ::all_tests
   #include "bisection_tools.hxx" // ::all_tests
-  #include "green_potential.hxx" // ::all_tests
-  #include "green_function.hxx" // ::all_tests
+//   #include "green_potential.hxx" // ::all_tests
+//   #include "green_function.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
   #include "poisson_solver.hxx" // ::all_tests
   #include "brillouin_zone.hxx" // ::all_tests
@@ -45,12 +45,12 @@
   #include "complex_tools.hxx" // ::all_tests
   #include "vector_layout.hxx" // ::all_tests
   #include "sho_potential.hxx" // ::all_tests
-  #include "green_kinetic.hxx" // ::all_tests
+//   #include "green_kinetic.hxx" // ::all_tests
   #include "pawxml_import.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
-  #include "green_sparse.hxx" // ::all_tests
-  #include "green_dyadic.hxx" // ::all_tests
-  #include "green_action.hxx" // ::all_tests
+//   #include "green_sparse.hxx" // ::all_tests
+//   #include "green_dyadic.hxx" // ::all_tests
+//   #include "green_action.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "angular_grid.hxx" // ::all_tests
@@ -78,6 +78,10 @@
   #include "atom_core.hxx" // ::all_tests
   #include "data_view.hxx" // ::all_tests
   #include "control.hxx" // ::all_tests
+
+  // "green_*.hxx" headers requiring CUDA are included in green_tests.cu/green_tests.cxx
+  #include "green_tests.hxx" // ::add_tests
+
 #endif // not NO_UNIT_TESTS
 
 #include <cstdlib> // std::abs, ::abort
@@ -190,14 +194,15 @@
           add_module_test(plane_wave);
           add_module_test(grid_operators);
           add_module_test(green_input);
-          add_module_test(green_sparse);
-          add_module_test(green_function);
-          add_module_test(green_kinetic);
-          add_module_test(green_potential);
-          add_module_test(green_dyadic);
-          add_module_test(green_action);
-          add_module_test(green_experiments);
           add_module_test(green_parallel);
+//           add_module_test(green_sparse);
+//           add_module_test(green_function);
+//           add_module_test(green_kinetic);
+//           add_module_test(green_potential);
+//           add_module_test(green_dyadic);
+//           add_module_test(green_action);
+//           add_module_test(green_experiments);
+          green_tests::add_tests(results, input_name, show, all, echo);
 
           if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
           add_module_test(conjugate_gradients);

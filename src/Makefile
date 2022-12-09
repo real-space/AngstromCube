@@ -40,6 +40,7 @@ OBJ = \
 	green_parallel.o \
 	green_input.o \
 	load_balancer.o \
+	green_tests.o \
 	main.o
 
 .PHONY: clean allclean

@@ -85,9 +85,8 @@
           add_module_test(mpi_parallel);
 
           if (chapters) std::printf("\n\n\n\n#\n# Green function modules\n#\n\n\n\n");
-          add_module_test(green_input);
           add_module_test(green_parallel);
-
+          add_module_test(green_input);
           green_tests::add_tests(results, input_name, show, all, echo);
 
 #undef    add_module_test
