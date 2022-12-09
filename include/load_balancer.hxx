@@ -7,7 +7,6 @@
 #include <cstdint> // uint32_t, uint16_t
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-// #include "data_view.hxx" // view2D<T>
 #include "inline_math.hxx" // set, pow2, scale
 #include "print_tools.hxx" // printf_vector
 
@@ -21,7 +20,6 @@ namespace load_balancer {
         double cow[4] // result: center of weight [0/1/2] and number of contributors [3]
       , size_t const nuna // number of unassigned work items
       , uint32_t const indirect[] // list of unassigned work items
-//    , view2D<real_t> const & xyzw // positions of work items in space [0/1/2] and their weight [3]
       , real_t const (*const xyzw)[4] // positions of work items in space [0/1/2] and their weight [3]
   ) {
       set(cow, 4, 0.0); // initialize
@@ -58,7 +56,6 @@ namespace load_balancer {
         int const nprocs // number of MPI processes to distribute the work items evenly to
       , int const rank   // my MPI rank
       , size_t const nall // number of all work items
-//    , view2D<real_t> const & xyzw // xyzw[nall][4], positions [0/1/2] and weights [3] of the work items
       , real_t const (*const xyzw)[4] // xyzw[nall][4], positions [0/1/2] and weights [3] of the work items
       , real_w_t const w8s[]        // w8s[nall] weights separated
       , double const w8sum_all=1. // denominator of all weights
@@ -216,7 +213,6 @@ namespace load_balancer {
       if (1) { // parallelized consistency check
           for (size_t iuna = 0; iuna < nuna; ++iuna) { // parallel
               auto const iall = indirect[iuna];
-//            auto const w8 = xyzw(iall,W);
               auto const w8 = xyzw[iall][W];
               assert(w8 == w8s[iall] && "weights inconsistent");
           } // iuna
@@ -244,7 +240,6 @@ namespace load_balancer {
       assert(nall <= (size_t(1) << 32) && "uint32_t is not long enough!");
 
       double w8sum_all{0};
-//       view2D<float> xyzw(nall, 4, 0.f);
       auto const xyzw = new float[nall][4];
       std::vector<float> w8s(nall, 0);
 
@@ -254,8 +249,8 @@ namespace load_balancer {
           auto const iall = (size_t(iz)*nb[Y] + iy)*nb[X] + ix;
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
           auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
-          w8s[iall]    = w8;
-          w8sum_all   += w8;
+          w8s[iall]     = w8;
+          w8sum_all    += w8;
           xyzw[iall][W] = w8;
           xyzw[iall][X] = ix;
           xyzw[iall][Y] = iy;
@@ -266,7 +261,6 @@ namespace load_balancer {
                                           , rank_center, owner_rank);
       delete[] xyzw;
   } // get
-
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

@@ -21,7 +21,6 @@
 #include "simple_stats.hxx" // ::Stats<>
 #include "recorded_warnings.hxx" // warn
 #include "constants.hxx" // ::pi
-// #include "data_view.hxx" // view2D<T>
 #include "control.hxx" // ::get
 
 namespace load_balancer {
@@ -56,7 +55,6 @@ namespace load_balancer {
 
       double w8sum_all{0};
       int constexpr W = 3;
-//       view2D<float> xyzw(nall, 4, 0.f);
       auto const xyzw = new float[nall][4];
       std::vector<double> w8s(nall, 0);
 
@@ -66,12 +64,8 @@ namespace load_balancer {
           auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
           auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
-          w8s[iall]    = w8;
-          w8sum_all   += w8;
-//           xyzw(iall,W) = w8;
-//           xyzw(iall,X) = ix;
-//           xyzw(iall,Y) = iy;
-//           xyzw(iall,Z) = iz;
+          w8s[iall]     = w8;
+          w8sum_all    += w8;
           xyzw[iall][W] = w8;
           xyzw[iall][X] = ix;
           xyzw[iall][Y] = iy;

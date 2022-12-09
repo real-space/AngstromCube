@@ -20,7 +20,6 @@
   #include "unit_system.hxx" // ::all_tests
   #include "inline_math.hxx" // ::all_tests
   #include "sho_tools.hxx" // ::all_tests
-  #include "data_view.hxx" // ::all_tests
   #include "control.hxx" // ::all_tests
 
   // "green_*.hxx" headers requiring CUDA are included in green_tests.cu/green_tests.cxx
@@ -74,7 +73,6 @@
           add_module_test(simple_stats);
           add_module_test(simple_timer);
           add_module_test(inline_math);
-          add_module_test(data_view);
           add_module_test(xml_reading);
           add_module_test(json_reading);
           add_module_test(unit_system);
