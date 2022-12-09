@@ -163,8 +163,9 @@ namespace green_action {
   class action_t { // an action as used in tfQMRgpu
   public:
       typedef floating_point_t real_t;
-      static int constexpr LM = Noco*n64,
-                           LN = LM; // LN is needed to support rectangular blocks in tfQMRgpu
+      static int constexpr LM = Noco*n64, // number of rows per block
+                           LN = LM;    // number of columns per block
+      // action_t::LN is needed to support the rectangular blocks feature in tfQMRgpu
       //
       // This action is an implicit linear operator onto block-sparse structured data.
       // compatible with the core algorithm of the tfqmrgpu-2.0 library.

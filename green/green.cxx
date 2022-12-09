@@ -71,17 +71,19 @@
       std::vector<std::tuple<char const*, double, status_t>> results;
       { // testing scope
 
-#define   add_module_test(MODULE_NAME) {                                            \
-              auto const module_name = #MODULE_NAME;                                \
-              if (all || (input_name == module_name)) {                             \
-                  SimpleTimer timer(module_name, 0, "", 0);                         \
-                  if (echo > 3) std::printf("\n\n\n# ============= Module test"     \
-                     " for %s ==================\n\n", module_name);                \
-                  auto const stat = show ? 0 : MODULE_NAME::all_tests(echo);        \
-                  double const time = timer.stop();                                 \
-                  results.push_back(std::make_tuple(module_name, time, stat));      \
-              }                                                                     \
-          } // add_module_test
+// #define   add_module_test(MODULE_NAME) {                                            \
+//               auto const module_name = #MODULE_NAME;                                \
+//               if (all || (input_name == module_name)) {                             \
+//                   SimpleTimer timer(module_name, 0, "", 0);                         \
+//                   if (echo > 3) std::printf("\n\n\n# ============= Module test"     \
+//                      " for %s ==================\n\n", module_name);                \
+//                   auto const stat = show ? 0 : MODULE_NAME::all_tests(echo);        \
+//                   double const time = timer.stop();                                 \
+//                   results.push_back(std::make_tuple(module_name, time, stat));      \
+//               }                                                                     \
+//           } // add_module_test
+
+#include "add_module_test.h" // macro definition of add_module_test(MODULE_NAME)
 
           if (chapters) std::printf("\n\n\n\n#\n# general modules\n#\n\n\n\n");
           add_module_test(control);

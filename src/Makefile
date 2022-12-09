@@ -102,12 +102,18 @@ EXTFLAGS ?=
 ifeq ($(HOSTNAME),Pauls-MacBook-Pro.local)
 	EXTFLAGS += -D HAS_NO_MKL
 	EXTFLAGS += -D HAS_FFTW
-	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
+	LDFLAGS += -lm
+	LDFLAGS += -lblas
+	LDFLAGS += -llapack
 	LDFLAGS += -lfftw3
 else
-	### works with g++ on zam054 (JSC workstation)
-	LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
- # on JUSUF module load Stages/2022  GCC/11.2.0  OpenMPI/4.1.2 imkl/2021.4.0
+	# on JUSUF module load Stages/2022 GCC/11.2.0 OpenMPI/4.1.2 imkl/2021.4.0
+	LDFLAGS += -lm
+	LDFLAGS += -lmkl_intel_lp64
+	LDFLAGS += -lmkl_intel_thread
+	LDFLAGS += -lmkl_core
+	LDFLAGS += -liomp5
+	LDFLAGS += -lpthread
 endif
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}

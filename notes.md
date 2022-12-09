@@ -101,3 +101,6 @@
     The probably most suitable eigensolver in grid representation is ChASE.
     In the local orbital method, that could be ELPA (?? or MAGMA for GPUs??)
 
+**What is missing**
+    After solving, we need to extract the atomic coefficients of the solution, i.e.
+    we need to project once more to export G|p> and then perform <p|G|p> (on the CPU)

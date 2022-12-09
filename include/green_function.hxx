@@ -366,7 +366,7 @@ namespace green_function {
               ++iac;
           } // atom contributes
       } // ia
-      int const nac = iac; // number of contributing atoms
+      uint32_t const nac = iac; // number of contributing atoms
       p.global_atom_index.resize(nac);
 
       // store the atomic image positions in GPU memory
@@ -400,9 +400,9 @@ namespace green_function {
       p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
       p.AtomStarts[0] = 0; // init prefetch sum
 
-      for (int iac = 0; iac < nac; ++iac) { // parallel
+      for (uint32_t iac = 0; iac < nac; ++iac) { // parallel
           auto const ia = p.global_atom_index[iac];
-          int const nc = sho_tools::nSHO(atom_numax[ia]);
+          uint32_t const nc = sho_tools::nSHO(atom_numax[ia]);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
           p.AtomLmax[iac] = atom_numax[ia];
