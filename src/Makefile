@@ -49,8 +49,8 @@ clean:
 allclean: clean
 	-rm -f ${EXECUTABLE}
 
-CC     ?= gcc
-CXX    ?= g++
+CC     = gcc
+CXX    = g++
 ##MPI
 # CC  = mpicc
 # CXX = mpic++
