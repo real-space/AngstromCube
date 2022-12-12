@@ -17,7 +17,7 @@ namespace green_potential {
 
     template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Potential( // GPU kernel, must be launched with <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
-#ifdef HAS_NO_CUDA
+#ifdef    HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
           real_t        (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
@@ -148,7 +148,7 @@ namespace green_potential {
         , int32_t  const (*const __restrict__ vloc_index) // iloc_of_inzb[nnzb]
         , int16_t  const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
-        , int      const nnzb // number of all blocks to be treated
+        , uint32_t const nnzb // number of all blocks to be treated
         , std::complex<double> const E_param=0 // energy parameter, the real part could be subtracted from Vloc beforehand
         , float    const Vconf=0  // prefactor for the confinement potential
         , float    const rcut2=-1 // cutoff radius^2 for the confinement potential, -1: no confinement
@@ -162,7 +162,7 @@ namespace green_potential {
         } // echo
 
         Potential<real_t,R1C2,Noco>
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
             <<< dim3(64, 7, 1), dim3(Noco*64, Noco, R1C2) >>> ( // 7=any, maybe find a function for a good choice
 #else  // HAS_NO_CUDA
               ( dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
@@ -179,34 +179,47 @@ namespace green_potential {
 #else // NO_UNIT_TESTS
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  inline status_t test_multiply(int const echo=0) {
-      auto psi   = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1, echo, "psi");
-      auto Vpsi  = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1, echo, "Vpsi");
-      auto Vloc  = get_memory<double[64]>(1*Noco*Noco, echo, "Vloc");
-      auto vloc_index = get_memory<int32_t>(1, echo, "vloc_index");    vloc_index[0] = 0;
-      auto shift = get_memory<int16_t[3+1]>(1, echo, "shift");         set(shift[0], 3+1, int16_t(0));
-      auto hGrid = get_memory<double>(3+1, echo, "hGrid");             set(hGrid, 3+1, 1.);
-      int const nnzb = 1;
+  inline status_t test_multiply(
+        double   const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][iloc][4*4*4]
+      , int32_t  const (*const __restrict__ vloc_index) // iloc_of_inzb[nnzb]
+      , int16_t  const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
+      , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
+      , uint32_t const nnzb=1
+      , int const echo=0
+  ) {
+      auto psi   = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "psi");
+      auto Vpsi  = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "Vpsi");
 
-      multiply<real_t,R1C2,Noco>(Vpsi, psi, &Vloc, vloc_index, shift, hGrid, nnzb);
+      if (echo > 5) std::printf("# %s<real_t=%s,R1C2=%d,Noco=%d>(Vpsi=%p, psi=%p, ...)\n",
+            __func__, (8 == sizeof(real_t)) ? "double" : "float", R1C2, Noco, (void*)Vpsi, (void*)psi);
+      multiply<real_t,R1C2,Noco>(Vpsi, psi, Vloc, vloc_index, shift, hxyz, nnzb);
 
-      free_memory(hGrid);
-      free_memory(shift);
-      free_memory(vloc_index);
-      free_memory(Vloc);
       free_memory(Vpsi);
       free_memory(psi);
       return 0;
   } // test_multiply
 
-  inline status_t test_multiply(int const echo=0) {
+  inline status_t test_multiply(int const echo=0, int const Noco=2) {
       status_t stat(0);
-      stat += test_multiply<float ,1,1>(echo);
-      stat += test_multiply<float ,2,1>(echo);
-      stat += test_multiply<float ,2,2>(echo);
-      stat += test_multiply<double,1,1>(echo);
-      stat += test_multiply<double,2,1>(echo);
-      stat += test_multiply<double,2,2>(echo);
+      uint32_t const nnzb = 1;
+      auto Vloc = get_memory<double(*)[64]>(Noco*Noco, echo, "Vloc");
+      for (int mag = 0; mag < Noco*Noco; ++mag) Vloc[mag] = get_memory<double[64]>(1, echo, "Vloc[mag]");
+      auto vloc_index = get_memory<int32_t>(1, echo, "vloc_index");    vloc_index[0] = 0;
+      auto shift = get_memory<int16_t[3+1]>(1, echo, "shift");         set(shift[0], 3+1, int16_t(0));
+      auto hxyz = get_memory<double>(3+1, echo, "hxyz");             set(hxyz, 3+1, 1.);
+
+      stat += test_multiply<float ,1,1>(Vloc, vloc_index, shift, hxyz, nnzb, echo);
+      stat += test_multiply<float ,2,1>(Vloc, vloc_index, shift, hxyz, nnzb, echo);
+      stat += test_multiply<float ,2,2>(Vloc, vloc_index, shift, hxyz, nnzb, echo);
+      stat += test_multiply<double,1,1>(Vloc, vloc_index, shift, hxyz, nnzb, echo);
+      stat += test_multiply<double,2,1>(Vloc, vloc_index, shift, hxyz, nnzb, echo);
+      stat += test_multiply<double,2,2>(Vloc, vloc_index, shift, hxyz, nnzb, echo);
+
+      free_memory(hxyz);
+      free_memory(shift);
+      free_memory(vloc_index);
+      for (int mag = 0; mag < Noco*Noco; ++mag) free_memory(Vloc[mag]);
+      free_memory(Vloc);
       return stat;
   } // test_multiply
 

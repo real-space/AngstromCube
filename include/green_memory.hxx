@@ -1,37 +1,40 @@
 #pragma once
 
-#ifdef HAS_NO_CUDA
+#ifndef HAS_NO_CUDA
+  #include <cuda.h> // dim3, cudaStream_t, __syncthreads, cuda*
+
+  __host__ inline
+  void __cudaSafeCall(cudaError_t err, const char *file, const int line, char const *call) { // Actual check function
+      if (cudaSuccess != err) {
+          std::fprintf(stderr, "[ERROR] CUDA call to %s at %s:%d\n%s\n", call, file, line, cudaGetErrorString(err));
+          exit(0);
+      }
+  } // __cudaSafeCall
+  #define cuCheck(err) __cudaSafeCall((err), __FILE__, __LINE__, #err) // Syntactic sugar to enhance output
+
+#else
+  // replace CUDA specifics
   #define __global__
   #define __restrict__
   #define __device__
   #define __shared__
   #define __unroll__
   #define __host__
-#else
-  #include <cuda.h> // dim3, cudaMallocManaged, cudaFree, cudaSuccess, cudaError, cudaGetErrorString, cudaStream_t, __syncthreads
 
-    __host__ inline
-    void __cudaSafeCall(cudaError err, const char *file, const int line, char const *call) { // Actual check function
-        if (cudaSuccess != err) {
-            std::fprintf(stderr, "[ERROR] CUDA call to %s at %s:%d\n%s\n", call, file, line, cudaGetErrorString(err));
-            exit(0);
-        }
-    } // __cudaSafeCall
-    #define cuCheck(err) __cudaSafeCall((err), __FILE__, __LINE__, #err) // Syntactic sugar to enhance output
-
-#endif // HAS_NO_CUDA
-
-#ifdef HAS_NO_CUDA
   struct dim3 {
       int x, y, z;
       dim3(int xx, int yy=1, int zz=1) : x(xx), y(yy), z(zz) {}
   }; // dim3
 
-  #ifndef HAS_TFQMRGPU
+#ifndef HAS_TFQMRGPU
     inline void __syncthreads(void) {} // dummy
-    typedef int cudaError;
-    inline cudaError cudaDeviceSynchronize(void) { return 0; } // dummy
-  #endif // HAS_TFQMRGPU
+    typedef int cudaError_t;
+    inline cudaError_t cudaDeviceSynchronize(void) { return 0; } // dummy
+#else
+    #define gpuStream_t cudaStream_t
+    #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
+#endif // HAS_TFQMRGPU
+
 #endif // HAS_NO_CUDA
 
 // #define DEBUG

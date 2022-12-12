@@ -1,7 +1,7 @@
 ### JUSUF: :   module --force purge && module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 
 ## Check whether CUDA compiler is available
-ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
+# ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
 #ENABLE_GPU := $() # Use this line to test non-CUDA version on a system with CUDA installed
 
 # For reproducability compile the git key (hash) into the code

@@ -7,13 +7,13 @@
 #ifndef NO_UNIT_TESTS
   #include "simple_timer.hxx" // SimpleTimer
   // the following header files contain CUDA code
-  #include "green_experiments.hxx" // ::all_tests
-  #include "green_potential.hxx" // ::all_tests
-  #include "green_function.hxx" // ::all_tests
-  #include "green_kinetic.hxx" // ::all_tests
-  #include "green_sparse.hxx" // ::all_tests
-  #include "green_dyadic.hxx" // ::all_tests
-  #include "green_action.hxx" // ::all_tests
+  #include "green_sparse.hxx"       // ::all_tests
+  #include "green_kinetic.hxx"      // ::all_tests
+  #include "green_potential.hxx"    // ::all_tests
+  #include "green_dyadic.hxx"       // ::all_tests
+  #include "green_action.hxx"       // ::all_tests
+  #include "green_function.hxx"     // ::all_tests
+  #include "green_experiments.hxx"  // ::all_tests
 #endif // not NO_UNIT_TESTS
 
 #include "green_tests.hxx"
