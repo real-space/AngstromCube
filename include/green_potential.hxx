@@ -174,9 +174,9 @@ namespace green_potential {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename real_t, int R1C2=2, int Noco=1>
   inline status_t test_multiply(
@@ -204,9 +204,9 @@ namespace green_potential {
       uint32_t const nnzb = 1;
       auto Vloc = get_memory<double(*)[64]>(Noco*Noco, echo, "Vloc");
       for (int mag = 0; mag < Noco*Noco; ++mag) Vloc[mag] = get_memory<double[64]>(1, echo, "Vloc[mag]");
-      auto vloc_index = get_memory<int32_t>(1, echo, "vloc_index");    vloc_index[0] = 0;
-      auto shift = get_memory<int16_t[3+1]>(1, echo, "shift");         set(shift[0], 3+1, int16_t(0));
-      auto hxyz = get_memory<double>(3+1, echo, "hxyz");             set(hxyz, 3+1, 1.);
+      auto vloc_index = get_memory<int32_t>(1, echo, "vloc_index"); vloc_index[0] = 0;
+      auto shift = get_memory<int16_t[3+1]>(1, echo, "shift");      set(shift[0], 3+1, int16_t(0));
+      auto hxyz = get_memory<double>(3+1, echo, "hxyz");            set(hxyz, 3+1, 1.);
 
       stat += test_multiply<float ,1,1>(Vloc, vloc_index, shift, hxyz, nnzb, echo);
       stat += test_multiply<float ,2,1>(Vloc, vloc_index, shift, hxyz, nnzb, echo);

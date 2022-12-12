@@ -1,7 +1,7 @@
 #pragma once
 
 #include "status.hxx" // status_t
-
+#include "simple_stats.hxx" // ::Stats<>
 
 namespace green_parallel {
 

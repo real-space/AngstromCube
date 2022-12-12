@@ -231,6 +231,6 @@ namespace pawxml_export {
       return 0; // 0:success
   } // write_to_file
 
-  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+// inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 
 } // namespace pawxml_export

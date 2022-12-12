@@ -16,12 +16,14 @@
   #include "green_experiments.hxx"  // ::all_tests
 #endif // not NO_UNIT_TESTS
 
-#include "green_tests.hxx"
-
 #include <cstdio> // std::printf
 #include <vector> // std::vector
 #include <string> // std::string
 #include <tuple> // std::tuple<...>, ::make_tuple, ::get
+
+#include "green_tests.hxx"
+
+#include "recorded_warnings.hxx" // warn
 
 namespace green_tests {
 
@@ -54,5 +56,10 @@ namespace green_tests {
 #endif // NO_UNIT_TESTS
 
   } // add_tests
+
+  status_t all_tests(int const echo) {
+      warn("Please use green_tests::add_tests to augment tests in main.cxx or green.cxx by CUDA modules", 0);
+      return 0;
+  } // all_tests
 
 } // namespace green_tests

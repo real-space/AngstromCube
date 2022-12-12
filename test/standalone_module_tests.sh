@@ -37,7 +37,9 @@ for module in \
   fourier_poisson \
   solid_harmonics \
   bisection_tools \
+  progress_report \
   green_potential \
+  green_parallel \
   green_function \
   poisson_solver \
   brillouin_zone \
@@ -64,9 +66,11 @@ for module in \
   sigma_config \
   dense_solver \
   json_reading \
+  green_input \
   xml_reading \
   unit_system \
   simple_math \
+  green_tests \
   sho_overlap \
   radial_grid \
   single_atom \
@@ -84,6 +88,6 @@ for module in \
   control \
 ; do
 
-    ./standalone_module_test.sh $module
+  ./standalone_module_test.sh $module
 
 done

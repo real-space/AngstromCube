@@ -8,6 +8,8 @@
 #include <string> // std::string
 #include <tuple> // std::tuple<...>
 
+#include "status.hxx" // status_t
+
 namespace green_tests {
 
   void add_tests(
@@ -17,5 +19,7 @@ namespace green_tests {
       , bool const all //  if (show==true) { add all module names to the result list } else { run all module tests }
       , int const echo // verbosity
   ); // declaration only
+
+  status_t all_tests(int const echo=0);
 
 } // namespace green_tests

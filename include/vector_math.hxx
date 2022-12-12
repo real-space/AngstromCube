@@ -229,6 +229,6 @@ namespace vector_math {
       for (int i=0; i<N; i++) data[i] = v[i];
     }
 
-  }; // class vec<N,T>q
+  }; // class vec<N,T>
 
 } // namespace vector_math

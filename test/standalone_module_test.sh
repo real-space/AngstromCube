@@ -4,7 +4,7 @@
 ### include statements it needs to be compiled standalone.
 ### Linking will require a dependency tree of objects, so we skip that.
 ###
-### This script is called by standalone_module_tests.sh
+### This script is called by standalone_module_tests.sh but can also be called for a single module
 
     module=$1
     echo $module
