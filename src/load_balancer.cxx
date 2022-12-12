@@ -274,9 +274,10 @@ namespace load_balancer {
           xyzw[iall][Z] = iz;
       }}} // ix iy iz
 
-      return plane_balancer(comm_size, comm_rank, nall, xyzw, w8s.data(), w8sum_all, echo
+      auto const load_now = plane_balancer(comm_size, comm_rank, nall, xyzw, w8s.data(), w8sum_all, echo
                                           , rank_center, owner_rank);
       delete[] xyzw;
+      return load_now;
   } // get
 
 #ifdef  NO_UNIT_TESTS
