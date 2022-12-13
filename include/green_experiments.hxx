@@ -11,9 +11,9 @@
 #include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::get_kpoint_path
 #include "simple_stats.hxx" // ::Stats
 
-#ifdef HAS_TFQMRGPU
+#ifdef    HAS_TFQMRGPU
 
-    #ifdef HAS_NO_CUDA
+    #ifdef    HAS_NO_CUDA
         #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
     #else  // HAS_NO_CUDA
@@ -48,7 +48,7 @@ namespace green_experiments {
 
 
       p.gpu_mem = 0;
-#ifdef  HAS_TFQMRGPU
+#ifdef    HAS_TFQMRGPU
       p.echo = echo - 5;
       if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
       tfqmrgpu::solve(action); // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
@@ -58,17 +58,17 @@ namespace green_experiments {
       assert(1 == Noco);
       auto rho = get_memory<double[Noco][Noco][64]>(p.nCols, echo, "rho");
       set(rho[0][0][0], p.nCols*Noco*Noco*64, 0.0);
-#endif
+      int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
+      if (echo > 3) std::printf("# +tfqmrgpu.max.iterations=%d\n", maxiter);
+#endif // HAS_TFQMRGPU
       auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
 
-      int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
       auto const E0     = control::get("green_experiments.bandstructure.energy.offset", 0.0);
       auto const dE     = control::get("green_experiments.bandstructure.energy.spacing", 0.01);
-      int const nE      = control::get("green_experiments.bandstructure.energy.points", 32.);
+      int const nE      = control::get("green_experiments.bandstructure.energy.points", 1.);
       auto const E_imag = control::get("green_experiments.bandstructure.energy.imag", 1e-3); // room temperature
       if (E_imag <= 0) warn("imaginary part of the energy parameter is %.1e Ha", E_imag);
 
-      if (echo > 3) std::printf("# +tfqmrgpu.max.iterations=%d\n", maxiter);
       if (echo > 1) std::printf("# %d E-points in [%g, %g] %s\n", nE, E0*eV, (E0 + (nE - 1)*dE)*eV, _eV);
 
       view2D<double> k_path;
@@ -87,7 +87,7 @@ namespace green_experiments {
           green_function::update_phases(p, k_point, Noco, echo);
 
           double E_resonance{-9};
-#ifdef  HAS_TFQMRGPU
+#ifdef    HAS_TFQMRGPU
           double max_resonance{-9e9};
 #endif // HAS_TFQMRGPU
           for (int iE = 0; iE < nE; ++iE) {
@@ -96,15 +96,19 @@ namespace green_experiments {
 
               green_function::update_energy_parameter(p, E_param, AtomMatrices, Noco, echo);
 
-#ifdef  HAS_TFQMRGPU
-              tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
+#ifdef    HAS_TFQMRGPU
+              if (maxiter >= 0) {
+                  tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
+              } else {
+                  if(echo > 6) std::printf("# skip tfqmrgpu::solve due to maxiter=%d\n", maxiter);
+              }
 
               // the 1st part of the memory buffer constains the result Green function
               auto const Green = (real_t const(*)[R1C2][Noco*64][Noco*64]) memory_buffer;
               // extract the density as imaginary part of the trace of the Green function
               simple_stats::Stats<> rho_stats;
               for (unsigned icol = 0; icol < p.nCols; ++icol) {
-                  auto const inzb = p.subset[icol]; // index of diagonal blocks
+                  auto const inzb = p.subset[icol]; // index of a diagonal block
                   for (int i64 = 0; i64 < 64; ++i64) {
                       rho[icol][0][0][i64] = prefactor * Green[inzb][ImaginaryPart][i64][i64];
                       rho_stats.add(rho[icol][0][0][i64]);
@@ -114,6 +118,8 @@ namespace green_experiments {
               auto const resonance = rho_stats.mean();
               if (echo > 0) std::printf("%.6f %.9f %.1e\n", E_real*eV, resonance, rho_stats.dev());
               if (resonance > max_resonance) { E_resonance = E_real; max_resonance = resonance; }
+
+              auto const pGp = green_dyadic::get_projection_coefficients<real_t,R1C2,Noco>(Green, p.dyadic_plan, p.rowindx, p.rowCubePos, p.colCubePos, echo);
 #else  // HAS_TFQMRGPU
               if (echo > 0) std::printf("# solve for k={%9.6f,%9.6f,%9.6f}, E=(%g, %g) %s\n",
                               k_point[0], k_point[1], k_point[2], E_real*eV, E_imag*eV, _eV);
@@ -138,7 +144,9 @@ namespace green_experiments {
           } // ik
           std::printf("\n");
       } // echo
-#ifndef HAS_TFQMRGPU
+#ifdef    HAS_TFQMRGPU
+      free_memory(rho);
+#else  // HAS_TFQMRGPU
       warn("%s needs tfQMRgpu", __func__);
       return -1;
 #endif // HAS_TFQMRGPU

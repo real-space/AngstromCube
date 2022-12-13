@@ -115,7 +115,8 @@ namespace green_action {
       uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
-      float   (*CubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float, could be int16_t for most applications
+      float   (*rowCubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float, could be int16_t for most applications
+      float   (*colCubePos)[3+1]    = nullptr; // [nCols]      internal coordinates in float, could be int16_t for most applications
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
       double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
       // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
@@ -146,7 +147,8 @@ namespace green_action {
           } // mag
           free_memory(Veff);
           free_memory(veff_index);
-          free_memory(CubePos);
+          free_memory(colCubePos);
+          free_memory(rowCubePos);
           free_memory(grid_spacing_trunc);
           free_memory(grid_spacing);
           free_memory(phase);
@@ -244,7 +246,7 @@ namespace green_action {
 
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,
-                      p->rowindx, colIndex, p->CubePos, nnzb, p->echo);
+                      p->rowindx, colIndex, p->rowCubePos, nnzb, p->echo);
 
           if (p->echo > 4) std::printf("# green_action::multiply %g Gflop\n", nops*1e-9);
 
@@ -271,15 +273,16 @@ namespace green_action {
 
   inline status_t test_construction_and_destruction(int const echo=0) {
       {   plan_t plan;
-          debug_printf("# %s for action_t\n", __func__);
+          if (echo > 4) std::printf("# %s for action_t\n", __func__);
           { action_t<float ,1,1> action(&plan); }
           { action_t<float ,2,1> action(&plan); }
           { action_t<float ,2,2> action(&plan); }
           { action_t<double,1,1> action(&plan); }
           { action_t<double,2,1> action(&plan); }
           { action_t<double,2,2> action(&plan); }
+          if (echo > 5) std::printf("# Hint: to test action_t::multiply, please envoke --test green_function\n");
       } // destruct plan
-      if (echo > 0) {
+      if (echo > 6) {
           std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
           std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
           std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(plan_t));

@@ -171,11 +171,13 @@ namespace brillouin_zone {
         case 'm':             v[1] = 0.5; v[0] = 0.5; return 'M';
         case 'r': v[2] = 0.5; v[1] = 0.5; v[0] = 0.5; return 'R';
         default:
-            char extended_keyword[64];
-            for (int d = 0; d < 3; ++d) {
-                std::snprintf(extended_keyword, 63, "%s.%c", keyword, 'x' + d);
-                v[d] = control::get(extended_keyword, 0.0);
-            } // d
+            { // scope: get keyword.x, keyword.y, keyword.z
+                char extended_keyword[64];
+                for (int d = 0; d < 3; ++d) {
+                    std::snprintf(extended_keyword, 64, "%s.%c", keyword, 'x' + d);
+                    v[d] = control::get(extended_keyword, 0.0);
+                } // d
+            } // scope
       } // switch
       return cin;
   } // get_special_kpoint
@@ -185,10 +187,10 @@ namespace brillouin_zone {
         view2D<double> & path // on exit shape (nk + 1, 4)
       , int const echo=0 // log-level
   ) {
-      double from[3], to[3], dk;
+      double from[3], to[3];
       auto const c_from = get_special_kpoint(from, "hamiltonian.kpath.from", "Gamma");
       auto const c_to   = get_special_kpoint(to,   "hamiltonian.kpath.to",   "X");
-      dk = control::get("hamiltonian.kpath.spacing", 0.01);
+      auto const dk = control::get("hamiltonian.kpath.spacing", 0.01);
       auto const length = std::sqrt(pow2(to[0] - from[0]) + pow2(to[1] - from[1]) + pow2(to[2] - from[2]));
       int const nk = std::ceil(length/std::max(dk, 1e-9));
       int const npath = nk + 1;

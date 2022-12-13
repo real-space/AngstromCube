@@ -13,6 +13,7 @@
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 #include "constants.hxx" // ::sqrtpi
 #include "green_parallel.hxx" // ::rank, ::size, ::dyadic_exchange
+#include "green_projection.hxx" // ::SHOprj
 
 #ifndef NO_UNIT_TESTS
     #include "control.hxx" // ::get
@@ -247,8 +248,8 @@ namespace green_dyadic {
 
                             for (int iy = 0; iy <= lmax; ++iy) { // loop over the 2nd Cartesian SHO quantum number
                                 int const iyx0 = (iy*(2*lmax + 3 - iy)) >> 1;
+                                auto const Hy = H1D[iy][1][y]; // load Hy from shared memory
                                 for (int ix = 0; ix <= lmax - iy; ++ix) { // loop over the 1st Cartesian SHO quantum number
-                                    auto const Hy = H1D[iy][1][y]; // load Hy from shared memory
                                     byx[iyx0 + ix] += ax[ix] * Hy; // FMA: 2 flop * 4**2 * ((L+1)*(L+2))/2
                                 } // ix
                             } // iy
@@ -855,14 +856,15 @@ namespace green_dyadic {
 
       uint32_t* AtomStarts          = nullptr; // [nAtoms + 1]
       int8_t*   AtomLmax            = nullptr; // [nAtoms]
-      double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
+      double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc: number of SHO coefficients of this atom
       uint32_t nAtoms               = 0;
 
+      uint32_t* AtomImageIndex      = nullptr; // [nAtomImages]
       uint32_t* AtomImageStarts     = nullptr; // [nAtomImages + 1]
-      double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages]
+      double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages][4]
       int8_t*   AtomImageLmax       = nullptr; // [nAtomImages]
-      double  (*AtomImagePhase)[4]  = nullptr; // [nAtomImages]
-      int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages]
+      double  (*AtomImagePhase)[4]  = nullptr; // [nAtomImages][4]
+      int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages][4]
       uint32_t nAtomImages          = 0;
 
       double* grid_spacing          = nullptr; // [3+1] hx,hy,hz,rcut/sigma
@@ -890,6 +892,7 @@ namespace green_dyadic {
 #ifdef DEBUG
           std::printf("# destruct %s\n", __func__);
 #endif // DEBUG
+          free_memory(AtomImageIndex);
           free_memory(AtomImageStarts);
           free_memory(AtomStarts);
           if (AtomMatrices) for (uint32_t ia = 0; ia < nAtoms; ++ia) free_memory(AtomMatrices[ia]);
@@ -990,7 +993,7 @@ namespace green_dyadic {
         , float    const (*const __restrict__ CubePos)[3+1] // cube positions +alignment
         , uint32_t const nnzb // number of blocks of the Green function
         , int const echo=0 // log-level
-        , double (*const __restrict__  Cpr_export)[R1C2][Noco*64][Noco*64]=nullptr // optional result, reduced projection coefficients [ncoeffs*nrhs]
+        , double (*const __restrict__  Cpr_export)[R1C2][Noco][Noco*64]=nullptr // optional result, reduced projection coefficients [ncoeffs*nrhs]
     ) {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
         if (p.nAtomImages*p.nrhs < 1) return 0; // empyt GPU kernels may not run
@@ -1003,24 +1006,25 @@ namespace green_dyadic {
         SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.nAtomImages,
                                                 p.sparse_SHOprj, RowIndexCubes, CubePos, p.grid_spacing, p.nrhs, echo);
 
-        auto Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*p.nrhs, echo, "Cad"); // rectangular storage of atoms x right-hand-sides
+        real_t (*Cad)[R1C2][Noco][Noco*64]{nullptr};
 
         size_t const ncoeffs = p.AtomStarts[p.nAtoms];
         if (p.nAtomImages > p.nAtoms) {
-            // we have to distinguish between atoms and their periodic images
+            // we have to distinguish between atoms and their periodic images, this case: more images than atoms
 
-            auto cprj = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "cprj");
+            auto cprj = Cpr_export ? Cpr_export : get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "cprj");
 
             SHOsum_driver<real_t,R1C2,Noco>(cprj, Cpr, p.AtomLmax, p.AtomStarts, p.AtomImageStarts, p.AtomImagePhase,
                                             p.sparse_SHOsum, p.nAtoms, p.nrhs, true, echo); // true:collect
-
-            if (Cpr_export) { set(Cpr_export[0][0][0], ncoeffs*p.nrhs*R1C2*Noco*Noco*64, cprj[0][0][0]); free_memory(cprj); free_memory(Cad); return 0; }
+            if (Cpr_export) { return 0; }
 
             auto cadd = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "cadd");
 
             SHOmul_driver<double,R1C2,Noco>(cadd, cprj, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, p.nrhs, echo);
 
             free_memory(cprj);
+
+            Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*p.nrhs, echo, "Cad"); // rectangular storage of atoms x right-hand-sides
 
             SHOsum_driver<real_t,R1C2,Noco>(cadd, Cad, p.AtomLmax, p.AtomStarts, p.AtomImageStarts, p.AtomImagePhase,
                                             p.sparse_SHOsum, p.nAtoms, p.nrhs, false, echo); // false:broadcast
@@ -1030,22 +1034,51 @@ namespace green_dyadic {
         } else {
             assert(p.nAtomImages == p.nAtoms); // there is at most one relevant image of each atom so we can ignore Bloch phases
             assert(natomcoeffs == ncoeffs);
-            if (Cpr_export) { set(Cpr_export[0][0][0], ncoeffs*p.nrhs*R1C2*Noco*Noco*64, Cpr[0][0][0]); free_memory(Cad); return 0; }
+            if (Cpr_export) { set(Cpr_export[0][0][0], ncoeffs*p.nrhs*R1C2*Noco*Noco*64, Cpr[0][0][0]); return 0; }
+
+            Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*p.nrhs, echo, "Cad"); // rectangular storage of atoms x right-hand-sides
 
             SHOmul_driver<real_t,R1C2,Noco>(Cad, Cpr, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, p.nrhs, echo);
 
         } // more images than atoms
 
-        SHOadd_driver<real_t,R1C2,Noco>(Ppsi, Cad, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, 
-                                                p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.colIndex(),
-                                                RowIndexCubes, ColIndexCubes, CubePos, p.grid_spacing, nnzb, p.nrhs, echo);
+        SHOadd_driver<real_t,R1C2,Noco>(Ppsi, Cad, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts,
+                                        p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.colIndex(),
+                                        RowIndexCubes, ColIndexCubes, CubePos, p.grid_spacing, nnzb, p.nrhs, echo);
         free_memory(Cad);
 
         return p.get_flop_count(R1C2, Noco, echo);
     } // multiply (dyadic operations)
 
 
-    std::vector<double> __host__ sho_normalization(int8_t const lmax, double const sigma=1) {
+    template <typename real_t, int R1C2=2, int Noco=1>
+    std::vector<std::vector<double>> get_projection_coefficients(
+          real_t   const (*const __restrict__ Green)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
+        , dyadic_plan_t const & p
+        , uint32_t const (*const __restrict__ RowIndexCubes) // Green functions rowIndex[nnzb]
+        , float    const (*const __restrict__ rowCubePos)[3+1] // cube positions +alignment of row indices
+        , float    const (*const __restrict__ colCubePos)[3+1] // cube positions +alignment of col indices
+        , int const echo=0 // log-level
+    ) {
+        if (echo > 0) std::printf("# %s\n", __func__);
+        size_t const ncoeffs = p.AtomStarts[p.nAtoms];
+        auto Cpr_export = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "Cpr_export");
+        size_t const natomcoeffs = p.AtomImageStarts[p.nAtomImages];
+        auto Cpr = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*p.nrhs, echo, "Cpr");
+        auto const nflop = multiply<real_t,R1C2,Noco>(nullptr, Cpr, Green, p, RowIndexCubes, nullptr, rowCubePos, 0, echo, Cpr_export);
+        free_memory(Cpr);
+        assert(0 == nflop);
+        if (echo > 3) std::printf("# %s from projected Green function\n", __func__);
+        assert(p.nAtomImages == p.nAtoms && "reduction over Bloch phases not yet implemented!");
+        auto const result = green_projection::SHOprj(Cpr_export, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.AtomImageIndex,
+                                    p.AtomImagePhase, p.nAtomImages, p.AtomLmax, p.nAtoms, colCubePos, p.grid_spacing, p.nrhs, echo);
+        free_memory(Cpr_export);
+        // now what's missing is an MPI_Allreduce onto each atom's matrix
+        return result;
+    } // get_projection_coefficients
+
+
+    inline std::vector<double> __host__ sho_normalization(int8_t const lmax, double const sigma=1) {
         int const n1ho = sho_tools::n1HO(lmax);
         std::vector<double> v1(n1ho, constants::sqrtpi*sigma);
         double fac{1};

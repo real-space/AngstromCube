@@ -74,6 +74,7 @@
 
   // "green_*.hxx" headers requiring CUDA are included in green_tests.cu/green_tests.cxx
   #include "green_tests.hxx" // ::add_tests
+  #include "green_projection.hxx" // ::all_tests
 //   #include "green_experiments.hxx" // ::all_tests
 //   #include "green_potential.hxx" // ::all_tests
 //   #include "green_function.hxx" // ::all_tests
@@ -195,6 +196,7 @@
           add_module_test(grid_operators);
           add_module_test(green_input);
           add_module_test(green_parallel);
+          add_module_test(green_projection);
 //           add_module_test(green_sparse);
 //           add_module_test(green_function);
 //           add_module_test(green_kinetic);

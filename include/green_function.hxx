@@ -193,7 +193,7 @@ namespace green_function {
               for (int d = 0; d < 3; ++d) { // unroll
                   atom_pos[d] = xyzZinso[ia*8 + d] + xyz_shift[d]*cell[d];
               } // d
-              auto const atom_id = int32_t(xyzZinso[ia*8 + 4]); 
+              auto const atom_id = int32_t(xyzZinso[ia*8 + 4]);
               auto const numax =       int(xyzZinso[ia*8 + 5]);
               auto const sigma =           xyzZinso[ia*8 + 6] ;
 //                   if (echo > 5) std::printf("# image of atom #%i at %s %s\n", atom_id, str(atom_pos, Ang), _Ang);
@@ -354,10 +354,11 @@ namespace green_function {
 
       p.AtomImageStarts = get_memory<uint32_t>(nai + 1, echo, "AtomImageStarts");
       set(p.AtomImageStarts, nai + 1, AtomImageStarts.data()); // copy into GPU memory
+      p.AtomImageIndex = get_memory<uint32_t>(nai, echo, "AtomImageIndex");
 
       // get all info for the atomic matrices
       p.global_atom_index.resize(natoms); // translation table
-      std::vector<int32_t>  local_atom_index(natoms, -1); // translation table
+      std::vector<int32_t> local_atom_index(natoms, -1); // translation table
       int iac{0};
       for (int ia = 0; ia < natoms; ++ia) { // serial loop over all atoms
           if (atom_numax[ia] > -1) {
@@ -378,9 +379,10 @@ namespace green_function {
 
       std::vector<std::vector<uint32_t>> SHOsum(nac);
 
-      for (size_t iai = 0; iai < nai; ++iai) {
+      for (size_t iai = 0; iai < nai; ++iai) { // serial
           int const ia = atom_data[iai].ia;
           int const iac = local_atom_index[ia]; assert(0 <= iac); assert(iac < nac);
+          p.AtomImageIndex[iai] = iac;
           set(p.AtomImagePos[iai], 3, atom_data[iai].pos);
           set(p.AtomImageShift[iai], 3, atom_data[iai].shifts); p.AtomImageShift[iai][3] = 0;
           p.AtomImagePos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
@@ -942,8 +944,16 @@ namespace green_function {
           p.veff_index = get_memory<int32_t>(nnzb, echo, "veff_index"); // indirection list for the local potential
           set(p.veff_index, nnzb, -1); // init as non-existing
           p.target_coords = get_memory<int16_t[3+1]>(p.nRows, echo, "target_coords");
-          p.CubePos       = get_memory<float  [3+1]>(p.nRows, echo, "CubePos"); // internal coordinates but in float
+          p.rowCubePos    = get_memory<float  [3+1]>(p.nRows, echo, "rowCubePos"); // internal coordinates but in float
+          p.colCubePos    = get_memory<float  [3+1]>(p.nCols, echo, "colCubePos"); // internal coordinates but in float
           p.target_minus_source = get_memory<int16_t[3+1]>(nnzb, echo, "target_minus_source");
+
+          for (unsigned iCol = 0; iCol < p.nCols; ++iCol) {
+              for (int d = 0; d < 3; ++d) {
+                  p.colCubePos[iCol][d] = global_source_coords(iCol,d) - global_internal_offset[d];
+              } // d
+              p.colCubePos[iCol][3] = 0.f; // not used
+          } // iCol
 
           p.global_target_indices.resize(p.nRows);
           p.subset.resize(p.nCols); // we assume columns of the unit operator as right-hand-sides
@@ -977,10 +987,10 @@ namespace green_function {
                           global_target_coords[d] = idx[d] + min_targets[d];
                           auto const internal_target_coord = global_target_coords[d] - global_internal_offset[d];
                           p.target_coords[iRow][d] = internal_target_coord; assert(internal_target_coord == p.target_coords[iRow][d] && "safe assign");
-                          p.CubePos[iRow][d]       = internal_target_coord; assert(internal_target_coord == p.CubePos[iRow][d]       && "safe assign");
+                          p.rowCubePos[iRow][d]    = internal_target_coord; assert(internal_target_coord == p.rowCubePos[iRow][d]    && "safe assign");
                       } // d
                       p.target_coords[iRow][3] = 0; // not used
-                      p.CubePos[iRow][3] = 0.f; // not used
+                      p.rowCubePos[iRow][3] = 0.f; // not used
 
                       p.global_target_indices[iRow] = global_coordinates::get(global_target_coords); 
                       // global_target_indices are needed to gather the local potential data from other MPI processes
