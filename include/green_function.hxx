@@ -127,7 +127,7 @@ namespace green_function {
       , std::vector<std::vector<double>> const & AtomMatrices
       , std::vector<double> const & xyzZinso
       , uint32_t const nRowsGreen
-      , int const nrhs
+      , uint32_t const nrhs
       , uint32_t const *const rowStartGreen
       , uint16_t const *const colIndexGreen
       , int16_t const (*target_coords)[3+1]
@@ -311,7 +311,7 @@ namespace green_function {
       std::vector<std::vector<uint32_t>> SHOadd(nnzb);
       // planning for the contraction of sparse Green function times sparse SHO projectors
       std::vector<std::vector<std::vector<uint32_t>>> SHOprj(nrhs);
-      for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
+      for (unsigned irhs = 0; irhs < nrhs; ++irhs) {
           SHOprj[irhs].resize(nai);
       } // irhs
 

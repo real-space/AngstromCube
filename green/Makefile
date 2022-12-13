@@ -58,7 +58,7 @@ LDFLAGS  += -lmpi
 
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
-FEAFLAGS += -D NO_UNIT_TESTS
+# FEAFLAGS += -D NO_UNIT_TESTS
 
 ## use the tfQMRgpu library to invert the shifted Hamiltonian
 FEAFLAGS += -D HAS_TFQMRGPU

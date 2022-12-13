@@ -19,7 +19,7 @@
   template <typename T> inline T constexpr pow4(T const x) { return pow2(pow2(x)); }
   template <typename T> inline T constexpr pow8(T const x) { return pow2(pow4(x)); }
 
-  template <typename real_t> inline 
+  template <typename real_t> inline
   real_t intpow(real_t const x, unsigned const nexp) {
       // power function using recursive doubling, only non-negative powers possible
       unsigned n{nexp};

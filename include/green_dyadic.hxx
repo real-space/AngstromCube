@@ -600,8 +600,8 @@ namespace green_dyadic {
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
-          double         (*const __restrict__ aac)[R1C2][Noco][Noco*n64] // result, atom coefficients
-        , real_t         (*const __restrict__ aic)[R1C2][Noco][Noco*n64] // input,  atom image coeffs
+          double         (*const __restrict__ aac)[R1C2][Noco][Noco*n64] // if (collect) result, atom coefficients else input
+        , real_t         (*const __restrict__ aic)[R1C2][Noco][Noco*n64] // if (collect) input,  atom image coeffs else result
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
         , uint32_t const (*const __restrict__ AtomImageStarts) // prefix sum over nSHO(AtomImageLmax[:])
@@ -614,19 +614,19 @@ namespace green_dyadic {
       // or broadcast the atomic addition coefficients to the atom images
     {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
-        int const nrhs   = gridDim.y;
-        assert(1       ==  gridDim.z);
-        assert(Noco*n64== blockDim.x);
-        assert(Noco    == blockDim.y);
-        assert(1       == blockDim.z);
+        auto const nrhs  = gridDim.y;
+        assert(1        ==  gridDim.z);
+        assert(Noco*n64 == blockDim.x);
+        assert(Noco     == blockDim.y);
+        assert(1        == blockDim.z);
 
         float const scale_imaginary = collect ? 1 : -1; // simple complex conjugate
 
 #ifndef HAS_NO_CUDA
-        int const irhs  = blockIdx.y;
-        int const iatom = blockIdx.x;
+        auto const irhs  = blockIdx.y;
+        auto const iatom = blockIdx.x;
 #else  // HAS_NO_CUDA
-        int const natoms = gridDim.x;
+        auto const natoms = gridDim.x;
         for (int irhs = 0; irhs < nrhs; ++irhs)
         for (int iatom = 0; iatom < natoms; ++iatom)
 #endif // HAS_NO_CUDA
@@ -637,8 +637,8 @@ namespace green_dyadic {
         int const nSHO = sho_tools::nSHO(lmax);
 
 #ifndef HAS_NO_CUDA
-        int const spin = threadIdx.y;
-        int const ivec = threadIdx.x;
+        auto const spin = threadIdx.y;
+        auto const ivec = threadIdx.x;
 #else  // HAS_NO_CUDA
         for (int spin = 0; spin < blockDim.y; ++spin)
         for (int ivec = 0; ivec < blockDim.x; ++ivec)
@@ -990,13 +990,14 @@ namespace green_dyadic {
         , float    const (*const __restrict__ CubePos)[3+1] // cube positions +alignment
         , uint32_t const nnzb // number of blocks of the Green function
         , int const echo=0 // log-level
+        , double (*const __restrict__  Cpr_export)[R1C2][Noco*64][Noco*64]=nullptr // optional result, reduced projection coefficients [ncoeffs*nrhs]
     ) {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
         if (p.nAtomImages*p.nrhs < 1) return 0; // empyt GPU kernels may not run
 
         assert(p.AtomImageStarts);
-        auto const natomcoeffs = p.AtomImageStarts[p.nAtomImages];
-        if (echo > 6) std::printf("# %s<%s,R1C2=%d,Noco=%d> nAtoms=%d nAtomImages=%d nrhs=%d ncoeffs=%d\n",
+        size_t const natomcoeffs = p.AtomImageStarts[p.nAtomImages];
+        if (echo > 6) std::printf("# %s<%s,R1C2=%d,Noco=%d> nAtoms=%d nAtomImages=%d nrhs=%d ncoeffs=%ld\n",
                   __func__, real_t_name<real_t>(), R1C2, Noco, p.nAtoms, p.nAtomImages, p.nrhs, natomcoeffs);
 
         SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.nAtomImages,
@@ -1004,7 +1005,7 @@ namespace green_dyadic {
 
         auto Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*p.nrhs, echo, "Cad"); // rectangular storage of atoms x right-hand-sides
 
-        auto const ncoeffs = p.AtomStarts[p.nAtoms];
+        size_t const ncoeffs = p.AtomStarts[p.nAtoms];
         if (p.nAtomImages > p.nAtoms) {
             // we have to distinguish between atoms and their periodic images
 
@@ -1012,6 +1013,8 @@ namespace green_dyadic {
 
             SHOsum_driver<real_t,R1C2,Noco>(cprj, Cpr, p.AtomLmax, p.AtomStarts, p.AtomImageStarts, p.AtomImagePhase,
                                             p.sparse_SHOsum, p.nAtoms, p.nrhs, true, echo); // true:collect
+
+            if (Cpr_export) { set(Cpr_export[0][0][0], ncoeffs*p.nrhs*R1C2*Noco*Noco*64, cprj[0][0][0]); free_memory(cprj); free_memory(Cad); return 0; }
 
             auto cadd = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "cadd");
 
@@ -1025,8 +1028,9 @@ namespace green_dyadic {
             free_memory(cadd);
 
         } else {
-            assert(p.nAtomImages == p.nAtoms); // there is at most one relevant image of each atom so we can ignore phases
+            assert(p.nAtomImages == p.nAtoms); // there is at most one relevant image of each atom so we can ignore Bloch phases
             assert(natomcoeffs == ncoeffs);
+            if (Cpr_export) { set(Cpr_export[0][0][0], ncoeffs*p.nrhs*R1C2*Noco*Noco*64, Cpr[0][0][0]); free_memory(Cad); return 0; }
 
             SHOmul_driver<real_t,R1C2,Noco>(Cad, Cpr, p.AtomMatrices, p.AtomLmax, p.AtomStarts, p.nAtoms, p.nrhs, echo);
 
@@ -1057,7 +1061,7 @@ namespace green_dyadic {
                 for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
                     vec[sho] = v1[ix] * v1[iy] * v1[iz];
                     ++sho;
-        }}}
+        }}} // ix iy iz
         assert(vec.size() == sho);
         return vec;
     } // sho_normalization
@@ -1090,7 +1094,7 @@ namespace green_dyadic {
                   for (int l = 0; l <= Lmax; ++l) {
                       if (echo > 10) std::printf(" %g", H1D[l][i3][i4]);
                       auto const dev = h1D[l][i3][i4] - H1D[l][i3][i4];
-                      if (H1D[l][i3][i4] != 0.0) {
+                      if (0.0 != H1D[l][i3][i4]) {
                           auto const reldev = std::abs(dev/H1D[l][i3][i4]);
                           maxdev = std::max(maxdev, reldev);
                       }
@@ -1105,7 +1109,7 @@ namespace green_dyadic {
 
 
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t multiply(
+    size_t multiply( // without atomic images
           real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result,  modified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
         , real_t         (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // projection coefficients     [natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
@@ -1133,7 +1137,7 @@ namespace green_dyadic {
         SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
 
         // ToDo: in the future, nAtomImages and natoms can be different. Then, we need an extra step of accumulating the projection coefficients
-        //       with the corresponding phases and, after SHOmul, distributing the addition coefficients to the images with the inverse phases.        
+        //       with the corresponding phases and, after SHOmul, distributing the addition coefficients to the images with the inverse phases.
 
         auto Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(natomcoeffs*nrhs, echo, "Cad"); // rectangular storage of atoms x right-hand-sides
 

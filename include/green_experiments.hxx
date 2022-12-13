@@ -130,8 +130,8 @@ namespace green_experiments {
               std::printf("%g %g", k_point[3], bandstructure[ik]*eV);
               for (int lat = -2; lat <= 2; ++lat) {
                   auto const E_free_electron = 0.5*(pow2((k_point[0] + lat)*reci[0]) 
-                                                  + pow2(k_point[1]*reci[1])
-                                                  + pow2(k_point[2]*reci[2]));
+                                                  + pow2( k_point[1]       *reci[1])
+                                                  + pow2( k_point[2]       *reci[2]));
                   std::printf(" %g", E_free_electron*eV);
               } // lat
               std::printf("\n");
