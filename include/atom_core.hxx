@@ -53,8 +53,9 @@ namespace atom_core {
         char *filename // result
       , char const *basename // filename before the dot
       , float const Z // number of protons
+      , size_t const nchars=128
   ) {
-      std::sprintf(filename, "%s.%03g", basename, Z);
+      std::snprintf(filename, nchars, "%s.%03g", basename, Z);
   } // get_Zeff_file_name
 
   void rad_pot(

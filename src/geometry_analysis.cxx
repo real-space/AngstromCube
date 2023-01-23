@@ -1,4 +1,4 @@
-#include <cstdio> // std::printf
+#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
@@ -313,8 +313,8 @@ namespace geometry_analysis {
 
       std::sort(values, values + na);
 
-      char fmtn[16]; 
-      int const nfc = std::sprintf(fmtn, "%s%c%%d", fmt1, mult_char);
+      char fmtn[16];
+      int const nfc = std::snprintf(fmtn, 16, "%s%c%%d", fmt1, mult_char);
       assert(nfc < 16);
 
       std::vector<int_t> ivalues(na);
@@ -337,8 +337,8 @@ namespace geometry_analysis {
           if (count > 0) {
               if (no_length_check || ((string + MaxEntryLen) < (string_start + MaxBufferLen))) {
                   // write into the string
-                  int const nchars = (count < 2) ? std::sprintf(string, fmt1, value)
-                                                 : std::sprintf(string, fmtn, value, count);
+                  int const nchars = (count < 2) ? std::snprintf(string, MaxEntryLen, fmt1, value)
+                                                 : std::snprintf(string, MaxEntryLen, fmtn, value, count);
                   assert( nchars <= MaxEntryLen );
                   nbytes += nchars;
                   string += nchars;
@@ -389,7 +389,7 @@ namespace geometry_analysis {
       if (nullptr != string) string[0] = '\0';
       if (nb < 1) return;
       view2D<real_t const> const bv(bond_vectors, 4); // wrap
-//    if (nullptr != string) string += std::sprintf(string, " coordination=%d", nb);
+//    if (nullptr != string) string += std::snprintf(string, 16, " coordination=%d", nb);
 //       real_t max_len2{0}, min_len2{9e37};
 
       std::vector<real_t> bond_length(nb);
@@ -404,7 +404,7 @@ namespace geometry_analysis {
       } // scope
 
       // show the minimum and maximum bond length
-//    if (nullptr != string) string += std::sprintf(string, " [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
+//    if (nullptr != string) string += std::snprintf(string, 64, " [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
 
       int const na = (nb*(nb - 1))/2; // number of bond angles
       std::vector<real_t> bond_angle(na);
@@ -426,7 +426,7 @@ namespace geometry_analysis {
       real_t constexpr Deg = 180/constants::pi; // Degrees
       if (nullptr != string) {
           string += print_summary(string, bond_length.data(), nb, Ang/.01, .01, '_', " %.2f"); // bin width 0.01 Ang
-          string += std::sprintf(string, " | "); // some separator
+          string += std::snprintf(string, 8, " | "); // some separator
           string += print_summary(string, bond_angle.data(), na, Deg/2., 2., '_'); // bin width 2 degrees
       } // string
 

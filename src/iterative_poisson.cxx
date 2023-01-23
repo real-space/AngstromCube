@@ -1,4 +1,4 @@
-#include <cstdio> // std::printf
+#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <algorithm> // std::swap<T>
@@ -98,7 +98,7 @@ namespace iterative_poisson {
       auto const lev = multi_grid_level_number(g);
       auto lab{label};
       for (int l = 0; l < 2*lev; ++l) *(lab++) = ' '; // indent two spaces per level to indicate the V-cyle visually in the log-output
-      std::sprintf(lab, "level=%i", lev);
+      std::snprintf(lab, 16, "level=%i", lev);
   } // multi_grid_level_label
 
   template <typename real_t>

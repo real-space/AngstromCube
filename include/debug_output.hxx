@@ -67,7 +67,7 @@ namespace debug_output {
       , int const echo=0 // log-level
       , char const *arrayname="" // some description to appear in the file
   ) {
-      char title[128]; std::sprintf(title, "%i x %i x %i  %s", nz, ny, nx, arrayname);
+      char title[128]; std::snprintf(title, 128, "%i x %i x %i  %s", nz, ny, nx, arrayname);
       auto const size = size_t(nz) * size_t(ny) * size_t(nx);
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
   } // write_array_to_file

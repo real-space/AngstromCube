@@ -1,10 +1,10 @@
 #include <cstdint> // uint64_t
 #include <string> // std::string
 #include <cstring> // std::strrchr
-#include <cstdio> // std::printf, std::sprintf
+#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <map> // std::map
-#include <utility> // std::pair<T1, T2>, std::make_pair
+#include <utility> // std::pair<T1, T2>, ::make_pair
 
 #include "recorded_warnings.hxx" // MaxMessageLength
 
@@ -39,7 +39,7 @@ namespace recorded_warnings {
   public:
 
       WarningRecord(char const *file, int const line, char const *func=nullptr)
-        : message_(new char[MaxMessageLength + 1]) // this memory is never released again
+        : message_(new char[MaxMessageLength]) // this memory is never released again
         , hash_(combined_hash(file, line))
         , source_file_name_(file)
         , function_name_(func)
@@ -177,9 +177,9 @@ namespace recorded_warnings {
       if (echo > 1) std::printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
       WarningRecord wr(__FILE__,__LINE__,__func__);
       auto const msg = wr.get_message();
-      auto const nchars = std::sprintf(msg, "This is a non-recorded warning"
-                                      " from %s:%d", __FILE__, __LINE__);
-      return (nchars > MaxMessageLength);
+      auto const nchars = std::snprintf(msg, MaxMessageLength, 
+            "This is a non-recorded warning from %s:%d", __FILE__, __LINE__);
+      return (nchars >= MaxMessageLength);
   } // test_create_and_destroy
 
   status_t test_preprocessor_macro(int const echo=9) {

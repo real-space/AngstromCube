@@ -54,9 +54,9 @@ namespace parallel_domains {
               for (int i = 0; i < 3; ++i) {
                   gxp[i] = gs[i] * ps[i];
                   if (gxp[i] > 0) {
-                      std::sprintf(dec_str[i], "%dx%d", gs[i], ps[i]);
+                      std::snprintf(dec_str[i], 16, "%dx%d", gs[i], ps[i]);
                   } else {
-                      std::sprintf(dec_str[i], "0");
+                      std::snprintf(dec_str[i], 16, "0");
                   } // nonzero
               } // section i {lower, middle, upper}
               if (echo > 7) std::printf("# parallelize %d grid points as %s + %s + %s with %d process elements (BC=%s)\n", 

@@ -100,13 +100,13 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-ifeq ($(HOSTNAME),Pauls-MacBook-Pro.local)
+ifeq ($(HOSTNAME),MacBook-Pro.local)
 	EXTFLAGS += -D HAS_NO_MKL
-	EXTFLAGS += -D HAS_FFTW
+#	EXTFLAGS += -D HAS_FFTW
 	LDFLAGS += -lm
 	LDFLAGS += -lblas
 	LDFLAGS += -llapack
-	LDFLAGS += -lfftw3
+#	LDFLAGS += -lfftw3
 else
 	# on JUSUF:   module --force purge && module load Stages/2022 GCC/11.2.0 OpenMPI/4.1.2 imkl/2021.4.0
 	LDFLAGS += -lm
