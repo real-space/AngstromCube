@@ -33,6 +33,7 @@
     #else  // HAS_NO_CUDA
         #include <cuda.h>
     #endif // HAS_NO_CUDA
+    #include "tfQMRgpu/include/tfqmrgpu.h" // ...
     #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
 #endif // HAS_TFQMRGPU
