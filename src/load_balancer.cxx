@@ -28,6 +28,11 @@
 #include "print_tools.hxx" // printf_vector
 #include "control.hxx" // ::get
 
+#ifdef    HAS_BITMAP_EXPORT
+  #include "bitmap.hxx" // ::write_bmp_file
+#endif // HAS_BITMAP_EXPORT
+
+
 namespace load_balancer {
 
   int constexpr X=0, Y=1, Z=2, W=3;
@@ -368,9 +373,9 @@ namespace load_balancer {
               } // load
           } // irank
           auto const maxdist = std::sqrt(maxdist2), mindist = std::sqrt(mindist2);
-          if (echo > 1) std::printf("# shortest distance between centers is %g between rank#%i and #%i, longest is %g\n", 
+          if (echo > 1) std::printf("# shortest distance between centers is %g between rank#%i and #%i, longest is %g\n",
                                         mindist, ijmin[0], ijmin[1], maxdist);
-          if (echo > 9) std::printf("# longest distance between centers is %g between rank#%i and #%i, shortest is %g\n", 
+          if (echo > 9) std::printf("# longest distance between centers is %g between rank#%i and #%i, shortest is %g\n",
                                         maxdist, ijmax[0], ijmax[1], mindist);
           double const wbin = control::get("load_balancer.bin.width", 0.25), invbin = 1./wbin;
           int const nbin = int(maxdist/wbin) + 1;
@@ -411,7 +416,7 @@ namespace load_balancer {
           int strange{0};
           for (int iz = 0; iz < n[Z]; ++iz) {
             for (int iy = 0; iy < n[Y]; ++iy) {
-              for(int ix = 0; ix < n[X]; ++ix) {
+              for (int ix = 0; ix < n[X]; ++ix) {
                   auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
                   auto const owner = owner_rank[iall];
                   strange += (no_owner == owner); // under-assignement
@@ -441,6 +446,36 @@ namespace load_balancer {
           // ToDo: to export the Voronoi diagrams, we need to access the plane normals
           //       and plane parameters at which the plane separates the two processes
           //
+#ifdef    HAS_BITMAP_EXPORT
+          // create a bitmap file
+          int const n3 = std::ceil(std::cbrt(nprocs));
+          std::vector<uint8_t> bmp_color(n3*n3*n3*4, 0);
+          { // scope: generate nprocs distinct colors
+            int iproc{0};
+            for (int cz = 0; cz < n3; ++cz) {
+                for (int cy = 0; cy < n3; ++cy) {
+                    for (int cx = 0; cx < n3; ++cx) {
+                        bmp_color[iproc*4    ] = (255*cz)/n3;
+                        bmp_color[iproc*4 + 1] = (255*cy)/n3;
+                        bmp_color[iproc*4 + 2] = (255*cx)/n3;
+                        ++iproc;
+            }}} // cx cy cz
+            assert(iproc >= nprocs && "We need enough distinct colors");
+          } // scope
+          // color the owned region
+          std::vector<uint8_t> bmp_data(n[Y]*n[X]*4, 0);
+          for (int iy = 0; iy < n[Y]; ++iy) {
+              for(int ix = 0; ix < n[X]; ++ix) {
+                  auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
+                  auto const owner = owner_rank[iall];
+                  for (int rgb = 0; rgb < 3; ++rgb) {
+                      bmp_data[iall*4 + rgb] = bmp_color[owner*4 + rgb];
+                  } // rgb
+              } // ix
+          } // iy
+          char filename[64]; std::snprintf(filename, 64, "load_balancer-n%d-%dx%d", nprocs, n[X], n[Y]);
+          stat += bitmap::write_bmp_file(filename, bmp_data.data(), n[Y], n[X], -1, 1.f);
+#endif // HAS_BITMAP_EXPORT
       } // visualize
 
       return stat;
@@ -515,7 +550,7 @@ namespace load_balancer {
                           int(control::get("load_balancer.test.ny", 19.)),
                           int(control::get("load_balancer.test.nz", 23.))};
       auto const nprocs = int(control::get("load_balancer.test.nprocs", 53.));
-      if (echo > 0) std::printf("\n\n# %s start %d x %d x %d = %d with %d MPI processes\n", 
+      if (echo > 0) std::printf("\n\n# %s start %d x %d x %d = %d with %d MPI processes\n",
                       __func__, nxyz[X], nxyz[Y], nxyz[Z], nxyz[X]*nxyz[Y]*nxyz[Z], nprocs);
 
       stat += test_plane_balancer(nprocs, nxyz, echo);
@@ -526,4 +561,3 @@ namespace load_balancer {
 #endif // NO_UNIT_TESTS
 
 } // namespace load_balancer
-
