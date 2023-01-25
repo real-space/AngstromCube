@@ -6,7 +6,10 @@
   __host__ inline
   void __cudaSafeCall(cudaError_t err, const char *file, const int line, char const *call) { // Actual check function
       if (cudaSuccess != err) {
+          std::fprintf(stdout, "[ERROR] CUDA call to %s at %s:%d\n%s\n", call, file, line, cudaGetErrorString(err));
+          std::fflush(stdout);
           std::fprintf(stderr, "[ERROR] CUDA call to %s at %s:%d\n%s\n", call, file, line, cudaGetErrorString(err));
+          std::fflush(stderr);
           exit(0);
       }
   } // __cudaSafeCall
@@ -42,7 +45,7 @@
   template <typename T>
   T* get_memory(size_t const size=1, int const echo=0, char const *const name="") {
 
-#ifdef DEBUG
+#ifdef    DEBUG
       if (echo > 0) {
           size_t const total = size*sizeof(T);
           std::printf("# managed memory: %lu x %.3f kByte = \t", size, sizeof(T)*1e-3);
@@ -59,9 +62,9 @@
       ptr = new T[size];
 #endif // HAS_NO_CUDA
 
-#ifdef DEBUG
+// #ifdef    DEBUG
       std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)ptr);
-#endif // DEBUG
+// #endif // DEBUG
 
       return ptr;
   } // get_memory
@@ -71,9 +74,9 @@
   void _free_memory(T* & ptr, char const *const name="") {
 //    std::printf("# free_memory %s at %p\n", name, (void*)ptr);
       if (nullptr != ptr) {
-#ifdef DEBUG
+// #ifdef    DEBUG
           std::printf("# free_memory %s at %p\n", name, (void*)ptr);
-#endif // DEBUG
+// #endif // DEBUG
 
 #ifndef HAS_NO_CUDA
           cuCheck(cudaFree((void*)ptr));

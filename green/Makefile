@@ -1,7 +1,7 @@
 ### JUSUF: :   module --force purge && module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 
 ## Check whether CUDA compiler is available
-# ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
+ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
 #ENABLE_GPU := $() # Use this line to test non-CUDA version on a system with CUDA installed
 
 # For reproducability compile the git key (hash) into the code
@@ -53,15 +53,15 @@ CXXOPTFLAGS ?=
 
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
-# FEAFLAGS += -D HAS_NO_MPI
+# FEAFLAGS += -DHAS_NO_MPI
 LDFLAGS  += -lmpi
 
-FEAFLAGS += -D HAS_RAPIDXML
-FEAFLAGS += -D HAS_RAPIDJSON
-# FEAFLAGS += -D NO_UNIT_TESTS
+FEAFLAGS += -DHAS_RAPIDXML
+FEAFLAGS += -DHAS_RAPIDJSON
+# FEAFLAGS += -DNO_UNIT_TESTS
 
 ## use the tfQMRgpu library to invert the shifted Hamiltonian
-FEAFLAGS += -D HAS_TFQMRGPU
+FEAFLAGS += -DHAS_TFQMRGPU
 INC += -I../../tfQMRgpu
 
 ERRFLAGS =
@@ -70,11 +70,11 @@ ERRFLAGS += -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
 ## for production: eliminate the unit tests
-# FEAFLAGS += -D NO_UNIT_TESTS
+# FEAFLAGS += -DNO_UNIT_TESTS
 
 ## include also code which is not meant for release,
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
-FEAFLAGS += -D DEVEL
+FEAFLAGS += -DDEVEL
 
 
 # normal mode
@@ -94,9 +94,9 @@ LDFLAGS += ## -lmkl_intel_thread
 
 CUOPTFLAGS =
 #### production mode
-CUOPTFLAGS += -O3 --use_fast_math
+# CUOPTFLAGS += -O3 --use_fast_math
 #### debug mode
-# CUOPTFLAGS += -g -O0 -G
+CUOPTFLAGS += -g -O0 -G -lineinfo
 # CUOPTFLAGS += -DDEBUGGPU
 
 ## verbose GPU assembler
@@ -109,9 +109,9 @@ ifdef ENABLE_GPU
 	INC += -I/usr/local/cuda/include
 	FEAFLAGS += -DUSE_NVTX
 	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt -lcurand  #-rdynamic
-#	FEAFLAGS += -D HAS_NO_CUDA
+#	FEAFLAGS += -DHAS_NO_CUDA
 else
-	FEAFLAGS += -D HAS_NO_CUDA
+	FEAFLAGS += -DHAS_NO_CUDA
 endif
 
 EXTFLAGS ?=
