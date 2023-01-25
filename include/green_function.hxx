@@ -272,7 +272,7 @@ namespace green_function {
                   atom.gid = atom_id;
                   atom.ia = ia; // local atom index
                   set(atom.shifts, 3, xyz_shift);
-                  atom.nc = nc; 
+                  atom.nc = nc;
                   atom.numax = numax;
 
 //                    if (echo > 5) std::printf("# image of atom #%i at %s %s contributes to %d target blocks\n", atom_id, str(atom_pos, Ang), _Ang, ntb);
@@ -372,7 +372,7 @@ namespace green_function {
       p.global_atom_index.resize(nac);
 
       // store the atomic image positions in GPU memory
-      p.AtomImageLmax  = get_memory<int8_t>(nai, echo, "AtomImageLmax"); 
+      p.AtomImageLmax  = get_memory<int8_t>(nai, echo, "AtomImageLmax");
       p.AtomImagePos   = get_memory<double[3+1]>(nai, echo, "AtomImagePos");
       p.AtomImagePhase = get_memory<double[4]>(nai, echo, "AtomImagePhase");
       p.AtomImageShift = get_memory<int8_t[4]>(nai, echo, "AtomImageShift");
@@ -399,7 +399,7 @@ namespace green_function {
 
       // get memory for the matrices and fill
       p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
-      p.AtomLmax     = get_memory<int8_t>(nai, echo, "AtomLmax"); 
+      p.AtomLmax     = get_memory<int8_t>(nai, echo, "AtomLmax");
       p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
       p.AtomStarts[0] = 0; // init prefetch sum
 
@@ -821,7 +821,7 @@ namespace green_function {
                           for (int ix = -3; ix <= 3; ix += 3 + 3*far) { auto const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
 #if 0
                               if (0 == irhs && (d2xyz < r2trunc) && echo > 17) {
-                                  std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
+                                  std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n",
                                       __func__, bx,by,bz, ix,iy,iz, d2xyz, (d2xyz < r2trunc)?"in":"out");
                               }
 #endif // 0
@@ -869,7 +869,7 @@ namespace green_function {
               assert((0 == hit_multiple) || (hit_multiple > 0 && is_periodic[ANY]));
               assert(hit_single <= product_target_blocks);
               if (echo > 7) {
-                  std::printf("# RHS#%i at %s reaches from (%g, %g, %g) to (%g, %g, %g)\n", 
+                  std::printf("# RHS#%i at %s reaches from (%g, %g, %g) to (%g, %g, %g)\n",
                                 irhs, str(global_source_coords[irhs]),
                                 stats[X].min(), stats[Y].min(), stats[Z].min(),
                                 stats[X].max(), stats[Y].max(), stats[Z].max());
@@ -902,7 +902,7 @@ namespace green_function {
               char const inout_class[][8] = {"inside", "partial", "outside",  "checked"};
               for (int i = 0; i < 4; ++i) {
                   std::printf("# RHSs have [%7g,%9.1f +/-%5.1f, %7g] blocks %s\n",
-                      inout[i].min(), inout[i].mean(), inout[i].dev(), inout[i].max(), inout_class[i]); 
+                      inout[i].min(), inout[i].mean(), inout[i].dev(), inout[i].max(), inout_class[i]);
               } // i
           } // echo
 
@@ -930,7 +930,7 @@ namespace green_function {
           p.nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
           if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
                                "average %.1f per source block\n", nnzb*.001, nnzb/std::max(nrhs*1., 1.));
-          if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n", 
+          if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n",
               p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001);
 
           assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
@@ -993,7 +993,7 @@ namespace green_function {
                       p.target_coords[iRow][3] = 0; // not used
                       p.rowCubePos[iRow][3] = 0.f; // not used
 
-                      p.global_target_indices[iRow] = global_coordinates::get(global_target_coords); 
+                      p.global_target_indices[iRow] = global_coordinates::get(global_target_coords);
                       // global_target_indices are needed to gather the local potential data from other MPI processes
 
                       { // scope: determine the diagonal entry (source == target)
@@ -1161,7 +1161,7 @@ namespace green_function {
                   auto const izyx = (iz*ng[Y] + iy)*ng[X] + ix; // global grid point index
                   assert(izyx < n_all_grid_points);
                   auto const i64 = (i4z*4 + i4y)*4 + i4x;
-                  if (Noco > 1) {
+                  if (2 == Noco) {
                       Vinp[rhs*4 + 3][i64] = 0.0;  // set clear V_y
                       Vinp[rhs*4 + 2][i64] = 0.0;  // set clear V_x
                       Vinp[rhs*4 + 1][i64] = Veff[izyx]; // set V_upup
@@ -1174,10 +1174,17 @@ namespace green_function {
               p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
           } // mag
 
-          green_parallel::potential_exchange(p.Veff, p.global_target_indices, // requests
-                                      Vinp, p.global_source_indices, // offerings
-                                      owner_rank.data(),
-                                      n_blocks, Noco, true, echo);
+          if (control::get("green_function.potential.exchange", 1.) == 1.) {
+              green_parallel::potential_exchange(p.Veff, p.global_target_indices, // requests
+                                        Vinp, p.global_source_indices, // offerings
+                                        owner_rank.data(),
+                                        n_blocks, Noco, true, echo);
+          } else {
+              if (echo > 0) std::printf("# skip green_function.potential.exchange");
+              for (int mag = 0; mag < Noco*Noco; ++mag) {
+                  set(p.Veff[mag][0], p.nRows*64, 0.0);
+              } // mag
+          }
 
           delete[] Vinp;
       } // scope
@@ -1208,12 +1215,13 @@ namespace green_function {
 
   template <typename real_t, int R1C2=2, int Noco=1>
   void test_action(green_action::plan_t & p, int const iterations=1, int const echo=9) {
-      if (iterations >= 0) { // scope: try to apply the operator
-          if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
-          green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
+      if (0 == iterations) return;
+      if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+      green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
-          uint32_t const nnzbX = p.colindx.size();
-#ifdef  HAS_TFQMRGPU
+      uint32_t const nnzbX = p.colindx.size();
+#ifdef    HAS_TFQMRGPU
+      if (iterations > 0) {
           if (nnzbX < 1) {
               if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
               return;
@@ -1242,8 +1250,10 @@ namespace green_function {
           if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
           free_memory(memory_buffer);
           return;
+      } // iterations > 0
 #endif // HAS_TFQMRGPU
 
+          int const niterations = std::abs(iterations);
           int constexpr LM = Noco*64;
           auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
           auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
@@ -1254,20 +1264,28 @@ namespace green_function {
           auto colIndex = get_memory<uint16_t>(nnzbX, echo, "colIndex");
           set(colIndex, nnzbX, p.colindx.data()); // copy into GPU memory
 
-          // benchmark the action
-          for (int iteration = 0; iteration < iterations; ++iteration) {
-              SimpleTimer timer(__FILE__, __LINE__);
-              if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
+          { // scope: benchmark the action
+              simple_stats::Stats<> timings;
+              double nflops{0};
+              SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+              for (int iteration = 0; iteration < niterations; ++iteration) {
+                  if (echo > 5) { std::printf("# iteration #%i of %d\n", iteration, niterations); std::fflush(stdout); }
 
-              action.multiply(y, x, colIndex, nnzbX, p.nCols);
+                  nflops += action.multiply(y, x, colIndex, nnzbX, p.nCols);
 
-              std::swap(x, y);
-          } // iteration
+                  std::swap(x, y);
+                  timings.add(timer.stop());
+              } // iteration
+              if (echo > 1) std::printf("#\n# running action.multiply for %d iterations needed [%g, %g +/- %g, %g] seconds\n",
+                                              niterations, timings.min(), timings.mean(), timings.dev(), timings.max());
+              char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
+              if (echo > 1) std::printf("# action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
+                                            nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF);
+          } // scope
 
           free_memory(colIndex);
           free_memory(y);
           free_memory(x);
-      } // iterations >= 0
   } // test_action
 
 
@@ -1297,9 +1315,7 @@ namespace green_function {
 
       int const iterations = control::get("green_function.benchmark.iterations", 1.);
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
-      if (iterations < 0) {
-          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", iterations);
-      } else { // iterations < 0
+      if (iterations) {
           // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
           int const action = control::get("green_function.benchmark.action", 412.);
           switch (action) {
@@ -1318,7 +1334,9 @@ namespace green_function {
               default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", action);
                        ++stat;
           } // switch action
-      } // iterations < 0
+      } else { // iterations
+          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", iterations);
+      } // iterations
 
       if (!already_initialized) green_parallel::finalize();
       return stat;

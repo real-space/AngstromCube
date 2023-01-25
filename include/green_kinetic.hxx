@@ -66,7 +66,7 @@ namespace green_kinetic {
       )
         // Preparation of Finite-Difference index lists
         // 2D example: non-zero index -1 means non-existent
-        // 
+        //
         //                            --> x-direction
         //        0  1  2  3  4
         //     5  6  7  8  9 10 11        |
@@ -96,7 +96,7 @@ namespace green_kinetic {
         //
         // Preparation of Finite-Difference index lists
         // 2D example with a periodic x-direction
-        // 
+        //
         //                            --> x-direction
         //        0  1  2  3  4
         //        5  6  7  8  9
@@ -109,7 +109,7 @@ namespace green_kinetic {
           int constexpr X=0, Y=1, Z=2;
           // prepare the finite-difference sequence lists
           char const direction = 'x' + dd;
-          assert(X == dd || Y == dd || Z == dd); 
+          assert(X == dd || Y == dd || Z == dd);
           assert(num_target_coords[X] > 0); assert(num_target_coords[Y] > 0); assert(num_target_coords[Z] > 0);
           int num[3];
           set(num, 3, num_target_coords);
@@ -123,9 +123,9 @@ namespace green_kinetic {
           for (unsigned irhs = 0; irhs < nrhs; ++irhs) {
 //                if (echo > 0) std::printf("# FD list for RHS #%i\n", irhs);
               auto const & sparsity_rhs = sparsity_pattern[irhs];
-              for (uint32_t iz = 0; iz < num[Z]; ++iz) { //  
+              for (uint32_t iz = 0; iz < num[Z]; ++iz) { //
               for (uint32_t iy = 0; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
-              for (uint32_t ix = 0; ix < num[X]; ++ix) { // 
+              for (uint32_t ix = 0; ix < num[X]; ++ix) { //
                   uint32_t idx[3] = {ix, iy, iz}; // non-const
                   assert(ilist < max_lists);
                   assert(0 == list[ilist].size()); // make sure the list is empty at start
@@ -234,7 +234,7 @@ namespace green_kinetic {
                       c4 =         -9*norm; //-> NStep = 4
         // the NStep=4 8th order stencil has a ratio of c0/c4 = 2^10.64 so half precision (11 significant bits) is the limit
 
-        // the following list gives the indices of blocks that belong to the same right hand side 
+        // the following list gives the indices of blocks that belong to the same right hand side
         // and are neighbors in the direction of derivation
 
         assert(16 == gridDim.y);
@@ -311,7 +311,7 @@ namespace green_kinetic {
         // main loop
         assert(5 == ilist);
         while (ii >= 0) {
-            int const i0 = ii; // set central index 
+            int const i0 = ii; // set central index
             ii = list[ilist++] - 1; // get next index
 //          if (0 == threadIdx.x && 0 == blockIdx.x) std::printf("# loop: ii= %d ilist= %i\n", ii, ilist);
             bool const load = (ii >= 0);
@@ -395,6 +395,7 @@ namespace green_kinetic {
         , double const phase[2][2]=nullptr // WARNING this routine cannot treat periodic boundary conditions
     ) {
         // prepare finite-difference coefficients
+        //            c_0        c_1         c_2       c_3        c_4      c_5       c_6     c_7     c_8
         // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
         double const norm = prefactor/302702400.;
         real_t const  c0 = -924708642*norm,
@@ -422,7 +423,7 @@ namespace green_kinetic {
 
         auto const *const list = index_list[blockIdx.x]; // abbreviate pointer
 
-        int const i16 = blockIdx.y;
+        int const i16 = blockIdx.y; // in [0, 16)
         int const i64 = (16==Stride)? i16 : ( (4==Stride)? (16*(i16 >> 2) + (i16 & 0x3)) : (4*i16) );
 
 #ifdef HAS_NO_CUDA
@@ -520,7 +521,7 @@ namespace green_kinetic {
 
 
 
-    template <typename real_t, int R1C2=2, int Noco=1> 
+    template <typename real_t, int R1C2=2, int Noco=1>
     int Laplace_driver(
           real_t        (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // intent(inout)
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // intent(in)

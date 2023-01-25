@@ -140,7 +140,7 @@ namespace green_input {
                   } // h0s1
                   ++ia; // count up the number of atoms
               } // atom
-              assert(natoms == ia); // sanity
+              assert(natoms == ia && "Inconsistency in file"); // sanity
           } else warn("no <sho_atoms> found in grid_Hamiltonian in file \"%s\"", filename);
 
           auto const spacing = xml_reading::find_child(grid_Hamiltonian, "spacing", echo);
@@ -164,6 +164,8 @@ namespace green_input {
           } // d
 
           auto const potential = xml_reading::find_child(grid_Hamiltonian, "potential", echo);
+          // if (echo > 0) std::printf("# potential pointer %p\n", (void*)potential);
+          // ToDo: debug: segfaults on Mac M1 if not about 650 chars are inside the content of potential
           if (potential) {
               for (int d = 0; d < 3; ++d) {
                   char axyz[] = {'n', 0, 0}; axyz[1] = 'x' + d; // "nx", "ny", "nz"
@@ -179,7 +181,7 @@ namespace green_input {
               if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %ld\n",
                                                         Veff.size(), ng[0], ng[1], ng[2], ngall);
               if (Veff.size() != ngall) {
-                   if (echo > 0) std::printf("expected %d*%d*%d = %ld potential values but found %ld\n",
+                  if (echo > 0) std::printf("# expected %d*%d*%d = %ld potential values but found %ld\n",
                                                         ng[2], ng[1], ng[0], ngall, Veff.size());
                   auto const empty_keyword = "green_input.empty.potential";
                   auto const empty = control::get(empty_keyword, 1.); // 0:error, 1:warn, 2:okay
@@ -190,14 +192,14 @@ namespace green_input {
                   } else {
                       error("expected %d*%d*%d = %ld potential values but found %ld, try +%s=1 to override",
                               ng[2], ng[1], ng[0], ngall, Veff.size(), empty_keyword);
-                      return -1;
+                      return -1; // failure
                   }
               } // Veff.size != ngall
           } else warn("grid_Hamiltonian has no potential in file \"%s\"", filename);
 
       } else warn("no grid_Hamiltonian found in file \"%s\"", filename);
 
-      return 0;
+      return 0; // success
 #endif // HAS_RAPIDXML
   } // load_Hamiltonian
 
