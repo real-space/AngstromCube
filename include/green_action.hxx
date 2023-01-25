@@ -172,10 +172,10 @@ namespace green_action {
       // This action is an implicit linear operator onto block-sparse structured data.
       // compatible with the core algorithm of the tfqmrgpu-2.0 library.
       // Blocks are sized [LM][LM].
-      // Arithmetic according to complex<real_t> 
+      // Arithmetic according to complex<real_t>
       // with real_t either float or double
       //
-      action_t(plan_t *plan) 
+      action_t(plan_t *plan)
         : p(plan), apc(nullptr), aac(nullptr)
       {
           assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
@@ -231,6 +231,7 @@ namespace green_action {
         // GPU implementation of green_potential, green_kinetic and green_dyadic
       {
           assert(p);
+          if (2 == Noco) assert(p->noncollinear_spin && "Also the plan needs to be created with Noco=2");
           double nops{0};
 
           if (p->echo > 2) std::printf("# green_action::multiply\n");

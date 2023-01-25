@@ -1253,39 +1253,39 @@ namespace green_function {
       } // iterations > 0
 #endif // HAS_TFQMRGPU
 
-          int const niterations = std::abs(iterations);
-          int constexpr LM = Noco*64;
-          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
-          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
-          for (size_t i = 0; i < nnzbX*size_t(R1C2*LM*LM); ++i) {
-              x[0][0][0][i] = 0; // init x
-          } // i
+      int const niterations = std::abs(iterations);
+      int constexpr LM = Noco*64;
+      auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
+      auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
+      set(x[0][0][0], nnzbX*size_t(R1C2*LM*LM), real_t(0)); // init x
 
-          auto colIndex = get_memory<uint16_t>(nnzbX, echo, "colIndex");
-          set(colIndex, nnzbX, p.colindx.data()); // copy into GPU memory
+      auto colIndex = get_memory<uint16_t>(nnzbX, echo, "colIndex");
+      set(colIndex, nnzbX, p.colindx.data()); // copy into GPU memory
 
-          { // scope: benchmark the action
-              simple_stats::Stats<> timings;
-              double nflops{0};
-              SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
-              for (int iteration = 0; iteration < niterations; ++iteration) {
-                  if (echo > 5) { std::printf("# iteration #%i of %d\n", iteration, niterations); std::fflush(stdout); }
+      { // scope: benchmark the action
+          SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+          simple_stats::Stats<> timings;
+          double nflops{0};
+          p.echo = (1 == niterations)*echo; // mute for more than 1 iteration
+          for (int iteration = 0; iteration < niterations; ++iteration) {
+              if (echo > 5) { std::printf("# iteration #%i of %d\n", iteration, niterations); std::fflush(stdout); }
+              SimpleTimer timeit(__FILE__, __LINE__, __func__, (0 == iteration)*echo);
 
-                  nflops += action.multiply(y, x, colIndex, nnzbX, p.nCols);
+              nflops += action.multiply(y, x, colIndex, nnzbX, p.nCols);
 
-                  std::swap(x, y);
-                  timings.add(timer.stop());
-              } // iteration
-              if (echo > 1) std::printf("#\n# running action.multiply for %d iterations needed [%g, %g +/- %g, %g] seconds\n",
-                                              niterations, timings.min(), timings.mean(), timings.dev(), timings.max());
-              char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
-              if (echo > 1) std::printf("# action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
-                                            nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF);
-          } // scope
+              timings.add(timeit.stop());
+              std::swap(x, y);
+          } // iteration
+          if (echo > 1) std::printf("#\n# running action.multiply for needed [%g, %g +/- %g, %g] seconds per iteration\n",
+                                          timings.min(), timings.mean(), timings.dev(), timings.max());
+          char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
+          if (echo > 1) std::printf("# %d calls of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
+                                          niterations, nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF);
+      } // scope
 
-          free_memory(colIndex);
-          free_memory(y);
-          free_memory(x);
+      free_memory(colIndex);
+      free_memory(y);
+      free_memory(x);
   } // test_action
 
 
