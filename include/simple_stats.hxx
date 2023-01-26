@@ -80,8 +80,8 @@ namespace simple_stats {
         } // nullptr
     } // set
 
-    real_t min() const { return mini; }
-    real_t max() const { return maxi; }
+    real_t min() const { return mini*(times > 0); }
+    real_t max() const { return maxi*(times > 0); }
     real_t num() const { return v[0]; }
     real_t sum() const { return v[1]; }
     size_t tim() const { return times; }

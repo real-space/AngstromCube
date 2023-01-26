@@ -1,7 +1,8 @@
 ### #!/usr/bin/env bash
 
 # exe="srun -n 1 cuda-memcheck /p/home/jusers/baumeister1/jusuf/a43/green/green"
-exe="srun -n 1 /p/home/jusers/baumeister1/jusuf/a43/green/green"
+# exe="srun -n 1 /p/home/jusers/baumeister1/jusuf/a43/green/green"
+exe="./green"
 
 ## How to generate a test potential Hmt.xml for the Green function module?
 ##        +hamiltonian.export.format=xml +hamiltonian.export=-1
