@@ -1033,7 +1033,8 @@ namespace green_function {
                               }
                           } // d
                           if (potential_given) {
-                              auto const iloc = index3D(n_blocks, mod);
+                              // auto const iloc = index3D(n_blocks, mod);
+                              auto const iloc = iRow; // ToDo: check
                               veff_index = iloc; assert(iloc == veff_index && "safe assign");
                           } else { // potential_given
                               assert(Vacuum_Boundary == boundary_condition[X] ||
@@ -1181,7 +1182,7 @@ namespace green_function {
                                         owner_rank.data(),
                                         n_blocks, Noco, true, echo);
           } else {
-              if (echo > 0) std::printf("# skip green_function.potential.exchange");
+              if (echo > 0) std::printf("# skip green_function.potential.exchange\n");
               for (int mag = 0; mag < Noco*Noco; ++mag) {
                   set(p.Veff[mag][0], p.nRows*64, 0.0);
               } // mag
