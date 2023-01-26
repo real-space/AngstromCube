@@ -243,7 +243,7 @@ namespace green_action {
 
           // add the kinetic energy expressions
           nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
-                      p->grid_spacing, p->phase, 4, nnzb, p->echo);
+                      p->grid_spacing, p->phase, 8, nnzb, p->echo);
 
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,

@@ -62,9 +62,9 @@
       ptr = new T[size];
 #endif // HAS_NO_CUDA
 
-// #ifdef    DEBUG
+#ifdef    DEBUGGPU
       std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)ptr);
-// #endif // DEBUG
+#endif // DEBUGGPU
 
       return ptr;
   } // get_memory
@@ -74,9 +74,9 @@
   void _free_memory(T* & ptr, char const *const name="") {
 //    std::printf("# free_memory %s at %p\n", name, (void*)ptr);
       if (nullptr != ptr) {
-// #ifdef    DEBUG
+#ifdef    DEBUGGPU
           std::printf("# free_memory %s at %p\n", name, (void*)ptr);
-// #endif // DEBUG
+#endif // DEBUGGPU
 
 #ifndef HAS_NO_CUDA
           cuCheck(cudaFree((void*)ptr));
