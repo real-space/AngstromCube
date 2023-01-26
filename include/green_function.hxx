@@ -34,6 +34,7 @@
         #include <cuda.h>
     #endif // HAS_NO_CUDA
     #include "tfQMRgpu/include/tfqmrgpu.h" // ...
+    #include "tfQMRgpu/include/tfqmrgpu.hxx" // ...
     #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
 #endif // HAS_TFQMRGPU
@@ -82,7 +83,7 @@ namespace green_function {
       , int const Noco=1
       , int const echo=0
   ) {
-      if (1 != Noco) warn("not prepared for Noco=%d", Noco);
+      if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
       for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
           int const nc = sho_tools::nSHO(p.AtomLmax[iac]);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
@@ -1032,7 +1033,8 @@ namespace green_function {
                               }
                           } // d
                           if (potential_given) {
-                              auto const iloc = index3D(n_blocks, mod);
+                              // auto const iloc = index3D(n_blocks, mod);
+                              auto const iloc = iRow; // ToDo: check
                               veff_index = iloc; assert(iloc == veff_index && "safe assign");
                           } else { // potential_given
                               assert(Vacuum_Boundary == boundary_condition[X] ||
@@ -1180,7 +1182,7 @@ namespace green_function {
                                         owner_rank.data(),
                                         n_blocks, Noco, true, echo);
           } else {
-              if (echo > 0) std::printf("# skip green_function.potential.exchange");
+              if (echo > 0) std::printf("# skip green_function.potential.exchange\n");
               for (int mag = 0; mag < Noco*Noco; ++mag) {
                   set(p.Veff[mag][0], p.nRows*64, 0.0);
               } // mag

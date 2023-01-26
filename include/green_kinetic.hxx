@@ -642,7 +642,7 @@ namespace green_kinetic {
           real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , green_sparse::sparse_t<int32_t> const kinetic_plan[3]
-        , double   const hgrid[3] // grid spacing in X,Y,Z
+        , double const hgrid[3] // grid spacing in X,Y,Z
         , double const phase[3][2][2] // complex Bloch phase factors [direction][forward:backward][real:imag]
         , int const FD_range=4 // finite-difference stencil range (in grid points)
         , size_t const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
@@ -668,7 +668,8 @@ namespace green_kinetic {
         auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
 
         for (int dd = 0; dd < 3; ++dd) {
-            free_memory(lists[dd]);
+            // free_memory(lists[dd]); // segfaults
+            _free_memory<int32_t const *>(lists[dd], "lists[dd]"); // still segfaults
         } // dd
 //         free_memory(phase);
         return nops;

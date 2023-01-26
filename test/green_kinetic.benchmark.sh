@@ -1,6 +1,7 @@
-#!/usr/bin/env bash
+### #!/usr/bin/env bash
 
-exe=./green
+# exe="srun -n 1 cuda-memcheck /p/home/jusers/baumeister1/jusuf/a43/green/green"
+exe="srun -n 1 /p/home/jusers/baumeister1/jusuf/a43/green/green"
 
 ## How to generate a test potential Hmt.xml for the Green function module?
 ##        +hamiltonian.export.format=xml +hamiltonian.export=-1
@@ -16,7 +17,7 @@ for action in 412 812 422 822; do
   rm -f $out
   touch $out
 
-for rtrunc in {15..15}; do
+for rtrunc in {9..61}; do
   echo -n "rtrunc=$rtrunc "
   #   (cd ../src/ && make -j) && \
   #   (cd ../green/ && make -j) && \
