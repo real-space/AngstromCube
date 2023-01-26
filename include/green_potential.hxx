@@ -58,7 +58,7 @@ namespace green_potential {
 #endif // HAS_NO_CUDA
         { // threads loops and block loop
 
-#define CONFINEMENT_POTENTIAL
+// #define CONFINEMENT_POTENTIAL
 #ifdef  CONFINEMENT_POTENTIAL
         // generate the position difference of grid points (target minus source)
         int const x = ( i64       & 0x3) - ( j64       & 0x3);
@@ -79,9 +79,9 @@ namespace green_potential {
             if (rcut2 >= 0.f) {
                 int constexpr n4 = 4;
                 auto const s = shift[inzb]; // shift vectors between target minus source cube
-                double const d2 = pow2((s[0]*n4 + x)*hxyz[0])
-                                + pow2((s[1]*n4 + y)*hxyz[1])
-                                + pow2((s[2]*n4 + z)*hxyz[2]);
+                auto const d2 = pow2((int(s[0])*n4 + x)*real_t(hxyz[0]))
+                              + pow2((int(s[1])*n4 + y)*real_t(hxyz[1]))
+                              + pow2((int(s[2])*n4 + z)*real_t(hxyz[2]));
                 auto const d2out = real_t(d2 - rcut2);
                 Vconfine = (d2out > 0) ? Vconf*pow2(d2out) : 0; // quartic confinement potential, V ~ d^4
 //              std::printf("%.1f %.3f  %d %d %d  %d\n", d2, Vconfine, s[0], s[1], s[2], s[3]); // s[3] == source block index
@@ -169,7 +169,13 @@ namespace green_potential {
 #endif // HAS_NO_CUDA
             Vpsi, psi, Vloc, vloc_index, shift, hxyz, nnzb, Vconf, rcut2, E_param.real(), E_param.imag());
 
-        return 0ul; // total number of floating point operations performed
+        return (  1ul
+               +  2ul*(0 != E_param.imag())
+               +  4ul*(2 == Noco)
+#ifdef CONFINEMENT_POTENTIAL
+               + 10ul*(rcut2 >= 0.f)
+#endif // CONFINEMENT_POTENTIAL
+               )*nnzb*pow2(64ul*Noco)*R1C2; // total number of floating point operations performed
     } // multiply potential
 
 

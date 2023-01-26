@@ -936,8 +936,8 @@ namespace green_function {
           assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
 
           // resize BSR tables: (Block-compressed Sparse Row format)
-          if (echo > 3) { std::printf("# memory of a complex Green function is %.6f %s (float, twice for double)\n",
-                              nnzb*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
+          if (echo > 3) std::printf("# memory of a complex Green function is %.6f %s (float, twice for double)\n",
+                                       nnzb*2.*64.*64.*sizeof(float)*GByte, _GByte);
           p.colindx.resize(nnzb);
           p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
           p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
@@ -1220,6 +1220,8 @@ namespace green_function {
       green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
       uint32_t const nnzbX = p.colindx.size();
+      if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+
 #ifdef    HAS_TFQMRGPU
       if (iterations > 0) {
           if (nnzbX < 1) {
