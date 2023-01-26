@@ -17,7 +17,7 @@ for action in 412 812 422 822; do
   rm -f $out
   touch $out
 
-for rtrunc in {9..35}; do
+for rtrunc in {9..61}; do
   echo -n "rtrunc=$rtrunc "
   #   (cd ../src/ && make -j) && \
   #   (cd ../green/ && make -j) && \
