@@ -1,6 +1,6 @@
 ### #!/usr/bin/env bash
 
-# exe="srun -n 1 cuda-memcheck /p/home/jusers/baumeister1/jusuf/a43/green/green"
+# exe="srun -n 1 compute-sanitizer --tool memcheck /p/home/jusers/baumeister1/jusuf/a43/green/green"
 exe="srun -n 1 /p/home/jusers/baumeister1/jusuf/a43/green/green"
 
 ## How to generate a test potential Hmt.xml for the Green function module?
@@ -14,11 +14,14 @@ for action in 412 812 422 822; do
 # for rtrunc in `seq 0 0.1 19`; do
 #### To test a truncation radius > 64, increase the potential extend beyond 128 or change to Vacuum_Boundary (not well tested)
   out=green_kinetic.benchmark.$action.out
+# out=green_kinetic.memcheck.$action.out
   rm -f $out
   touch $out
 
-for rtrunc in {9..61}; do
+for rtrunc in {4..101}; do
   echo -n "rtrunc=$rtrunc "
+  echo  ""                  >> $out
+  echo  "# rtrunc=$rtrunc " >> $out
   #   (cd ../src/ && make -j) && \
   #   (cd ../green/ && make -j) && \
   $exe -test green_function \

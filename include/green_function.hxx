@@ -1273,7 +1273,7 @@ namespace green_function {
           p.echo = (1 == niterations)*echo; // mute for more than 1 iteration
           for (int iteration = 0; iteration < niterations; ++iteration) {
               if (echo > 5) { std::printf("# iteration #%i of %d\n", iteration, niterations); std::fflush(stdout); }
-              SimpleTimer timeit(__FILE__, __LINE__, __func__, (0 == iteration)*echo);
+              SimpleTimer timeit(__FILE__, __LINE__, __func__, echo);
 
               nflops += action.multiply(y, x, colIndex, nnzbX, p.nCols);
 
@@ -1285,6 +1285,8 @@ namespace green_function {
           char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
           if (echo > 1) std::printf("# %d calls of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
                                           niterations, nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF);
+          if (echo > 1) std::printf("# fastest call of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
+                                          nflops/niterations, fF, timings.min(), nflops/(niterations*timings.min())*1e-9, fF);
       } // scope
 
       free_memory(colIndex);
