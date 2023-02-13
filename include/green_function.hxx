@@ -469,6 +469,17 @@ namespace green_function {
   // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
   // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
   // even if this exceeds the isolated boundary at which potential values stop to be defined.
+  // The potential is continued as zero beyond the isolated boundary but the tail of the Green function is allowed to fade there.
+  // k-points are not relevant.
+
+  // We could think of a usefull new boundary condition
+  // int8_t constexpr Repeat_Boundary = 3;
+  // The repeat boundary allows to compute with small unit cells but with realistic truncation radii.
+  // The local potential is repeated periodically (like Periodic_Boundary).
+  // Sources are only relevant inside the small unit cell but again, the Green function tail exceeds the cell boundaries
+  // and extends up to the truncation radius.
+  // For the dyadic potential, we may not reduce over periodic atom images but create copies of the atoms.
+  // k-points are not relevant.
 
   // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
   // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
@@ -579,7 +590,7 @@ namespace green_function {
           n_blocks[d] = (ng[d] >> 2); // divided by 4
           assert(n_blocks[d] > 0);
           assert(ng[d] == 4*n_blocks[d] && "All grid dimensions must be a multiple of 4!");
-          assert(n_blocks[d] <= (1u << 21) && "Max grid is 2^21 blocks due to global_coordinates");
+          assert(n_blocks[d] <= (1ul << 21) && "Max grid is 2^21 blocks due to global_coordinates");
       } // d
       if (echo > 3) std::printf("# n_blocks %s\n", str(n_blocks));
 
@@ -1217,12 +1228,13 @@ namespace green_function {
 
   template <typename real_t, int R1C2=2, int Noco=1>
   void test_action(green_action::plan_t & p, int const iterations=1, int const echo=9) {
-      if (0 == iterations) return;
       if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
       green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
       uint32_t const nnzbX = p.colindx.size();
       if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+
+      if (0 == iterations) return;
 
 #ifdef    HAS_TFQMRGPU
       if (iterations > 0) {
@@ -1319,28 +1331,25 @@ namespace green_function {
 
       int const iterations = control::get("green_function.benchmark.iterations", 1.);
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
-      if (iterations) {
-          // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
-          int const action = control::get("green_function.benchmark.action", 412.);
-          switch (action) {
-              case 422: test_action<float ,2,2>(p, iterations, echo); break; // complex non-collinear
-              case 822: test_action<double,2,2>(p, iterations, echo); break; // complex non-collinear
+      // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
+      int const action = control::get("green_function.benchmark.action", 412.);
+      switch (action) {
+          case 422: test_action<float ,2,2>(p, iterations, echo); break; // complex non-collinear
+          case 822: test_action<double,2,2>(p, iterations, echo); break; // complex non-collinear
 
-              case 412: test_action<float ,2,1>(p, iterations, echo); break; // complex
-              case 812: test_action<double,2,1>(p, iterations, echo); break; // complex
+          case 412: test_action<float ,2,1>(p, iterations, echo); break; // complex
+          case 812: test_action<double,2,1>(p, iterations, echo); break; // complex
 #ifndef   HAS_TFQMRGPU
-              case 411: test_action<float ,1,1>(p, iterations, echo); break; // real
-              case 811: test_action<double,1,1>(p, iterations, echo); break; // real
+          case 411: test_action<float ,1,1>(p, iterations, echo); break; // real
+          case 811: test_action<double,1,1>(p, iterations, echo); break; // real
 #else  // HAS_TFQMRGPU
-              case 411:                                                       // real
-              case 811: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
+          case 411:                                                       // real
+          case 811: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
 #endif // HAS_TFQMRGPU
-              default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", action);
-                       ++stat;
-          } // switch action
-      } else { // iterations
-          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", iterations);
-      } // iterations
+          case 0: if (echo > 1) std::printf("# green_function.benchmark.action=0 --> test_action is not called!\n"); break;
+          default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", action);
+                   ++stat;
+      } // switch action
 
       if (!already_initialized) green_parallel::finalize();
       return stat;

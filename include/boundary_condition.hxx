@@ -92,7 +92,7 @@ namespace boundary_condition {
       ipos = view2D<double>(ni, 4); // get memory
       set(ipos.data(), ni*4, pos.data()); // copy
 
-      if (iidx) { 
+      if (iidx) {
           *iidx = view2D<int8_t>(ni, 4); // get memory
           set(iidx->data(), ni*4, idx.data()); // copy
       } // export indices
