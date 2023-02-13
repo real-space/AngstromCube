@@ -124,7 +124,7 @@ GENCODE80= -gencode arch=compute_80,code=sm_80 -gencode arch=compute_80,code=com
 GENCODE_FLAGS=
 # GENCODE_FLAGS += ${GENCODE60}
 GENCODE_FLAGS += ${GENCODE70}
-# GENCODE_FLAGS += ${GENCODE80}
+GENCODE_FLAGS += ${GENCODE80}
 
 CCFLAGS  = -std=gnu99 ${FLAGS}
 # K80
