@@ -13,7 +13,7 @@ for action in 412 812 422 822; do
   echo "#  action= $action (400:float, 800:double; 10:Noco=1, 20:Noco=2; 1:real, 2:complex)"
 # for rtrunc in `seq 0 0.1 19`; do
 #### To test a truncation radius > 64, increase the potential extend beyond 128 or change to Vacuum_Boundary (not well tested)
-  out=green_kinetic.benchmark.$action.out
+  out=green_kinetic.benchmark.juwels.$action.out
 # out=green_kinetic.memcheck.$action.out
   rm -f $out
   touch $out
