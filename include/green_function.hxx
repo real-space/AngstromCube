@@ -81,6 +81,7 @@ namespace green_function {
       , std::complex<double> E_param
       , std::vector<std::vector<double>> const & AtomMatrices
       , int const Noco=1
+      , double const scale_H=1
       , int const echo=0
   ) {
       if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
@@ -97,8 +98,8 @@ namespace green_function {
           for (int i = 0; i < nc; ++i) {
               for (int j = 0; j < nc; ++j) {
                   int const ij = i*nc + j;
-                  atomMatrix[ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
-                  atomMatrix[ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
+                  atomMatrix[ij] = scale_H * hmt[ij] - E_param.real() * ovl[ij]; // real part
+                  atomMatrix[ij + nc*nc] =           - E_param.imag() * ovl[ij]; // imag part
               } // j
           } // i
           // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
@@ -114,10 +115,11 @@ namespace green_function {
       , std::complex<double> E_param
       , std::vector<std::vector<double>> const & AtomMatrices
       , int const Noco=1
+      , double const scale_H=1
       , int const echo=0
   ) {
       p.E_param = E_param;
-      return update_atom_matrices(p.dyadic_plan, E_param, AtomMatrices, Noco, echo);
+      return update_atom_matrices(p.dyadic_plan, E_param, AtomMatrices, Noco, scale_H, echo);
   } // update_energy_parameter
 
 
@@ -419,7 +421,7 @@ namespace green_function {
       } // iac
       p.nAtoms = nac; // number of contributing atoms
 
-      update_atom_matrices(p, E_param, AtomMatrices, Noco, echo);
+      update_atom_matrices(p, E_param, AtomMatrices, Noco, 1.0, echo);
 
       if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
 

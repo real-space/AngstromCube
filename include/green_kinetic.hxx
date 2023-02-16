@@ -533,6 +533,7 @@ namespace green_kinetic {
         , double const phase[2][2]=nullptr
         , int const nFD=4
     ) {
+        if (num < 1) return 0;
         assert(1 == Stride || 4 == Stride || 16 == Stride);
         auto const kernel_ptr = (8 == nFD) ? Laplace16th<real_t,R1C2,Noco> : Laplace8th<real_t,R1C2,Noco>;
         dim3 const gridDim(num, 16, 1), blockDim(Noco*64, Noco, R1C2);
