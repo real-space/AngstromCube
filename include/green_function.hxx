@@ -546,6 +546,9 @@ namespace green_function {
           for (int d = 0; d < 3; ++d) {
               n_source_blocks[d] = nb[d];
               if (source_cube) n_source_blocks[d] = std::min(nb[d], source_cube);
+              char keyword[64]; std::snprintf(keyword, 64, "green_function.sources.%c", 'x' + d);
+              int const rect = control::get(keyword, n_source_blocks[d]*1.);
+              n_source_blocks[d] = rect;
               off[d] = (nb[d] - n_source_blocks[d])/2;
           } // d
           if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
@@ -1133,10 +1136,13 @@ namespace green_function {
 
           // Green function is stored sparse as real_t green[nnzb][2][Noco*64][Noco*64];
 
+          auto const keyword = "green_function.kinetic.range";
+          int const FD_range = control::get(keyword, 8.0);
           for (int dd = 0; dd < 3; ++dd) { // derivate direction
 
+              int16_t suggest_nFD = FD_range;
               // create lists for the finite-difference derivatives
-              auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd]
+              auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], suggest_nFD
                 , dd
                 , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
                 , num_target_coords
@@ -1145,6 +1151,9 @@ namespace green_function {
                 , sparsity_pattern.data()
                 , nrhs, echo);
               if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+
+              char keyword_dd[64]; std::snprintf(keyword_dd, 64, "%s.%c", keyword, 'x' + dd);
+              p.kinetic_nFD[dd] = control::get(keyword_dd, suggest_nFD*1.);
 
           } // dd derivate direction
 

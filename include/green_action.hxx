@@ -86,7 +86,7 @@ namespace green_action {
 
       uint32_t nRows = 0; // number of block rows in the Green function
       uint32_t nCols = 0; // number of block columns, max 65,536 columns
-      std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transfered to the GPU
+      std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transferred to the GPU
 
       // for memory management:
       size_t gpu_mem = 0; // device memory requirement in Byte (can this be tracked?)
@@ -110,12 +110,13 @@ namespace green_action {
       std::complex<double> E_param; // energy parameter
 
       green_sparse::sparse_t<int32_t> kinetic_plan[3];
+      int16_t kinetic_nFD[4];
 
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
       uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
-      float   (*rowCubePos)[3+1]       = nullptr; // [nRows]      internal coordinates in float, could be int16_t for most applications
+      float   (*rowCubePos)[3+1]    = nullptr; // [nRows]      internal coordinates in float, could be int16_t for most applications
       float   (*colCubePos)[3+1]    = nullptr; // [nCols]      internal coordinates in float, could be int16_t for most applications
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
       double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
@@ -221,7 +222,7 @@ namespace green_action {
       double multiply( // returns the number of flops performed
             real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
           , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
-          , uint16_t const (*const __restrict colIndex) // column indices [nnzb], warning: must be in device memory
+          , uint16_t const (*const __restrict colIndex) // column indices [nnzb], warning: must be in device memory or managed memory
           , uint32_t const nnzb // number of nonzero blocks, typically colIndex.size()
           , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
           , unsigned const l2nX=0  // number of levels needed for binary reductions over nnzb
@@ -243,7 +244,7 @@ namespace green_action {
 
           // add the kinetic energy expressions
           nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
-                      p->grid_spacing, p->phase, 8, nnzb, p->echo);
+                      p->grid_spacing, p->phase, p->kinetic_nFD, nnzb, p->echo);
 
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,

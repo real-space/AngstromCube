@@ -4,6 +4,17 @@ exe=../green/green
 
 base=methane
 
+./a43 --test green_experiments \
+    +green_experiments.select.test=2 \
+    +green_experiments.overlap.echo=1 \
+    +green_function.source.cube=1  \
+    +green_function.sources.x=1  \
+    +green_function.potential.exchange=0 \
+    +hamiltonian.kpath.spacing=0.25 \
+    +control.show=-7 \
+    "$@"
+exit
+
 ### generate a control file
 cat > green_control.sh << EOF
 ################################################################
@@ -34,6 +45,7 @@ hamiltonian.kpath.to=0
 hamiltonian.kpath.spacing=0.01
 
 ## sampling in E-space
+green_experiments.select.test=1
 #green_experiments.bandstructure.energy.offset=-0.2
 green_experiments.bandstructure.energy.offset=-0.5
 green_experiments.bandstructure.energy.spacing=0.005

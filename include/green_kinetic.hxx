@@ -54,6 +54,7 @@ namespace green_kinetic {
 
     inline status_t finite_difference_plan(
             green_sparse::sparse_t<int32_t> & sparse // result
+          , int16_t & FD_range // side result
           , int const dd // direction of derivative
           , bool const boundary_is_periodic
           , uint32_t const num_target_coords[3]
@@ -208,6 +209,14 @@ namespace green_kinetic {
           list.resize(n_lists);
 
           sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo);
+
+          if (boundary_is_periodic && FD_range > 4) {
+              warn("boundary is perodic in %c-direction, reduce range to 4", 'x' + dd);
+              FD_range = 4;
+          }
+          if (FD_range < 1) {
+              warn("kinetic energy switched off in %c-direction", 'x' + dd);
+          }
           return 0;
       } // finite_difference_plan
 
@@ -533,7 +542,7 @@ namespace green_kinetic {
         , double const phase[2][2]=nullptr
         , int const nFD=4
     ) {
-        if (num < 1) return 0;
+        if (num < 1) return -1;
         assert(1 == Stride || 4 == Stride || 16 == Stride);
         auto const kernel_ptr = (8 == nFD) ? Laplace16th<real_t,R1C2,Noco> : Laplace8th<real_t,R1C2,Noco>;
         dim3 const gridDim(num, 16, 1), blockDim(Noco*64, Noco, R1C2);
@@ -626,11 +635,11 @@ namespace green_kinetic {
         int nFD[] = {FD_range[0], FD_range[1], FD_range[2]};
         size_t nops{0};
         for (int dd = 0; dd < 3; ++dd) { // derivative direction, serial due to update of Tpsi
-            double const f = -0.5/(hgrid[dd]*hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
-            int const Stride = 1 << (2*dd);
+            auto const f = -0.5/pow2(hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
+            int  const stride = 1 << (2*dd);
             auto const list = (2 == dd) ? z_list : ((1 == dd) ? y_list : x_list);
-            nFD[dd] = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], Stride, phase[dd], nFD[dd]);
-            nops += nnzb*(2*nFD[dd] + 1)*R1C2*(Noco*64ul)*(Noco*64ul)*2ul; // total number of floating point operations performed
+            nFD[dd] = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase[dd], nFD[dd]);
+            nops += nnzb*std::max(0, 2*nFD[dd] + 1)*R1C2*pow2(Noco*64ul)*2; // total number of floating point operations performed
         } // dd
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f';
         if (echo > 7) std::printf("# green_kinetic::%s nFD= %d %d %d, %.3f M%clop\n", __func__, nFD[0], nFD[1], nFD[2], nops*1e-6, fF);
@@ -645,11 +654,11 @@ namespace green_kinetic {
         , green_sparse::sparse_t<int32_t> const kinetic_plan[3]
         , double const hgrid[3] // grid spacing in X,Y,Z
         , double const phase[3][2][2] // complex Bloch phase factors [direction][forward:backward][real:imag]
-        , int const FD_range=4 // finite-difference stencil range (in grid points)
+        , int16_t const FD_range[3] // finite-difference stencil range (in grid points)
         , size_t const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
         , int const echo=0
     ) {
-        int const nFD[] = {FD_range, FD_range, FD_range};
+        int const nFD[] = {FD_range[0], FD_range[1], FD_range[2]};
 //         auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
 //         set_phase(phase, nullptr, echo); // neutral (Gamma-point) phase factors
         uint32_t num[3];
@@ -664,13 +673,12 @@ namespace green_kinetic {
                 lists[dd][il] = &colIndex[rowStart[il]];
             } // il
         } // dd
-        if (echo > 3) std::printf("# green_kinetic::%s nFD= %d, number= %d %d %d\n", __func__, FD_range, num[0], num[1], num[2]);
+        if (echo > 3) std::printf("# green_kinetic::%s nFD= %d, numbers= %d %d %d\n", __func__, FD_range, num[0], num[1], num[2]);
 
         auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
 
         for (int dd = 0; dd < 3; ++dd) {
-            // free_memory(lists[dd]); // segfaults
-            _free_memory<int32_t const *>(lists[dd], "lists[dd]"); // still segfaults
+            free_memory(lists[dd]); // segfaults
         } // dd
 //         free_memory(phase);
         return nops;
