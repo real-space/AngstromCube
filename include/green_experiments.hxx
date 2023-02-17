@@ -166,10 +166,12 @@ namespace green_experiments {
       , real_t const  psi[][R1C2][Noco*4*4*4][Noco*64]
       , real_t const Hpsi[][R1C2][Noco*4*4*4][Noco*64]
       , real_t const Spsi[][R1C2][Noco*4*4*4][Noco*64]
-      , int const ng4[3]
+      , int const nblocks
       , int const nb
       , double const dV=1.0 // volume element
-  ) {
+  )
+    // Hmat[i][j] = <psi_i|Hpsi_j> and Smat[i][j] = <psi_i|Spsi_j>
+  {
       int constexpr Real = 0, Imag = R1C2 - 1;
       int const nbands = nb*64;
 
@@ -181,14 +183,9 @@ namespace green_experiments {
                   for (int jb64 = 0; jb64 < 64; ++jb64) {
                       int const jband = jb*64 + jb64;
                       double H_re{0}, H_im{0}, S_re{0}, S_im{0};
-                      for (int kz4 = 0; kz4 < ng4[2]; ++kz4) {
-                      for (int ky4 = 0; ky4 < ng4[1]; ++ky4) {
-                      for (int kx4 = 0; kx4 < ng4[0]; ++kx4) {
-                              int const kzyxb = ((kz4*ng4[1] + ky4)*ng4[0] + kx4)*nb + ib;
-                              for (int k4z = 0; k4z < 4; ++k4z) {
-                              for (int k4y = 0; k4y < 4; ++k4y) {
-                              for (int k4x = 0; k4x < 4; ++k4x) {
-                                    int const kzyx = (k4z*4 + k4y)*4 + k4x;
+                      for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
+                              int const kzyxb = kzyx4*nb + ib;
+                              for (int kzyx = 0; kzyx < 64; ++kzyx) {
 
                                     auto const psi_re  =  psi[kzyxb][Real][kzyx][ib64],
                                                psi_im  =  psi[kzyxb][Imag][kzyx][ib64];
@@ -207,8 +204,8 @@ namespace green_experiments {
                                         H_im += psi_re * Hpsi_im - psi_im * Hpsi_re;  // 4 flop
                                         S_im += psi_re * Spsi_im - psi_im * Spsi_re;  // 4 flop
                                     } // is complex
-                              }}} // k4x k4y k4z
-                      }}} // kx4 ky4 kz4
+                              } // kzyx
+                      } // kx4 ky4 kz4
                       Hmatrix[iband*nbands + jband][Real] = H_re*dV; // 1 flop
                       Smatrix[iband*nbands + jband][Real] = S_re*dV; // 1 flop
                       if (Imag) {
@@ -220,8 +217,158 @@ namespace green_experiments {
           } // jb
       } // ib
 
-      return ng4[2]*4ul*ng4[1]*4ul*ng4[0]*4ul * 4ul * pow2(R1C2*1ul*nbands); // returns the number of floating point operations
+      return nblocks*64ul * 4ul * pow2(R1C2*1ul*nbands); // returns the number of floating point operations
   } // inner_products
+
+
+  template <typename real_t=double, int R1C2=1, int Noco=1>
+  inline size_t rotate_waves(
+        real_t       Rpsi[][R1C2][Noco*4*4*4][Noco*64]
+      , real_t const  psi[][R1C2][Noco*4*4*4][Noco*64]
+      , double const Rmat[][R1C2] // data layout [(nb*64)(nb*64)][R1C2]
+      , int const nblocks
+      , int const nb
+  )
+    // Rpsi_i = sum_j Rmat[i][j] * psi_j
+  {
+      int constexpr Real = 0, Imag = R1C2 - 1;
+      int const nbands = nb*64;
+
+      // sum over jband
+      for (int ib = 0; ib < nb; ++ib) {
+              for (int ib64 = 0; ib64 < 64; ++ib64) {
+                      int const iband = ib*64 + ib64;
+                      for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
+                              int const izyxb = kzyx4*nb + ib;
+                              for (int kzyx = 0; kzyx < 64; ++kzyx) {
+
+                                double re{0}, im{0};
+                                for (int jb = 0; jb < nb; ++jb) {
+                                    int const jzyxb = kzyx4*nb + jb;
+                                    for (int jb64 = 0; jb64 < 64; ++jb64) {
+                                        int const jband = jb*64 + jb64;
+
+                                    double const psi_re  = psi[jzyxb][Real][kzyx][jb64],
+                                                 psi_im  = psi[jzyxb][Imag][kzyx][jb64];
+
+                                    auto const Rmat_re = Rmat[iband*nbands + jband][Real],
+                                               Rmat_im = Rmat[iband*nbands + jband][Imag];
+
+                                    re += Rmat_re * psi_re; // 2 flop
+                                    if (Imag) {
+                                        re += Rmat_im * psi_im; // 2 flop
+                                        im += Rmat_re * psi_im  // 2 flop
+                                            - Rmat_im * psi_re; // 2 flop
+                                    } // is complex
+                                  } // jb64
+                                } // jb
+                                if (Imag)
+                                Rpsi[izyxb][Imag][kzyx][ib64] = im;
+                                Rpsi[izyxb][Real][kzyx][ib64] = re;
+
+                              } // k4x k4y k4z
+                      } // kx4 ky4 kz4
+              } // ib64
+      } // ib
+
+      return nblocks*64ul * 2ul * pow2(R1C2*1ul*nbands); // returns the number of floating point operations
+  } // rotate_waves
+
+  template <typename real_t=double, int R1C2=1, int Noco=1>
+  inline size_t gradient_waves(
+        real_t        psi[][R1C2][Noco*4*4*4][Noco*64]
+      , real_t const Hpsi[][R1C2][Noco*4*4*4][Noco*64]
+      , real_t const Spsi[][R1C2][Noco*4*4*4][Noco*64]
+      , double const Eval[] // eigenvalues
+      , int const nblocks
+      , int const nb
+      , float min_max_res[] // side result
+  )
+    // psi_j = Hpsi_i - E_i * Spsi_i, j=i+nbhalf
+  {
+      int const nbands = nb*64; // number of all bands
+      int const nbhalf = nb*32; // separate into lower half (unchanged) and upper half (gradients)
+      min_max_res[0] = 9e9;
+      min_max_res[1] = 0.0;
+
+      std::vector<double> res_norm2(nbands, 0.0);
+      for (int iband = 0; iband < nbands; ++iband) {
+          int const ib   = iband >> 6;   // divide 64
+          int const ib64 = iband & 0x3f; // modulo 64
+
+          double norm2{0};
+          for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
+              int const izyxb = kzyx4*nb + ib;
+              for (int kzyx = 0; kzyx < 64; ++kzyx) {
+                  for (int reim = 0; reim < R1C2; ++reim) {
+                      // create the residual vector
+                      auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64]
+                           - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64];
+                      norm2 += new_psi*new_psi;
+                  } // reim
+              }// kzyx
+          } // kzyx4
+
+          if (norm2 <= 0) {
+              error("Residual zero for iband=%i", iband);
+          } else {
+              min_max_res[0] = std::min(min_max_res[0], float(norm2));
+              min_max_res[1] = std::max(min_max_res[1], float(norm2));
+              res_norm2[iband] = norm2;
+          }
+      } // iband
+
+      auto threshold2 = std::sqrt(min_max_res[0]*min_max_res[1]); // geometric mean
+      // filter norms
+      int newbands{nbands};
+      while (newbands > nbhalf) {
+          threshold2 *= 1.5;
+          int isrc{0};
+          for (int iband = 0; iband < nbands; ++iband) {
+              isrc += (res_norm2[iband] > threshold2);
+          } // iband
+          newbands = isrc;
+      } // while
+      std::printf("# %d new bands have been selected with threshold %.1e\n", newbands, std::sqrt(threshold2));
+      std::vector<int> i_index(nbands, -1);
+      int isrc{0};
+      for (int iband = 0; iband < nbands; ++iband) {
+          if (res_norm2[iband] > threshold2) {
+              i_index[isrc] = iband;
+              ++isrc;
+          }
+      } // iband
+      assert(isrc <= nbhalf && "bisection failed");
+      newbands = isrc;
+
+      for (int isrc = 0; isrc < newbands; ++isrc) {
+          // rescale psi_j
+          int const iband = i_index[isrc];
+          int const jband = nbands - 1 - isrc; // replace the upper wave functions by residual waves with a large norm
+
+          int const jb   = jband >> 6;   // divide 64
+          int const jb64 = jband & 0x3f; // modulo 64
+          int const ib   = iband >> 6;   // divide 64
+          int const ib64 = iband & 0x3f; // modulo 64
+
+          double const f = 1./std::sqrt(res_norm2[iband]);
+          for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
+              int const izyxb = kzyx4*nb + ib;
+              int const jzyxb = kzyx4*nb + jb;
+              for (int kzyx = 0; kzyx < 64; ++kzyx) {
+                  for (int reim = 0; reim < R1C2; ++reim) {
+                    auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64]
+                         - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64];
+                    psi[jzyxb][reim][kzyx][jb64] = f*new_psi;
+                  } // reim
+              } // kzyx
+          } // kzyx4
+      } // iband
+
+      for (int mm = 0; mm < 2; ++mm) min_max_res[mm] = std::sqrt(min_max_res[mm]);
+      return 2ul * nblocks*64ul * R1C2*nbhalf; // returns the number of floating point operations
+  } // gradient_waves
+
 
   template <typename real_t=double, int R1C2=1, int Noco=1>
   inline status_t eigensolver(
@@ -276,9 +423,12 @@ namespace green_experiments {
 
       view2D<double> k_path;
       auto const nkpoints = brillouin_zone::get_kpoint_path(k_path, echo);
-      if (echo > 1) std::printf("# %s %d k-points, %d bands\n", __func__, nkpoints, nb*64);
+      int const nbands = nb*64;
+      if (echo > 1) std::printf("# %s %d k-points, %d bands\n", __func__, nkpoints, nbands);
 
-      std::vector<std::vector<double>> bandstructure(nkpoints, std::vector<double>(nb*64, -9e9)); // result array
+      std::vector<double> Sval(nbands,  1.0); // eigenvalues of the overlap operator
+      std::vector<double> Eval(nbands, -9e9); // eigenvalues
+      std::vector<std::vector<double>> bandstructure(nkpoints, Eval); // result array
 
       int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)};
       auto const nblocks = (ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
@@ -311,8 +461,8 @@ namespace green_experiments {
           set(pS.veff_index, nnzb, 0); // overwrite veff_index by all zeros.
           pS.nCols = nb;
           pH.nCols = nb;
-          pS.echo = echo - 5;
-          pH.echo = echo - 5;
+          pS.echo = echo - 15;
+          pH.echo = echo - 15;
       } // scope
 
       green_action::action_t<real_t,R1C2,Noco,64> action_H(&pH); // constructor
@@ -321,6 +471,7 @@ namespace green_experiments {
       green_function::update_energy_parameter(pS, -1.0, AtomMatrices, Noco, 0.0, echo); // prepare for S: A = (0*H - (-1)*S)
 
       auto  psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
+      double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
 
       { // create start wave functions
           auto constexpr twopi = 2*constants::pi;
@@ -365,6 +516,7 @@ namespace green_experiments {
           assert(npws >= nb*64 && "Need to have enough plane waves to fill all bands");
           {
               int constexpr Real = 0, Imag = R1C2 - 1;
+              double const f = 1./std::sqrt(dVol*(ng4[2]*4.*ng4[1]*4.*ng4[0]*4.));
               for (int ib = 0; ib < nb; ++ib) {
                 for (int iz4 = 0; iz4 < ng4[2]; ++iz4) {
                 for (int iy4 = 0; iy4 < ng4[1]; ++iy4) {
@@ -378,8 +530,8 @@ namespace green_experiments {
                                 int const ipw = ib*64 + jb;
                                 auto const arg = ix*kvs[0*stride + ipw] + iy*kvs[1*stride + ipw] + iz*kvs[2*stride + ipw];
                                 if (Imag)
-                                psi[izyxb][Imag][jzyx][jb] = std::sin(arg);
-                                psi[izyxb][Real][jzyx][jb] = std::cos(arg);
+                                psi[izyxb][Imag][jzyx][jb] = f*std::sin(arg);
+                                psi[izyxb][Real][jzyx][jb] = f*std::cos(arg);
                               } // jb
                             }}} // i4x i4y i4z
                     }}} // ix4 iy4 iz4
@@ -391,11 +543,11 @@ namespace green_experiments {
 
       auto Hpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "H * waves");
       auto Spsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "S * waves");
+      auto tpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "temp waves");
 
-      int const nbands = nb*64;
       auto Hmat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Hamiltonian");
       auto Smat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Overlap op");
-      double dVol = hg[2]*hg[1]*hg[0]; // volumen element of the real space grid
+      auto  mat = get_memory<double[R1C2]>(pow2(nbands), echo, "matrix copy");
 
       simple_stats::Stats<> Gflop_count;
       for (int ik = 0; ik < nkpoints; ++ik) {
@@ -406,32 +558,110 @@ namespace green_experiments {
           green_function::update_phases(pS, k_point, Noco, echo);
           double nops{0};
 
-          nops += action_H.multiply(Hpsi,  psi, colIndex, nnzb, nb);
-          nops += action_S.multiply(Spsi,  psi, colIndex, nnzb, nb);
+        int constexpr maxiter = 9;
+        int it{0}, lastiter{maxiter - 1};
+        for (; it <= lastiter && lastiter >= 0; ++it) { // Davidson iterations
+
+          if (echo > 5) std::printf("# start Davidson iteration #%i\n", it);
+
+          nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
+          nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
 
           // create inner products <psi_i|Hpsi_j> and <psi_i|Spsi_j>
           nops += inner_products<real_t,R1C2,Noco>(Hmat, Smat,
-                                  psi, Hpsi, Spsi, ng4, nb, dVol);
+                                  psi, Hpsi, Spsi, nblocks, nb, dVol);
 
+          set(mat[0], pow2(nbands)*R1C2, Smat[0]); // deep copy of the overlap operator
+          // we need a deep copy here because the eigenvalue solver changes the matrix
           status_t stat(0);
-          if (2 == R1C2) {
-              // Hermitian generalized eigenvalue problem
-              stat = linear_algebra::eigenvalues(bandstructure[ik].data(), nbands,
-                                              (std::complex<double>*)Hmat, nbands,
-                                              (std::complex<double>*)Smat, nbands);
-          } else {
-              // real symmetric generalized eigenvalue problem
-              stat = linear_algebra::eigenvalues(bandstructure[ik].data(), nbands,
-                                                            (double*)Hmat, nbands,
-                                                            (double*)Smat, nbands);
+          if (2 == R1C2) { // Hermitian generalized eigenvalue problem
+              stat = linear_algebra::eigenvalues(Sval.data(), nbands,
+                                  (std::complex<double>*)mat, nbands);
+          } else {    // real-symmetric generalized eigenvalue problem
+              stat = linear_algebra::eigenvalues(Sval.data(), nbands,
+                                                (double*)mat, nbands);
           } // real or complex
-          if (0 != stat) {
-              warn("failed to diagonalize for k-point #%i", ik);
-          } else {
-              // ToDo: rotate 1st half of bands and generate the 2nd half from gradients
-              //        gradient: phi_i = (H - E_i*S) psi_i
-          }
+          if (0 != stat) { // standard eigenvalue problem failed
+              warn("failed to diagonalize the overlap for k-point #%i in Davidson iteration #%i", ik, it);
+              it = maxiter; // stop
+          } else { // standard eigenvalue problem failed
+              if (echo > 7) std::printf("# in Davidson iteration #%i overlap eigenvalues:  %g %g %g %g ...\n",
+                                                        it, Sval[0], Sval[1], Sval[2], Sval[3]);
+              if (Sval[0] > 0.0) {
+                // overlap matrix is stable
+                if (2 == R1C2) { // Hermitian generalized eigenvalue problem
+                    stat = linear_algebra::eigenvalues(Eval.data(), nbands,
+                                       (std::complex<double>*)Hmat, nbands,
+                                       (std::complex<double>*)Smat, nbands);
+                } else {    // real-symmetric generalized eigenvalue problem
+                    stat = linear_algebra::eigenvalues(Eval.data(), nbands,
+                                                     (double*)Hmat, nbands,
+                                                     (double*)Smat, nbands);
+                } // real or complex
+                if (0 != stat) { // generalized eigenvalue problem failed
+                    warn("failed to diagonalize for k-point #%i in Davidson iteration #%i", ik, it);
+                    lastiter = it;
+                    if (echo > 5) std::printf("# failed to diagonalize in Davidson iteration #%i, set to last iteration\n", it);
+                } else { // generalized eigenvalue problem failed
+                    if (echo > 6) std::printf("# in Davidson iteration #%i energy eigenvalues:  %g %g %g %g ... %s\n",
+                                                            it, Eval[0]*eV, Eval[1]*eV, Eval[2]*eV, Eval[3]*eV, _eV);
+                    set(bandstructure[ik].data(), nbands, Eval.data()); // copy
+                    // ToDo: rotate 1st half of bands and generate the 2nd half from gradients
+                    //        gradient: phi_i = (H - E_i*S) psi_i
+                    if (echo > 5) std::printf("# rotate_waves in Davidson iteration #%i\n", it);
+                    nops += rotate_waves(tpsi, psi, Hmat, nblocks, nb); // Spsi is a dummy here for a new version of psi
+                    std::swap(psi, tpsi); // pointer swap
 
+                    if (Sval[0] > 0.1) {
+                        if (it > 0) {
+                          if (echo > 9) std::printf("# gradient_waves in Davidson iteration #%i\n", it);
+                          float min_max_res[2];
+
+                          nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
+                          nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
+                          nops += gradient_waves(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, min_max_res);
+                          if (echo > 5) std::printf("# gradient_waves in iteration #%i has residual norms in [%.1e, %.1e]\n",
+                                                    it, min_max_res[0], min_max_res[1]);
+                        }
+                    } else {
+                        if (echo > 5) std::printf("# overlap becomes singular in Davidson iteration #%i\n", it);
+                        lastiter = it; // exit
+                    } // augment search space by gradients
+                } // generalized eigenvalue problem failed
+
+              } else { // overlap matrix is stable
+                  if (echo > 7) std::printf("# in Davidson iteration #%i overlap eigenvalues are instable: %g, exit\n", it, Sval[0]);
+
+                  if (echo > 99) {
+                    auto const Omat = Smat; char const M = 'S';
+                    if (echo > 11) {
+                      std::printf("# Matrix %c in the %d x %d subspace of iteration #%i\n", M, nbands, nbands, it);
+                      char const *const format[] =  {" %.3f", ",%.2f"}; // {" %.1e", ",%.1e"};
+                      for (int iband = 0; iband < nbands; ++iband) {
+                          std::printf("#%6i  ", iband);
+                          for (int jband = 0; jband < nbands; ++jband) {
+                              std::printf(format[0], Omat[iband*nbands + jband][0]);
+                              if (R1C2 > 1)
+                              std::printf(format[1], Omat[iband*nbands + jband][R1C2 - 1]);
+                          } // jband
+                          std::printf("\n");
+                      } // iband
+                    } // echo
+                      std::printf("\n# Diagonal elements of Matrix %c in iteration #%i:  ", M, it);
+                      for (int iband = 0; iband < nbands; ++iband) {
+                          std::printf(" %.6f,%g", Omat[iband*nbands + iband][0], (R1C2 > 1)*Omat[iband*nbands + iband][R1C2 - 1]);
+                      } // iband
+                      std::printf("\n\n");
+                  } // echo
+
+                  lastiter = -maxiter; // stop
+              } // overlap matrix is stable
+
+          } // standard eigenvalue problem failed
+
+        } // it Davidson iterations
+
+          if (echo > 3) std::printf("# Davidson method ran %d of max %d iterations\n", it, maxiter);
 
           if (echo > 0) {
               std::printf("# solve for k={%9.6f,%9.6f,%9.6f}, spectrum(%s) ", k_point[0], k_point[1], k_point[2], _eV);
@@ -443,7 +673,7 @@ namespace green_experiments {
 
       free_memory(Smat); free_memory(Hmat);
       free_memory(Spsi); free_memory(Hpsi);
-      free_memory(psi);
+      free_memory(psi);  free_memory(tpsi);
       free_memory(colIndex);
 
       if (echo > 0) {
@@ -505,7 +735,7 @@ namespace green_experiments {
               return plan_stat;
           } // plan_stat
           return (1 == control::get("green_experiments.eigen.real", 0.0)) ?
-               eigensolver<double,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
+               eigensolver<double,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo): // real version fails to diagonalize ...
                eigensolver<double,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
       } // how
 

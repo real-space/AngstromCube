@@ -10,10 +10,10 @@ base=methane
     +green_function.source.cube=1  \
     +green_function.sources.x=1  \
     +green_function.potential.exchange=0 \
-    +hamiltonian.kpath.spacing=0.25 \
     +control.show=-7 \
-    "$@"
+    "$@" > green_experiments.out
 exit
+# +hamiltonian.kpath.spacing=0.25 \
 
 ### generate a control file
 cat > green_control.sh << EOF

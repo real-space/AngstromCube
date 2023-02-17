@@ -542,7 +542,7 @@ namespace green_kinetic {
         , double const phase[2][2]=nullptr
         , int const nFD=4
     ) {
-        if (num < 1) return -1;
+        if (num < 1 || nFD < 1) return -1;
         assert(1 == Stride || 4 == Stride || 16 == Stride);
         auto const kernel_ptr = (8 == nFD) ? Laplace16th<real_t,R1C2,Noco> : Laplace8th<real_t,R1C2,Noco>;
         dim3 const gridDim(num, 16, 1), blockDim(Noco*64, Noco, R1C2);
@@ -642,7 +642,8 @@ namespace green_kinetic {
             nops += nnzb*std::max(0, 2*nFD[dd] + 1)*R1C2*pow2(Noco*64ul)*2; // total number of floating point operations performed
         } // dd
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f';
-        if (echo > 7) std::printf("# green_kinetic::%s nFD= %d %d %d, %.3f M%clop\n", __func__, nFD[0], nFD[1], nFD[2], nops*1e-6, fF);
+        if (echo > 7) std::printf("# green_kinetic::%s nFD= %d %d %d, numbers= %d %d %d, %.3f M%clop\n",
+                              __func__, nFD[0], nFD[1], nFD[2], num[0], num[1], num[2], nops*1e-6, fF);
         return nops;
     } // multiply (kinetic energy operator)
 
@@ -673,7 +674,8 @@ namespace green_kinetic {
                 lists[dd][il] = &colIndex[rowStart[il]];
             } // il
         } // dd
-        if (echo > 3) std::printf("# green_kinetic::%s nFD= %d, numbers= %d %d %d\n", __func__, FD_range, num[0], num[1], num[2]);
+        if (echo > 13) std::printf("# green_kinetic::%s nFD= %d %d %d, numbers= %d %d %d\n",
+                   __func__, FD_range[0], FD_range[1], FD_range[2], num[0], num[1], num[2]);
 
         auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
 
