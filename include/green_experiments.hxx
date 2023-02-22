@@ -505,7 +505,7 @@ namespace green_experiments {
       auto  psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
       double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
 
-      { // create start wave functions
+      { // scope: create start wave functions
           auto constexpr twopi = 2*constants::pi;
           double const box[] = {ng[0]*hg[0], ng[1]*hg[1], ng[2]*hg[2]}; // in Bohr
           double const reci[] = {twopi/box[0], twopi/box[1], twopi/box[2]}; // reciprocal lattice vectors in Bohr^-1

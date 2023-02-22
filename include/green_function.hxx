@@ -738,7 +738,7 @@ namespace green_function {
                       if (2*rtrunc > deformed_cell) {
                           if (h[d] > 0) {
                               warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s)\n#          "
-                                   "better use +green_function.scale.grid.spacing=0 for cylindrical truncation", 2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang);
+                                   "better use +green_function.scale.grid.spacing.%c=0 for cylindrical truncation", 2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang, 'x'+ d);
                               is_periodic[d] = std::min(255., std::ceil(rtrunc/deformed_cell)); // truncation sphere may overlap with its periodic images
                           } else { // h[d] > 0
                               is_periodic[d] = 1; // truncation sphere may overlap with its periodic images
@@ -1142,10 +1142,11 @@ namespace green_function {
 
           // Green function is stored sparse as real_t green[nnzb][2][Noco*64][Noco*64];
 
-          {
-              double kinetic_nFD[3]; control::get(kinetic_nFD, "green_kinetic.range", "xyz", 8.0);
+          { // scope: set up kinetic plans
+              auto const *const keyword = "green_kinetic.range";
+              int16_t const kinetic_nFD_default = control::get(keyword, 8.0);
               for (int dd = 0; dd < 3; ++dd) { // derivate direction
-                  p.kinetic_nFD[dd] = kinetic_nFD[dd];
+                  p.kinetic_nFD[dd] = kinetic_nFD_default;
                   // create lists for the finite-difference derivatives
                   auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], p.kinetic_nFD[dd]
                       , dd
@@ -1156,8 +1157,10 @@ namespace green_function {
                       , sparsity_pattern.data()
                       , nrhs, echo);
                       if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+                      char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
+                      p.kinetic_nFD[dd] = control::get(keyword_dd, double(p.kinetic_nFD[dd]));
                 } // dd derivate direction
-          }
+          } // scope: set up kinetic plans
 
           // transfer grid spacing into managed GPU memory
           p.grid_spacing = get_memory<double>(3, echo, "grid_spacing");

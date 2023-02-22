@@ -304,7 +304,7 @@ namespace green_dyadic {
     ) {
         if (natoms*nrhs < 1) return;
         dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*64, Noco, R1C2);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, %d, %d} >>>\n",
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, Noco=%d, %d} >>>\n",
                             __func__, real_t_name<real_t>(), R1C2, Noco, natoms, nrhs, Noco*64, Noco, R1C2);
         SHOprj<real_t,R1C2,Noco> // launch <<< {natoms, nrhs, 1}, {Noco*64, Noco, R1C2} >>>
 #ifndef HAS_NO_CUDA
@@ -537,7 +537,7 @@ namespace green_dyadic {
     ) {
         if (nnzb < 1) return;
         dim3 const gridDim(nnzb, 1, 1), blockDim(Noco*64, Noco, R1C2);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {nnzb=%d, 1, 1}, {%d, %d, %d} >>>\n",
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {nnzb=%d, 1, 1}, {%d, Noco=%d, R1C2=%d} >>>\n",
                             __func__, real_t_name<real_t>(), R1C2, Noco, nnzb, Noco*64, Noco, R1C2);
         SHOadd<real_t,R1C2,Noco> // launch {nnzb, 1, 1}, {Noco*64, Noco, R1C2} >>>
 #ifndef HAS_NO_CUDA
@@ -563,7 +563,7 @@ namespace green_dyadic {
 
     // what is the best data layout for c and d?
     // We need to multiply with atom-matrices
-    // --> c/d[nai][ncols] instead of [ncols][nai] 
+    // --> c/d[nai][ncols] instead of [ncols][nai]
 
     // how many instances are compiled?
     //  real_t=float/double --> 2x
@@ -585,7 +585,7 @@ namespace green_dyadic {
     // GPU capacity 40 GiByte
     // tfQMRgpu needs 10 instances --> 4 GiByte = 2^32 Byte per instance
     // max number of blocks is 2^16 = 65,536 (Noco=1) or 2^14 = 16,384 (Noco=2)
-    // 
+    //
     // typical coarse grid spacing: 1 block edge = 1 Angstrom --> grid spacing 0.25 Angstrom == 0.47 Bohr
     // sphere with volume 65ki has radius 25.011 (Noco=1)
     // sphere with volume 16ki has radius 15.756 (Noco=2)
@@ -720,8 +720,8 @@ namespace green_dyadic {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
 
         dim3 const gridDim(nAtoms, nrhs, 1), blockDim(Noco*n64, Noco, 1);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {nAtoms=%d, nrhs=%d, 1}, {%d, %d, 1} >>>\n",
-                            __func__, real_t_name<real_t>(), R1C2, Noco, n64,  nAtoms, nrhs,  Noco*n64, Noco);
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {nAtoms=%d, nrhs=%d, 1}, {%d, Noco=%d, 1} >>>\n",
+                            __func__, real_t_name<real_t>(), R1C2, Noco,  nAtoms, nrhs,  Noco*n64, Noco);
         SHOsum<real_t,R1C2,Noco,n64> // launch SHOsum<real_t,R1C2,Noco,n64> <<< {nAtoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
             <<< gridDim, blockDim >>> (
@@ -836,8 +836,8 @@ namespace green_dyadic {
         if (natoms*nrhs < 1) return;
 
         dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*n64, Noco, 1);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d,%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, %d, 1} >>>\n",
-                           __func__, real_t_name<real_t>(), R1C2, Noco, n64,  natoms, nrhs,  Noco*n64, Noco);
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, Noco=%d, 1} >>>\n",
+                           __func__, real_t_name<real_t>(), R1C2, Noco,  natoms, nrhs,  Noco*n64, Noco);
         SHOmul<real_t,R1C2,Noco,n64> // launch <<< {natoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
             <<< gridDim, blockDim >>> (
@@ -1367,7 +1367,7 @@ namespace green_dyadic {
 //    For considerations of geometry(*), the coefficient matrix will probably stay dense (natomcoeffs \times nrhs)
 //    Then, we can still  launch SHOprj <<< {nrhs, natoms, 1}, {Noco*64, R1C2*Noco, 1} >>> providing
 //                                   bsr in RowStartAtoms[irhs][iatom +0 .. +1], icube = irhs_of_inzb[irhs][bsr] --> one sparse_t per irhs
-//    But we will need to launch SHOadd <<< {nnzb,    1,   1}, {Noco*64, R1C2*Noco, 1} >>> providing irhs = colIndex[inzb], 
+//    But we will need to launch SHOadd <<< {nnzb,    1,   1}, {Noco*64, R1C2*Noco, 1} >>> providing irhs = colIndex[inzb],
 //                                  irow = rowIndex[inzb] and iatom = ColIndexAtoms[irow][bsr], ColIndexAtoms as before
 //
 //    (*) The geometry consideration assumes the case that there is a compact cluster of
