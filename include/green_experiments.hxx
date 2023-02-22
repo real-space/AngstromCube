@@ -169,6 +169,7 @@ namespace green_experiments {
       , int const nblocks
       , int const nb
       , double const dV=1.0 // volume element
+      , int const echo=0 // verbosity level
   )
     // Hmat[i][j] = <psi_i|Hpsi_j> and Smat[i][j] = <psi_i|Spsi_j>
   {
@@ -182,40 +183,55 @@ namespace green_experiments {
                   int const iband = ib*64 + ib64;
                   for (int jb64 = 0; jb64 < 64; ++jb64) {
                       int const jband = jb*64 + jb64;
+                      int const ij = iband*nbands + jband;
                       double H_re{0}, H_im{0}, S_re{0}, S_im{0};
                       for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
-                              int const kzyxb = kzyx4*nb + ib;
+                              int const izyxb = kzyx4*nb + ib;
+                              int const jzyxb = kzyx4*nb + jb;
                               for (int kzyx = 0; kzyx < 64; ++kzyx) {
 
-                                    auto const psi_re  =  psi[kzyxb][Real][kzyx][ib64],
-                                               psi_im  =  psi[kzyxb][Imag][kzyx][ib64];
+                                    double const psi_re  =  psi[izyxb][Real][kzyx][ib64],
+                                                 psi_im  = -psi[izyxb][Imag][kzyx][ib64];
 
-                                    auto const Hpsi_re = Hpsi[kzyxb][Real][kzyx][jb64],
-                                               Hpsi_im = Hpsi[kzyxb][Imag][kzyx][jb64];
+                                    double const Hpsi_re = Hpsi[jzyxb][Real][kzyx][jb64],
+                                                 Hpsi_im = Hpsi[jzyxb][Imag][kzyx][jb64];
 
-                                    auto const Spsi_re = Spsi[kzyxb][Real][kzyx][jb64],
-                                               Spsi_im = Spsi[kzyxb][Imag][kzyx][jb64];
+                                    double const Spsi_re = Spsi[jzyxb][Real][kzyx][jb64],
+                                                 Spsi_im = Spsi[jzyxb][Imag][kzyx][jb64];
 
                                     H_re += psi_re * Hpsi_re; // 2 flop
                                     S_re += psi_re * Spsi_re; // 2 flop
                                     if (Imag) {
-                                        H_re += psi_im * Hpsi_im;                     // 2 flop
-                                        S_re += psi_im * Spsi_im;                     // 2 flop
-                                        H_im += psi_re * Hpsi_im - psi_im * Hpsi_re;  // 4 flop
-                                        S_im += psi_re * Spsi_im - psi_im * Spsi_re;  // 4 flop
+                                        H_re -= psi_im * Hpsi_im;                     // 2 flop
+                                        S_re -= psi_im * Spsi_im;                     // 2 flop
+                                        H_im += psi_re * Hpsi_im + psi_im * Hpsi_re;  // 4 flop
+                                        S_im += psi_re * Spsi_im + psi_im * Spsi_re;  // 4 flop
                                     } // is complex
                               } // kzyx
                       } // kx4 ky4 kz4
-                      Hmatrix[iband*nbands + jband][Real] = H_re*dV; // 1 flop
-                      Smatrix[iband*nbands + jband][Real] = S_re*dV; // 1 flop
+                      Hmatrix[ij][Real] = H_re*dV; // 1 flop
+                      Smatrix[ij][Real] = S_re*dV; // 1 flop
                       if (Imag) {
-                          Hmatrix[iband*nbands + jband][Imag] = H_im*dV; // 1 flop
-                          Smatrix[iband*nbands + jband][Imag] = S_im*dV; // 1 flop
+                          Hmatrix[ij][Imag] = H_im*dV; // 1 flop
+                          Smatrix[ij][Imag] = S_im*dV; // 1 flop
                       } // complex
                   } // jb64
               } // ib64
           } // jb
       } // ib
+
+      for (int hs = 0; hs < 2; ++hs) { // check hermitian property
+          auto const *const mat = hs ? Hmatrix : Smatrix;
+          double dev[] = {0, 0, 0};
+          for (int iband = 0; iband < nbands; ++iband) {
+              for (int jband = 0; jband < iband; ++jband) {
+                  dev[0] += std::abs(mat[iband*nbands + jband][Real] - mat[iband*nbands + jband][Real]);
+                  dev[1] += std::abs(mat[iband*nbands + jband][Imag] + mat[iband*nbands + jband][Imag]);
+              } // jband triangular loop
+              dev[2] += std::abs(mat[iband*nbands + iband][Imag]);
+          } // iband
+          if (echo > 0) std::printf("# %cmat deviation from Hermitian off-diag (%.1e, %.1e), diagonal %.1e\n", hs?'H':'S', dev[0], dev[1]*Imag, dev[2]*Imag);
+      } // check hermitian property
 
       return nblocks*64ul * 4ul * pow2(R1C2*1ul*nbands); // returns the number of floating point operations
   } // inner_products
@@ -248,11 +264,11 @@ namespace green_experiments {
                                     for (int jb64 = 0; jb64 < 64; ++jb64) {
                                         int const jband = jb*64 + jb64;
 
-                                    double const psi_re  = psi[jzyxb][Real][kzyx][jb64],
-                                                 psi_im  = psi[jzyxb][Imag][kzyx][jb64];
+                                        double const psi_re  = psi[jzyxb][Real][kzyx][jb64],
+                                                     psi_im  = psi[jzyxb][Imag][kzyx][jb64];
 
-                                    auto const Rmat_re = Rmat[iband*nbands + jband][Real],
-                                               Rmat_im = Rmat[iband*nbands + jband][Imag];
+                                        auto const Rmat_re = Rmat[iband*nbands + jband][Real],
+                                                   Rmat_im = Rmat[iband*nbands + jband][Imag];
 
                                     re += Rmat_re * psi_re; // 2 flop
                                     if (Imag) {
@@ -292,6 +308,7 @@ namespace green_experiments {
       min_max_res[1] = 0.0;
 
       std::vector<double> res_norm2(nbands, 0.0);
+      std::vector<double> psi_norm2(nbands, 0.0);
       for (int iband = 0; iband < nbands; ++iband) {
           int const ib   = iband >> 6;   // divide 64
           int const ib64 = iband & 0x3f; // modulo 64
@@ -303,8 +320,8 @@ namespace green_experiments {
                   for (int reim = 0; reim < R1C2; ++reim) {
                       // create the residual vector
                       auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64]
-                           - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64];
-                      norm2 += new_psi*new_psi;
+                           - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64]; // 2 flop
+                      norm2 += pow2(new_psi); // 2 flop
                   } // reim
               }// kzyx
           } // kzyx4
@@ -319,32 +336,44 @@ namespace green_experiments {
       } // iband
 
       auto threshold2 = std::sqrt(min_max_res[0]*min_max_res[1]); // geometric mean
+      int newbands{0};
+      if (threshold2 > 1e-30) {
       // filter norms
-      int newbands{nbands};
-      while (newbands > nbhalf) {
+      int iteration{0};
+      newbands = nbands;
+      while (newbands > nbhalf && iteration < 999) {
+          ++iteration;
           threshold2 *= 1.5;
           int isrc{0};
           for (int iband = 0; iband < nbands; ++iband) {
               isrc += (res_norm2[iband] > threshold2);
           } // iband
           newbands = isrc;
+          if (0 == (iteration & 0xf)) std::printf("# %s iteration=%i threshold^2=%.1e\n", __func__, iteration, threshold2);
       } // while
       std::printf("# %d new bands have been selected with threshold %.1e\n", newbands, std::sqrt(threshold2));
       std::vector<int> i_index(nbands, -1);
-      int isrc{0};
+      std::vector<int> j_index(nbands, -1);
+      int isrc{0}, itrg{0};
       for (int iband = 0; iband < nbands; ++iband) {
           if (res_norm2[iband] > threshold2) {
               i_index[isrc] = iband;
               ++isrc;
+          } else {
+              j_index[itrg] = iband;
+              ++itrg;
           }
       } // iband
-      assert(isrc <= nbhalf && "bisection failed");
+      auto const oldbands = itrg;
       newbands = isrc;
+      assert(newbands <= nbhalf && "bisection failed");
+      assert(oldbands + newbands == nbands);
 
       for (int isrc = 0; isrc < newbands; ++isrc) {
           // rescale psi_j
           int const iband = i_index[isrc];
-          int const jband = nbands - 1 - isrc; // replace the upper wave functions by residual waves with a large norm
+          int const jband = j_index[oldbands - 1 - isrc]; // replace the upper wave functions by residual waves with a large norm
+          assert(iband > -1); assert(jband > -1);
 
           int const jb   = jband >> 6;   // divide 64
           int const jb64 = jband & 0x3f; // modulo 64
@@ -357,16 +386,19 @@ namespace green_experiments {
               int const jzyxb = kzyx4*nb + jb;
               for (int kzyx = 0; kzyx < 64; ++kzyx) {
                   for (int reim = 0; reim < R1C2; ++reim) {
-                    auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64]
-                         - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64];
-                    psi[jzyxb][reim][kzyx][jb64] = f*new_psi;
+                      auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64]
+                           - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64]; // 2 flop
+                      psi[jzyxb][reim][kzyx][jb64] = f*new_psi; // 1 flop
                   } // reim
               } // kzyx
           } // kzyx4
       } // iband
+      } // threshold2 > 1e-30
 
-      for (int mm = 0; mm < 2; ++mm) min_max_res[mm] = std::sqrt(min_max_res[mm]);
-      return 2ul * nblocks*64ul * R1C2*nbhalf; // returns the number of floating point operations
+      for (int mm = 0; mm < 2; ++mm) {
+          min_max_res[mm] = std::sqrt(min_max_res[mm]); // export the residuals, not their squares
+      } // mm
+      return nblocks*64ul * R1C2*(4ul*nbands + 3ul*newbands); // returns the number of floating point operations
   } // gradient_waves
 
 
@@ -569,7 +601,7 @@ namespace green_experiments {
 
           // create inner products <psi_i|Hpsi_j> and <psi_i|Spsi_j>
           nops += inner_products<real_t,R1C2,Noco>(Hmat, Smat,
-                                  psi, Hpsi, Spsi, nblocks, nb, dVol);
+                                  psi, Hpsi, Spsi, nblocks, nb, dVol, echo);
 
           set(mat[0], pow2(nbands)*R1C2, Smat[0]); // deep copy of the overlap operator
           // we need a deep copy here because the eigenvalue solver changes the matrix
@@ -612,7 +644,7 @@ namespace green_experiments {
                     nops += rotate_waves(tpsi, psi, Hmat, nblocks, nb); // Spsi is a dummy here for a new version of psi
                     std::swap(psi, tpsi); // pointer swap
 
-                    if (Sval[0] > 0.1) {
+                    if (Sval[0] > .01) {
                         if (it > 0) {
                           if (echo > 9) std::printf("# gradient_waves in Davidson iteration #%i\n", it);
                           float min_max_res[2];
@@ -624,7 +656,7 @@ namespace green_experiments {
                                                     it, min_max_res[0], min_max_res[1]);
                         }
                     } else {
-                        if (echo > 5) std::printf("# overlap becomes singular in Davidson iteration #%i\n", it);
+                        if (echo > 5) std::printf("# overlap becomes instable in Davidson iteration #%i\n", it);
                         lastiter = it; // exit
                     } // augment search space by gradients
                 } // generalized eigenvalue problem failed
