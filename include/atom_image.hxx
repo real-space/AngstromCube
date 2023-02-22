@@ -16,8 +16,8 @@ namespace atom_image {
     public:
 
       atom_image_t(void) {} // default constructor
-      atom_image_t(double const x, double const y, double const z, 
-                   int32_t const atom_id=-1, 
+      atom_image_t(double const x, double const y, double const z,
+                   int32_t const atom_id=-1,
                    int const ix=-128, int const iy=-128, int const iz=-128, int const Zi=-128)
           : _atom_id(atom_id) {
           _pos[0] = x; _pos[1] = y; _pos[2] = z;
@@ -43,7 +43,7 @@ namespace atom_image {
       sho_atom_t(void) : _sigma(1.), _numax(-1), _atom_id(-1) {} // default constructor
       sho_atom_t(
             double const sigma
-          , int const numax 
+          , int const numax
           , int32_t const atom_id
           , double const *pos=nullptr
           , int8_t const Zi=-128
@@ -61,11 +61,11 @@ namespace atom_image {
           } // pos
       } // constructor
 
-      template <typename real_t> 
+      template <typename real_t>
       inline real_t const * get_matrix(int const h0s1=0) const; // provide no implementation for the general case
 
       status_t set_matrix(
-            double const values[] // data layout values[ncoeff][stride_values], coefficients are assumed in order_zyx
+            double const values[] // data layout values[ncoeff][stride_values], coefficients are assumed in order_zyx --> therefore, we must match ncoeff == _ncoeff
           , int const ncoeff
           , int const stride_values
           , int const h0s1=0
@@ -82,12 +82,13 @@ namespace atom_image {
               _matrix32[h0s1*_ncoeff*_stride + ij] = 0; // clear
           } // ij
 
+          assert(ncoeff == _ncoeff && "for need order_nxyz for setting a matrix of different size!");
           int const nc = std::min(ncoeff, _ncoeff); // take the lower number of coefficients
           for (int i = 0; i < nc; ++i) {
               for (int j = 0; j < nc; ++j) {
                   int const ij = (h0s1*_ncoeff + i)*_stride + j;
                   int const ij_values = i*stride_values + j;
-                  _matrix64[ij] = rescale[i] * values[ij_values]*factor * rescale[j];
+                  _matrix64[ij] = rescale[i] * values[ij_values] * factor * rescale[j];
                   _matrix32[ij] = _matrix64[ij]; // convert to float
               } // j
           } // i
@@ -138,13 +139,13 @@ namespace atom_image {
   }; // class sho_atom_t
 
   template <> // specialization for real_t=double
-  inline double const * sho_atom_t::get_matrix<double>(int const h0s1) const { 
+  inline double const * sho_atom_t::get_matrix<double>(int const h0s1) const {
       assert((0 == h0s1) || (1 == h0s1));
       return &_matrix64[h0s1*_ncoeff*_stride];
   } // get_matrix
 
   template <> // specialization for real_t=float
-  inline float  const * sho_atom_t::get_matrix<float> (int const h0s1) const { 
+  inline float  const * sho_atom_t::get_matrix<float> (int const h0s1) const {
       assert((0 == h0s1) || (1 == h0s1));
       return &_matrix32[h0s1*_ncoeff*_stride];
   } // get_matrix

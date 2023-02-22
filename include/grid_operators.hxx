@@ -80,7 +80,7 @@ namespace grid_operators {
               } // izyx
           } else {
               if (echo > 18) std::printf("# %s has no input function\n", __func__);
-          } // psi != nullptr 
+          } // psi != nullptr
       } else {
           if (echo > 18) std::printf("# %s has no output function\n", __func__);
       } // Hpsi != nullptr
@@ -154,7 +154,7 @@ namespace grid_operators {
                               auto const am = mat[i*stride + j];
                               auto const cj = atom_coeff[ia][j];
 #ifdef DEVEL
-//                               if (echo > 9) std::printf("# %s atomic %s matrix for atom #%i mat(%i,%i)= %g\n", 
+//                               if (echo > 9) std::printf("# %s atomic %s matrix for atom #%i mat(%i,%i)= %g\n",
 //                                                    __func__, h0s1?"overlap":"hamiltonian", ia, i, j, am);
 #endif // DEVEL
                               ci += am * cj;
@@ -256,9 +256,9 @@ namespace grid_operators {
 
           char Symbol[4]; chemical_symbol::get(Symbol, Z);
           double const *apos = &xyzZins[ia*stride + 0];
-          if (echo > 3) std::printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
+          if (echo > 3) std::printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__,
               Symbol, apos[0]*Ang, apos[1]*Ang, apos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
-          if (echo > 3) std::printf("# %s %s %g %g %g (rel) has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
+          if (echo > 3) std::printf("# %s %s %g %g %g (rel) has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__,
               Symbol, pos[0]*gc.inv_h[0], pos[1]*gc.inv_h[1], pos[2]*gc.inv_h[2], n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
 
       } // ia
@@ -299,7 +299,7 @@ namespace grid_operators {
 //        int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
           // the kinetic energy operator
-          kinetic = finite_difference::stencil_t<real_fd_t>(g.h, nn_kinetic, -0.5); 
+          kinetic = finite_difference::stencil_t<real_fd_t>(g.h, nn_kinetic, -0.5);
           // -0.5: prefactor of the kinetic energy in Hartree atomic units
 
           // the local effective potential, ToDo: separate this because we might want to call it later
@@ -472,12 +472,13 @@ namespace grid_operators {
                   int const nSHO = sho_tools::nSHO(numax);
                   for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
                       auto const mat = atoms[ia].template get_matrix<double>(h0s1);
+                      auto const stride = atoms[ia].stride();
                       auto const tag = h0s1 ? "overlap" : "hamiltonian";
                       std::fprintf(f, "      <%s>\n", tag);
                       for (int i = 0; i < nSHO; ++i) {
                           std::fprintf(f, "        ");
                           for (int j = 0; j < nSHO; ++j) {
-                              std::fprintf(f, " %.15e", mat[i*nSHO + j]);
+                              std::fprintf(f, " %.15e", mat[i*stride + j]);
                           } // j
                           std::fprintf(f, "\n");
                       } // i
@@ -504,7 +505,7 @@ namespace grid_operators {
               // JSON file format
               std::fprintf(f, "{\n"); // open grid_Hamiltonian
               std::fprintf(f, "  \"comment\": \"grid_Hamiltonian in units of Hartree and Bohr radii\"\n");
- 
+
               if (nullptr != energy_min_max_Fermi) {
                   std::fprintf(f, "  ,\"spectrum\": {\"min\": %.6f, \"max\": %.6f, \"Fermi\": %.6f}\n",
                       energy_min_max_Fermi[0], energy_min_max_Fermi[1], energy_min_max_Fermi[2]);
@@ -523,13 +524,14 @@ namespace grid_operators {
                   int const nSHO = sho_tools::nSHO(numax);
                   for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
                       auto const mat = atoms[ia].template get_matrix<double>(h0s1);
+                      auto const stride = atoms[ia].stride();
                       auto const tag = h0s1 ? "overlap" : "hamiltonian";
                       std::fprintf(f, "      ,\"%s\":\n", tag);
                       for (int i = 0; i < nSHO; ++i) {
                           std::fprintf(f, "        %c", i?',':'['); // open row
                           for (int j = 0; j < nSHO; ++j) {
                               if (0 == (j & 0x3)) std::fprintf(f, "\n          ");
-                              std::fprintf(f, "%c%.15e", j?',':'[', mat[i*nSHO + j]);
+                              std::fprintf(f, "%c%.15e", j?',':'[', mat[i*stride + j]);
                           } // j
                           std::fprintf(f, "]\n"); // close row
                       } // i

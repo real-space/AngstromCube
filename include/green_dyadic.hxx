@@ -304,7 +304,7 @@ namespace green_dyadic {
     ) {
         if (natoms*nrhs < 1) return;
         dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*64, Noco, R1C2);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, Noco=%d, %d} >>>\n",
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, Noco=%d, R1C2=%d} >>>\n",
                             __func__, real_t_name<real_t>(), R1C2, Noco, natoms, nrhs, Noco*64, Noco, R1C2);
         SHOprj<real_t,R1C2,Noco> // launch <<< {natoms, nrhs, 1}, {Noco*64, Noco, R1C2} >>>
 #ifndef HAS_NO_CUDA
@@ -709,7 +709,7 @@ namespace green_dyadic {
         , uint32_t const (*const __restrict__ AtomImageStarts) // prefix sum over nSHO(AtomImageLmax[:])
         , double   const (*const __restrict__ AtomImagePhase)[4] // complex/magnetic phase [nAtomImages]
         , green_sparse::sparse_t<> const & sparse_SHOsum
-        , uint32_t const nAtoms
+        , uint32_t const nAtoms // number of atoms
         , int      const nrhs
         , bool     const collect=true // otherwise input and result are exchanged
         , int      const echo=0
@@ -828,17 +828,17 @@ namespace green_dyadic {
         , double   const (*const *const __restrict__ AtomMatrices)
         , int8_t   const (*const __restrict__ AtomLmax)
         , uint32_t const (*const __restrict__ AtomStarts)
-        , int      const natoms
+        , int      const nAtoms // number of atoms
         , int      const nrhs // number of block columns in the Green function
         , int const echo=0 // log level
     ) {
         assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
-        if (natoms*nrhs < 1) return;
+        if (nAtoms*nrhs < 1) return;
 
-        dim3 const gridDim(natoms, nrhs, 1), blockDim(Noco*n64, Noco, 1);
-        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {natoms=%d, nrhs=%d, 1}, {%d, Noco=%d, 1} >>>\n",
-                           __func__, real_t_name<real_t>(), R1C2, Noco,  natoms, nrhs,  Noco*n64, Noco);
-        SHOmul<real_t,R1C2,Noco,n64> // launch <<< {natoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
+        dim3 const gridDim(nAtoms, nrhs, 1), blockDim(Noco*n64, Noco, 1);
+        if (echo > 3) std::printf("# %s<%s,R1C2=%d,Noco=%d> <<< {nAtoms=%d, nrhs=%d, 1}, {%d, Noco=%d, 1} >>>\n",
+                           __func__, real_t_name<real_t>(), R1C2, Noco,  nAtoms, nrhs,  Noco*n64, Noco);
+        SHOmul<real_t,R1C2,Noco,n64> // launch <<< {nAtoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
             <<< gridDim, blockDim >>> (
 #else //  HAS_NO_CUDA
@@ -1127,7 +1127,7 @@ namespace green_dyadic {
                   for (int l = 0; l <= Lmax; ++l) {
                       if (echo > 10) std::printf(" %g", H1D[l][i3][i4]);
                       auto const dev = h1D[l][i3][i4] - H1D[l][i3][i4];
-                      if (0.0 != H1D[l][i3][i4]) {
+                      if (0 != H1D[l][i3][i4]) {
                           auto const reldev = std::abs(dev/H1D[l][i3][i4]);
                           maxdev = std::max(maxdev, reldev);
                       }
@@ -1135,14 +1135,14 @@ namespace green_dyadic {
               } // i4
           } // i3
       } // it translations
+      if (echo > 3) std::printf("\n# %s largest relative deviation between float and double is %.1e\n", __func__, maxdev);
       if (echo > 10) std::printf("\n\n\n");
-      if (echo > 3) std::printf("# %s largest relative deviation is %.1e\n", __func__, maxdev);
       return 0;
   } // test_Hermite_polynomials_1D
 
 
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t multiply( // without atomic images
+    size_t multiply( // deprecated, without atomic images
           real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result,  modified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
         , real_t         (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // projection coefficients     [natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
@@ -1187,7 +1187,7 @@ namespace green_dyadic {
 
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  inline status_t test_SHOprj_and_SHOadd(int const echo=0, int8_t const lmax=5) {
+  inline status_t test_SHOprj_and_SHOadd(int const echo=0, int8_t const lmax=6) {
       // check if drivers compile and the normalization of the lowest (up to 64) SHO functions
       auto const sigma = control::get("green_dyadic.test.sigma", 1.);
       auto const hg    = control::get("green_dyadic.test.grid.spacing", 0.25);
@@ -1203,14 +1203,13 @@ namespace green_dyadic {
 
       auto sparse_SHOprj = get_memory<green_sparse::sparse_t<>>(nrhs, echo, "sparse_SHOprj");
       {
-          std::vector<std::vector<uint32_t>> SHO_prj(natoms);
-          SHO_prj[0].resize(nnzb); for (int inzb = 0; inzb < nnzb; ++inzb) SHO_prj[0][inzb] = inzb;
+          std::vector<uint32_t> iota(nnzb); for (int inzb = 0; inzb < nnzb; ++inzb) iota[inzb] = inzb;
+          std::vector<std::vector<uint32_t>> SHO_prj(natoms, iota);
           sparse_SHOprj[0] = green_sparse::sparse_t<>(SHO_prj, false, __func__, echo - 9);
       }
       green_sparse::sparse_t<> sparse_SHOadd;
       {
-          std::vector<std::vector<uint32_t>> SHO_add(nnzb);
-          for (int inzb = 0; inzb < nnzb; ++inzb) SHO_add[inzb].resize(1, 0);
+          std::vector<std::vector<uint32_t>> SHO_add(nnzb, std::vector<uint32_t>(1, 0));
           sparse_SHOadd    = green_sparse::sparse_t<>(SHO_add, false, __func__, echo - 9);
       }
 
@@ -1233,7 +1232,9 @@ namespace green_dyadic {
 
       auto const dV = hGrid[0]*hGrid[1]*hGrid[2];
       auto const sho_norm = sho_normalization(lmax, sigma);
-      for (int isho = 0; isho < std::min(nsho, 64); ++isho) apc[isho*nrhs][0][0][isho] = dV/sho_norm[isho]; // set "unit matrix" but normalized
+      for (int isho = 0; isho < std::min(nsho, 64); ++isho) {
+          apc[isho*nrhs][0][0][isho] = dV/sho_norm[isho]; // set "unit matrix" but normalized
+      } // isho
 
       SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
       if (0) {
@@ -1267,16 +1268,17 @@ namespace green_dyadic {
               assert(nu_of_sho.size() == sho);
           }
           auto const msho = std::min(nsho, 64);
-          if (echo > 5) std::printf("# %d projection coefficients ", msho);
+          if (echo > 5) std::printf("# %d of %d projection coefficients ", msho, nsho);
           for (int isho = 0; isho < msho; ++isho) {
               if (echo > 9) std::printf("\n# projection coefficients[%2d]: ", isho);
               for (int jsho = 0; jsho < msho; ++jsho) {
                   double const value = apc[isho*nrhs][0][0][jsho];
                   int const diag = (isho == jsho);
-                  if (echo > 9) std::printf(" %g", value);
+                  if (echo > 9) std::printf(" %.1e", value);
                   float const absdev = std::abs(value - diag);
                   maxdev[diag] = std::max(maxdev[diag], absdev);
                   auto const nu = std::max(nu_of_sho[isho], nu_of_sho[jsho]);
+                  assert(nu >= 0);
                   if (nu < 8) maxdev_nu[nu][diag] = std::max(maxdev_nu[nu][diag], absdev);
               } // isho
               if (echo > 9) std::printf(" diagonal=");
@@ -1284,10 +1286,10 @@ namespace green_dyadic {
           } // isho
           if (echo > 5) std::printf("\n");
       } // scope
-      if (echo > 2) std::printf("# %s<real%ld> orthogonality error %.2e, normalization error %.2e\n", __func__, sizeof(real_t), maxdev[0], maxdev[1]);
+      if (echo > 2) std::printf("# %s<%s> orthogonality error %.2e, normalization error %.2e\n", __func__, real_t_name<real_t>(), maxdev[0], maxdev[1]);
       if (echo > 5) {
           for (int nu = 0; nu < std::min(8, lmax + 1); ++nu) {
-              std::printf("# real%ld nu=%d %.2e %.2e\n", sizeof(real_t), nu, maxdev_nu[nu][0], maxdev_nu[nu][1]);
+              std::printf("# %s  nu=%d  %.2e  %.2e\n", real_t_name<real_t>(), nu, maxdev_nu[nu][0], maxdev_nu[nu][1]);
           } // nu
       } // echo
 
@@ -1358,8 +1360,8 @@ namespace green_dyadic {
 //        wave functions                   layout[ncubes* 64 *nrhs][Noco*64]
 //
 //    However, we will have to reformulate to
-//        projection/addition coefficients layout[natomcoeffs*nrhs*R1C2*Noco][Noco*64]
-//        Green function                   layout[nnzb       ][R1C2][Noco*64][Noco*64]
+//        projection/addition coefficients layout[natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
+//        Green function                   layout[nnzb            ][R1C2][Noco*64][Noco*64]
 //
 //    where natomcoeffs == natoms*nSHO(numax) only if all atoms have the same numax
 //    and   nnzb == ncubes*nrhs only if the Green function is dense.

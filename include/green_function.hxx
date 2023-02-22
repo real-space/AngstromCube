@@ -1146,9 +1146,9 @@ namespace green_function {
               auto const *const keyword = "green_kinetic.range";
               int16_t const kinetic_nFD_default = control::get(keyword, 8.0);
               for (int dd = 0; dd < 3; ++dd) { // derivate direction
-                  p.kinetic_nFD[dd] = kinetic_nFD_default;
+                  int16_t kinetic_nFD_dd = kinetic_nFD_default;
                   // create lists for the finite-difference derivatives
-                  auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], p.kinetic_nFD[dd]
+                  auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], kinetic_nFD_dd
                       , dd
                       , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
                       , num_target_coords
@@ -1158,7 +1158,7 @@ namespace green_function {
                       , nrhs, echo);
                       if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
                       char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
-                      p.kinetic_nFD[dd] = control::get(keyword_dd, double(p.kinetic_nFD[dd]));
+                      p.kinetic_nFD[dd] = control::get(keyword_dd, double(kinetic_nFD_dd));
                 } // dd derivate direction
           } // scope: set up kinetic plans
 
