@@ -303,7 +303,6 @@ namespace green_experiments {
     // psi_j = Hpsi_i - E_i * Spsi_i, j=i+nbhalf
   {
       int const nbands = nb*64; // number of all bands
-      int const nbhalf = nb*32; // separate into lower half (unchanged) and upper half (gradients)
       min_max_res[0] = 9e9;
       min_max_res[1] = 0.0;
 
@@ -341,7 +340,7 @@ namespace green_experiments {
       // filter norms
       int iteration{0};
       newbands = nbands;
-      while (newbands > nbhalf && iteration < 999) {
+      while (newbands*2 > nbands && iteration < 999) {
           ++iteration;
           threshold2 *= 1.5;
           int isrc{0};
@@ -351,7 +350,7 @@ namespace green_experiments {
           newbands = isrc;
           if (0 == (iteration & 0xf)) std::printf("# %s iteration=%i threshold^2=%.1e\n", __func__, iteration, threshold2);
       } // while
-      std::printf("# %d new bands have been selected with threshold %.1e\n", newbands, std::sqrt(threshold2));
+      std::printf("# %d new bands have been selected with residuals in [%.1e, %.1e]\n", newbands, std::sqrt(threshold2), std::sqrt(min_max_res[1]));
       std::vector<int> i_index(nbands, -1);
       std::vector<int> j_index(nbands, -1);
       int isrc{0}, itrg{0};
@@ -366,7 +365,7 @@ namespace green_experiments {
       } // iband
       auto const oldbands = itrg;
       newbands = isrc;
-      assert(newbands <= nbhalf && "bisection failed");
+      assert(newbands*2 <= nbands && "bisection failed");
       assert(oldbands + newbands == nbands);
 
       for (int isrc = 0; isrc < newbands; ++isrc) {
@@ -560,10 +559,13 @@ namespace green_experiments {
                               int const jzyx = (i4z*4 + i4y)*4 + i4x;
                               for (int jb = 0; jb < 64; ++jb) { // threadIdx.x
                                 int const ipw = ib*64 + jb;
-                                auto const arg = ix*kvs[0*stride + ipw] + iy*kvs[1*stride + ipw] + iz*kvs[2*stride + ipw];
+                                auto const arg = (ix + .5)*kvs[0*stride + ipw]
+                                               + (iy + .5)*kvs[1*stride + ipw]
+                                               + (iz + .5)*kvs[2*stride + ipw];
                                 if (Imag)
-                                psi[izyxb][Imag][jzyx][jb] = f*std::sin(arg);
-                                psi[izyxb][Real][jzyx][jb] = f*std::cos(arg);
+                                psi[izyxb][Imag][jzyx][jb] = f*std::cos(arg);
+                                psi[izyxb][Real][jzyx][jb] = f*std::sin(arg); // if we treat real wave functions and isolated BCs,
+                                          // the sine-solution is the eigenstate of the potential-free particle in a box problem
                               } // jb
                             }}} // i4x i4y i4z
                     }}} // ix4 iy4 iz4
@@ -582,7 +584,7 @@ namespace green_experiments {
       auto  mat = get_memory<double[R1C2]>(pow2(nbands), echo, "matrix copy");
 
       simple_stats::Stats<> Gflop_count;
-      for (int ik = 0; ik < nkpoints; ++ik) {
+      for (int ik = 0; ik < nkpoints*0+1; ++ik) {
           double const *const k_point = k_path[ik];
 
           if (echo > 0) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);

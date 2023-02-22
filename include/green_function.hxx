@@ -540,20 +540,18 @@ namespace green_function {
 
       } else { // comm_size > 1
 
-          uint32_t const source_cube = control::get("green_function.source.cube", -1.);
           // generate a box of source points
-          int32_t n_source_blocks[3] = {0, 0, 0}, off[3];
+          double nsb[3] = {0, 0, 0};
+          uint32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", -1.);
+          int32_t off[3], n_source_blocks[] = {int(nsb[X]), int(nsb[Y]), int(nsb[Z])};
           for (int d = 0; d < 3; ++d) {
-              n_source_blocks[d] = nb[d];
-              if (source_cube) n_source_blocks[d] = std::min(nb[d], source_cube);
-              char keyword[64]; std::snprintf(keyword, 64, "green_function.sources.%c", 'x' + d);
-              int const rect = control::get(keyword, n_source_blocks[d]*1.);
-              n_source_blocks[d] = rect;
+              n_source_blocks[d] = (n_source_blocks[d] < 1) ? nb[d] : std::min(std::max(1, n_source_blocks[d]), int32_t(nb[d])); // clamp
               off[d] = (nb[d] - n_source_blocks[d])/2;
           } // d
-          if (source_cube && echo > 0) std::printf("\n# limit n_source_blocks to +green_function.source.cube=%d\n", source_cube);
+          if (source_cube && echo > 0) std::printf("\n# use green_function.sources= %g x %g x %g\n",
+                                        n_source_blocks[X], n_source_blocks[Y], n_source_blocks[Z]);
 
-          auto const nrhs = n_source_blocks[Z]*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
+          auto const nrhs = size_t(n_source_blocks[Z])*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
 
           if (echo > 3) std::printf("# n_source_blocks %s = %ld\n", str(n_source_blocks, 1, " x "), nrhs);
 
@@ -687,7 +685,10 @@ namespace green_function {
                                                        max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang);
 
       // truncation radius
-      double const r_trunc = control::get("green_function.truncation.radius", 10.);
+      // double r_trunc_xyz[] = {9e8, 9e8, 9e8};
+      // auto const r_trunc = control::get(r_trunc_xyz, "green_function.truncation.radius", "xyz", 10.);
+      // if (echo > 0) std::printf("# green_function.truncation.radius=%g %g %g %s, %.1f grid points\n", r_trunc_xyz[0]*Ang, r_trunc_xyz[1]*Ang, r_trunc_xyz[2]*Ang, _Ang);
+      auto const r_trunc = control::get("green_function.truncation.radius", 10.);
       if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
       p.r_truncation  = std::max(0., r_trunc);
       // confinement potential
@@ -703,6 +704,7 @@ namespace green_function {
 
       // count the number of green function elements for each target block
 
+
       uint32_t num_target_coords[3] = {0, 0, 0};
       int32_t  min_target_coords[3] = {0, 0, 0}; // global coordinates
       int32_t  max_target_coords[3] = {0, 0, 0}; // global coordinates
@@ -714,14 +716,18 @@ namespace green_function {
           if (echo > 0) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
           if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
+          double scale_grid_spacing[] = {1, 1, 1};
+          control::get(scale_grid_spacing, "green_function.scale.grid.spacing", "xyz", 1.);
+
           uint8_t is_periodic[] = {0, 0, 0, 0}; // is_periodic > 0 if periodic BC and truncation sphere overlaps with itself
           double h[] = {hg[X], hg[Y], hg[Z]}; // customized grid spacing used in green_potential::multiply
           int32_t itr[3];
           for (int d = 0; d < 3; ++d) {
 
               if (r_trunc >= 0) {
-                  char keyword[64]; std::snprintf(keyword, 64, "green_function.scale.grid.spacing.%c", 'x' + d); // this feature allows also truncation ellipsoids
-                  auto const scale_h = control::get(keyword, 1.);
+                  // char keyword[64]; std::snprintf(keyword, 64, "green_function.scale.grid.spacing.%c", 'x' + d); // this feature allows also truncation ellipsoids
+                  // auto const scale_h = control::get(keyword, 1.);
+                  auto const scale_h = scale_grid_spacing[d];
                   if (scale_h >= 0) {
                       h[d] = hg[d]*scale_h;
                       if (echo > 1 && 1 != scale_h) std::printf("# scale grid spacing in %c-direction for truncation from %g to %g %s\n", 'x'+d, hg[d]*Ang, h[d]*Ang, _Ang);
@@ -732,7 +738,7 @@ namespace green_function {
                       if (2*rtrunc > deformed_cell) {
                           if (h[d] > 0) {
                               warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s)\n#          "
-                                   "better use +%s=0 for cylindrical truncation", 2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang, keyword);
+                                   "better use +green_function.scale.grid.spacing=0 for cylindrical truncation", 2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang);
                               is_periodic[d] = std::min(255., std::ceil(rtrunc/deformed_cell)); // truncation sphere may overlap with its periodic images
                           } else { // h[d] > 0
                               is_periodic[d] = 1; // truncation sphere may overlap with its periodic images
@@ -1136,26 +1142,22 @@ namespace green_function {
 
           // Green function is stored sparse as real_t green[nnzb][2][Noco*64][Noco*64];
 
-          auto const keyword = "green_function.kinetic.range";
-          int const FD_range = control::get(keyword, 8.0);
-          for (int dd = 0; dd < 3; ++dd) { // derivate direction
-
-              int16_t suggest_nFD = FD_range;
-              // create lists for the finite-difference derivatives
-              auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], suggest_nFD
-                , dd
-                , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
-                , num_target_coords
-                , p.RowStart, p.colindx.data()
-                , iRow_of_coords
-                , sparsity_pattern.data()
-                , nrhs, echo);
-              if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
-
-              char keyword_dd[64]; std::snprintf(keyword_dd, 64, "%s.%c", keyword, 'x' + dd);
-              p.kinetic_nFD[dd] = control::get(keyword_dd, suggest_nFD*1.);
-
-          } // dd derivate direction
+          {
+              double kinetic_nFD[3]; control::get(kinetic_nFD, "green_kinetic.range", "xyz", 8.0);
+              for (int dd = 0; dd < 3; ++dd) { // derivate direction
+                  p.kinetic_nFD[dd] = kinetic_nFD[dd];
+                  // create lists for the finite-difference derivatives
+                  auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], p.kinetic_nFD[dd]
+                      , dd
+                      , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
+                      , num_target_coords
+                      , p.RowStart, p.colindx.data()
+                      , iRow_of_coords
+                      , sparsity_pattern.data()
+                      , nrhs, echo);
+                      if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+                } // dd derivate direction
+          }
 
           // transfer grid spacing into managed GPU memory
           p.grid_spacing = get_memory<double>(3, echo, "grid_spacing");
