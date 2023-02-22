@@ -148,7 +148,7 @@ namespace control {
       return 0;
   } // show_variables
 
-  inline char const* find_equal_sign(char const *const string) { 
+  inline char const* find_equal_sign(char const *const string) {
       return (char const*)std::strchr(string, '=');
   } // find_equal_sign
 
@@ -180,6 +180,20 @@ namespace control {
       return string2double(get(name, buffer));
   } // get<double>
 
+  double get(
+        double vec[] // result array
+      , char const *const name // base keyword
+      , char const *const xyz // ="xyz" // single characters to append to the base keyword after a '.'
+      , double const default_value // =0 // default value
+  ) { // specify entire vectors, e.g. spacing.x, spacing.y, ... or coeff.a, coeff.b, ...
+      double const def_val = get(name, default_value);
+      char name_x[96];
+      for (int d = 0; '\0' != xyz[d]; ++d) {
+          std::snprintf(name_x, 96, "%s.%c", name, xyz[d]);
+          vec[d] = get(name_x, def_val);
+      } // d
+      return def_val;
+  } // get
 
   std::string left_trim(std::string const & s)  {
       std::string const WhiteSpaceChars = " \n\r\t\f\v";
@@ -233,13 +247,13 @@ namespace control {
                   warn("failure parsing %s:%d \'%s\'", filename, linenumber, line.c_str());
               } else {
                  if (echo > 0) std::printf("# %s\n", tlin.c_str()); // show the valid commands
-              } 
+              }
               stat += line_stat;
           }
       } // parse file line by line
 
       if (echo > 3) std::printf("# %s found %d comments in file '%s', status=%i\n\n",
-                                   __func__, ncomments, filename, int(stat)); 
+                                   __func__, ncomments, filename, int(stat));
 
       return stat;
   } // read_control_file
@@ -285,7 +299,7 @@ namespace control {
   } // test_control
 
   status_t test_precision(int const echo=3, int const nmax=106) {
-      // check if there are rounding errors arising from the 
+      // check if there are rounding errors arising from the
       //    ASCII representation of double precision numbers
       if (echo > 2) std::printf("\n# %s: %s\n", __FILE__, __func__);
       status_t stat(0);

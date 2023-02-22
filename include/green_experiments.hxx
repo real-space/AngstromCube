@@ -496,6 +496,7 @@ namespace green_experiments {
           pH.echo = echo - 15;
       } // scope
 
+      // construct two different action operators
       green_action::action_t<real_t,R1C2,Noco,64> action_H(&pH); // constructor
       green_action::action_t<real_t,R1C2,Noco,64> action_S(&pS); // constructor
       green_function::update_energy_parameter(pH,  0.0, AtomMatrices, Noco, 1.0, echo); // prepare for H: A = (1*H - (0)*S)

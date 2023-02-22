@@ -124,7 +124,7 @@ namespace green_action {
       int32_t*  veff_index          = nullptr; // [nnzb] indirection list, values -1 for non-existent indices
 
       double *grid_spacing_trunc = nullptr; // [3]
-      double *grid_spacing       = nullptr; // [3]
+      double *grid_spacing       = nullptr; // [4]
       double (*phase)[2][2]      = nullptr; // [3]
 
       bool noncollinear_spin = false;
