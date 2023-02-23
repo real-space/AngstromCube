@@ -95,7 +95,7 @@ namespace green_experiments {
               double const E_real = iE*dE + E0;
               std::complex<double> E_param(E_real, E_imag);
 
-              green_function::update_energy_parameter(p, E_param, AtomMatrices, Noco, 1.0, echo);
+              green_function::update_energy_parameter(p, E_param, AtomMatrices, hg[2]*hg[1]*hg[0], Noco, 1.0, echo);
 
 #ifdef    HAS_TFQMRGPU
               if (maxiter >= 0) {
@@ -505,11 +505,11 @@ namespace green_experiments {
       // construct two different action operators
       green_action::action_t<real_t,R1C2,Noco,64> action_H(&pH); // constructor
       green_action::action_t<real_t,R1C2,Noco,64> action_S(&pS); // constructor
-      green_function::update_energy_parameter(pH,  0.0, AtomMatrices, Noco, 1.0, echo); // prepare for H: A = (1*H - (0)*S)
-      green_function::update_energy_parameter(pS, -1.0, AtomMatrices, Noco, 0.0, echo); // prepare for S: A = (0*H - (-1)*S)
+      double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
+      green_function::update_energy_parameter(pH,  0.0, AtomMatrices, dVol, Noco, 1.0, echo); // prepare for H: A = (1*H - (0)*S)
+      green_function::update_energy_parameter(pS, -1.0, AtomMatrices, dVol, Noco, 0.0, echo); // prepare for S: A = (0*H - (-1)*S)
 
       auto  psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
-      double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
 
       int constexpr Real = 0, Imag = R1C2 - 1;
       if (nb < nblocks) { // scope: create start wave functions

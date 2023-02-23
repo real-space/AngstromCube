@@ -861,6 +861,7 @@ namespace green_dyadic {
       int8_t*   AtomLmax            = nullptr; // [nAtoms]
       double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc: number of SHO coefficients of this atom
       uint32_t nAtoms               = 0;
+      std::vector<double> AtomSigma;
 
       uint32_t* AtomImageIndex      = nullptr; // [nAtomImages]
       uint32_t* AtomImageStarts     = nullptr; // [nAtomImages + 1]

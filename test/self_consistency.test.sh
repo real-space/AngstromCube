@@ -12,10 +12,10 @@ exe=../src/a43
 # echo "H    $c -$c  $c" >> $base.xyz
 # echo "H   -$c  $c  $c" >> $base.xyz
 
-# base=scf.C-sc
-# echo " 1" > $base.xyz
-# printf "#cell 2.5 2.5 2.5 p p p" >> $base.xyz
-# echo "C 0 0 0" >> $base.xyz
+base=scf.C-sc
+echo " 1" > $base.xyz
+echo "#cell 3.0 3.0 3.0 p p p" >> $base.xyz
+echo "C 0 0 0" >> $base.xyz
 
 # base=scf.vacuum
 # echo " 1" > $base.xyz
@@ -30,15 +30,15 @@ exe=../src/a43
 # base=scf.methane
 # echo " 5" > $base.xyz
 # echo "#cell 16 16 16 i i i" >> $base.xyz
-base=scf.mini-methane
-echo " 5" > $base.xyz
-echo "#cell 8 8 8 i i i" >> $base.xyz
-dist=0.63
-echo "C  0 0 0"                 >> $base.xyz
-echo "H   -$dist -$dist -$dist" >> $base.xyz
-echo "H    $dist  $dist -$dist" >> $base.xyz
-echo "H    $dist -$dist  $dist" >> $base.xyz
-echo "H   -$dist  $dist  $dist" >> $base.xyz
+# base=scf.mini-methane
+# echo " 5" > $base.xyz
+# echo "#cell 8 8 8 i i i" >> $base.xyz
+# dist=0.63
+# echo "C  0 0 0"                 >> $base.xyz
+# echo "H   -$dist -$dist -$dist" >> $base.xyz
+# echo "H    $dist  $dist -$dist" >> $base.xyz
+# echo "H    $dist -$dist  $dist" >> $base.xyz
+# echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
 # echo " 1" > $base.xyz
@@ -286,7 +286,7 @@ control.show=-7
 EOF
 
 
-for spacing in `seq 2 1 2`; do
+for spacing in `seq 1 1 2`; do
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -322,4 +322,3 @@ for ecut in `seq 4 2 0`; do
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
-

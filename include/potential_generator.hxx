@@ -163,7 +163,7 @@ namespace potential_generator {
           } // iy
       } // iz
       added_charge *= g.dV(); // volume integral
-      if (echo > 3) std::printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values, added charge= %g\n", 
+      if (echo > 7) std::printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values, added charge= %g\n",
                                    __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3, added_charge); // show stats
       if (debug) {
           double dev[] = {0, 0}; // measure the deviation of overlap_ij from unity
@@ -225,7 +225,7 @@ namespace potential_generator {
       } // nfd
 
       int const use_Bessel_projection = control::get("potential_generator.use.bessel.projection", 0.);
-      if (use_Bessel_projection) 
+      if (use_Bessel_projection)
       { // scope: use a Bessel projection around each atom position to compare 3D and radial quantities
 
           double constexpr Y00sq = pow2(solid_harmonics::Y00);
@@ -314,7 +314,7 @@ namespace potential_generator {
               if (control::get("potential_generator.direct.projection", 0.) > 0) {
                   std::printf("\n## all values of Vtot in %s (unordered) as function of the distance to %s\n",
                                                     _eV, (na > 0) ? "atom #0" : "the cell center");
-                  poisson_solver::print_direct_projection(Vtot, g, eV, (na > 0) ? center[0] : nullptr);          
+                  poisson_solver::print_direct_projection(Vtot, g, eV, (na > 0) ? center[0] : nullptr);
               } // control
           } else warn("no coordinates passed for na=%d atoms, center_ptr==nullptr", na);
       } // echo

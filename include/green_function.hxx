@@ -80,14 +80,23 @@ namespace green_function {
         green_dyadic::dyadic_plan_t & p
       , std::complex<double> E_param
       , std::vector<std::vector<double>> const & AtomMatrices
+      , double const dVol // volume element of the grid
       , int const Noco=1
       , double const scale_H=1
       , int const echo=0
   ) {
       if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
+
       for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
-          int const nc = sho_tools::nSHO(p.AtomLmax[iac]);
+          int const lmax = p.AtomLmax[iac];
+          auto const sigma = p.AtomSigma[iac];
+          int const nc = sho_tools::nSHO(lmax);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
+          auto sho_norm = green_dyadic::sho_normalization(lmax, sigma);
+          assert(sho_norm.size() == nc);
+          for (int i = 0; i < nc; ++i) {
+              sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
+          } // i
           auto const ia = p.global_atom_index[iac];
           assert(2*nc*nc <= AtomMatrices[ia].size());
 
@@ -97,9 +106,10 @@ namespace green_function {
           auto const ovl = hmt + nc*nc;          // charge deficit matrix elements
           for (int i = 0; i < nc; ++i) {
               for (int j = 0; j < nc; ++j) {
+                  auto const f = sho_norm[i]*sho_norm[j]; // normalization factors, we project and add unnormalized SHO functions
                   int const ij = i*nc + j;
-                  atomMatrix[ij] = scale_H * hmt[ij] - E_param.real() * ovl[ij]; // real part
-                  atomMatrix[ij + nc*nc] =           - E_param.imag() * ovl[ij]; // imag part
+                  atomMatrix[ij] = (scale_H * hmt[ij] - E_param.real() * ovl[ij])*f; // real part
+                  atomMatrix[ij + nc*nc] = (          - E_param.imag() * ovl[ij])*f; // imag part
               } // j
           } // i
           // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
@@ -114,12 +124,13 @@ namespace green_function {
         green_action::plan_t & p
       , std::complex<double> E_param
       , std::vector<std::vector<double>> const & AtomMatrices
+      , double const dVol
       , int const Noco=1
       , double const scale_H=1
       , int const echo=0
   ) {
       p.E_param = E_param;
-      return update_atom_matrices(p.dyadic_plan, E_param, AtomMatrices, Noco, scale_H, echo);
+      return update_atom_matrices(p.dyadic_plan, E_param, AtomMatrices, dVol, Noco, scale_H, echo);
   } // update_energy_parameter
 
 
@@ -139,6 +150,7 @@ namespace green_function {
       , double const max_distance_from_center
       , double const r_trunc
       , std::complex<double> E_param
+      , double const dVol // volume element of the grid
       , int const Noco=1
       , int const echo=0 // verbosity
   ) {
@@ -405,9 +417,11 @@ namespace green_function {
       p.AtomLmax     = get_memory<int8_t>(nai, echo, "AtomLmax");
       p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
       p.AtomStarts[0] = 0; // init prefetch sum
+      p.AtomSigma.resize(nac);
 
       for (uint32_t iac = 0; iac < nac; ++iac) { // parallel
           auto const ia = p.global_atom_index[iac];
+          p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
           uint32_t const nc = sho_tools::nSHO(atom_numax[ia]);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
@@ -421,7 +435,7 @@ namespace green_function {
       } // iac
       p.nAtoms = nac; // number of contributing atoms
 
-      update_atom_matrices(p, E_param, AtomMatrices, Noco, 1.0, echo);
+      update_atom_matrices(p, E_param, AtomMatrices, dVol, Noco, 1.0, echo);
 
       if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
 
@@ -1225,7 +1239,7 @@ namespace green_function {
                             , p.nRows, p.nCols, p.RowStart, p.colindx.data()
                             , p.target_coords, r_block_circumscribing_sphere
                             , max_distance_from_center, r_trunc
-                            , p.E_param, Noco
+                            , p.E_param, hg[2]*hg[1]*hg[0], Noco
                             , echo);
       if (stat && echo > 0) std::printf("# construct_dyadic_plan returned status= %i\n", int(stat));
 

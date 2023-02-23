@@ -177,7 +177,7 @@ namespace finite_difference {
         case 0:
             warn("Finite difference in %c-direction switched off!", direction);
             c[0] = 0;
-        break; 
+        break;
 
         default:
             warn("Cannot treat case of %i finite difference neighbors in %c-direction", nn, direction);
@@ -207,12 +207,12 @@ namespace finite_difference {
           for (int d = 0; d < 3; ++d) {
               for (int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
               double const h = grid_spacing[d];
-              _nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h, 'x'+d);
+              _nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h, 'x' + d);
               if (_nn[d] < nneighbors[d]) {
-                  warn("In stencil_t requested nn=%i but use nn=%i for %c-direction", 
-                                  nneighbors[d], _nn[d], 'x'+d);
+                  warn("In stencil_t requested nn=%i but use nn=%i for %c-direction",
+                                  nneighbors[d], _nn[d], 'x' + d);
               }
-          } // spatial direction d
+          } // d spatial direction
           scale_coefficients(scale_factor);
       } // _constructor
 
@@ -259,7 +259,7 @@ namespace finite_difference {
 
   }; // class stencil_t
 
-  template <typename complex_out_t // result is stored in this precision 
+  template <typename complex_out_t // result is stored in this precision
            ,typename complex_in_t // input comes in this precision
            ,typename real_fd_t> // computations are executed in this precision
   status_t apply(
@@ -312,12 +312,12 @@ namespace finite_difference {
 
           // upper boundary
           if (Periodic_Boundary == bc) { // periodic BC
-              for (int j = 0; j < nf; ++j) { 
+              for (int j = 0; j < nf; ++j) {
                   list[d][n16 + n + j] = (n + j) % n; // wrap around
                   phas[d][n16 + n + j] = phase_upp; // incorrect if nf > n
               } // j
           } else if (Mirrored_Boundary == bc) { // mirror BC
-              for (int j = 0; j < nf; ++j) { 
+              for (int j = 0; j < nf; ++j) {
                   list[d][n16 + n + j] = n - 1 - j; // mirror at n-1 | n
                   phas[d][n16 + n + j] = phase_upp; // incorrect if nf > n
               } // j
