@@ -781,38 +781,41 @@ namespace green_dyadic {
         { // thread loops
 
             for (int ai = 0; ai < nSHO; ++ai) {
-                int constexpr Re = 0;
+                int constexpr Real = 0;
                 if (1 == R1C2) { // is real
-                    // version for Noco==1, R1C2==1, more readable
+                    // version for R1C2==1,Noco==1 is more readable
                     double cad{0};
                     for (int aj = 0; aj < nSHO; ++aj) {
-                        auto const cpr = double(apc[(a0 + aj)*nrhs + irhs][Re][0][ivec]); // load projection coefficient
-                        auto const am = AtomMat[ai*nSHO + aj];                            // load matrix element
+                        double const cpr = apc[(a0 + aj)*nrhs + irhs][Real][0][ivec]; // load projection coefficient
+                        double const am = AtomMat[ai*nSHO + aj];                      // load matrix element
                         cad += am * cpr; // 2 flop
                     } // aj
-                    aac[(a0 + ai)*nrhs + irhs][Re][0][ivec] = cad;                        // store addition coefficient
+                    aac[(a0 + ai)*nrhs + irhs][Real][0][ivec] = cad;                  // store addition coefficient
 
                 } else {
                     // matrix layout: AtomMat[Noco*Noco*R1C2*nSHO*nSHO]
                     assert(2 == R1C2); // is complex
-                    int constexpr Im = R1C2 - 1; // index for imaginary part
-                    std__complex<double> cad = 0;
+                    int constexpr Imag = R1C2 - 1; // index for imaginary part
+                    std__complex<double> cad(0.0, 0.0);
                     for (int spjn = 0; spjn < Noco; ++spjn) {
                         for (int aj = 0; aj < nSHO; ++aj) {
                             // load projection coefficient
-                            auto const cpr = std__complex<double>(
-                                       apc[(a0 + aj)*nrhs + irhs][Re][spjn][ivec],
-                                       apc[(a0 + aj)*nrhs + irhs][Im][spjn][ivec]);
+                            std__complex<double> const cpr(     // load projection coefficient
+                                       apc[(a0 + aj)*nrhs + irhs][Real][spjn][ivec],
+                                       apc[(a0 + aj)*nrhs + irhs][Imag][spjn][ivec]);
                             // load matrix element
-                            auto const am = std__complex<double>(
-                                       AtomMat[(((spin*Noco + spjn)*R1C2 + 0)*nSHO + ai)*nSHO + aj],
-                                       AtomMat[(((spin*Noco + spjn)*R1C2 + 1)*nSHO + ai)*nSHO + aj]);
+                            std__complex<double> const am(      // load matrix element
+                                       AtomMat[(((spin*Noco + spjn)*R1C2 + Real)*nSHO + ai)*nSHO + aj],
+                                       AtomMat[(((spin*Noco + spjn)*R1C2 + Imag)*nSHO + ai)*nSHO + aj]);
                             cad += am * cpr; // 8 flop
+                            // if (0 == ivec && 0 == irhs) {
+                            //     std::printf("# %s atom=%i cpr=(%g, %g),\tam[%2i,%2i]=(%g, %g)\n",
+                            //               __func__, iatom, cpr.real(), cpr.imag(), ai, aj, am.real(), am.imag());
+                            // }
                         } // aj
                     } // spjn
-                    // store addition coefficient
-                    aac[(a0 + ai)*nrhs + irhs][Re][spin][ivec] = cad.real();
-                    aac[(a0 + ai)*nrhs + irhs][Im][spin][ivec] = cad.imag();
+                    aac[(a0 + ai)*nrhs + irhs][Real][spin][ivec] = cad.real(); // store addition coefficient
+                    aac[(a0 + ai)*nrhs + irhs][Imag][spin][ivec] = cad.imag(); // store addition coefficient
 
                 } // 1 == R1C2
             } // ai

@@ -470,9 +470,9 @@ namespace grid_operators {
                   std::fprintf(f, "      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.12f\"/>\n",
                                                                   numax, atoms[ia].sigma());
                   int const nSHO = sho_tools::nSHO(numax);
+                  auto const stride = atoms[ia].stride();
                   for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
                       auto const mat = atoms[ia].template get_matrix<double>(h0s1);
-                      auto const stride = atoms[ia].stride();
                       auto const tag = h0s1 ? "overlap" : "hamiltonian";
                       std::fprintf(f, "      <%s>\n", tag);
                       for (int i = 0; i < nSHO; ++i) {
@@ -522,9 +522,9 @@ namespace grid_operators {
                   std::fprintf(f, "      ,\"projectors\": {\"type\": \"sho\", \"numax\": %d, \"sigma\": %.12f}\n",
                                                                                 numax, atoms[ia].sigma());
                   int const nSHO = sho_tools::nSHO(numax);
+                  auto const stride = atoms[ia].stride();
                   for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
                       auto const mat = atoms[ia].template get_matrix<double>(h0s1);
-                      auto const stride = atoms[ia].stride();
                       auto const tag = h0s1 ? "overlap" : "hamiltonian";
                       std::fprintf(f, "      ,\"%s\":\n", tag);
                       for (int i = 0; i < nSHO; ++i) {

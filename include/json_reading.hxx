@@ -190,12 +190,18 @@ namespace json_reading {
                       auto const *const hs = h0s1 ? "overlap" : "hamiltonian";
                       if (atom.HasMember(hs)) {
                           auto const values = read_json_matrix(atom[hs], hs, echo/8);
+                          double maxdev{0}; // measure deviation from a symmetric matrix
                           for (int i = 0; i < nsho; ++i) {
                               assert(nsho == values[i].size());
                               for (int j = 0; j < nsho; ++j) {
+                                  maxdev = std::max(maxdev, std::abs(values[i][j] - values[j][i]));
                                   atom_mat[ia][(h0s1*nsho + i)*nsho + j] = values[i][j];
                               } // j
                           } // i
+                          if (echo > 3) std::printf("# %s matrix of atom #%i has a max deviation of %.1e from symmetric\n",
+                                                      hs, atom_id[ia], maxdev);
+                          if (maxdev > 1e-6) warn("%s matrix of atom #%i has a max deviation of %.1e from symmetric\n",
+                                                      hs, atom_id[ia], maxdev);
                       } // has matrix
                   } // {hamiltonian, overlap}
                   if (atom.HasMember("position")) {

@@ -235,6 +235,7 @@ namespace green_action {
           if (2 == Noco) assert(p->noncollinear_spin && "Also the plan needs to be created with Noco=2");
           double nops{0};
 
+          if (p->echo > 3) std::printf("\n");
           if (p->echo > 2) std::printf("# green_action::multiply\n");
 
           // start with the local potential, assign y to initial values

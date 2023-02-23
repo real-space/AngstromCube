@@ -85,7 +85,7 @@ namespace control {
           // show_variables
           if (echo) {
               int const show = echo;
-              std::printf("\n# control.show=%d (1:minimal, 2:unused, 4:defaults, negative for details)\n", show);
+              std::printf("\n# control.show=%d (0:none, 1:minimal, 2:unused, 4:defaults, negative for details)\n", show);
               bool const show_unused  = std::abs(show) & 0x2; // all or only accessed ones
               bool const show_default = std::abs(show) & 0x4; // list also variables that are at their default value
               bool const show_details = (show < 0); // show access count and is_default

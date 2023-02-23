@@ -208,7 +208,7 @@ namespace green_experiments {
                                         S_im += psi_re * Spsi_im + psi_im * Spsi_re;  // 4 flop
                                     } // is complex
                               } // kzyx
-                      } // kx4 ky4 kz4
+                      } // kzyx4
                       Hmatrix[ij][Real] = H_re*dV; // 1 flop
                       Smatrix[ij][Real] = S_re*dV; // 1 flop
                       if (Imag) {
@@ -225,12 +225,16 @@ namespace green_experiments {
           double dev[] = {0, 0, 0};
           for (int iband = 0; iband < nbands; ++iband) {
               for (int jband = 0; jband < iband; ++jband) {
-                  dev[0] += std::abs(mat[iband*nbands + jband][Real] - mat[iband*nbands + jband][Real]);
-                  dev[1] += std::abs(mat[iband*nbands + jband][Imag] + mat[iband*nbands + jband][Imag]);
+                  dev[0] += std::abs(mat[iband*nbands + jband][Real] - mat[jband*nbands + iband][Real]);
+                  dev[1] += std::abs(mat[iband*nbands + jband][Imag] + mat[jband*nbands + iband][Imag]);
               } // jband triangular loop
               dev[2] += std::abs(mat[iband*nbands + iband][Imag]);
           } // iband
-          if (echo > 0) std::printf("# %cmat deviation from Hermitian off-diag (%.1e, %.1e), diagonal %.1e\n", hs?'H':'S', dev[0], dev[1]*Imag, dev[2]*Imag);
+          if (Imag) {
+              if (echo > 0) std::printf("# %cmat deviation from hermitian off-diag (%.1e, %.1e), diagonal %.1e\n", hs?'H':'S', dev[0], dev[1], dev[2]);
+          } else {
+              if (echo > 0) std::printf("# %cmat deviation from symmetric %.2e\n", hs?'H':'S', dev[0]);
+          }
       } // check hermitian property
 
       return nblocks*64ul * 4ul * pow2(R1C2*1ul*nbands); // returns the number of floating point operations
@@ -309,8 +313,8 @@ namespace green_experiments {
       std::vector<double> res_norm2(nbands, 0.0);
       std::vector<double> psi_norm2(nbands, 0.0);
       for (int iband = 0; iband < nbands; ++iband) {
-          int const ib   = iband >> 6;   // divide 64
-          int const ib64 = iband & 0x3f; // modulo 64
+          int const ib   = iband >> 6; // divide 64
+          int const ib64 = iband & 63; // modulo 64
 
           double norm2{0};
           for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
@@ -374,10 +378,10 @@ namespace green_experiments {
           int const jband = j_index[oldbands - 1 - isrc]; // replace the upper wave functions by residual waves with a large norm
           assert(iband > -1); assert(jband > -1);
 
-          int const jb   = jband >> 6;   // divide 64
-          int const jb64 = jband & 0x3f; // modulo 64
-          int const ib   = iband >> 6;   // divide 64
-          int const ib64 = iband & 0x3f; // modulo 64
+          int const jb   = jband >> 6; // divide 64
+          int const jb64 = jband & 63; // modulo 64
+          int const ib   = iband >> 6; // divide 64
+          int const ib64 = iband & 63; // modulo 64
 
           double const f = 1./std::sqrt(res_norm2[iband]);
           for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
@@ -506,18 +510,19 @@ namespace green_experiments {
       double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
 
       { // scope: create start wave functions
+          int constexpr Real = 0, Imag = R1C2 - 1;
           auto constexpr twopi = 2*constants::pi;
           double const box[] = {ng[0]*hg[0], ng[1]*hg[1], ng[2]*hg[2]}; // in Bohr
           double const reci[] = {twopi/box[0], twopi/box[1], twopi/box[2]}; // reciprocal lattice vectors in Bohr^-1
-          double const recV = reci[0]*reci[1]*reci[2]; // volume of a reciprocal lattice point in Bohr^-3
+          auto const recV = reci[0]*reci[1]*reci[2]; // volume of a reciprocal lattice point in Bohr^-3
           // sphere of plane waves: V = 4*constants::pi/3 * radius^3 == nb*64 * recV
-          double const radius = 1.03*std::cbrt(nb*64*recV*3/(4*constants::pi)); // in Bohr^-1
+          auto const radius = 2.06/R1C2*std::cbrt(nb*64*recV*3/(4*constants::pi)); // in Bohr^-1
           auto const E_cut = pow2(radius); // in Rydberg
           int const npw[] = {int(radius/reci[0]), int(radius/reci[1]), int(radius/reci[2])};
           if (echo > 1) std::printf("# start waves are plane waves cutoff energy is %g Rydberg\n", E_cut);
           auto const E_pw_max = pow2(npw[0]*reci[0]) + pow2(npw[1]*reci[1]) + pow2(npw[2]*reci[2]); // in Rydberg
           if (echo > 1) std::printf("# plane wave box corner energy is %g Rydberg\n", E_pw_max);
-          auto const max_npw = (2*npw[2] + 1)*(2*npw[1] + 1)*(2*npw[0] + 1);
+          auto const max_npw = (R1C2*npw[2] + 1)*(R1C2*npw[1] + 1)*(R1C2*npw[0] + 1);
           if (echo > 1) std::printf("# check a plane wave box of [-%d,%d] x [-%d,%d] x [-%d,%d] = %.3f k\n", npw[0], npw[0], npw[1], npw[1], npw[2], npw[2], max_npw*.001);
           assert(nb*64 <= max_npw);
           uint32_t const stride = (((max_npw - 1) >> 2) + 1) << 2; // 2: align to 4 doubles
@@ -525,9 +530,9 @@ namespace green_experiments {
           auto kvs = get_memory<double>(3*stride, echo, "plane wave vectors");
           // selection process
           double kvec[3];
-          for (int kz = -npw[2]; kz <= npw[2]; ++kz) {     kvec[2] = kz*reci[2];
-            for (int ky = -npw[1]; ky <= npw[1]; ++ky) {   kvec[1] = ky*reci[1];
-              for (int kx = -npw[0]; kx <= npw[0]; ++kx) { kvec[0] = kx*reci[0];
+          for (int kz = -npw[2]*Imag; kz <= npw[2]; ++kz) {     kvec[2] = kz*reci[2];
+            for (int ky = -npw[1]*Imag; ky <= npw[1]; ++ky) {   kvec[1] = ky*reci[1];
+              for (int kx = -npw[0]*Imag; kx <= npw[0]; ++kx) { kvec[0] = kx*reci[0];
                   auto const E_pw = pow2(kvec[0]) + pow2(kvec[1]) + pow2(kvec[2]); // in Rydberg
                   if (E_pw <= E_cut) {
                       ++jpw; // count a plane wave inside the sphere
@@ -547,7 +552,6 @@ namespace green_experiments {
           auto const npws = ipw;
           assert(npws >= nb*64 && "Need to have enough plane waves to fill all bands");
           {
-              int constexpr Real = 0, Imag = R1C2 - 1;
               double const f = 1./std::sqrt(dVol*(ng4[2]*4.*ng4[1]*4.*ng4[0]*4.));
               for (int ib = 0; ib < nb; ++ib) {
                 for (int iz4 = 0; iz4 < ng4[2]; ++iz4) {
@@ -563,10 +567,13 @@ namespace green_experiments {
                                 auto const arg = (ix + .5)*kvs[0*stride + ipw]
                                                + (iy + .5)*kvs[1*stride + ipw]
                                                + (iz + .5)*kvs[2*stride + ipw];
-                                if (Imag)
+                                if (Imag) {
                                 psi[izyxb][Imag][jzyx][jb] = f*std::cos(arg);
                                 psi[izyxb][Real][jzyx][jb] = f*std::sin(arg); // if we treat real wave functions and isolated BCs,
                                           // the sine-solution is the eigenstate of the potential-free particle in a box problem
+                                } else {
+                                    psi[izyxb][Real][jzyx][jb] = f*std::cos(arg);
+                                }
                               } // jb
                             }}} // i4x i4y i4z
                     }}} // ix4 iy4 iz4
@@ -585,7 +592,7 @@ namespace green_experiments {
       auto  mat = get_memory<double[R1C2]>(pow2(nbands), echo, "matrix copy");
 
       simple_stats::Stats<> Gflop_count;
-      for (int ik = 0; ik < nkpoints*0+1; ++ik) {
+      for (int ik = 0; ik < nkpoints; ++ik) {
           double const *const k_point = k_path[ik];
 
           if (echo > 0) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
