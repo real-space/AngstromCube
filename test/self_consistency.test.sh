@@ -286,7 +286,7 @@ control.show=-7
 EOF
 
 
-for spacing in `seq 1 1 2`; do
+for spacing in `seq 1 1 1`; do
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

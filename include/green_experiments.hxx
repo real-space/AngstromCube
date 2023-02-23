@@ -463,8 +463,8 @@ namespace green_experiments {
       int const nbands = nb*64;
       if (echo > 1) std::printf("# %s %d k-points, %d bands\n", __func__, nkpoints, nbands);
 
-      std::vector<double> Sval(nbands,  1.0); // eigenvalues of the overlap operator
-      std::vector<double> Eval(nbands, -9e9); // eigenvalues
+      std::vector<double> Sval(nbands, 1.0); // eigenvalues of the overlap operator
+      std::vector<double> Eval(nbands, 0.0); // eigenvalues
       std::vector<std::vector<double>> bandstructure(nkpoints, Eval); // result array
 
       int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)};

@@ -1082,24 +1082,30 @@ namespace green_dyadic {
     } // get_projection_coefficients
 
 
-    inline std::vector<double> __host__ sho_normalization(int8_t const lmax, double const sigma=1) {
+    inline std::vector<double> __host__ sho_normalization(int const lmax, double const sigma=1) {
         int const n1ho = sho_tools::n1HO(lmax);
         std::vector<double> v1(n1ho, constants::sqrtpi*sigma);
-        double fac{1};
-        for (int nu = 0; nu <= lmax; ++nu) {
-            v1[nu] *= fac;
-            fac *= 0.5*(nu + 1);
-        } // nu
+        {
+            double fac{1};
+            for (int nu = 0; nu <= lmax; ++nu) {
+                // fac == factorial(nu) / 2^nu
+                v1[nu] *= fac;
+                // now v1[nu] == sqrt(pi) * sigma * factorial(nu) / 2^nu
+                fac *= 0.5*(nu + 1); // update fac for the next iteration
+            } // nu
+        }
 
         std::vector<double> vec(sho_tools::nSHO(lmax), 1.);
-        int sho{0};
-        for (int iz = 0; iz <= lmax; ++iz) {
-            for (int iy = 0; iy <= lmax - iz; ++iy) {
-                for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
-                    vec[sho] = v1[ix] * v1[iy] * v1[iz];
-                    ++sho;
-        }}} // ix iy iz
-        assert(vec.size() == sho);
+        {
+            int sho{0};
+            for (int iz = 0; iz <= lmax; ++iz) {
+                for (int iy = 0; iy <= lmax - iz; ++iy) {
+                    for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
+                        vec[sho] = v1[ix] * v1[iy] * v1[iz];
+                        ++sho;
+            }}} // ix iy iz
+            assert(vec.size() == sho);
+        }
         return vec;
     } // sho_normalization
 
@@ -1234,10 +1240,10 @@ namespace green_dyadic {
       // see if these drivers compile and can be executed without segfaults
       if (echo > 11) std::printf("# here %s:%d\n", __func__, __LINE__);
 
-      auto const dV = hGrid[0]*hGrid[1]*hGrid[2];
+      auto const dVol = hGrid[0]*hGrid[1]*hGrid[2];
       auto const sho_norm = sho_normalization(lmax, sigma);
       for (int isho = 0; isho < std::min(nsho, 64); ++isho) {
-          apc[isho*nrhs][0][0][isho] = dV/sho_norm[isho]; // set "unit matrix" but normalized
+          apc[isho*nrhs][0][0][isho] = dVol/sho_norm[isho]; // set "unit matrix" but normalized
       } // isho
 
       SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);

@@ -282,6 +282,7 @@ namespace finite_difference {
           // ToDo: check that n is smaller than the upper limit of int
           int const bc = g.boundary_condition(d);
           int const nf = fd.nearest_neighbors(d);
+          if (nf > n) error("finite-difference range (%d) in %c-direction is larger than grid (%d grid points)", nf, 'x' + d, n);
           assert(nf <= n);
           assert(nf <= n16);
           int const nh = n16 + n + n16; // number including largest halos
