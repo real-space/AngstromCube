@@ -344,7 +344,7 @@ namespace green_experiments {
       // filter norms
       int iteration{0};
       newbands = nbands;
-      while (newbands*2 > nbands && iteration < 999) {
+      while (newbands*4 > nbands && iteration < 999) { // reduce to less than 1/4 of all bands
           ++iteration;
           threshold2 *= 1.5;
           int isrc{0};
@@ -372,7 +372,7 @@ namespace green_experiments {
       assert(newbands*2 <= nbands && "bisection failed");
       assert(oldbands + newbands == nbands);
 
-      for (int isrc = 0; isrc < newbands; ++isrc) {
+      for (int isrc = 0; isrc < std::min(1, newbands); ++isrc) {
           // rescale psi_j
           int const iband = i_index[isrc];
           int const jband = j_index[oldbands - 1 - isrc]; // replace the upper wave functions by residual waves with a large norm
@@ -383,14 +383,16 @@ namespace green_experiments {
           int const ib   = iband >> 6; // divide 64
           int const ib64 = iband & 63; // modulo 64
 
-          double const f = 1./std::sqrt(res_norm2[iband]);
+          real_t const f = 1./Eval[iband];
+          // double const f = 1./std::sqrt(res_norm2[iband]);
           for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
               int const izyxb = kzyx4*nb + ib;
               int const jzyxb = kzyx4*nb + jb;
               for (int kzyx = 0; kzyx < 64; ++kzyx) {
                   for (int reim = 0; reim < R1C2; ++reim) {
-                      auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64]
-                           - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64]; // 2 flop
+                      auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64];
+                      // auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64];
+                           // - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64]; // 2 flop
                       psi[jzyxb][reim][kzyx][jb64] = f*new_psi; // 1 flop
                   } // reim
               } // kzyx
@@ -466,7 +468,7 @@ namespace green_experiments {
       std::vector<std::vector<double>> bandstructure(nkpoints, Eval); // result array
 
       int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)};
-      auto const nblocks = (ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
+      auto const nblocks = size_t(ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
       if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld blocks\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
       size_t const nnzb = nblocks * nb;
 
@@ -509,8 +511,8 @@ namespace green_experiments {
       auto  psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
       double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
 
-      { // scope: create start wave functions
-          int constexpr Real = 0, Imag = R1C2 - 1;
+      int constexpr Real = 0, Imag = R1C2 - 1;
+      if (nb < nblocks) { // scope: create start wave functions
           auto constexpr twopi = 2*constants::pi;
           double const box[] = {ng[0]*hg[0], ng[1]*hg[1], ng[2]*hg[2]}; // in Bohr
           double const reci[] = {twopi/box[0], twopi/box[1], twopi/box[2]}; // reciprocal lattice vectors in Bohr^-1
@@ -562,26 +564,34 @@ namespace green_experiments {
                         for (int i4y = 0; i4y < 4; ++i4y) {     int const iy = iy4*4 + i4y;
                         for (int i4x = 0; i4x < 4; ++i4x) {     int const ix = ix4*4 + i4x;
                               int const jzyx = (i4z*4 + i4y)*4 + i4x;
-                              for (int jb = 0; jb < 64; ++jb) { // threadIdx.x
-                                int const ipw = ib*64 + jb;
+                              for (int ib64 = 0; ib64 < 64; ++ib64) { // threadIdx.x
+                                int const ipw = ib*64 + ib64;
                                 auto const arg = (ix + .5)*kvs[0*stride + ipw]
                                                + (iy + .5)*kvs[1*stride + ipw]
                                                + (iz + .5)*kvs[2*stride + ipw];
                                 if (Imag) {
-                                psi[izyxb][Imag][jzyx][jb] = f*std::cos(arg);
-                                psi[izyxb][Real][jzyx][jb] = f*std::sin(arg); // if we treat real wave functions and isolated BCs,
-                                          // the sine-solution is the eigenstate of the potential-free particle in a box problem
+                                    psi[izyxb][Imag][jzyx][ib64] = f*std::cos(arg);
+                                    psi[izyxb][Real][jzyx][ib64] = f*std::sin(arg); // if we treat real wave functions and isolated BCs,
+                                              // the sine-solution is the eigenstate of the potential-free particle in a box problem
                                 } else {
-                                    psi[izyxb][Real][jzyx][jb] = f*std::cos(arg);
+                                    psi[izyxb][Real][jzyx][ib64] = f*std::cos(arg);
                                 }
-                              } // jb
+                              } // ib64
                             }}} // i4x i4y i4z
                     }}} // ix4 iy4 iz4
               } // ib
           }
           free_memory(kvs);
 
-      } // scope: start waves
+      } else { // scope: start waves
+          assert(nb == nblocks); // there are as many bands as real-space grid points
+          set(psi[0][0][0], nblocks*nb*R1C2*64ul*64ul, real_t(0)); // clear
+          for (int iband = 0; iband < nbands; ++iband) {
+              int const ib   = iband >> 6; // divide 64
+              int const ib64 = iband & 63; // modulo 64
+              psi[ib*nb + ib][Real][ib64][ib64] = 1;
+          } // iband
+      } // start waves
 
       auto Hpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "H * waves");
       auto Spsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "S * waves");
@@ -591,8 +601,12 @@ namespace green_experiments {
       auto Smat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Overlap op");
       auto  mat = get_memory<double[R1C2]>(pow2(nbands), echo, "matrix copy");
 
+      int const maxiter = control::get("green_experiments.eigen.maxiter", (nb == nblocks) ? 1. : 9.);
+
       simple_stats::Stats<> Gflop_count;
+      simple_stats::Stats<> Wtime_count;
       for (int ik = 0; ik < nkpoints; ++ik) {
+          SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
           double const *const k_point = k_path[ik];
 
           if (echo > 0) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
@@ -600,7 +614,6 @@ namespace green_experiments {
           green_function::update_phases(pS, k_point, Noco, echo);
           double nops{0};
 
-        int constexpr maxiter = 9;
         int it{0}, lastiter{maxiter - 1};
         for (; it <= lastiter && lastiter >= 0; ++it) { // Davidson iterations
 
@@ -711,6 +724,7 @@ namespace green_experiments {
           } // echo
 
           Gflop_count.add(1e-9*nops);
+          Wtime_count.add(timer.stop());
       } // ik
 
       free_memory(Smat); free_memory(Hmat);
@@ -719,9 +733,12 @@ namespace green_experiments {
       free_memory(colIndex);
 
       if (echo > 0) {
-          auto const & st = Gflop_count;
-          std::printf("\n# %s operations [%g, %g +/- %g, %g] Gflop per k-point, %g Gflop in total\n",
-                          __func__, st.min(), st.mean(), st.dev(), st.max(), st.sum());
+          {   auto const & st = Gflop_count;
+              std::printf("\n# %s operations [%g, %g +/- %g, %g] Gflop per k-point, %g Gflop in total\n",
+                            __func__, st.min(), st.mean(), st.dev(), st.max(), st.sum());         }
+          {   auto const & st = Wtime_count;
+              std::printf("\n# %s needed [%g, %g +/- %g, %g] seconds per k-point, %g seconds in total\n",
+                            __func__, st.min(), st.mean(), st.dev(), st.max(), st.sum());         }
       } // echo
 
       return 0;
