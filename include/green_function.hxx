@@ -87,16 +87,17 @@ namespace green_function {
   ) {
       if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
 
+      auto const f = dVol; // we multiply the matrices by dVol so we can omit this factor in SHOprj
       for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
           int const lmax = p.AtomLmax[iac];
-          auto const sigma = p.AtomSigma[iac];
+          // auto const sigma = p.AtomSigma[iac];
           int const nc = sho_tools::nSHO(lmax);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-          auto sho_norm = green_dyadic::sho_normalization(lmax, sigma);
-          assert(sho_norm.size() == nc);
-          for (int i = 0; i < nc; ++i) {
-              sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
-          } // i
+          // auto sho_norm = green_dyadic::sho_normalization(lmax, sigma);
+          // assert(sho_norm.size() == nc);
+          // for (int i = 0; i < nc; ++i) {
+          //     sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
+          // } // i
           auto const ia = p.global_atom_index[iac];
           assert(2*nc*nc <= AtomMatrices[ia].size());
 
@@ -106,7 +107,6 @@ namespace green_function {
           auto const ovl = hmt + nc*nc;          // charge deficit matrix elements
           for (int i = 0; i < nc; ++i) {
               for (int j = 0; j < nc; ++j) {
-                  auto const f = sho_norm[i]*sho_norm[j]; // normalization factors, we project and add unnormalized SHO functions
                   int const ij = i*nc + j;
                   atomMatrix[ij] = (scale_H * hmt[ij] - E_param.real() * ovl[ij])*f; // real part
                   atomMatrix[ij + nc*nc] = (          - E_param.imag() * ovl[ij])*f; // imag part
@@ -417,11 +417,11 @@ namespace green_function {
       p.AtomLmax     = get_memory<int8_t>(nai, echo, "AtomLmax");
       p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
       p.AtomStarts[0] = 0; // init prefetch sum
-      p.AtomSigma.resize(nac);
+      // p.AtomSigma.resize(nac);
 
       for (uint32_t iac = 0; iac < nac; ++iac) { // parallel
           auto const ia = p.global_atom_index[iac];
-          p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
+          // p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
           uint32_t const nc = sho_tools::nSHO(atom_numax[ia]);
           assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
@@ -1230,8 +1230,19 @@ namespace green_function {
           }
 
           delete[] Vinp;
-      } // scope
 
+          if (echo > 4) {
+              int constexpr mag = 0; // only for the Noco=1 case
+              simple_stats::Stats<> pot;
+              for (int iRow = 0; iRow < p.nRows; ++iRow) {
+                  auto const *const V = p.Veff[mag][iRow];
+                  for (int i64 = 0; i64 < 64; ++i64) {
+                      pot.add(V[i64]);
+                  } // i64
+              } // iRow
+              std::printf("# %s effective local potential %s %s\n", __func__, pot.interval(eV).c_str(), _eV);
+          } // echo
+      } // scope
 
       auto const stat = construct_dyadic_plan(p.dyadic_plan
                             , cell, boundary_condition, hg

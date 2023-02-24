@@ -861,7 +861,7 @@ namespace green_dyadic {
       int8_t*   AtomLmax            = nullptr; // [nAtoms]
       double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc: number of SHO coefficients of this atom
       uint32_t nAtoms               = 0;
-      std::vector<double> AtomSigma;
+      // std::vector<double> AtomSigma;
 
       uint32_t* AtomImageIndex      = nullptr; // [nAtomImages]
       uint32_t* AtomImageStarts     = nullptr; // [nAtomImages + 1]
@@ -1239,12 +1239,14 @@ namespace green_dyadic {
 
       // see if these drivers compile and can be executed without segfaults
       if (echo > 11) std::printf("# here %s:%d\n", __func__, __LINE__);
-
-      auto const dVol = hGrid[0]*hGrid[1]*hGrid[2];
-      auto const sho_norm = sho_normalization(lmax, sigma);
-      for (int isho = 0; isho < std::min(nsho, 64); ++isho) {
-          apc[isho*nrhs][0][0][isho] = dVol/sho_norm[isho]; // set "unit matrix" but normalized
-      } // isho
+      {
+          auto const dVol = hGrid[0]*hGrid[1]*hGrid[2];
+          auto const sho_norm = sho_normalization(lmax, sigma);
+          // now sho_norm = product_d=0..2 sqrt(pi) * sigma * factorial(nu[d]) / 2^nu[d]
+          for (int isho = 0; isho < std::min(nsho, 64); ++isho) {
+              apc[isho*nrhs][0][0][isho] = dVol/sho_norm[isho]; // set "unit matrix" but normalized
+          } // isho
+      }
 
       SHOadd_driver<real_t,R1C2,Noco>(psi, apc, AtomPos, AtomLmax, AtomStarts, sparse_SHOadd.rowStart(), sparse_SHOadd.colIndex(), RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
       if (0) {
@@ -1261,7 +1263,7 @@ namespace green_dyadic {
       SHOprj_driver<real_t,R1C2,Noco>(apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, RowIndexCubes, CubePos, hGrid, nrhs, echo);
 
       float maxdev[2] = {0, 0}; // {off-diagonal, diagonal}
-      float maxdev_nu[8][2] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+      float maxdev_nu[8][2] = {{0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}};
       { // scope: show projection coefficients
           cudaDeviceSynchronize();
           std::vector<int8_t> nu_of_sho(nsho, -1);
@@ -1283,7 +1285,7 @@ namespace green_dyadic {
               if (echo > 9) std::printf("\n# projection coefficients[%2d]: ", isho);
               for (int jsho = 0; jsho < msho; ++jsho) {
                   double const value = apc[isho*nrhs][0][0][jsho];
-                  int const diag = (isho == jsho);
+                  int const diag = (isho == jsho); // unity
                   if (echo > 9) std::printf(" %.1e", value);
                   float const absdev = std::abs(value - diag);
                   maxdev[diag] = std::max(maxdev[diag], absdev);

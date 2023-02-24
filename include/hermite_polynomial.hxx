@@ -14,7 +14,7 @@
 
 
   template <typename real_t>
-  inline void Hermite_polynomials(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
+  inline void Gauss_Hermite_polynomials(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
       // Hermite-polynomials times Gauss function, not normalized!
       real_t const H0 = (x*x < rcut*rcut) ? std::exp(-0.5*x*x) : 0; // Gaussian envelope function
 
@@ -31,7 +31,7 @@
           Hnum1 = Hnu; Hnu = Hnup1; // ordering is important here
       } // nu
 
-  } // Hermite_polynomials
+  } // Gauss_Hermite_polynomials
 
 namespace hermite_polynomial {
 
@@ -40,7 +40,7 @@ namespace hermite_polynomial {
 #else // NO_UNIT_TESTS
 
   template <typename real_t>
-  inline status_t test_Hermite_polynomials(int const echo=4, double const threshold=7e-15) {
+  inline status_t test_Gauss_Hermite_polynomials(int const echo=4, double const threshold=7e-15) {
       // confirm that Hermite_polynomials() produces orthogonal functions
       int constexpr nx = 1 << 13;
       int constexpr numax = 7, M = 1 + numax;
@@ -61,7 +61,7 @@ namespace hermite_polynomial {
       for (int ix = 0; ix < nx; ++ix) {
           real_t const x = (ix - .5*(nx - 1))*hg;
           real_t hp[M];
-          Hermite_polynomials(hp, x, numax);
+          Gauss_Hermite_polynomials(hp, x, numax);
           for (int i = 0; i < M; ++i) {
               for (int j = 0; j < M; ++j) {
                   hh[i][j] += hp[i]*hp[j]; // integrate overlap matrix
@@ -116,13 +116,13 @@ namespace hermite_polynomial {
       } // twice
 
       return (max_dev[0] + max_dev[1] > threshold);
-  } // test_Hermite_polynomials
+  } // test_Gauss_Hermite_polynomials
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s: %s\n\n", __FILE__, __func__);
       status_t stat(0);
-      stat += test_Hermite_polynomials<float>(echo, 3.5e-6);
-      stat += test_Hermite_polynomials<double>(echo);
+      stat += test_Gauss_Hermite_polynomials<float>(echo, 3.5e-6);
+      stat += test_Gauss_Hermite_polynomials<double>(echo);
       return stat;
   } // all_tests
 

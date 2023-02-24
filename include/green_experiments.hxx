@@ -8,7 +8,7 @@
 #include "unit_system.hxx" // eV, _eV, Kelvin, _Kelvin
 #include "green_input.hxx" // ::load_Hamitonian
 #include "data_view.hxx" // view2D<T>
-#include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::get_kpoint_path
+#include "brillouin_zone.hxx" // ::get_kpoint_path
 #include "simple_stats.hxx" // ::Stats
 
 #ifdef    HAS_TFQMRGPU
@@ -611,7 +611,7 @@ namespace green_experiments {
 
           if (echo > 0) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
           green_function::update_phases(pH, k_point, Noco, echo);
-          green_function::update_phases(pS, k_point, Noco, echo);
+          green_function::update_phases(pS, k_point, Noco, echo/2);
           double nops{0};
 
         int it{0}, lastiter{maxiter - 1};
@@ -735,10 +735,11 @@ namespace green_experiments {
       if (echo > 0) {
           {   auto const & st = Gflop_count;
               std::printf("\n# %s operations [%g, %g +/- %g, %g] Gflop per k-point, %g Gflop in total\n",
-                            __func__, st.min(), st.mean(), st.dev(), st.max(), st.sum());         }
+                            __func__, st.min(), st.mean(), st.dev(), st.max(),     st.sum()); }
+          std::printf("\n# %s operations %s Gflop per k-point, %g Gflop in total\n", __func__, Gflop_count.interval().c_str(), Gflop_count.sum());
           {   auto const & st = Wtime_count;
-              std::printf("\n# %s needed [%g, %g +/- %g, %g] seconds per k-point, %g seconds in total\n",
-                            __func__, st.min(), st.mean(), st.dev(), st.max(), st.sum());         }
+              std::printf("# %s needed [%g, %g +/- %g, %g] seconds per k-point, %g seconds in total\n",
+                            __func__, st.min(), st.mean(), st.dev(), st.max(),     st.sum()); }
       } // echo
 
       return 0;
@@ -793,9 +794,13 @@ namespace green_experiments {
               warn("failed to construct_Green_function with status=%d for the overlap operator", int(plan_stat));
               return plan_stat;
           } // plan_stat
-          return (1 == control::get("green_experiments.eigen.real", 0.0)) ?
-               eigensolver<double,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo): // real version fails to diagonalize ...
-               eigensolver<double,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+          int const r1c2 = control::get("green_experiments.eigen.real", 0.0);
+          if (32 == control::get("green_experiments.eigen.floating.point.bits", 64.0)) {
+              return (1 == r1c2) ? eigensolver<float ,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
+                                   eigensolver<float ,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+          } // single precision
+          return (1 == r1c2) ?     eigensolver<double,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
+                                   eigensolver<double,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
       } // how
 
   } // test_experiment

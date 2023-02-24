@@ -24,7 +24,7 @@
 #include "inline_math.hxx" // align<nBits>
 #include "simple_math.hxx" // ::random<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
-#include "hermite_polynomial.hxx" // ::Hermite_polynomials
+#include "hermite_polynomial.hxx" // Gauss_Hermite_polynomials
 #include "simple_stats.hxx" // ::Stats
 #include "simple_timer.hxx" // SimpleTimer
 #include "dense_solver.hxx" // ::solve
@@ -44,7 +44,7 @@
 namespace plane_wave {
   // computes Hamiltonian matrix elements for plane waves
   // including a PAW non-local contribution
-  
+
   class PlaneWave {
     public:
       double g2; // length of the vector square == plane wave kinetic energy in Rydberg
@@ -59,7 +59,7 @@ namespace plane_wave {
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for (int d = 0; d < 3; ++d) {
             double const x = gv[d]*sigma; // the Fourier transform of HG_n(x) is (-i)^n HG_n(k) [for sigma=1]
-            Hermite_polynomials(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
+            Gauss_Hermite_polynomials(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
         } // d
 
         { // scope: normalize Hermite_Gauss functions
@@ -100,7 +100,7 @@ namespace plane_wave {
       return pow3(constants::sqrt2 * constants::sqrtpi);
   } //  Fourier_Gauss_factor_3D
 
-  
+
   template <typename complex_t>
   status_t iterative_solve(
         double eigenenergies[]
@@ -126,7 +126,7 @@ namespace plane_wave {
 
       // create nbands start waves
       view2D<complex_t> waves(nbands, nPW, complex_t(0)); // get memory
-      
+
       if (nbands > nPW) {
           warn("tried to find %d bands in a basis set with %d plane waves", nbands, nPW);
           return -1;
@@ -158,7 +158,7 @@ namespace plane_wave {
           for (int ib = 0; ib < nbands; ++ib) {
               set(waves[ib], nsub, SHmat_b(H,ib));
           } // ib
-          
+
       } // scope
 
       // construct a preconditioner
@@ -209,7 +209,7 @@ namespace plane_wave {
       if (0 == stat_slv) {
           if (echo > 2) {
               dense_solver::display_spectrum(eigvals.data(), nbands, x_axis, eV, _eV);
-              if (echo > 4) std::printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n", 
+              if (echo > 4) std::printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n",
                                       eigvals[0]*eV, eigvals[nbands - 1]*eV, _eV);
               std::fflush(stdout);
           } // echo
@@ -218,12 +218,12 @@ namespace plane_wave {
       } // stat_slv
 
       set(eigenenergies, nbands, eigvals.data()); // copy
-      
+
       return stat;
   } // iterative_solve
-  
-  
-  
+
+
+
   template <typename complex_t>
   status_t solve_k(
         double const ecut // plane wave cutoff energy
@@ -250,7 +250,7 @@ namespace plane_wave {
   ) { // number of bands (needed by iterative solver)
 
       using real_t = decltype(std::real(complex_t(1)));
-            
+
       int boxdim[3], max_PWs{1};
       for (int d = 0; d < 3; ++d) {
           boxdim[d] = std::ceil(ecut/pow2(reci[d][d]));
@@ -355,8 +355,8 @@ namespace plane_wave {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
 
               // phase factor related to the atomic position
-              double const arg = -(  (grid_offset[0] + xyzZ_PAW(ka,0))*gv[0] 
-                                   + (grid_offset[1] + xyzZ_PAW(ka,1))*gv[1] 
+              double const arg = -(  (grid_offset[0] + xyzZ_PAW(ka,0))*gv[0]
+                                   + (grid_offset[1] + xyzZ_PAW(ka,1))*gv[1]
                                    + (grid_offset[2] + xyzZ_PAW(ka,2))*gv[2] );
 //            std::printf("\n# effective position"); for (int d = 0; d < 3; ++d) std::printf(" %g", grid_offset[d] + xyzZ_PAW(ka,d));
               std::complex<double> const phase(std::cos(arg), std::sin(arg));
@@ -504,7 +504,7 @@ namespace plane_wave {
                   int const iGx = (i.x + nG[0])%nG[0], iGy = (i.y + nG[1])%nG[1], iGz = (i.z + nG[2])%nG[2];
                   psi_G(iGz,iGy,iGx) = eigenvector_coeff * norm_factor;
                   for (int iC = 0; iC < nC; ++iC) {
-                      atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 
+                      atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff;
                   } // iC
               } // iB
 //            if (echo > 6) { std::printf("# Fourier space array for band #%i has been filled\n", iband); std::fflush(stdout); }
@@ -538,7 +538,7 @@ namespace plane_wave {
   ) {
 
       status_t stat(0);
-      
+
       for (int ia = 0; ia < natoms_PAW; ++ia) {
           if (echo > 0) {
               std::printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f %s\n",
@@ -573,7 +573,7 @@ namespace plane_wave {
       char const *_ecut_u{nullptr};
       auto const ecut_u = unit_system::energy_unit(control::get("plane_wave.cutoff.energy.unit", "Ha"), &_ecut_u);
       auto const ecut = control::get("plane_wave.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
-      if (echo > 1) std::printf("# plane_wave.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
+      if (echo > 1) std::printf("# plane_wave.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n",
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
       int const nG[3] = {g[0], g[1], g[2]}; // same as the numbers of real-space grid points
@@ -608,9 +608,9 @@ namespace plane_wave {
       } // scope
       if (echo > 6) {
           std::printf("# 000-Fourier coefficient of the potential is %g %g %s\n",
-                            Vcoeffs(0,0,0,0)*eV, Vcoeffs(1,0,0,0)*eV, _eV); 
+                            Vcoeffs(0,0,0,0)*eV, Vcoeffs(1,0,0,0)*eV, _eV);
       } // echo
-      
+
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
       std::vector<int32_t> numax_PAW(natoms_PAW,  3);
       std::vector<double>  sigma_PAW(natoms_PAW, .5);
@@ -628,7 +628,7 @@ namespace plane_wave {
           } // atom_mat
           // for both matrices: L2-normalization w.r.t. SHO projector functions is important
       } // ka
-      if (nullptr == atom_mat) warn("atomic PAW matrices were not passed for %d atoms", natoms_PAW); 
+      if (nullptr == atom_mat) warn("atomic PAW matrices were not passed for %d atoms", natoms_PAW);
 
       double const nbands_per_atom = control::get("bands.per.atom", 10.);
       int const nbands = int(nbands_per_atom*natoms_PAW);
@@ -661,14 +661,14 @@ namespace plane_wave {
                           ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo,
-                          nbands, iterative_direct_ratio, 
+                          nbands, iterative_direct_ratio,
                           export_rho ? &((*export_rho)[ikp]) : nullptr, ikp);
               } else {
                   stat += solve_k<std::complex<double>>(
                           ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo,
-                          nbands, iterative_direct_ratio, 
+                          nbands, iterative_direct_ratio,
                           export_rho ? &((*export_rho)[ikp]) : nullptr, ikp);
               } // floating_point_bits
               nPW_stats.add(nPWs);
@@ -685,8 +685,8 @@ namespace plane_wave {
       return stat;
   } // solve
 
-  
-  
+
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -702,7 +702,7 @@ namespace plane_wave {
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;
       int natoms{0};
-      double cell[3] = {0, 0, 0}; 
+      double cell[3] = {0, 0, 0};
       int8_t bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
           stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
@@ -722,7 +722,7 @@ namespace plane_wave {
   } // test_Hamiltonian
 
   status_t test_Hermite_Gauss_normalization(int const echo=5, int const numax=3) {
-      // we check if the Hermite_Gauss_projectors are L2-normalized 
+      // we check if the Hermite_Gauss_projectors are L2-normalized
       // when evaluated on a dense Cartesian mesh (in reciprocal space).
       // this is useful information as due to the Plancherel theorem,
       // this implies the right scaling of the projectors in both spaces.
@@ -769,6 +769,6 @@ namespace plane_wave {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace plane_wave

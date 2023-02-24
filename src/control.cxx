@@ -251,10 +251,9 @@ namespace control {
               stat += line_stat;
           }
       } // parse file line by line
-
+      if (echo > 1) std::printf("\n");
       if (echo > 3) std::printf("# %s found %d comments in file '%s', status=%i\n\n",
                                    __func__, ncomments, filename, int(stat));
-
       return stat;
   } // read_control_file
 

@@ -20,21 +20,21 @@ namespace sho_projection {
 
   template <typename real_t>
   inline status_t _analyze_row(
-        double maxdev[2]
-      , int const i
-      , real_t const out[]
-      , int const nj
-      , int const echo=0
+        double maxdev[2] // largest absolute deviation on [0:off-diag, 1:diagonal]
+      , int const i // row index
+      , real_t const row[] // row values
+      , int const nj // number of columns
+      , int const echo=0 // log level
   ) {
       status_t stat(0);
       double const threshold = (8 == sizeof(real_t)) ? 1e-8 : 2e-5;
       for (int j = 0; j < nj; ++j) {
-          int const d = (i == j); // d==0:off-diagonal, d==1:diagonal
-          double const dev = std::abs(out[j] - d);
-          maxdev[d] = std::max(maxdev[d], dev);
-          if (echo > 9) std::printf("# %s %s i=%i j=%i\t  %g %g\n", __func__, _diag(d), i, j, out[j], dev);
+          int const diag = (i == j); // diag==0:off-diagonal, diag==1:diagonal
+          double const dev = std::abs(row[j] - diag);
+          maxdev[diag] = std::max(maxdev[diag], dev);
+          if (echo > 9) std::printf("# %s %s i=%i j=%i\t  %g %g\n", __func__, _diag(diag), i, j, row[j], dev);
           if (dev > threshold) {
-              if (echo > 7) std::printf("# %s %s i=%i j=%i\t  %g\tdev= %g\n", __func__, _diag(d), i, j, out[j], dev);
+              if (echo > 7) std::printf("# %s %s i=%i j=%i\t  %g\tdev= %g\n", __func__, _diag(diag), i, j, row[j], dev);
               ++stat;
           } // deviation large
       } // j
@@ -48,8 +48,8 @@ namespace sho_projection {
       real_space::grid_t g(dims);
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
-      if (echo > 1) std::printf("# %s %s: for sigma= %g numax= %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
-      double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]};
+      if (echo > 1) std::printf("# %s %s: for sigma= %g numax= %i with grid spacing %g Bohr\n", __FILE__, __func__, sigma, numax, g.h[0]);
+      double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]}; // not exactly the center for x and y
       int const nSHO = sho_tools::nSHO(numax);
       auto const icoeff = new uint8_t[nSHO][4];
       { // scope
@@ -70,12 +70,15 @@ namespace sho_projection {
       double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
       status_t stat(0);
       for (int i = 0; i < nSHO; ++i) {
-          double const prefactor = sho_prefactor(icoeff[i][0], icoeff[i][1], icoeff[i][2], sigma);
+          double const prefactor = sho_projection::sho_prefactor(icoeff[i][0], icoeff[i][1], icoeff[i][2], sigma);
+          // now prefactor == sqrt(  2^nx 2^ny 2^nz  / ( nx! ny! nz! pi^{3/2} sigma^3 )  );
           set(coeff.data(), nSHO, (real_t)0);
           coeff[i] = pow2(prefactor);
+          // now coeff[i] == 2^nx 2^ny 2^nz  / ( nx! ny! nz! pi^{3/2} sigma^3 );
           set(values.data(), g.all(), (real_t)0);
-          stat += sho_add(values.data(), g, coeff.data(), numax, pos, sigma, 0);
-          stat += sho_project(coeff.data(), numax, pos, sigma, values.data(), g, 0);
+          stat += sho_projection::sho_add(values.data(), g, coeff.data(), numax, pos, sigma, 0);
+          stat += sho_projection::sho_project(coeff.data(), numax, pos, sigma, values.data(), g, 0);
+          // sho_project will scale the coefficients by g.dV(), the volumen element of the grid
 
           if (echo > 8) {
               int const nu_show = std::min(echo, numax);
@@ -110,7 +113,7 @@ namespace sho_projection {
 
           stat += _analyze_row(maxdev, i, coeff.data(), nSHO, echo);
       } // i
-      if (echo > 0) {      
+      if (echo > 0) {
           for (int d = 0; d <= 1; ++d) {
               std::printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
           } // d
@@ -209,7 +212,6 @@ namespace sho_projection {
       stat += test_renormalize_electrostatics(echo);
       stat += test_L2_orthogonality<double>(echo); // takes a while
 //    stat += test_L2_orthogonality<float>(echo);
-      if (stat) warn("status= %i", int(stat));
       return stat;
   } // all_tests
 

@@ -204,7 +204,7 @@
 //           add_module_test(green_dyadic);
 //           add_module_test(green_action);
 //           add_module_test(green_experiments);
-          green_tests::add_tests(results, input_name, show, all, echo);
+          green_tests::add_tests(results, input_name, show, all, echo); // The 7 green_* modules above are grouped for faster development
 
           if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
           add_module_test(conjugate_gradients);
@@ -374,7 +374,7 @@
       //
       int const echo = control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
       //
-      show_version(argv[0], echo);
+      stat += show_version(argv[0], echo);
       //
       if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
       //

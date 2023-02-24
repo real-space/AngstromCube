@@ -235,8 +235,7 @@ bands.per.atom=4
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
 # hamiltonian.kmesh=0
-# hamiltonian.kmesh.x=35
-# hamiltonian.kmesh=4
+# hamiltonian.kmesh.x=2
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 

@@ -8,14 +8,14 @@
 
 #include "sho_tools.hxx" // ::nSHO, ::get_nu, ::order_zyx
 #include "real_space.hxx" // ::grid_t<D0>
-#include "hermite_polynomial.hxx" // ::Hermite_polynomials
+#include "hermite_polynomial.hxx" // Gauss_Hermite_polynomials
 #include "inline_math.hxx" // pow3, factorial<T>
 #include "constants.hxx" // ::sqrtpi
 #include "sho_unitary.hxx" // Unitary_SHO_Transform
 
 
 namespace sho_projection {
-  // Projection and expansion (aka addition) operations using factorizable 
+  // Projection and expansion (aka addition) operations using factorizable
   // Hermite Gauss functions, here called Spherical Harmonic Oscillator basis.
 
   template <typename real_t>
@@ -50,7 +50,7 @@ namespace sho_projection {
       } // d
       auto const nvolume = (size_t(num[0]) * num[1]) * num[2];
       if ((nvolume < 1) && (echo < 7)) return 0; // no range
-      if (echo > 2) std::printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n", 
+      if (echo > 2) std::printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n",
                            (0 == PROJECT0_OR_ADD1)?"project":"add", off[0], end[0], off[1], end[1], off[2], end[2],
                            num[0], num[1], num[2], nvolume);
 
@@ -68,11 +68,11 @@ namespace sho_projection {
           auto const h1d = H1d[dir].data();
 
           double const grid_spacing = g.h[dir];
-          if (echo > 55) std::printf("\n# Hermite polynomials for %c-direction:\n", 120+dir);
+          if (echo > 55) std::printf("\n# Hermite polynomials for %c-direction:\n", 'x' + dir);
           for (int ii = 0; ii < num[dir]; ++ii) {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
-              Hermite_polynomials(h1d + ii*M, x, numax);
+              Gauss_Hermite_polynomials(h1d + ii*M, x, numax);
 #ifdef DEVEL
               if (echo > 55) {
                   std::printf("%g\t", x);
@@ -104,7 +104,7 @@ namespace sho_projection {
               for (int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
 
-                  complex_t val = values[ixyz]; // load
+                  complex_t val(0);
                   if (true) {
 //                    if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO{0};
@@ -124,7 +124,7 @@ namespace sho_projection {
                       assert( nSHO == iSHO );
                   } // true
                   if (1 == PROJECT0_OR_ADD1) {
-                      values[ixyz] = val; // store
+                      values[ixyz] += val; // load-modify-store, must be atomic if threads are involved
                   } // write back (add)
 
               } // ix
@@ -162,7 +162,7 @@ namespace sho_projection {
       return _sho_project_or_add<complex_t,0>(coeff, numax, center, sigma, (complex_t*)values, g, echo); // un-const values pointer
   } // sho_project
 
-  template <typename complex_t> 
+  template <typename complex_t>
   status_t sho_add( // wrapper function
         complex_t values[] // result gets modified, grid array
       , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
@@ -176,14 +176,14 @@ namespace sho_projection {
   } // sho_add
 
 
-  inline double sho_1D_prefactor(int const nu, double const sigma) { 
+  inline double sho_1D_prefactor(int const nu, double const sigma) {
       return std::sqrt( ( 1 << nu ) / ( constants::sqrtpi * sigma * factorial(nu) ) ); // 1 << nu == 2^nu
   } // sho_1D_prefactor (L2-normalization)
 
-  inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
+  inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) {
 //    return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
       return std::sqrt(   double(1 << nx)*double(1 << ny)*double(1 << nz) /
-                        (  factorial(nx) * factorial(ny) * factorial(nz) * pow3(constants::sqrtpi * sigma) ) ); 
+                        (  factorial(nx) * factorial(ny) * factorial(nz) * pow3(constants::sqrtpi * sigma) ) );
   } // sho_prefactor (L2-normalization)
 
   template <typename real_t>

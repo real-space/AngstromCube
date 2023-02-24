@@ -147,12 +147,13 @@ namespace grid_operators {
                       int const stride = a[ia].stride();
                       assert(stride >= ncoeff); // check internal consistency
                       auto *const mat = a[ia].get_matrix<atom_matrix_t>(h0s1);
+                      auto *const vec = atom_coeff[ia].data();
                       // matrix-vector multiplication
                       for (int i = 0; i < ncoeff; ++i) {
                           complex_t ci(0);
                           for (int j = 0; j < ncoeff; ++j) {
                               auto const am = mat[i*stride + j];
-                              auto const cj = atom_coeff[ia][j];
+                              auto const cj = vec[j];
 #ifdef DEVEL
 //                               if (echo > 9) std::printf("# %s atomic %s matrix for atom #%i mat(%i,%i)= %g\n",
 //                                                    __func__, h0s1?"overlap":"hamiltonian", ia, i, j, am);
@@ -478,7 +479,11 @@ namespace grid_operators {
                       for (int i = 0; i < nSHO; ++i) {
                           std::fprintf(f, "        ");
                           for (int j = 0; j < nSHO; ++j) {
-                              std::fprintf(f, " %.15e", mat[i*stride + j]);
+                              if (h0s1 && (0 == mat[i*stride + j])) {
+                                  std::fprintf(f, " 0"); // abbreviate exact zeros
+                              } else {
+                                  std::fprintf(f, " %.15e", mat[i*stride + j]);
+                              }
                           } // j
                           std::fprintf(f, "\n");
                       } // i
@@ -490,7 +495,12 @@ namespace grid_operators {
 
               std::fprintf(f, "  <spacing x=\"%.17f\" y=\"%.17f\" z=\"%.17f\"/>\n", grid.h[0], grid.h[1], grid.h[2]);
               std::fprintf(f, "  <boundary x=\"%d\" y=\"%d\" z=\"%d\"/>\n", grid.boundary_condition(0), grid.boundary_condition(1), grid.boundary_condition(2));
-              std::fprintf(f, "  <potential nx=\"%d\" ny=\"%d\" nz=\"%d\">", grid[0], grid[1], grid[2]);
+              simple_stats::Stats<> pot;
+              for (int izyx = 0; izyx < grid.all(); ++izyx) {
+                  pot.add(potential[izyx]);
+              } // ia
+              std::fprintf(f, "  <potential nx=\"%d\" ny=\"%d\" nz=\"%d\" minimum=\"%g\" maximum=\"%g\" average=\"%g\">",
+                                            grid[0], grid[1], grid[2], pot.min(), pot.max(), pot.mean());
               for (int izyx = 0; izyx < grid.all(); ++izyx) {
                   if (0 == (izyx & 3)) std::fprintf(f, "\n    ");
                   std::fprintf(f, " %.15f", potential[izyx]);

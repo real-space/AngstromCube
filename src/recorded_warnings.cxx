@@ -43,7 +43,7 @@ namespace recorded_warnings {
         , hash_(combined_hash(file, line))
         , source_file_name_(file)
         , function_name_(func)
-        , times_overwritten_(0)   
+        , times_overwritten_(0)
         , times_printed_(0)
         , source_file_line_(line)
       {
@@ -55,9 +55,9 @@ namespace recorded_warnings {
       } // constructor
 
       ~WarningRecord(void) {
-#ifdef  DEBUG          
+#ifdef  DEBUG
           std::printf("# WarningRecord:destructor: old warning message"
-                      " at %p for warnings launched at %s:%d reads:\n#\t%s\n", 
+                      " at %p for warnings launched at %s:%d reads:\n#\t%s\n",
                       (void*)message_, get_sourcefile(), source_file_line_, message_);
 #endif // DEBUG
           // delete[] message_; // seems like this happens automagically
@@ -77,20 +77,20 @@ namespace recorded_warnings {
 
 
   std::pair<char*,int> _manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
-    if (echo > 8) std::printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
+    if (echo > 8) std::printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n",
                       __FILE__, __LINE__, __func__, file, line, echo);
 
     static std::map<uint64_t, WarningRecord> map_;
     if (line < 1) { // line numbers created by the preprocessor start from 1
         assert('?' == file[0]); // make sure that we want special functionality
-        
+
         if (0 == line) {
             // show_warnings() has been called
             if (echo > 0) {
                 auto const nw = map_.size();
-                if ((echo < 3) || (nw < 1)) { 
+                if ((echo < 3) || (nw < 1)) {
                     // only give a summary of how many
-                    std::printf("# %ld warnings have been recorded.\n", nw);
+                    std::printf("\n# %ld warnings have been recorded.\n", nw);
                 } else {
                     std::printf("\n#\n# recorded %ld different warnings:\n", nw);
                     size_t total_count{0};
@@ -98,8 +98,8 @@ namespace recorded_warnings {
                         auto const &w = hw.second;
                         auto const n_times = w.get_times();
                         std::printf("# \tin %s:%d %s (%ld times)\n"
-                               "# \t\t%s\n", w.get_sourcefile(), 
-                            w.get_sourceline(), w.get_functionname(), 
+                               "# \t\t%s\n", w.get_sourcefile(),
+                            w.get_sourceline(), w.get_functionname(),
                             n_times, w.get_message_pointer());
                         total_count += n_times;
                     } // w
@@ -114,13 +114,13 @@ namespace recorded_warnings {
         return std::make_pair(nullptr, 0);
 
     } else { // special functions
-      
+
         // regular usage with file and line
-      
+
         // remove path name to source file
         auto const short_file = after_last_slash(file);
         auto const hash = combined_hash(short_file, line);
-        
+
         WarningRecord *w;
         auto const search = map_.find(hash);
         if (map_.end() != search) {
@@ -134,7 +134,7 @@ namespace recorded_warnings {
 
         // output the warning to stdout and stderr when encountered the 1st time, otherwise,
         // we could have a segfault later and do not know where that could be coming from
-        
+
         // configuration:
         int const MaxWarningsToErr =  1; // show max M warnings in stderr, negative means all
         int const MaxWarningsToLog =  3; // show max |M| warnings in stdout, negative
@@ -144,7 +144,7 @@ namespace recorded_warnings {
         int const times_printed = w->get_times_printed();
         if (times_printed < std::abs(MaxWarningsToLog)) {
             flags |= 1; // 1: message to stdout
-            if (times_printed == MaxWarningsToLog - 1) 
+            if (times_printed == MaxWarningsToLog - 1)
                 flags |= 4; // "# This warning will not be shown again!"
         } // print to stdout
         if ((MaxWarningsToErr < 0) || (times_printed < MaxWarningsToErr)) flags |= 2; // 2: message to stderr
@@ -177,7 +177,7 @@ namespace recorded_warnings {
       if (echo > 1) std::printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
       WarningRecord wr(__FILE__,__LINE__,__func__);
       auto const msg = wr.get_message();
-      auto const nchars = std::snprintf(msg, MaxMessageLength, 
+      auto const nchars = std::snprintf(msg, MaxMessageLength,
             "This is a non-recorded warning from %s:%d", __FILE__, __LINE__);
       return (nchars >= MaxMessageLength);
   } // test_create_and_destroy
@@ -210,6 +210,6 @@ namespace recorded_warnings {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace recorded_warnings

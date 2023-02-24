@@ -60,6 +60,7 @@ namespace brillouin_zone {
           int jxyz[3];
           for (int d = 0; d < 3; ++d) {
               jxyz[d] = int(std::round(n[d]*xyz[d] + 0.5*shift[d]));
+              if (jxyz[d] < 0) jxyz[d] += n[d];
           } // d
           int const jx = jxyz[0], jy = jxyz[1], jz = jxyz[2];
           if (echo > 16) {
@@ -132,7 +133,7 @@ namespace brillouin_zone {
 
   inline int get_kpoint_mesh(
         view2D<double> & mesh
-      , bool const complex_phase_factors=true
+      // , bool const complex_phase_factors=true
   ) {
       unsigned nv[3];
       auto const iso = control::get("hamiltonian.kmesh", 1.); // isotropic default value
@@ -140,12 +141,13 @@ namespace brillouin_zone {
       nv[1]          = control::get("hamiltonian.kmesh.y", iso);
       nv[2]          = control::get("hamiltonian.kmesh.z", iso);
       int const echo = control::get("hamiltonian.kmesh.echo", 0.);
-      return get_kpoint_mesh(mesh, nv, complex_phase_factors, echo);
+      int const cmpl = control::get("hamiltonian.kmesh.complex", 1.);
+      return get_kpoint_mesh(mesh, nv, (0 != cmpl), echo);
   } // get_kpoint_mesh
 
 
   inline bool needs_complex(double const kvec[3]) {
-      return !(is_integer(2*kvec[0]) 
+      return !(is_integer(2*kvec[0])
             && is_integer(2*kvec[1])
             && is_integer(2*kvec[2]));
   } // needs_complex

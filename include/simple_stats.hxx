@@ -2,10 +2,8 @@
 
 #include <algorithm> // std::min, ::max
 #include <cmath> // std::sqrt
-
-#ifndef NO_UNIT_TESTS
-    #include <cstdio> // std::printf
-#endif // NO_UNIT_TESTS
+#include <string> // std::string
+#include <cstdio> // std::printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 // #include "mpi_parallel.hxx" // ::max, ::sum
@@ -92,6 +90,11 @@ namespace simple_stats {
             std::max(0.0, v[2]/v[0] - mu*mu) : 0.0;
     } // variance
     double dev() const { return std::sqrt(variance()); } // standard deviation
+
+    std::string interval(double const f=1) const {
+        char buffer[96]; std::snprintf(buffer, 96, "[%g, %g +/- %g, %g]", min()*f, mean()*f, dev()*f, max()*f);
+        return std::string(buffer);
+    } // interval
 
     private:
       size_t times;
