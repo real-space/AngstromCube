@@ -235,7 +235,7 @@ bands.per.atom=4
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
 # hamiltonian.kmesh=0
-# hamiltonian.kmesh.x=2
+hamiltonian.kmesh.x=21
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 
@@ -243,7 +243,7 @@ hamiltonian.floating.point.bits=32
 # method of the grid eigensolver {cg, Davidson, none, explicit}
 # grid.eigensolver=none
 # grid.eigensolver=explicit
-grid.eigensolver=cg
+# grid.eigensolver=cg
 conjugate_gradients.max.iter=4
 grid.eigensolver.repeat=9
 

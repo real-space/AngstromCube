@@ -322,12 +322,19 @@ namespace load_balancer {
       auto const xyzw = new float[nall][4];
       std::vector<double> w8s(nall, 0);
 
+      int const holes = control::get("load_balancer.test.holes", 0.);
+
       for (int iz = 0; iz < n[Z]; ++iz) {
       for (int iy = 0; iy < n[Y]; ++iy) {
       for (int ix = 0; ix < n[X]; ++ix) {
           auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
-          auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
+          double h{1};
+          for (int ih = 1-holes; ih < holes; ih += 2) {
+              auto const r2 = pow2(ix - n[X]*(.5 + ih/(2.*holes))) + pow2(iy - .5*n[Y]) + pow2(iz - .5*n[Z]);
+              h *= (r2 > 8*8); // radius 8
+          } //
+          float const w8 = 1.f*h; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
           w8s[iall]     = w8;
           w8sum_all    += w8;
           xyzw[iall][W] = w8;
@@ -432,12 +439,13 @@ namespace load_balancer {
                               nprocs > 64 ? " (symbols are not unique!)" : "");
           int constexpr iz = 0;
           char const chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ<>";
+          char constexpr mask_char = ' ';
           for (int iy = 0; iy < n[Y]; ++iy) {
               std::printf("\n# ");
               for(int ix = 0; ix < n[X]; ++ix) {
                   auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
                   auto const owner = owner_rank[iall];
-                  auto const c = chars[owner & 0x3f];
+                  auto const c = (xyzw[iall][W] < 1) ? mask_char : chars[owner & 0x3f];
                   std::printf("%c", c);
               } // ix
           } // iy
@@ -470,6 +478,7 @@ namespace load_balancer {
                   auto const owner = owner_rank[iall];
                   for (int rgb = 0; rgb < 3; ++rgb) {
                       bmp_data[iall*4 + rgb] = bmp_color[owner*4 + rgb];
+                      if (xyzw[iall][W] < 1) bmp_data[iall*4 + rgb] = 255; // white
                   } // rgb
               } // ix
           } // iy

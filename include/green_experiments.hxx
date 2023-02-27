@@ -513,6 +513,9 @@ namespace green_experiments {
 
       int constexpr Real = 0, Imag = R1C2 - 1;
       if (nb < nblocks) { // scope: create start wave functions
+          // iterative solver has not yet achieved to converge, use the explicit solver with nb == nblocks
+          // ToDo: delete failed code
+          //
           auto constexpr twopi = 2*constants::pi;
           double const box[] = {ng[0]*hg[0], ng[1]*hg[1], ng[2]*hg[2]}; // in Bohr
           double const reci[] = {twopi/box[0], twopi/box[1], twopi/box[2]}; // reciprocal lattice vectors in Bohr^-1
