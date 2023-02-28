@@ -446,6 +446,7 @@ namespace single_atom {
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
       std::vector<char> partial_wave_active; // used as std::vector<bool> but bool vectors have no .data() member
       view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
+      view3D<double> matrices_ln; // matrices [H0S1][nln][nln] entering scattering_test and pawxml_export('upf')
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_cmp][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][rg[SMT].n] r*projectors, depend only on sigma and numax
@@ -453,7 +454,7 @@ namespace single_atom {
       view3D<double> partial_wave_radial_part[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
       // end of energy-parameter-set dependent members
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
-      std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent
+      std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent, on smooth radial grid
       view2D<double> density_matrix; // atomic density matrix [nSHO][>=nSHO]
 
       view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax_rho)^2 radial functions
@@ -508,8 +509,8 @@ namespace single_atom {
 
     LiveAtom( // constructor method
           double const Z_protons // number of protons in the nucleus
-        , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
-        , int32_t const global_atom_id=-1 // global atom identifier
+        , bool const atomic_valence_density // this option allows to make an isolated atom scf calculation
+        , int32_t const global_atom_id // global atom identifier
         , int const echo=0 // logg level for this constructor method only
         , double const ionization=0 // charged valence configurations
     )
@@ -964,13 +965,13 @@ namespace single_atom {
 
 #ifdef DEVEL
 
-        int const export_xml = control::get("single_atom.export.xml", 0.);
+        int const export_xml = control::get("single_atom.export", 0.);
         if (export_xml) {
             update_potential(potential_mixing, nullptr, echo); // compute the zero_potential and total energy contributions
             if (echo > 0) std::printf("\n\n# %s export configuration to file\n", label);
             auto const stat = pawxml_export::write_to_file(Z_core, rg,
                 partial_wave, partial_wave_active.data(),
-                kinetic_energy, csv_charge, spherical_density, projectors,
+                kinetic_energy, csv_charge, spherical_density, projectors, matrices_ln[0],
                 r_cut, sigma_compensator, zero_potential.data(), echo,
                 energy_kin_csvn[core][TRU],
                 energy_kin[TRU], energy_xc[TRU], energy_es[TRU], energy_tot[TRU],
@@ -982,7 +983,7 @@ namespace single_atom {
                 warn("optimized sigma may differ from config string for Z=%g", Z_core);
             }
             if (echo > 0) std::printf("# %s exported configuration to file\n", label);
-            if (export_xml < 0) abort("single_atom.export.xml=%d (negative leads to a stop)", export_xml);
+            if (export_xml < 0) abort("single_atom.export=%d (negative leads to a stop)", export_xml);
         } // export_xml
 
         // show the smooth and true potential
@@ -3556,7 +3557,7 @@ namespace single_atom {
 
         if (1) { // scope: check if averaging over emm gives back the same operators in the case of a spherical potential
 
-            view3D<double> matrices_ln(2, nln, nln); // get memory
+            matrices_ln = view3D<double>(2, nln, nln); // get memory
             for (int iHS = 0; iHS < 2; ++iHS) {
                 scattering_test::emm_average(matrices_ln(iHS,0), matrices_lmn(iHS,0), int(numax));
             } // iHS
@@ -4371,7 +4372,11 @@ namespace single_atom {
                   if (0 == type) {
                       a[ia] = new LiveAtom(Za[ia], atomic_valence_density, ia, echo_mask[ia]*echo_init, ion);
                   } else {
+#ifdef HAS_RAPIDXML
                       a[ia] = new LiveAtom(Za[ia], echo_mask[ia]*echo_init); // load from pawxml files
+#else
+                      ++stat;
+#endif
                   }
                   if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
@@ -4609,9 +4614,14 @@ namespace single_atom {
   } // test_LiveAtom
 
   status_t test_pawxml_constructor(int const echo=9) {
+#ifdef HAS_RAPIDXML
       auto const Z = control::get("single_atom.test.Z", 29.); // default copper
       LiveAtom a(Z, echo); // envoke constructor from pawxml
       return 0;
+#else
+      if (echo > 0) std::printf("# %s cannot parse pawxml file without XML library!\n", __func__);
+      return -1;
+#endif
   } // test_pawxml_constructor
 
   status_t all_tests(int const echo) {
@@ -4620,7 +4630,6 @@ namespace single_atom {
       if (t & (1 << n++)) stat += test_compensator_normalization(echo);
       if (t & (1 << n++)) stat += test_pawxml_constructor(echo);
       if (t & (1 << n++)) stat += test_LiveAtom(echo);
-      assert(3 == n);
       return stat;
   } // all_tests
 

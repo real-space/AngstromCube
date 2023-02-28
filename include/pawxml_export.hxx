@@ -2,6 +2,8 @@
 
 #include <cstdio> // std::printf, ::fprintf, ::fopen, ::fclose, ::snprintf
 #include <vector> // std::vector<T>
+#include <time.h> // std::time, ::localtime, ::strftime
+#include <cmath>  // std::erf
 
 #include "chemical_symbol.hxx" // ::get
 #include "radial_grid.h" // radial_grid_t
@@ -11,6 +13,8 @@
 #include "control.hxx" // ::get
 
 namespace pawxml_export {
+
+  inline char c4(int const i) { return (i & 0x3) ? ' ' : '\n'; }
 
   template <class PartialWave>
   int write_to_file(
@@ -22,6 +26,7 @@ namespace pawxml_export {
       , double const n_electrons[3] // core, semicore, valence
       , view2D<double> const spherical_density[TRU_AND_SMT] // spherical_density[ts](csv,ir), ToDo: extend to have KIN for meta-GGAs
       , view2D<double> const & projector_functions // ==r[ir]*Projectors(nln,ir)
+      , view2D<double> const & aHm // non-local Hamiltonian elements in ln_basis
       , double const r_cut=2
       , double const sigma_cmp=.5
       , double const zero_potential[]=nullptr
@@ -48,9 +53,12 @@ namespace pawxml_export {
 
       char Sy[4]; // chemical symbol
       int const iZ = chemical_symbol::get(Sy, Z);
+
+      char const *const suffix = control::get("pawxml_export.type", "xml"); // "xml" or "upf"
+
       char file_name_buffer[512];
       if (nullptr == filename) {
-          std::snprintf(file_name_buffer, 511, "%s/%s.xml", pathname, Sy);
+          std::snprintf(file_name_buffer, 512, "%s/%s.%s", pathname, Sy, suffix);
           filename = file_name_buffer;
       } // generate a default file name
       if (echo > 0) std::printf("# %s %s Z=%g iZ=%d filename='%s'\n", Sy, __func__, Z, iZ, filename);
@@ -60,6 +68,116 @@ namespace pawxml_export {
           if (echo > 0) std::printf("# %s %s: Error opening file '%s'", Sy, __func__, filename);
           return __LINE__;
       } // failed to open
+
+if (std::string("upf") == suffix) {
+
+          int l_max{-1};
+          std::vector<int> iln_index(0);
+          for (size_t iln = 0; iln < valence_states.size(); ++iln) {
+              if (valence_states_active[iln]) {
+                  l_max = std::max(l_max, int(valence_states[iln].ell));
+                  iln_index.push_back(iln);
+              } // is active
+          } // iln
+          int const n_proj = iln_index.size();
+
+          int const n_mesh = 4*(rg[SMT].n/4), n_wfc = 0;
+          // export in Unified Pseudopotential Format
+          std::printf("# generate UPF file according to pseudopotentials.quantum-espresso.org/home/unified-pseudopotential-format\n");
+          std::fprintf(f, "<UPF version=\"2.0.1\">\n");
+              std::fprintf(f, "<PP_INFO>\n");
+                  std::fprintf(f, "<PP_INPUTFILE>\n");
+                      std::fprintf(f, "  +element_%s=\"%s\"\n", Sy, custom_configuration_string);
+                  std::fprintf(f, "</PP_INPUTFILE>\n");
+              std::fprintf(f, "</PP_INFO>\n");
+              std::fprintf(f, "<!--                               -->\n");
+              std::fprintf(f, "<!-- END OF HUMAN READABLE SECTION -->\n");
+              std::fprintf(f, "<!--                               -->\n");
+              std::fprintf(f, "<PP_HEADER");
+                  std::fprintf(f, "\ngenerated=\"libliveatom %s\"", git_key);
+                  std::fprintf(f, "\nauthor=\"Paul Baumeister\"");
+                  auto const now = std::time(0);
+                  char date[80]; std::strftime(date, sizeof(date), "%Y-%m-%d", std::localtime(&now));
+                  std::fprintf(f, "\ndate=\"%s\"", date);
+                  std::fprintf(f, "\ncomment=\"pseudo_type should be PAW\"");
+                  std::fprintf(f, "\nelement=\"%s\"", Sy);
+                  std::fprintf(f, "\npseudo_type=\"NC\""); // should be US and PAW in the future
+                  std::fprintf(f, "\nrelativistic=\"scalar\"");
+                  std::fprintf(f, "\nis_ultrasoft=\"F\"");
+                  std::fprintf(f, "\nis_paw=\"F\"");
+                  std::fprintf(f, "\nis_coulomb=\"F\"");
+                  std::fprintf(f, "\nhas_so=\"F\""); // SO:spin-orbit
+                  std::fprintf(f, "\nhas_wfc=\"F\"");
+                  std::fprintf(f, "\nhas_gipaw=\"F\""); // gauge-invariant PAW
+                  std::fprintf(f, "\ncore_correction=\"F\""); // non-linear core correction
+                  std::fprintf(f, "\nfunctional=\"%s\"", xc_functional); // density functional used
+                  std::fprintf(f, "\nz_valence=\"%.3f\"", n_electrons[valence]);
+                  std::fprintf(f, "\ntotal_psenergy=\"%g\"", 0.0);
+                  std::fprintf(f, "\nrho_cutoff=\"%g\"", 0.0);
+                  std::fprintf(f, "\nl_max=\"%d\"", l_max);
+                  std::fprintf(f, "\nl_local=\"-1\"");
+                  std::fprintf(f, "\nmesh_size=\"%d\"", n_mesh);
+                  std::fprintf(f, "\nnumber_of_wfc=\"%d\"", n_wfc);
+                  std::fprintf(f, "\nnumber_of_proj=\"%d\"", n_proj);
+              std::fprintf(f, "/>\n"); // end of PP_HEADER
+              std::fprintf(f, "<PP_MESH>\n");
+                  std::fprintf(f, "<PP_R type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
+                  for (int ir = 0; ir < n_mesh; ++ir) {
+                      std::fprintf(f, "%c%.12g", c4(ir), rg[SMT].r[ir]);
+                  } // ir
+                  std::fprintf(f, "\n</PP_R>\n");
+                  std::fprintf(f, "<PP_RAB type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
+                  for (int ir = 0; ir < n_mesh; ++ir) {
+                      std::fprintf(f, "%c%.12g", c4(ir), rg[SMT].dr[ir]);
+                  } // ir
+                  std::fprintf(f, "\n</PP_RAB>\n");
+              std::fprintf(f, "</PP_MESH>\n");
+
+              std::fprintf(f, "<PP_LOCAL type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
+              for (int ir = 0; ir < n_mesh; ++ir) {
+                  auto const r = rg[SMT].r[std::max(1, ir)];
+                  auto const pp_local = -n_electrons[valence]*std::erf(r/sigma_cmp)/r; // tail must be unscreened potential -Z_valence/r
+                  std::fprintf(f, "%c%.12g", c4(ir), (pp_local + zero_potential[std::max(1, ir)]*Y00)*2); // *2 for Rydberg units
+              } // ir
+              std::fprintf(f, "\n</PP_LOCAL>\n");
+
+              std::fprintf(f, "<PP_NONLOCAL>\n");
+              int const ircut = radial_grid::find_grid_index(rg[SMT], r_cut);
+              std::vector<double> h(n_proj*n_proj, 0.0);
+              for (int ibeta = 0; ibeta < n_proj; ++ibeta) {
+                  int const iln = iln_index[ibeta];
+                  std::fprintf(f, "<PP_BETA.%d type=\"real\" size=\"%d\" columns=\"4\"\n", ibeta+1, n_mesh);
+                  std::fprintf(f, "index=\"%i\" angular_momentum=\"%d\"\n", ibeta+1, valence_states[iln].ell);
+                  std::fprintf(f, "cutoff_radius_index=\"%i\" cutoff_radius=\"%g\">", ircut, r_cut);
+                  for (int ir = 0; ir < n_mesh; ++ir) {
+                      std::fprintf(f, "%c%.12g", c4(ir), projector_functions(iln,ir));
+                  } // ir
+                  std::fprintf(f, "\n</PP_BETA.%d>\n", ibeta+1);
+                  for (int jbeta = 0; jbeta < n_proj; ++jbeta) {
+                      int const jln = iln_index[jbeta];
+                      h[ibeta*n_proj + jbeta] = aHm(iln,jln)*(valence_states[iln].ell == valence_states[jln].ell);
+                  } // jbeta
+              } // ibeta
+
+                  std::fprintf(f, "<PP_DIJ type=\"real\" size=\"%d\" columns=\"4\">", n_proj*n_proj);
+                  for (int ij = 0; ij < n_proj*n_proj; ++ij) {
+                      std::fprintf(f, "%c%.12g", c4(ij), h[ij]*2); // *2 for Rydberg units
+                  } // ij
+                  std::fprintf(f, "\n</PP_DIJ>\n");
+              std::fprintf(f, "</PP_NONLOCAL>\n");
+
+              if (echo > 5) std::printf("# not implemented: PP_PSWFC\n");
+
+              std::fprintf(f, "<PP_RHOATOM type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
+              for (int ir = 0; ir < n_mesh; ++ir) {
+                  std::fprintf(f, "%c%.12g", c4(ir), spherical_density[SMT](core,ir) + spherical_density[SMT](valence,ir));
+              } // ir
+              std::fprintf(f, "\n</PP_RHOATOM>\n");
+
+          std::fprintf(f, "</UPF>\n");
+
+} else {
+
 
       // XML file header
       std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
@@ -225,6 +343,9 @@ namespace pawxml_export {
 
       // XML file tail
       std::fprintf(f, "</paw_setup>\n"); // ABINIT: paw_dataset
+
+} // UPF or xml
+
       std::fclose(f);
 
       if (echo > 3) std::printf("# %s %s file '%s' written\n", Sy, __func__, filename);
