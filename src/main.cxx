@@ -61,6 +61,7 @@
   #include "single_atom.hxx" // ::all_tests
   #include "inline_math.hxx" // ::all_tests
   #include "sho_unitary.hxx" // ::all_tests
+  #include "export_upf.hxx" // ::all_tests
   #include "plane_wave.hxx" // ::all_tests
   #include "atom_image.hxx" // ::all_tests
   #include "real_space.hxx" // ::all_tests
@@ -178,6 +179,7 @@
           add_module_test(bessel_transform);
           add_module_test(scattering_test);
           add_module_test(single_atom);
+          add_module_test(export_upf);
           add_module_test(pawxml_import);
 
           if (chapters) std::printf("\n\n\n\n#\n# SHO-specific modules\n#\n\n\n\n");

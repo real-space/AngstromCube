@@ -19,6 +19,7 @@ OBJATOM = \
 	chemical_symbol.o \
 	display_units.o \
 	sigma_config.o \
+	export_upf.o \
 	atom_core.o \
 	sho_unitary.o \
 	angular_grid.o \
