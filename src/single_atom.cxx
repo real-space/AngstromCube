@@ -971,7 +971,7 @@ namespace single_atom {
             if (echo > 0) std::printf("\n\n# %s export configuration to file\n", label);
             auto const stat = pawxml_export::write_to_file(Z_core, rg,
                 partial_wave, partial_wave_active.data(),
-                kinetic_energy, csv_charge, spherical_density, projectors, matrices_ln[0],
+                kinetic_energy, csv_charge, spherical_density, projectors, matrices_ln,
                 r_cut, sigma_compensator, zero_potential.data(), echo,
                 energy_kin_csvn[core][TRU],
                 energy_kin[TRU], energy_xc[TRU], energy_es[TRU], energy_tot[TRU],
@@ -4616,7 +4616,7 @@ namespace single_atom {
   status_t test_pawxml_constructor(int const echo=9) {
 #ifdef HAS_RAPIDXML
       auto const Z = control::get("single_atom.test.Z", 29.); // default copper
-      LiveAtom a(Z, echo); // envoke constructor from pawxml
+      LiveAtom a(Z, echo); // envoke constructor loading from pawxml
       return 0;
 #else
       if (echo > 0) std::printf("# %s cannot parse pawxml file without XML library!\n", __func__);

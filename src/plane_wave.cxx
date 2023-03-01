@@ -585,7 +585,7 @@ namespace plane_wave {
           if (echo > 5) std::printf("# used FFT on %d x %d x %d to transform local potential into space of plane-wave differences\n", nG[0], nG[1], nG[2]);
       } else
       { // scope: Fourier transform the local potential "by hand"
-          if (echo > 5) { std::printf("# FFT failed, transform local potential manually\n"); std::fflush(stdout); }
+          warn("FFT failed with status= %i, transform local potential manually", int(fft_stat));
           SimpleTimer timer(__FILE__, __LINE__, "manual Fourier transform (not FFT)");
           double const two_pi = 2*constants::pi;
           double const tpi_g[] = {two_pi/g[0], two_pi/g[1], two_pi/g[2]};
@@ -645,9 +645,10 @@ namespace plane_wave {
       // all preparations done, start k-point loop
 
       simple_stats::Stats<double> nPW_stats, tPW_stats;
+#pragma omp parallel for
       for (int ikp = 0; ikp < nkpoints; ++ikp) {
           auto const *kpoint = kmesh[ikp];
-          char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kpoint[0],kpoint[1],kpoint[2]);
+          char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kpoint[0], kpoint[1], kpoint[2]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
 //        bool const could_be_real = brillouin_zone::needs_complex(kpoint);

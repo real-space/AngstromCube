@@ -26,7 +26,7 @@ namespace pawxml_export {
       , double const n_electrons[3] // core, semicore, valence
       , view2D<double> const spherical_density[TRU_AND_SMT] // spherical_density[ts](csv,ir), ToDo: extend to have KIN for meta-GGAs
       , view2D<double> const & projector_functions // ==r[ir]*Projectors(nln,ir)
-      , view2D<double> const & aHm // non-local Hamiltonian elements in ln_basis
+      , view3D<double> const & aHSm // non-local Hamiltonian and chargeDeficit elements in ln_basis
       , double const r_cut=2
       , double const sigma_cmp=.5
       , double const zero_potential[]=nullptr
@@ -142,28 +142,36 @@ if (std::string("upf") == suffix) {
               std::fprintf(f, "\n</PP_LOCAL>\n");
 
               std::fprintf(f, "<PP_NONLOCAL>\n");
-              int const ircut = radial_grid::find_grid_index(rg[SMT], r_cut);
-              std::vector<double> h(n_proj*n_proj, 0.0);
-              for (int ibeta = 0; ibeta < n_proj; ++ibeta) {
-                  int const iln = iln_index[ibeta];
-                  std::fprintf(f, "<PP_BETA.%d type=\"real\" size=\"%d\" columns=\"4\"\n", ibeta+1, n_mesh);
-                  std::fprintf(f, "index=\"%i\" angular_momentum=\"%d\"\n", ibeta+1, valence_states[iln].ell);
-                  std::fprintf(f, "cutoff_radius_index=\"%i\" cutoff_radius=\"%g\">", ircut, r_cut);
-                  for (int ir = 0; ir < n_mesh; ++ir) {
-                      std::fprintf(f, "%c%.12g", c4(ir), projector_functions(iln,ir));
-                  } // ir
-                  std::fprintf(f, "\n</PP_BETA.%d>\n", ibeta+1);
-                  for (int jbeta = 0; jbeta < n_proj; ++jbeta) {
-                      int const jln = iln_index[jbeta];
-                      h[ibeta*n_proj + jbeta] = aHm(iln,jln)*(valence_states[iln].ell == valence_states[jln].ell);
-                  } // jbeta
-              } // ibeta
-
+                  int const ircut = radial_grid::find_grid_index(rg[SMT], r_cut);
+                  std::vector<double> h(n_proj*n_proj, 0.0); // Dij
+                  std::vector<double> s(n_proj*n_proj, 0.0); // Sij (zero if norm-conserving)
+                  for (int ibeta = 0; ibeta < n_proj; ++ibeta) {
+                      int const iln = iln_index[ibeta];
+                      std::fprintf(f, "<PP_BETA.%d type=\"real\" size=\"%d\" columns=\"4\"\n", ibeta+1, n_mesh);
+                      std::fprintf(f, "index=\"%i\" angular_momentum=\"%d\"\n", ibeta+1, valence_states[iln].ell);
+                      std::fprintf(f, "cutoff_radius_index=\"%i\" cutoff_radius=\"%g\">", ircut, r_cut);
+                      for (int ir = 0; ir < n_mesh; ++ir) {
+                          std::fprintf(f, "%c%.12g", c4(ir), projector_functions(iln,ir));
+                      } // ir
+                      std::fprintf(f, "\n</PP_BETA.%d>\n", ibeta+1);
+                      for (int jbeta = 0; jbeta < n_proj; ++jbeta) {
+                          int const jln = iln_index[jbeta];
+                          auto const delta_ell = (valence_states[iln].ell == valence_states[jln].ell);
+                          h[ibeta*n_proj + jbeta] = aHSm(0,iln,jln)*delta_ell;
+                          s[ibeta*n_proj + jbeta] = aHSm(1,iln,jln)*delta_ell;
+                      } // jbeta
+                  } // ibeta
                   std::fprintf(f, "<PP_DIJ type=\"real\" size=\"%d\" columns=\"4\">", n_proj*n_proj);
                   for (int ij = 0; ij < n_proj*n_proj; ++ij) {
                       std::fprintf(f, "%c%.12g", c4(ij), h[ij]*2); // *2 for Rydberg units
                   } // ij
                   std::fprintf(f, "\n</PP_DIJ>\n");
+                  // // unless norm-conserving:
+                  // std::fprintf(f, "<PP_QIJ type=\"real\" size=\"%d\" columns=\"4\">", n_proj*n_proj);
+                  // for (int ij = 0; ij < n_proj*n_proj; ++ij) {
+                  //     std::fprintf(f, "%c%.12g", c4(ij), s[ij]); // charge deficits are the same in Rydberg units
+                  // } // ij
+                  // std::fprintf(f, "\n</PP_QIJ>\n");
               std::fprintf(f, "</PP_NONLOCAL>\n");
 
               if (echo > 5) std::printf("# not implemented: PP_PSWFC\n");

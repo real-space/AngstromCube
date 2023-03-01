@@ -166,8 +166,8 @@ atomic.valence.decay=0
 # potential_generator.use.bessel.projection=0
 # potential_generator.use.direct.projection=0
 
-## Poisson equation solver {multigrid, none, cg, sd, fft}
-electrostatic.solver=fft
+## Poisson equation solver {fft, multigrid, none, cg, sd}
+# electrostatic.solver=fft
 # electrostatic.compensator=factorizable
 electrostatic.compensator=generalized_Gaussian
 

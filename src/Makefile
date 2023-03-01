@@ -51,7 +51,7 @@ allclean: clean
 	-rm -f ${EXECUTABLE}
 
 CC     = gcc
-CXX    = g++
+CXX   ?= g++
 ##MPI
 # CC  = mpicc
 # CXX = mpic++
@@ -103,11 +103,13 @@ EXTFLAGS ?=
 
 ifeq ($(HOSTNAME),MacBook-Pro.local)
 	EXTFLAGS += -D HAS_NO_MKL
-#	EXTFLAGS += -D HAS_FFTW
 	LDFLAGS += -lm
 	LDFLAGS += -lblas
+	# OPTFLAGS += -fopenmp ### works only with gcc
 	LDFLAGS += -llapack
-#	LDFLAGS += -lfftw3
+	EXTFLAGS += -D HAS_FFTW
+  # INC += -I/opt/homebrew/Cellar/fftw/3.3.10_1/include  ### needed by gcc
+	LDFLAGS += -lfftw3 -L/opt/homebrew/Cellar/fftw/3.3.10_1/lib
 else
 	# on JUSUF:   module --force purge && module load Stages/2022 GCC/11.2.0 OpenMPI/4.1.2 imkl/2021.4.0
 	LDFLAGS += -lm

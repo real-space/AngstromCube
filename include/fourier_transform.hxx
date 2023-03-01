@@ -86,8 +86,8 @@ namespace fourier_transform {
 #else // not defined HAS_NO_MKL
 
 #ifdef HAS_FFTW
-      auto const plan = fftw_plan_dft_3d(ng[2], ng[1], ng[0], (fftw_complex*) in, 
-                                                              (fftw_complex*) out, 
+      auto const plan = fftw_plan_dft_3d(ng[2], ng[1], ng[0], (fftw_complex*) in,
+                                                              (fftw_complex*) out,
                                   forward ? FFTW_FORWARD : FFTW_BACKWARD, FFTW_ESTIMATE);
       if (nullptr == plan) return __LINE__; // error
       fftw_execute(plan);
@@ -112,13 +112,14 @@ namespace fourier_transform {
 
   template <typename real_t>
   inline status_t test_fft(int const echo=6) {
-      if (echo > 0) std::printf("\n# %s:\n", __func__);
+      if (echo > 0) std::printf("\n# %s<%s>:\n", __func__, (8 == sizeof(real_t))?"double":"float");
       int const ng[3] = {29, 13, 9};
       int const ngall = ng[2]*ng[1]*ng[0];
       std::vector<real_t> rs(2*ngall, real_t(0));
       auto const rs_imag = rs.data() + ngall;
       double const pw[3] = {3./ng[0], 2./ng[1], 1./ng[2]};
-      if (echo > 1) std::printf("# %s: set up a single plane wave as [%g %g %g]\n", __func__, pw[0]*ng[0], pw[1]*ng[1], pw[2]*ng[2]);
+      if (echo > 1) std::printf("# %s: set up a single plane wave as [%g %g %g]\n",
+            __func__, pw[0]*ng[0], pw[1]*ng[1], pw[2]*ng[2]);
       for (int z = 0; z < ng[2]; ++z) {
       for (int y = 0; y < ng[1]; ++y) {
       for (int x = 0; x < ng[0]; ++x) {
@@ -137,7 +138,7 @@ namespace fourier_transform {
                   auto const fta = std::abs(ft[reim*ngall + i]);
                   if (fta > maximum) { maximum = fta; at[0] = x; at[1] = y; at[2] = z; at[3] = reim; }
       }}}} // czyx
-      if (echo > 5) std::printf("# %s: detected peak at index [%d %d %d] %s-part, value %g\n", 
+      if (echo > 5) std::printf("# %s: detected peak at index [%d %d %d] %s-part, value %g\n",
                       __func__, at[0], at[1], at[2], (at[3])?"imag":"real", maximum);
       std::vector<real_t> rs_back(ngall);
       auto const status_inv = fft(rs_back.data(), rs_imag, ft.data(), ft_imag, ng, false); // backward

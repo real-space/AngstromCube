@@ -25,7 +25,7 @@ namespace fourier_poisson {
 
       size_t const ng_all = size_t(ng[0]) * size_t(ng[1]) * size_t(ng[2]);
       auto const mg_all = align<3>(ng_all); // aligned to 8 real_t numbers
-      std::vector<real_t> mem(3*mg_all, real_t(0)); // get memory     
+      std::vector<real_t> mem(3*mg_all, real_t(0)); // get memory
       auto const x_Re = mem.data(),
                  x_Im = mem.data() + mg_all, // point to the second half of that array
                  b_Im = mem.data() + 2*mg_all,
@@ -33,6 +33,7 @@ namespace fourier_poisson {
 
       status_t stat(0);
       stat += fourier_transform::fft(x_Re, x_Im, b, b_Im, ng, true); // transform b into reciprocal space
+      if (0 != stat) error("fourier transform failed with status ", stat);
 
       if (echo > 0) std::printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
       x_Re[0] = 0; x_Im[0] = 0; // charge neutrality, clear the k=[0 0 0]-component
@@ -112,7 +113,7 @@ namespace fourier_poisson {
               auto const r = (ir + .125)*dr, r2 = r*r;
               auto const rho_rad = std::exp(-alpha*r2) - charge;
               // show density, (shifted) potential, integrated charge up to r
-              if (i01 && (echo > 4)) std::printf("%g %g %g %g\n", r, rho_rad, V_rad + q_rad/r, q_rad); 
+              if (i01 && (echo > 4)) std::printf("%g %g %g %g\n", r, rho_rad, V_rad + q_rad/r, q_rad);
               q_rad += rho_rad * r2 * pi4dr;
               V_rad -= rho_rad * r  * pi4dr * (2*i01 - 1); // sum up in 1st iteration and subtract in second
           } // ir

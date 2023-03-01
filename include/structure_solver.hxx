@@ -176,7 +176,7 @@ namespace structure_solver {
                 op.construct_dense_operator(HSm(0,0), HSm(1,0), HSm.stride(), echo);
                 stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
                 display_spectrum = false; // the dense solver will display on its own
-                wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor? 
+                wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor?
                 for (int iband = 0; iband < nbands; ++iband) {
                     set(psi(ikpoint,iband), gc.all(), HSm(0,iband), factor);
                 } // iband
@@ -205,7 +205,7 @@ namespace structure_solver {
                 double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
                 set(kweights[ikpoint], nbands, kpoint_weight);
             } // ikpoint
-            double const eF = fermi_distribution::Fermi_level(occupations.data(), 
+            double const eF = fermi_distribution::Fermi_level(occupations.data(),
                             energies.data(), kweights.data(), nkpoints*nbands,
                             Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
             Fermi.set_Fermi_level(eF, echo);
@@ -222,7 +222,7 @@ namespace structure_solver {
                                       psi(ikpoint,0), op, nbands, echo, ikpoint);
             stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
                                       energies[ikpoint], psi(ikpoint,0), atom_coeff.data(),
-                                      coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint, 
+                                      coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint,
                                                rho_valence_gc[1], atom_rho_new[1].data(), charges);
         } // ikpoint
         op.set_kpoint(); // reset to Gamma
@@ -423,7 +423,7 @@ namespace structure_solver {
                     set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
                     set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
                 } // ikpoint
-                double const eF = fermi_distribution::Fermi_level(occupations.data(), 
+                double const eF = fermi_distribution::Fermi_level(occupations.data(),
                                 energies.data(), kweights.data(), nkpoints*nbands,
                                 Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
                 Fermi.set_Fermi_level(eF, echo);
@@ -433,7 +433,7 @@ namespace structure_solver {
                 if (echo > 1) { std::printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                 stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
                                           x.energies.data(), x.psi_r.data(), x.coeff.data(),
-                                          x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index, 
+                                          x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index,
                                           rho_valence_new[1], atom_rho_new[1].data(), charges);
             } // ikpoint
 
@@ -463,7 +463,7 @@ namespace structure_solver {
                     if ('d' == key) nerrors += d->store(filename, echo);
                     if ('s' == key) nerrors += s->store(filename, echo);
                 } // psi_on_grid
-                if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, filename); 
+                if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, filename);
             } else {
                 // do nothing if the filename is left empty, comment if there are real-space wave functions
                 if (psi_on_grid && echo > 2) std::printf("# filename for storing wave functions is empty\n");

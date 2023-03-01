@@ -33,7 +33,7 @@
 #endif
 
 #ifdef FULL_DEBUG
-    #define full_debug(print) print 
+    #define full_debug(print) print
 #else
     #define full_debug(print)
 #endif
@@ -252,12 +252,12 @@ namespace sho_overlap {
   ) {
       // this structure can be used to describe the density generation
       // for the density we assume that it is sufficient to
-      // represent the density in a SHO basis 
+      // represent the density in a SHO basis
       // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
 
       status_t stat(0);
       if (echo > 1) std::printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
-      double const sigma = 1; // typically == 1 
+      double const sigma = 1; // typically == 1
       double const sigma_inv = 1./sigma; // typically == 1
       double const sigmapinv2 = sigma_over_sigmap_squared*sigma_inv*sigma_inv; // typically == 2
       double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
@@ -302,9 +302,9 @@ namespace sho_overlap {
       status_t stat(0);
       // this structure can be used to describe the density generation
       // for the density we assume that it is sufficient to
-      // represent the density in a SHO basis 
+      // represent the density in a SHO basis
       // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
-      double const sigma = 1; // typically == 1 
+      double const sigma = 1; // typically == 1
       double const sigma_inv = 1./sigma; // typically == 1
       double const sigmapinv2 = sigma_over_sigmap_squared*sigma_inv*sigma_inv; // typically == 2
       double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
@@ -368,7 +368,7 @@ namespace sho_overlap {
     prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
     prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
     prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
-    view3D<real_t> t3(tensor, ncut, ncut); // wrapper    
+    view3D<real_t> t3(tensor, ncut, ncut); // wrapper
     for (int n = 0; n < ncut; ++n) {
         for (int m = 0; m < ncut; ++m) {
             double HH[2*ncut];
@@ -411,7 +411,7 @@ namespace sho_overlap {
       prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
       prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
       prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
-      view3D<real_t> t3(tensor, ncut, ncut); // wrapper    
+      view3D<real_t> t3(tensor, ncut, ncut); // wrapper
       for (int i = 0; i < ncut; ++i) {
           for (int j = 0; j < ncut; ++j) {
               std::vector<double> HH(2*ncut);
@@ -437,7 +437,7 @@ namespace sho_overlap {
         real_t tensor[] // data layout [1 + max(0, maxmoment)][n1][n0]
       , double const distance
       , int const n1
-      , int const n0 
+      , int const n0
       , double const sigma1 // =1
       , double const sigma0 // =1
       , int const maxmoment // default=0 (overlap matrix)
@@ -573,7 +573,7 @@ namespace sho_overlap {
               double const norm = integrate(hh.data(), 1+n+m, sigma);
               mdev = std::max(mdev, std::abs(norm - (m == n)));
               if (echo > 9) std::printf("%9.1e", norm - (m == n));
-              ndev += (std::abs(norm - (m == n)) > 1e-10); 
+              ndev += (std::abs(norm - (m == n)) > 1e-10);
           } // m
           if (echo > 1) std::printf("\n");
       } // n
@@ -604,7 +604,7 @@ namespace sho_overlap {
                       double const dx = 7.0/numerical;
                       double ovl_numerical = 0;
                       for (int ix = -numerical; ix <= numerical + dist/dx; ++ix) {
-                          double const x0 = ix*dx - 0; // position at zero 
+                          double const x0 = ix*dx - 0; // position at zero
                           double const x1 = ix*dx - dist; // position at (plus) dist
                           ovl_numerical += eval_poly(H0[n], 1+n, x0) * std::exp(-0.5*pow2(x0/sigma0))
                                          * eval_poly(H1[m], 1+m, x1) * std::exp(-0.5*pow2(x1/sigma1));
@@ -694,7 +694,7 @@ namespace sho_overlap {
           if (echo > 3) std::printf("# %s (%g) deviations %g\n", __func__, ssp2, df);
           df_max = std::max(df, df_max);
       } // ssp2
-      if (echo > 0) std::printf("\n# %s (%.2f ... %.1f %% ... %.2f) largest deviation %g\n", 
+      if (echo > 0) std::printf("\n# %s (%.2f ... %.1f %% ... %.2f) largest deviation %g\n",
                     __func__, ssp2_min, (ssp2_inc - 1)*100, ssp2_max, df_max);
       if (echo > 2) generate_density_or_potential_tensor<ncut>(tp.data(), echo); // default ssp2=2
       return (df_max > 8e-9); // return error of the deviations are too strong
@@ -704,14 +704,14 @@ namespace sho_overlap {
   typedef std::complex<double> complex_t;
   extern "C" {
       // complex<double> hermitian generalized eigenvalue problem
-      void zhegv_(int const*, char const*, char const*, int const*, 
-                  complex_t*, int const*, complex_t*, int const*, 
+      void zhegv_(int const*, char const*, char const*, int const*,
+                  complex_t*, int const*, complex_t*, int const*,
                   double*, complex_t*, int const*, double*, int*);
       // complex<double> hermitian eigenvalue problem
-      void zheev_(char const*, char const*, int const*, complex_t*, 
+      void zheev_(char const*, char const*, int const*, complex_t*,
                   int const*, double*, complex_t*, int const*, double*, int*);
   } // LAPACK
- 
+
   status_t test_simple_crystal(int const echo=3) {
       auto const a0 = control::get("sho_overlap.lattice.constant", 8.0);
       if (echo > 0) std::printf("\n# %s\n", __func__);
@@ -768,7 +768,7 @@ namespace sho_overlap {
 
       bool const overlap_eigvals = false;
       // choose the return radius as a fraction of shortest_bond length
-      double const sigma = .75*shortest_bond/std::sqrt(2.*numax + 3.), 
+      double const sigma = .75*shortest_bond/std::sqrt(2.*numax + 3.),
                   sigma0 = sigma, sigma1 = sigma;
       if (echo > 0) std::printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", numax, sigma);
 
@@ -843,9 +843,9 @@ namespace sho_overlap {
                   for (int m0 = 0; m0 <= numax - m2 - m1; ++m0) {
                       int const mv[] = {m0, m1, m2};
                       double ovl[3], lap[3];
-                      // ToDo: overlap_of_two_Hermite_Gauss_functions 
+                      // ToDo: overlap_of_two_Hermite_Gauss_functions
                       //       is called many more times than necessary
-                      //       and the max. length of non-zero polynomial coefficients 
+                      //       and the max. length of non-zero polynomial coefficients
                       //       can be shorter than ncut in many cases
                       for (int dir = 0; dir < 3; ++dir) {
                           ovl[dir] = overlap_of_two_Hermite_Gauss_functions(
@@ -896,7 +896,7 @@ namespace sho_overlap {
       int ibin_out_of_range{0};
       std::vector<double> dos;
 
-      if (DoS) { 
+      if (DoS) {
           dos.assign(num_bins, 0); // allocate and clear
           // create a k-point set with weights
           auto const nkp_sampling = int(control::get("sho_overlap.kmesh.sampling", 2.)); // this is N, use a 2N x 2N x 2N k-point set
@@ -923,8 +923,8 @@ namespace sho_overlap {
           for (int edge = 0; edge < nedges; ++edge) {
               int const e0 = edge % nedges, e1 = (edge + 1) % nedges;
               vec3 const v0 = kpath[e0], v1 = kpath[e1];
-              vec3 const true_kdiff = bv[0]*(v1[0] - v0[0]) 
-                                    + bv[1]*(v1[1] - v0[1]) 
+              vec3 const true_kdiff = bv[0]*(v1[0] - v0[0])
+                                    + bv[1]*(v1[1] - v0[1])
                                     + bv[2]*(v1[2] - v0[2]);
               double const edge_length = std::sqrt(norm(true_kdiff));
 
@@ -942,7 +942,7 @@ namespace sho_overlap {
       } // DoS
 
       float progress_percent{.02}; // show first at 2%
-      for (uint ik = 0; ik < kps.size(); ++ik) {
+      for (unsigned ik = 0; ik < kps.size(); ++ik) {
           vec3 kvec = &(kps[ik][0]); // copy first 3 doubles at this pointer
           vec3 const true_kv = bv[0]*kvec[0] + bv[1]*kvec[1] + bv[2]*kvec[2];
 
@@ -954,8 +954,8 @@ namespace sho_overlap {
               for (int iz = -imx; iz <= imx; ++iz) {
                   for (int iy = -imx; iy <= imx; ++iy) {
                       for (int ix = -imx; ix <= imx; ++ix) {
-                          auto const true_kv = bv[0]*(kvec[0] + ix) 
-                                            + bv[1]*(kvec[1] + iy) 
+                          auto const true_kv = bv[0]*(kvec[0] + ix)
+                                            + bv[1]*(kvec[1] + iy)
                                             + bv[2]*(kvec[2] + iz);
                           free_E.push_back(0.5*norm(true_kv)); // energy parabolasin Hatree units
                       } // ix
@@ -977,7 +977,7 @@ namespace sho_overlap {
               for (int ipi = 0; ipi < num_periodic_images; ++ipi) {
                   vec3 const ipos = vpi[ipi];
                   complex_t const bloch_factor = std::polar(1.0, 2*constants::pi * dot(kvec, ipos));
-                  if (echo > 9) std::printf("# periodic image%4d%4d%4d  Bloch-phase = %f + i %f\n", 
+                  if (echo > 9) std::printf("# periodic image%4d%4d%4d  Bloch-phase = %f + i %f\n",
                       vpi(ipi,0), vpi(ipi,1), vpi(ipi,2), bloch_factor.real(), bloch_factor.imag());
                   // add to matrixes
                   for (int in = 0; in < n3D; ++in) {
@@ -1005,14 +1005,14 @@ namespace sho_overlap {
               if (overlap_eigvals) {
 
                   // get the eigenvalues of the overlap operator only
-                  zheev_(&jobv, &uplo, &n3D, ovl_mat.data(), &n3D, 
+                  zheev_(&jobv, &uplo, &n3D, ovl_mat.data(), &n3D,
                         eigvals.data(), work.data(), &lwork, rwork.data(), &info);
-  //                 info = linear_algebra::eigenvalues(n3D, 
+  //                 info = linear_algebra::eigenvalues(n3D,
   //                               kin_mat.data(), kin_mat.stride(), eigvals.data());
 #if 0
                   // DEBUG
                   if (0 == info && eigvals[0] < .00315) {
-                    std::printf("# lowest eigenvector "); 
+                    std::printf("# lowest eigenvector ");
                     for (int i3D = 0; i3D < n3D; ++i3D) {
                         auto const c = ovl_mat(0,i3D);
                         std::printf("(%.9f,%.9f) ", c.real(), c.imag());
@@ -1022,18 +1022,18 @@ namespace sho_overlap {
               } else { // overlap_eigvals
 
                   // solve generalized eigenvalue problem kin_mat*X == diag*ovl_mat*X
-  //                 info = linear_algebra::generalized_eigenvalues(n3D, 
-  //                               kin_mat.data(), kin_mat.stride(), 
+  //                 info = linear_algebra::generalized_eigenvalues(n3D,
+  //                               kin_mat.data(), kin_mat.stride(),
   //                               ovl_mat.data(), ovl_mat.stride(), eigvals.data());
                   int const itype = 1;
-                  zhegv_(&itype, &jobz, &uplo, &n3D, kin_mat.data(), &n3D, ovl_mat.data(), &n3D, 
+                  zhegv_(&itype, &jobz, &uplo, &n3D, kin_mat.data(), &n3D, ovl_mat.data(), &n3D,
                         eigvals.data(), work.data(), &lwork, rwork.data(), &info);
 
               } // overlap_eigvals
           } // Ref
 
           for (int i3D = 0; i3D < n3D; ++i3D) {
-              if (eigvals[i3D] < smallest_eigval) { 
+              if (eigvals[i3D] < smallest_eigval) {
                   kv_smallest = kvec;
               } // store where the smallest eigenvalue was found
               smallest_eigval = std::min(smallest_eigval, eigvals[i3D]);
@@ -1093,7 +1093,7 @@ namespace sho_overlap {
                   if (dos[ibin] > 0) {
                       dos_sum += dos[ibin];
                       std::printf("%.6f %g %g\n", Ebin*eV, dos_sum, dos[ibin]*per_eV);
-                  } else { 
+                  } else {
                       dos[ibin] = 0;
                   }
               } // ibin
@@ -1107,7 +1107,7 @@ namespace sho_overlap {
       if (diagonalization_failed > 0) {
           if (echo > 0) warn("%d diagonalizations failed!", diagonalization_failed);
       } else {
-          if (echo > 1) std::printf("\n# smallest and largest eigenvalue%s are %g and %g\n", 
+          if (echo > 1) std::printf("\n# smallest and largest eigenvalue%s are %g and %g\n",
               overlap_eigvals?" of the overlap operator":"", smallest_eigval, largest_eigval);
           if (echo > 1) std::printf("# smallest eigenvalue at kvec  %.6f %.6f %.6f\n", kv_smallest[0],kv_smallest[1],kv_smallest[2]);
       }
@@ -1217,6 +1217,6 @@ namespace sho_overlap {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace sho_overlap

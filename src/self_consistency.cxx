@@ -54,7 +54,7 @@ namespace self_consistency {
   // This module makes a DFT calculation based on atoms
   // that live in a spherical potential which is found
   // by projection of the 3D potential.
-  // Their wave functions do not hybridize but they 
+  // Their wave functions do not hybridize but they
   // feel the effect of the density of neighboring atoms
 
   inline int even(int const any) { return align<1>(any); }
@@ -76,7 +76,7 @@ namespace self_consistency {
 
       { // scope: determine grid spacings and number of grid points
 
-          // precedence: 
+          // precedence:
           //    highest:  grid.points.x, .y, .z
           //           :  grid.points
           //           :  grid.spacing.x, .y, .z
@@ -115,7 +115,7 @@ namespace self_consistency {
               if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
           } // d
           if (default_grid_spacing_used > 0) {
-              if (echo > 6) std::printf("# default grid spacing %g %s used for %d directions\n", 
+              if (echo > 6) std::printf("# default grid spacing %g %s used for %d directions\n",
                                 default_grid_spacing*Ang, _Ang, default_grid_spacing_used);
           } // default_grid_spacing_used
           g = real_space::grid_t(ng[0], ng[1], ng[2]);
@@ -129,7 +129,7 @@ namespace self_consistency {
             g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
       for (int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
-              warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
+              warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s",
                            'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
               ++stat;
           } // deviates
@@ -192,7 +192,7 @@ namespace self_consistency {
           if (na > 0) {
               if (echo > 2) std::printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
               ionization[na - 1] = -ionization[0];
-              ionization[0] = ion; 
+              ionization[0] = ion;
               if (echo > 2) {
                   std::printf("# %s ionizations:", __func__);
                   printf_vector(" %g", ionization.data(), na);
@@ -216,7 +216,7 @@ namespace self_consistency {
           double const grid_offset[3] = {0.5*(g[0] - 1)*g.h[0],
                                          0.5*(g[1] - 1)*g.h[1],
                                          0.5*(g[2] - 1)*g.h[2]};
-          if (echo > 1) std::printf("\n# %s List of Atoms: (coordinates in %s)\n", __func__, _Ang);
+          if (echo > 4) std::printf("\n# %s List of Atoms: (coordinates in %s)\n", __func__, _Ang);
           for (int ia = 0; ia < na; ++ia) {
               double const Z = xyzZ(ia,3);
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
@@ -229,6 +229,7 @@ namespace self_consistency {
               center(ia,3) = 0; // 4th component is not used
               if (echo > 4) std::printf("\n");
           } // ia
+          if (echo > 4) std::printf("\n");
       } // scope
 
 
@@ -375,7 +376,7 @@ namespace self_consistency {
               scale(rho_valence.data(), g.all(), 1. - take_atomic_valence_densities); // mix old
               // add contributions from smooth core densities, and optionally spherical valence densities
               stat += single_atom::atom_update("valence densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
-              stat += potential_generator::add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
+              stat += potential_generator::add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(),
                                     center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                     echo, 0, Y00sq*take_atomic_valence_densities, "smooth valence density");
           } // take_atomic_valence_densities
@@ -389,7 +390,7 @@ namespace self_consistency {
           stat += single_atom::atom_update("core densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
           stat += single_atom::atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
           // add contributions from smooth core densities
-          stat += potential_generator::add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
+          stat += potential_generator::add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(),
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                 echo, 0, Y00sq, "smooth core density");
 
@@ -402,7 +403,7 @@ namespace self_consistency {
               for (size_t i = 0; i < g.all(); ++i) {
                   auto const exc_i = exchange_correlation::LDA_kernel(rho[i], Vxc[i]);
                   E_xc += rho[i]*exc_i;
-                  E_dc += rho[i]*Vxc[i]; // double counting correction 
+                  E_dc += rho[i]*Vxc[i]; // double counting correction
                   // E_dc is computed just for display so we can compare E_dc between grid and atomic[SMT] contributions in calculation with a single atom
               } // i
               E_xc *= g.dV(); E_dc *= g.dV(); // scale with volume element
@@ -508,7 +509,7 @@ namespace self_consistency {
           if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential (before adding zero potentials)", eV, _eV);
 
           // now also add the zero potential vbar to Vtot
-          stat += potential_generator::add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
+          stat += potential_generator::add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(),
                                 center, n_periodic_images, periodic_images, atom_vbar.data(),
                                 echo, 0, Y00, "zero potential");
 
@@ -560,7 +561,7 @@ namespace self_consistency {
                   scale(charges, 3, renormalization_factor);
               } // normalize by sum of k-weights
 
-              if (echo > 2) std::printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
+              if (echo > 2) std::printf("# %s: total charge %g electrons and derivative %g\n", __func__,
                               charges[1], charges[2]*Fermi.get_temperature());
 
               // now correct for using the old Fermi level during density generation
@@ -588,16 +589,16 @@ namespace self_consistency {
 
               // display the sum of new valence eigenvalues
               if (echo > 1) std::printf("\n# sum of eigenvalues %.9f %s\n\n", band_energy_sum*eV, _eV);
-              // in order to compute the kinetic energy of valence states, we need to subtract 
-              // the expectation value of the potential which consists of two parts: the grid part 
+              // in order to compute the kinetic energy of valence states, we need to subtract
+              // the expectation value of the potential which consists of two parts: the grid part
               double_counting_correction = dot_product(g.all(), rho_valence_new[0], Vtot.data()) * g.dV();
               if (echo > 1) std::printf("\n# grid double counting %.9f %s\n\n", double_counting_correction*eV, _eV);
-              // and the atom part: for each atom sum_ij D_ij v_ij where v_ij + t_ij = h_ij, 
+              // and the atom part: for each atom sum_ij D_ij v_ij where v_ij + t_ij = h_ij,
               // with h_ij being the atomic non-local correction to the Hamiltonian
               // and D_ij the atomic valence density matrix.
 
               grid_kinetic_energy = band_energy_sum - double_counting_correction;
-              if (echo > 1) std::printf("\n# grid kinetic energy %.9f %s (take %.1f %%)\n\n", 
+              if (echo > 1) std::printf("\n# grid kinetic energy %.9f %s (take %.1f %%)\n\n",
                   grid_kinetic_energy*eV, _eV, (1. - take_atomic_valence_densities)*100);
 
               // valence density mixing
@@ -613,7 +614,7 @@ namespace self_consistency {
 
           } // scope: Kohn-Sham
 
-          float rho_mixing_ratios[] = {.5, .5, .5}; // for spherical {core, semicore, valence} density             
+          float rho_mixing_ratios[] = {.5, .5, .5}; // for spherical {core, semicore, valence} density
           stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());
 
 
@@ -651,7 +652,7 @@ namespace self_consistency {
                   Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
                   Ea[energy_contribution::ELECTROSTATIC] += grid_electrostatic_energy;
                   // reconstruct total energy from its contributions KINETIC + ES + XC
-                  Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC] 
+                  Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
                                                  + Ea[energy_contribution::ELECTROSTATIC]
                                                  + Ea[energy_contribution::EXCHANGE_CORRELATION];
 
@@ -689,7 +690,7 @@ namespace self_consistency {
               if (stat) warn("failed to read the stop file, status= %i", int(stat));
               if (max_scf_iterations_input != max_scf_iterations) {
                   warn("the max. number of SCF iterations has been modified from %d to %d "
-                       "by the stop file during SCF iteration #%i", 
+                       "by the stop file during SCF iteration #%i",
                        max_scf_iterations_input, max_scf_iterations, scf_iteration);
               } // stop file has been used
           } // scope
@@ -707,7 +708,7 @@ namespace self_consistency {
       KS.store(control::get("store.waves", ""), echo);
 
 #ifdef DEVEL
-      stat += potential_generator::potential_projections(g, cell, 
+      stat += potential_generator::potential_projections(g, cell,
                   Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(),
                   na, &center, rcut, echo);
 #endif // DEVEL
