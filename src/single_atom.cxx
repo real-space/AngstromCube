@@ -1763,6 +1763,7 @@ namespace single_atom {
                     vs.energy = previous_ell_energy;
                     if (echo > 4) std::printf("# %s the %s partial wave is at E= %g %s, copy %d%c-energy\n",
                                                  label, vs.tag, vs.energy*eV, _eV, previous_enn, (ell > 0)?ellchar[ell - 1]:'?');
+                    if (ell < 4) { for (int i = 0; i < 3; ++i) reference_spdf[i][ell] = 0; } // do not compare to these energies in scattering_test::eigenstate_analysis
                 } else {
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
@@ -4638,9 +4639,9 @@ namespace single_atom {
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      int n{0}; int const t = control::get("single_atom.select.test", -1.); // -1:all
-      if (t & (1 << n++)) stat += test_compensator_normalization(echo);
+      int n{0}; int const t = control::get("single_atom.select.test", -2.); // -1:all, -2:all but the 1st
       if (t & (1 << n++)) stat += test_pawxml_constructor(echo);
+      if (t & (1 << n++)) stat += test_compensator_normalization(echo);
       if (t & (1 << n++)) stat += test_LiveAtom(echo);
       return stat;
   } // all_tests

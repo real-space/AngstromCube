@@ -66,47 +66,48 @@ namespace poisson_solver {
       double const grid_center[] = {(g[0] - 1)*g.h[0], (g[1] - 1)*g.h[1], (g[2] - 1)*g.h[2]};
       if (nullptr == center) center = grid_center; // overwrite the argument
 
-      if (echo > 5) std::printf("# Bessel j0 projection around position %g %g %g %s\n",
-                              center[0]*Ang, center[1]*Ang, center[2]*Ang, _Ang);
-      float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
+      if (echo > 5) std::printf("# Bessel j0 projection around position %g %g %g in units of the grid spacing\n",
+                              center[0]*g.inv_h[0], center[1]*g.inv_h[1], center[2]*g.inv_h[2], _Ang);
+      auto const dq = 1/16.;
+      auto const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
       std::vector<double> qc(nq, 0.0);
       stat += real_space::Bessel_projection(qc.data(), nq, dq, rho, g, center);
       qc[0] = 0; // stabilize charge neutrality, q=0-component must vanish
 
-      double const by4pi = .25/constants::pi; // 1/(4*pi)
+      auto const by4pi = .25/constants::pi; // 1/(4*pi)
 
       if (echo > 19) {
           std::printf("\n## Bessel coeff of {density, Ves}:\n");
           for (int iq = 0; iq < nq; ++iq) {
-              double const q = iq*dq;
+              auto const q = iq*dq;
               std::printf("%g %g %g\n", q, qc[iq]*by4pi, qc[iq]/(q*q + 1e-12));
           } // iq
           std::printf("\n\n");
       } // echo
 
-      double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
+      auto const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
       scale(qc.data(), nq, sqrt2pi*dq);
 
       // expand electrostatic potential onto grid
       double rho_abs{0}, rho_squ{0}, rho_max{0};
       for (int iz = 0; iz < g[2]; ++iz) {
-          double const z = iz*g.h[2] - center[2], z2 = z*z;
+          auto const z = iz*g.h[2] - center[2], z2 = z*z;
           for (int iy = 0; iy < g[1]; ++iy) {
-              double const y = iy*g.h[1] - center[1], y2 = y*y; 
+              auto const y = iy*g.h[1] - center[1], y2 = y*y; 
               for (int ix = 0; ix < g[0]; ++ix) {
-                  double const x = ix*g.h[0] - center[0], x2 = x*x;
-                  double const r = std::sqrt(x2 + y2 + z2);
+                  auto const x = ix*g.h[0] - center[0], x2 = x*x;
+                  auto const r = std::sqrt(x2 + y2 + z2);
                   int const izyx = (iz*g[1] + iy)*g[0] + ix;
                   double ves_r{0}, rho_r{0};
                   for (int iq = 0; iq < nq; ++iq) {
-                      double const q = iq*dq;
-                      double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
+                      auto const q = iq*dq;
+                      auto const bessel_kernel = bessel_transform::Bessel_j0(q*r);
                       ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
                       rho_r += qc[iq]*bessel_kernel * by4pi * q*q; // reconstruct a spherical density
                   } // iq
                   Ves[izyx] = ves_r; // store
                   // check how much the density deviates from a spherical density
-                  double const rho_dif = std::abs(rho[izyx] - rho_r);
+                  auto const rho_dif = std::abs(rho[izyx] - rho_r);
                   rho_max = std::max(rho_max, rho_dif);
                   rho_abs += rho_dif;
                   rho_squ += pow2(rho_dif);
@@ -124,11 +125,11 @@ namespace poisson_solver {
       if (echo > 17) {
           std::printf("\n## Bessel_Poisson: r, Ves, rho (in a.u.):\n");
           for (int ir = 0; ir < 99; ++ir) {
-              double const r = .1*ir;
+              auto const r = .1*ir;
               double ves_r{0}, rho_r{0};
               for (int iq = 0; iq < nq; ++iq) {
-                  double const q = iq*dq;
-                  double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
+                  auto const q = iq*dq;
+                  auto const bessel_kernel = bessel_transform::Bessel_j0(q*r);
                   ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
                   rho_r += qc[iq]*bessel_kernel * by4pi * q*q; // reconstruct a spherical density
               } // iq
@@ -136,7 +137,7 @@ namespace poisson_solver {
           } // ir
           std::printf("\n\n");
       } // echo
-      
+
       return stat;
   } // Bessel_Poisson_solver
 

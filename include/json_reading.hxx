@@ -200,7 +200,7 @@ namespace json_reading {
                           } // i
                           if (echo > 3) std::printf("# %s matrix of atom #%i has a max deviation of %.1e from symmetric\n",
                                                       hs, atom_id[ia], maxdev);
-                          if (maxdev > 1e-6) warn("%s matrix of atom #%i has a max deviation of %.1e from symmetric\n",
+                          if (maxdev > 1e-6) warn("%s matrix of atom #%i has a max deviation of %.1e from symmetric",
                                                       hs, atom_id[ia], maxdev);
                       } // has matrix
                   } // {hamiltonian, overlap}

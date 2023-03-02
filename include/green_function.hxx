@@ -556,13 +556,20 @@ namespace green_function {
 
           // generate a box of source points
           double nsb[3] = {0, 0, 0};
-          uint32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", -1.);
-          int32_t off[3], n_source_blocks[] = {int(nsb[X]), int(nsb[Y]), int(nsb[Z])};
+#ifdef    HAS_NO_MPI
+          auto const default_sources =  1.; // 1: 1x1x1 right-hand-side only (suitable default for ./a43 --test green_function)
+#else  // HAS_NO_MPI
+          auto const default_sources = -1.; // -1:all right-hand-sides (suitable default for ./green --test green_function)
+#endif // HAS_NO_MPI
+          uint32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", default_sources);
+          int32_t n_source_blocks[] = {int(nsb[X]), int(nsb[Y]), int(nsb[Z])};
+          int32_t off[3];
           for (int d = 0; d < 3; ++d) {
-              n_source_blocks[d] = (n_source_blocks[d] < 1) ? nb[d] : std::min(std::max(1, n_source_blocks[d]), int32_t(nb[d])); // clamp
+              n_source_blocks[d] = (n_source_blocks[d] < 0) ? nb[d] : // "green_function.sources" negative means all
+                    std::min(std::max(1, n_source_blocks[d]), int32_t(nb[d])); // clamp
               off[d] = (nb[d] - n_source_blocks[d])/2;
           } // d
-          if (source_cube && echo > 0) std::printf("\n# use green_function.sources= %g x %g x %g\n",
+          if (source_cube && echo > 0) std::printf("\n# use green_function.sources= %d x %d x %d\n",
                                         n_source_blocks[X], n_source_blocks[Y], n_source_blocks[Z]);
 
           auto const nrhs = size_t(n_source_blocks[Z])*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
@@ -1217,7 +1224,12 @@ namespace green_function {
               p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
           } // mag
 
-          if (control::get("green_function.potential.exchange", 1.) == 1.) {
+#ifdef    HAS_NO_MPI
+          auto const default_exchange = 0.; // skip the exchange since we have no parallel processes, beware that p.Veff is set to 0.0
+#else  // HAS_NO_MPI
+          auto const default_exchange = 1.; // do the exchange of potential blocks
+#endif // HAS_NO_MPI
+          if (1. == control::get("green_function.potential.exchange", default_exchange)) {
               green_parallel::potential_exchange(p.Veff, p.global_target_indices, // requests
                                         Vinp, p.global_source_indices, // offerings
                                         owner_rank.data(),

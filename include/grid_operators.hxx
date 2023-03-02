@@ -541,7 +541,11 @@ namespace grid_operators {
                           std::fprintf(f, "        %c", i?',':'['); // open row
                           for (int j = 0; j < nSHO; ++j) {
                               if (0 == (j & 0x3)) std::fprintf(f, "\n          ");
-                              std::fprintf(f, "%c%.15e", j?',':'[', mat[i*stride + j]);
+                              if (0 == mat[i*stride + j]) {
+                                  std::fprintf(f, "%c0", j?',':'[');
+                              } else {
+                                  std::fprintf(f, "%c%.15e", j?',':'[', mat[i*stride + j]);
+                              }
                           } // j
                           std::fprintf(f, "]\n"); // close row
                       } // i

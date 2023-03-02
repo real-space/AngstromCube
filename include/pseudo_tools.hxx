@@ -428,9 +428,27 @@ namespace pseudo_tools {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  inline status_t test_pseudize_function(int const echo=0, int const nr=96) {
+      status_t stat(0);
+      std::vector<double> fun(nr), rg(nr), ori(nr);
+      for (int ir = 0; ir < nr; ++ir) {
+          rg[ir] = 0.1*ir;
+          fun[ir] = std::cos(rg[ir]);
+          ori[ir] = fun[ir]; // make a copy
+      } // ir
+      stat += pseudize_function(fun.data(), rg.data(), nr/2);
+      if (echo > 7) { // plot
+          std::printf("\n## r, original_function(r), pseudized_function(r):\n");
+          for (int ir = 0; ir < nr; ++ir) {
+              std::printf("%g %g %g\n", rg[ir], ori[ir], fun[ir]);
+          } // ir
+      } // echo
+      return stat;
+  } // test_pseudize_function
+
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat = STATUS_TEST_NOT_INCLUDED; // ToDo
+      stat += test_pseudize_function(echo);
       return stat;
   } // all_tests
 

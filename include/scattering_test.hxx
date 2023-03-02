@@ -421,7 +421,7 @@ namespace scattering_test {
       , char const *label="" // log-prefix
       , int const echo=0 // log-level
       , float const reference[3][4]=nullptr // up to 3 reference eigenvalues for s,p,d,f
-      , double const warning_threshold=3e-3
+      , float const warning_threshold=3e-3
   ) {
       status_t stat(0);
       auto g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);

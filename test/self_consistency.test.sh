@@ -12,10 +12,10 @@ exe=../src/a43
 # echo "H    $c -$c  $c" >> $base.xyz
 # echo "H   -$c  $c  $c" >> $base.xyz
 
-base=scf.C-sc
-echo " 1" > $base.xyz
-echo "#cell 3.0 3.0 3.0 p p p" >> $base.xyz
-echo "C 0 0 0" >> $base.xyz
+# base=scf.C-sc
+# echo " 1" > $base.xyz
+# echo "#cell 3.0 3.0 3.0 p p p" >> $base.xyz
+# echo "C 0 0 0" >> $base.xyz
 
 # base=scf.vacuum
 # echo " 1" > $base.xyz
@@ -30,15 +30,15 @@ echo "C 0 0 0" >> $base.xyz
 # base=scf.methane
 # echo " 5" > $base.xyz
 # echo "#cell 16 16 16 i i i" >> $base.xyz
-# base=scf.mini-methane
-# echo " 5" > $base.xyz
-# echo "#cell 8 8 8 i i i" >> $base.xyz
-# dist=0.63
-# echo "C  0 0 0"                 >> $base.xyz
-# echo "H   -$dist -$dist -$dist" >> $base.xyz
-# echo "H    $dist  $dist -$dist" >> $base.xyz
-# echo "H    $dist -$dist  $dist" >> $base.xyz
-# echo "H   -$dist  $dist  $dist" >> $base.xyz
+base=scf.mini-methane
+echo " 5" > $base.xyz
+echo "#cell 8 8 8 i i i" >> $base.xyz
+dist=0.63
+echo "C  0 0 0"                 >> $base.xyz
+echo "H   -$dist -$dist -$dist" >> $base.xyz
+echo "H    $dist  $dist -$dist" >> $base.xyz
+echo "H    $dist -$dist  $dist" >> $base.xyz
+echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
 # echo " 1" > $base.xyz
@@ -178,7 +178,7 @@ electrostatic.compensator=generalized_Gaussian
 ## choose local potential method {V=parabola, V=sinc}
 
 element_H="1s* 1 0 2p | 0.9 sigma .25 V=parabola"
-element_C="2s* 2 2p* 2 0 3d | 1.2 sigma .43 V=parabola"
+element_C="2s* 2 2p* 2 0 3d 1e-100 | 1.2 sigma .43 V=parabola"
 
 element_Al="3s* 2 3p* 1 0 3d | 2.05 sigma .645"
 element_Si="3s* 2 3p* 2 0 3d | 2.0 sigma .643"
@@ -235,7 +235,7 @@ bands.per.atom=4
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
 # hamiltonian.kmesh=0
-hamiltonian.kmesh.x=21
+# hamiltonian.kmesh.x=21
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 
@@ -252,7 +252,7 @@ start.waves.scale.sigma=6
 
 ## load start waves from file (basis=grid), store wave functions to file
 start.waves=$base.waves.dat
-store.waves=$base.waves.dat
+#store.waves=$base.waves.dat
 
 ## configuration for basis=pw
 # plane_wave.solver {auto, both, direct, iterative}
@@ -272,8 +272,8 @@ store.waves=$base.waves.dat
 # dense_solver.test.overlap.eigvals=0
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
-# hamiltonian.export=-1
-# hamiltonian.export.format=json
+hamiltonian.export=1
+hamiltonian.export.format=json
 # hamiltonian.export.format=xml
 
 # Make structure_solver produce the same as potential_generator

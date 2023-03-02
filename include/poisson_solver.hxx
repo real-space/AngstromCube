@@ -9,10 +9,10 @@
 namespace poisson_solver {
 
   status_t solve(
-        double Ves[] // result electrostatic potential
+        double Ves[] // result electrostatic potential on grid g
       , double const rho[] // charge density, typically augmented density, should be charge neutral
       , real_space::grid_t const & g // grid descriptor
-      , char const method='m' // default method is multi-grid
+      , char const method='m' // default solving method is multi-grid
       , int const echo=0 // log-level
       , double const Bessel_center[]=nullptr
   ); // declaration only

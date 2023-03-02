@@ -457,7 +457,7 @@ namespace self_consistency {
               { // scope: solve the Poisson equation: Laplace Ves == -4 pi rho
 //                SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
                   if (echo > 3) std::printf("\n\n# %s\n# Solve Poisson equation\n# %s\n\n", h_line, h_line);
-                  stat += poisson_solver::solve(Ves.data(), rho.data(), g, es_solver_method, echo, (na > 0)? center[0] : nullptr);
+                  stat += poisson_solver::solve(Ves.data(), rho.data(), g, es_solver_method, echo, (na > 0)?center[0]:nullptr);
               } // scope
               here;
 
