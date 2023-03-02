@@ -29,7 +29,7 @@
 
 #include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
 #include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index, ::read_Zeff_from_file, ::solve, ::guess_energy
-#include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
+#include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, TRU_ONLY, partial_wave_t
 #include "spherical_state.hxx" // spherical_state_t, core, semicore, valence, csv_name, show_state_analysis, show_state
 #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -2758,7 +2758,7 @@ namespace single_atom {
 
 
     view2D<double> unfold_projector_coefficients(
-          emm_QN_t const m=-1
+          bool const emm_degenerate=false
     ) const {
 
         int const nln = sho_tools::nSHO_radial(numax);
@@ -2776,7 +2776,7 @@ namespace single_atom {
             assert(ell_list[iln]  > -1); // assert coverage
         } // iln
 
-        if (emm_Degenerate == m) {
+        if (emm_degenerate) {
             view2D<double> u_proj(nln, nln, 0.0);
             for (int iln = 0; iln < nln; ++iln) {
                 int const ell = ell_list[iln];
@@ -2793,7 +2793,7 @@ namespace single_atom {
                 } // active
             } // iln
             return u_proj;
-        } // emm_Degenerate
+        } // emm_degenerate
 
         int const nlmn = sho_tools::nSHO(numax);
         view2D<double> u_proj(nlmn, nlmn, 0.0);
@@ -3712,7 +3712,7 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
-        auto const u_proj = unfold_projector_coefficients(emm_Degenerate);
+        auto const u_proj = unfold_projector_coefficients(true); // emm_degenerate=true
 
 #ifdef    DEVEL
         if (echo > 2) { // display

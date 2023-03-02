@@ -1,13 +1,14 @@
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf, ::snprintf
 #include <cstdlib> // std::abs
+#include <algorithm> // std::max
 
 #include "radial_eigensolver.hxx"
 
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid
 #include "inline_math.hxx" // pow2
-#include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
+#include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "radial_integrator.hxx" // ::shoot
 #include "recorded_warnings.hxx" // warn
@@ -171,7 +172,7 @@ namespace radial_eigensolver {
 
   status_t test_hydrogen_like_potential(
         int const echo=5 // log-level
-      , double const Z=100 // atomic number, number of protons in the nucleus
+      , double const Z=100 // atomic number, number of protons in the nucleus, may be as large as ~100
   ) {
       status_t stat(0);
       auto & g = *radial_grid::create_radial_grid(2610);
