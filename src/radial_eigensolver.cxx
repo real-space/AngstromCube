@@ -1,12 +1,12 @@
-#include <vector> // std::vector
-#include <cstdio> // std::printf, std::snprintf
+#include <vector> // std::vector<T>
+#include <cstdio> // std::printf, ::snprintf
 #include <cstdlib> // std::abs
 
 #include "radial_eigensolver.hxx"
 
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid
-#include "inline_math.hxx" // sgn, pow2
+#include "inline_math.hxx" // pow2
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "radial_integrator.hxx" // ::shoot

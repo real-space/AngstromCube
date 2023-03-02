@@ -7,7 +7,7 @@
 
 template <typename real_t>
 class VecLayout {
-  // VecLayout for vectorized dense Green functions
+  // VecLayout for vectorized dense Green functions, not in use
   public:
 
     void axpby(real_t y[], real_t const x[], real_t const *a=nullptr, real_t const *b=nullptr) const {

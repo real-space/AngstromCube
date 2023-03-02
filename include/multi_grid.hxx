@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdio> // std::printf
-#include <cmath> // std::min, ::max
+#include <cstdio> // std::printf, ::fopen, stdout, ::fclose
+#include <cmath> // std::min, ::max, ::log10
 #include <vector> // std::vector<T>
 #include <cstdint> // uint32_t
 
@@ -692,15 +692,18 @@ namespace multi_grid {
       } // it
 
       double norm2{0}; double const hm2 = 1./(h*h);
-      FILE* f = (echo > 5) ? ( (echo > 9) ? stdout : fopen("multi_grid.out.mg_cycle.dat", "w") ) : nullptr;
+      auto f = (echo > 5) ? ( (echo > 9) ? stdout : std::fopen("multi_grid.out.mg_cycle.dat", "w") ) : nullptr;
       if (f) std::fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
+      int const modulo_g = g - 1; // works since g is always a pure power of 2
       for (int i = 0; i < g; ++i) {
-          double const Ax = (-x[(i - 1 + g) % g] + 2*x[i] -x[(i + 1) % g])*hm2; // simplest 1D finite-difference Laplacian
+          int const i_plus_1  = (i + 1) & modulo_g; // == (i + 1) % g;
+          int const i_minus_1 = (i - 1) & modulo_g; // == (i + 1 + g) % g;
+          double const Ax = (-x[i_minus_1] + 2*x[i] -x[i_plus_1])*hm2; // simplest 1D finite-difference Laplacian
           double const res = b[i] - Ax;
           norm2 += res*res;
           if (f) std::fprintf(f, "%g %g %g %g %g\n", i*h, x[i], res, b[i], Ax);
       } // i
-      if (f && (f != stdout)) fclose(f);
+      if (f && (stdout != f)) std::fclose(f);
       if (echo > 1) std::printf("# %s residual %.3f\n", __func__, std::log10(norm2/g));
       return stat;
   } // test_mg_cycle
@@ -715,7 +718,7 @@ namespace multi_grid {
       if (t & (1 << n++)) stat += test_Morton_indices(echo);
       return stat;
   } // all_tests
-  
+
 #endif // NO_UNIT_TESTS
 
 } // namespace multi_grid

@@ -1,15 +1,17 @@
 #pragma once
 
 #include <cstdio> // std::printf
+#include <vector> // std::vector<T>
+#include <cmath> // std::cos, ::sin, ::abs
+#include <algorithm> // std::min, ::max
 
 #include "status.hxx" // status_t
 #include "radial_grid.h" // radial_grid_t
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT
-#include "control.hxx" // ::get // ToDo: remove this dependency
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, dot_product
-#include "simple_math.hxx" // ::determinant
-#include "linear_algebra.hxx" // ::linear_solve, ::invert
+#include "simple_math.hxx" // ::determinant, ::invert
+#include "linear_algebra.hxx" // ::linear_solve
 #include "print_tools.hxx" // printf_vector
 #include "recorded_warnings.hxx" // warn
 #include "constants.hxx" // ::pi
@@ -45,7 +47,6 @@ namespace pseudo_tools {
           // b is the inhomogeneus right side of the set of linear equations
           bvec[i4] = fun[ir];
       } // i4
-
 #ifdef DEVEL
       if (echo > 7) {
           std::printf("\n");
@@ -58,9 +59,8 @@ namespace pseudo_tools {
           } // i4
       } // echo
 #endif // DEVEL
-      double* x = bvec; // rename memory
       auto const info = linear_algebra::linear_solve(nm, Amat[0], 4, bvec, 4, 1);
-
+      double* x = bvec; // rename memory
 #ifdef DEVEL
       if (echo > 7) {
           std::printf("# %s xvec     ", __func__);
@@ -203,7 +203,7 @@ namespace pseudo_tools {
                           label, r_cut*Ang, _Ang, V_tru[ir_cut[TRU]]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
       } else {
           if (echo > 2) std::printf("\n# %s construct initial smooth spherical potential with sinc\n", label);
-          assert(rpow == rpow*rpow); // rpow either 0 or 1
+          assert(rpow == rpow*rpow); // rpow must be either 0 or 1
           // construct a Lagrange polynomial of controllable order to fit r*V_true(r) around r_cut
           int const ir0 = ir_cut[TRU];
           double const x0 = rg[TRU].r[ir0];
@@ -250,7 +250,7 @@ namespace pseudo_tools {
               } // order
           } // echo
 #endif // DEVEL
-          // Fit a V_s*sin(r*k_s) + r*V_0 to r*V(r) at r_cut, fulfil three equations:
+          // Fit a V_s*sin(r*k_s) + r*V_0 to r*V(r) at r_cut, fulfill three equations:
           //  (r*V(r))  |r=r_cut  = d0 =  V_s*sin(r_cut*k_s) + r_cut*V_0
           //  (r*V(r))' |r=r_rcut = d1 =  V_s*cos(r_cut*k_s)*k_s  +  V_0
           //  (r*V(r))''|r=r_rcut = d2 = -V_s*sin(r_cut*k_s)*k_s^2

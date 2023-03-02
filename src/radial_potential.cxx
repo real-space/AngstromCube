@@ -1,5 +1,6 @@
 #include <vector> // std::vector
 #include <cstdio> // std::printf
+#include <cmath> // std::abs
 #include <cassert> // assert
 
 #include "radial_potential.hxx"
@@ -16,7 +17,7 @@ namespace radial_potential {
   double Hartree_potential( // returns the Coulomb integral
         double rV[] // result: r*Hartree-potential(r)
       , radial_grid_t const & g // radial grid descriptor
-      , double const rho4pi[] // 4*\pi*density(r)
+      , double const rho4pi[] // 4*pi*density(r)
   ) {
       double vH1{0};
       for (int ir = 0; ir < g.n; ++ir) {
@@ -25,14 +26,14 @@ namespace radial_potential {
       double const Coulomb = vH1; // the value to be returned
 
       double vH2{0};
-      rV[0] = 0;
+      rV[0] = 0; // for a regular potential (no singularity as Z/r) r*V(r) is always 0 at r=0
       for (int ir = 1; ir < g.n; ++ir) { // start from 1 since for some radial grids r[ir=0] == 0
           vH2 += rho4pi[ir]*g.r2dr[ir];
           vH1 -= rho4pi[ir]*g.rdr[ir];
           rV[ir] = vH2 + vH1*g.r[ir];
       } // ir
 
-      return Coulomb; // the integral 4 \pi rho(r) * r dr is needed for the Coulomb energy
+      return Coulomb; // the integral 4*pi*rho(r)*r*dr is needed for the Coulomb energy
   } // Hartree_potential (spherical)
 
   
@@ -43,7 +44,6 @@ namespace radial_potential {
       , int const stride // stride between differen lm-compenents in rho and V
       , ell_QN_t const ellmax // largest angular momentum quantum number
       , double const q0 // =0 // singularity
-      , double const qlm[] // =nullptr // external boundary conditions, functionality redundant
   ) {
       std::vector<double> rm(g.n), rl(g.n, 1.0);
       for (int ell = 0; ell <= ellmax; ++ell) { // run forward and serial
@@ -64,13 +64,13 @@ namespace radial_potential {
           for (int emm = -ell; emm <= ell; ++emm) {
               int const lm = solid_harmonics::lm_index(ell, emm);
 
-              double charge2 = ell ? 0.0 : q0;
+              double charge2 = (0 == ell)*q0;
               for (int ir = 0; ir < g.n; ++ir) {
                   charge2 += rho[lm*stride + ir]*rl[ir]*g.r2dr[ir];
-                  vHt[lm*stride + ir]  = charge2*rm[ir];
+                  vHt[lm*stride + ir] = charge2*rm[ir];
               } // ir
 
-              double charge1 = qlm ? qlm[lm] : 0.0;
+              double charge1{0};
               for (int ir = g.n - 1; ir >= 0; --ir) {
                   vHt[lm*stride + ir] += charge1*rl[ir]; // beware: it makes a difference if we put this line before the next
                   charge1 += rho[lm*stride + ir]*rm[ir]*g.r2dr[ir];
@@ -88,25 +88,27 @@ namespace radial_potential {
 #else // NO_UNIT_TESTS
 
   status_t test_radial_Hartree_potential(int const echo=0) {
+      // compare both versions against each other
       auto & g = *radial_grid::create_radial_grid(512);
       std::vector<double> const rho(g.n, 1); // a constant density rho(r) == 1
       std::vector<double> rVH(g.n), vHt(g.n);
       Hartree_potential(rVH.data(), g, rho.data()); // spherical version
       Hartree_potential(vHt.data(), g, rho.data(), 0, 0); //  lm-version
       double const R = g.rmax, V0 = .50754*R*R; // a small correction by 1.5% is needed here
-      if (echo > 3) std::printf("\n# %s: Rmax = %g Bohr, V0 = %g Ha\n", __func__, R, V0);
-      if (echo > 4) std::printf("## r, r*V_spherical(r), r*V_00(r), r*analytical(r) in a.u.:\n");
-      double devsph{0}, devana{0};
+      if (echo > 4) std::printf("\n# %s: Rmax = %g Bohr, V0 = %g Ha\n", __func__, R, V0);
+      if (echo > 6) std::printf("## r, r*V_spherical(r), r*V_00(r), r*analytical(r) in a.u.:\n");
+      double devsph{0}, devana{0}, lastana{0};
       for (int ir = 0; ir < g.n; ++ir) {
           auto const r = g.r[ir];
           double const analytical = V0 - r*r/6;
           double const rV00 = r*vHt[ir]/(4*constants::pi);
           devsph = std::max(devsph, std::abs(rVH[ir] - rV00));
           devana = std::max(devana, std::abs(rVH[ir] - r*analytical));
-          if (echo > 4) std::printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
+          if (echo > 6) std::printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
+          lastana = r*analytical;
       } // ir
       radial_grid::destroy_radial_grid(&g);
-      if (echo > 3) std::printf("\n# %s deviates %.1e from spherical and %.1e from analytical\n", __func__, devsph, devana);
+      if (echo > 3) std::printf("\n# %s deviates %.1e from spherical and %.2f %% from analytical\n", __func__, devsph, devana/lastana*100.);
       return (devsph > 1e-12);
   } // test_radial_Hartree_potential
 

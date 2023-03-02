@@ -61,7 +61,7 @@ namespace atom_core {
   void rad_pot(
         double rV[] // result: r*V(r)
       , radial_grid_t const & g // radial grid descriptor
-      , double const rho4pi[] // 4*\pi*rho(r)
+      , double const rho4pi[] // 4*pi*rho(r)
       , double const Z=0 // number of protons
       , double *energies=nullptr // energy contribution break down
   ); // declaration only

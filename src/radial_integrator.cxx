@@ -9,7 +9,7 @@
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid
 #include "inline_math.hxx" // sgn, pow2, align<nBits>
-#include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
+#include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 
 // #define FULL_DEBUG
@@ -53,7 +53,7 @@ namespace radial_integrator {
       ps[0][G] = 1.;          // for exponent 0
       ps[0][F] = (1. - s)/aa; // for exponent 0
       full_debug(printf("# %s: Z=%g l=%d V=%g %s coeff G,F  %g,%g", __func__, Z, ell, V0mE*eV, _eV, ps[0][G], ps[0][F]));
-      for (auto k = 1; k < 9; ++k) {
+      for (int k = 1; k < 9; ++k) {
           auto const alfa = p12*ps[k - 1][F];
           auto beta =    aa*p21*ps[k - 1][G];
           if (ell > 0) {
@@ -66,7 +66,7 @@ namespace radial_integrator {
           full_debug(printf("  %g,%g", ps[k][G], ps[k][F]));
       } // k
       full_debug(printf("\n"));
-      for (auto k = 9; k < 11; ++k) {
+      for (int k = 9; k < 11; ++k) {
           ps[k][G] = 0;
           ps[k][F] = 0;
       } // k
@@ -84,7 +84,7 @@ namespace radial_integrator {
         int constexpr G=0, F=1; // constants
         gg = ps[10][G];
         ff = ps[10][F];
-        for (auto ip = 9; ip >= 0; --ip) {
+        for (int ip = 9; ip >= 0; --ip) {
             gg = gg*r + ps[ip][G];
             ff = ff*r + ps[ip][F];
         } // ip
@@ -208,7 +208,7 @@ namespace radial_integrator {
           aG[0] = vd[1] * g.dr[ir];
           aF[0] = s[1][0] * gg[ir] + s[1][1] * ff[ir];
 
-        for (auto i3 = 0; i3 < 3; ++i3) { // three steps
+        for (int i3 = 0; i3 < 3; ++i3) { // three steps
           ir += Step;
 
 #ifdef FULL_DEBUG
@@ -350,7 +350,7 @@ namespace radial_integrator {
 
         gg[ir] = 0; ff[ir] = 0; // r*wave function is zero at r=0
 
-        for (auto i3 = 0; i3 < 3; ++i3) { // three steps
+        for (int i3 = 0; i3 < 3; ++i3) { // three steps
           ir += Step;
 
           if (nullptr != rp) {
@@ -493,21 +493,21 @@ namespace radial_integrator {
 
       if (nullptr != rf) {
           // export the radial wave function*r
-          for (auto ir = 0; ir < ir_x; ++ir) {
+          for (int ir = 0; ir < ir_x; ++ir) {
               rf[ir] = gg_out[ir];
           } // ir
-          for (auto ir = ir_x; ir < g.n; ++ir) {
+          for (int ir = ir_x; ir < g.n; ++ir) {
               rf[ir] = gg_inw[ir] * s;
           } // ir
       } // rf
 
       if (nullptr != r2rho) {
           // create partial density*r^2 of this wave function
-          for (auto ir = 0; ir < ir_x; ++ir) {
+          for (int ir = 0; ir < ir_x; ++ir) {
               r2rho[ir] = pow2(gg_out[ir]);
               // r2rho[ir] += pow2(ff_out[ir]); // relativistic norm correction
           } // ir
-          for (auto ir = ir_x; ir < g.n; ++ir) {
+          for (int ir = ir_x; ir < g.n; ++ir) {
               r2rho[ir] = pow2(gg_inw[ir] * s);
               // r2rho[ir] += pow2(ff_inw[ir] * s); // relativistic norm correction
           } // ir
@@ -545,20 +545,20 @@ namespace radial_integrator {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  status_t test_hydrogen_atom(
-        int const echo=0 // log-level
-      , double const Z=1 // number of protons in the nucleus
-  ) {
+  status_t test_hydrogen_atom(int const echo=0, double const Z=1) {
       // this plots the kink and number of nodes as a function of energy, see doc/fig/20190313_kink_of_energy.*
       auto & g = *radial_grid::create_radial_grid(256);
       std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn_prev{-1};
-      for (int iE = 1; iE < 1e6; ++iE) {
+      if (echo > 5) std::printf("\n## -Energy(Ha) kink numberOfNodes:\n"); // shows that the kink is a falling function of E 
+      for (int iE = 1; iE < 10000; ++iE) {
+          double const E = -.075e-8*pow2(iE*Z);
           int nnn, ell{0};
-          double const E = -.6e-12*pow2(iE*Z);
           auto const kink = shoot(0, g, rV.data(), ell, E, nnn);
-          if (nnn_prev != nnn) std::printf("\n");
-          if (echo > 3) std::printf("%g %g %d\n", -E, kink, nnn); // shows that the kink is a falling function of E 
+          if (echo > 5) {
+              if (nnn_prev != nnn) std::printf("\n"); // branch separation
+              std::printf("%g %g %d\n", -E, kink, nnn); // shows that the kink is a falling function of E
+          } // echo
           // with poles at the energies where the number of nodes changes, we plot -E for log axis
           nnn_prev = nnn; // for the next iteration
       } // iE
@@ -566,45 +566,39 @@ namespace radial_integrator {
       return 0;
   } // test_hydrogen_atom
 
-  status_t test_hydrogen_wave_functions(
-        int const echo=0 // log-level
-      , double const Z=1 // number of protons in the nucleus
-  ) {
+  status_t test_hydrogen_wave_functions(int const echo=0, double const Z=1) {
       auto & g = *radial_grid::create_radial_grid(2610);
       std::vector<double> rf(g.n), rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn{0};
       auto const kink = shoot(0, g, rV.data(), 0, -0.5, nnn, rf.data());
       if (echo > 5) debug(dump_to_file("H1s_radial_wave_function.dat", g.n, rf.data(), g.r));
       radial_grid::destroy_radial_grid(&g);
-      return (std::abs(kink) < 1e-3);
+      if (echo > 2) std::printf("# %s kink= %.2e\n", __func__, kink);
+      return (std::abs(kink) > 1e-3); // error if kink is too large
   } // test_hydrogen_wave_functions
   
   status_t test_Bessel_functions(int const echo=0) {
       // unit test for the outwards integration
       auto & g = *radial_grid::create_radial_grid(512); // radial grid descriptor
-      std::vector<double> rV(g.n, 0); // fill all potential values with r*V(r) == 0 everywhere
-      std::vector<double> rf(g.n), rg(g.n); // rf = large component of the radial function
+      std::vector<double> gg(g.n), ff(g.n), rV(g.n, 0.0); // fill all potential values with r*V(r) == 0 everywhere
       double const k = 1; // wave number of the Bessel function
-      integrate_outwards<0>(rf.data(), rg.data(), g, rV.data(), 0, 0.5*k*k);
-      if (echo > 3) std::printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
+      integrate_outwards<0>(gg.data(), ff.data(), g, rV.data(), 0, 0.5*k*k);
+      if (echo > 5) std::printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
       double dev{0}, norm{0};
-      for (auto ir = 1; ir < g.n; ++ir) {
-          double const x = k*g.r[ir], ref = std::sin(x), diff = ref - rf[ir];
-          if (echo > 4) std::printf("%g %g %g %g\n", x, ref, rf[ir], diff); // compare result to x*j0(x)==sin(x)
+      for (int ir = 1; ir < g.n; ++ir) {
+          double const x = k*g.r[ir], ref = std::sin(x), diff = ref - gg[ir];
+          if (echo > 5) std::printf("%g %g %g %g\n", x, ref, gg[ir], diff); // compare result to x*j0(x)==sin(x)
           norm += pow2(ref)*g.dr[ir]; // integrate
           dev += pow2(diff)*g.dr[ir]; // integrate
       } // ir
       if (echo > 2) std::printf("\n# %s: integral (sin(%g*r) - r*f(r))^2 dr= %g\n", __func__, k, dev);
-      if (echo > 5) std::printf("# %s: integral sin^2(%g*r) dr= %g\n", __func__, k, norm);
+      if (echo > 3) std::printf("# %s: integral sin^2(%g*r) dr= %g\n", __func__, k, norm);
       radial_grid::destroy_radial_grid(&g);
-      return (dev > 7e-11*norm); // return error if deviations become large
+      return (dev > 1e-11*norm); // return error if deviations become large
   } // test_Bessel_functions
 
   // unit test for the inhomogeneous outwards integration
-  status_t test_inhomogeneous(
-        int const echo=0 // log-level
-      , double const Z=1 // number of protons in the nucleus
-  ) {
+  status_t test_inhomogeneous(int const echo=0, double const Z=1) {
       auto & g = *radial_grid::create_radial_grid(512);
       std::vector<double> mem(4*g.n);
       auto const gg = &mem[0], ff = &mem[g.n], rp = &mem[2*g.n], rV = &mem[3*g.n];
@@ -615,22 +609,22 @@ namespace radial_integrator {
       double E{0.5}, dg{0};
       for (ell_QN_t ell = 0; ell < 4; ++ell) { // loop must run serial and forward
           integrate_outwards<0>(gg, ff, g, rV, ell, E/(ell + 1.), -1, &dg, rp);
-          if (echo > 3) std::printf("\n## %s for ell=%d: r, f(r), inhomogeneity(r):\n", __func__, ell);
+          if (echo > 5) std::printf("\n## %s for ell=%d: r, f(r), inhomogeneity(r):\n", __func__, ell);
           for (int ir = 0; ir < g.n; ++ir) {
-              if (echo > 3 && ir > 0) std::printf("%g %g %g\n", g.r[ir], gg[ir], rp[ir]); //, ff[ir], rV[ir]);
-              rp[ir] *= g.r[ir]; // udate rp for the next ell-iteration
+              if (echo > 5 && ir > 0) std::printf("%g %g %g\n", g.r[ir], gg[ir], rp[ir]);
+              rp[ir] *= g.r[ir]; // update rp for the next ell-iteration
           } // ir
       } // ell
       radial_grid::destroy_radial_grid(&g);
-      return 0;
+      return 0; // solutions need to be inspected manually
   } // test_inhomogeneous
 
   status_t all_tests(int const echo) {
       status_t stat(0);
 //    stat += test_hydrogen_atom(echo);
-//    stat += test_hydrogen_wave_functions(echo);
+      stat += test_hydrogen_wave_functions(echo);
       stat += test_Bessel_functions(echo);
-//    stat += test_inhomogeneous(echo); // solutions need to be inspected manually
+//    stat += test_inhomogeneous(echo);
       return stat;
   } // all_tests
 

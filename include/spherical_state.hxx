@@ -7,9 +7,8 @@
 #include "energy_level.hxx" // energy_level_t, TRU_ONLY
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "radial_grid.hxx" // radial_grid_t
-#include "inline_math.hxx" // pow2
 
-  typedef struct energy_level_t<TRU_ONLY> spherical_state_t; // Pseudo=1: spherical states, e.g. core states, only a TRU wave is stored
+  typedef struct energy_level_t<TRU_ONLY> spherical_state_t; // Pseudo=TRU_ONLY=1: spherical states, e.g. core states, only a TRU wave is stored
 
   int constexpr core=0, semicore=1, valence=2, csv_undefined=3; // ToDo: as enum to distinguish the different energy level classes
 
@@ -45,7 +44,7 @@
 
       double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
       for (int ir = 0; ir < rg.n; ++ir) {
-          double const rho_wf = pow2(wave[ir]);
+          double const rho_wf = wave[ir]*wave[ir];
           double const dV = rg.r2dr[ir];
           double const r = rg.r[ir];
           double const r_inv_dV = rg.rdr[ir]; // (1/r)*r^2 dr = r*dr

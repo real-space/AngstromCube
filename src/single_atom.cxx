@@ -694,8 +694,8 @@ namespace single_atom {
                         cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
                         cs.enn = enn;
                         cs.ell = ell;
-                        cs.emm = emm_Degenerate;
-                        cs.spin = spin_Degenerate;
+                        // cs.emm = emm_Degenerate;
+                        // cs.spin = spin_Degenerate;
                         cs.csv = csv_custom[inl];
                         if (valence == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
@@ -795,8 +795,8 @@ namespace single_atom {
                     vs.occupation = 0.0;
                     vs.enn = enn; // principal quantum number
                     vs.ell = ell; // angular momentum quantum number
-                    vs.emm = emm_Degenerate; // angular z-component quantum number
-                    vs.spin = spin_Degenerate; // spin quantum number
+                    // vs.emm = emm_Degenerate; // angular z-component quantum number
+                    // vs.spin = spin_Degenerate; // spin quantum number
                     vs.csv = valence; // classifier for {core, semicore, valence}
 
                     if (nrn < nn[ell]) {
@@ -1257,8 +1257,8 @@ namespace single_atom {
                     vs.energy = 0.0;
                     vs.enn = enn; // principal quantum number
                     vs.ell = ell; // angular momentum quantum number
-                    vs.emm = emm_Degenerate; // angular z-component quantum number
-                    vs.spin = spin_Degenerate; // spin quantum number
+                    // vs.emm = emm_Degenerate; // angular z-component quantum number
+                    // vs.spin = spin_Degenerate; // spin quantum number
                     vs.csv = valence; // classifier for {core, semicore, valence}
 
                     if (nrn < nn[ell]) {
