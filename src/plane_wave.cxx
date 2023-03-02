@@ -288,9 +288,12 @@ namespace plane_wave {
       nPWs = nB; // export the number of plane waves used for statistics
 #ifdef DEVEL
       if (echo > 6) {
-          float const minutes = 1.5e-11*(2 + (sizeof(real_t) > 4))*pow3(1.*nB), seconds = 60*(minutes - int(minutes));
-          std::printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %d:%02d minutes)\n",
-                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, int(minutes), int(seconds));
+          auto const time = 1e-9*pow3(nPWs) + 2e-6*pow2(nPWs); // estimator for MacBook Pro with M1 max processor
+          char const *_seconds="seconds"; auto seconds=1.;
+          if (time > 3600) { _seconds="hours"; seconds=1/3600.; } else
+          if (time > 180) { _seconds="minutes"; seconds=1/60.; }
+          std::printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %.1f %s)\n",
+                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, time*seconds, _seconds);
           std::fflush(stdout);
       } // echo
 #endif // DEVEL
@@ -554,9 +557,9 @@ namespace plane_wave {
                                         {0, 0, g[2]*g.h[2],   0}};
       double reci_matrix[3][4];
       auto const cell_volume = simple_math::invert(3, reci_matrix[0], 4, cell_matrix[0], 4);
-      scale(reci_matrix[0], 3*4, 2*constants::pi); // scale by 2\pi
-      if (echo > 0) std::printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
+      scale(reci_matrix[0], 3*4, 2*constants::pi); // scale by 2*pi
       if (echo > 0) {
+          std::printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
           auto constexpr sqRy = 1; auto const _sqRy = "sqRy";
           std::printf("# cell matrix in %s\t\tand\t\treciprocal matrix in %s:\n", _Ang, _sqRy);
           for (int d = 0; d < 3; ++d) {
@@ -573,8 +576,15 @@ namespace plane_wave {
       char const *_ecut_u{nullptr};
       auto const ecut_u = unit_system::energy_unit(control::get("plane_wave.cutoff.energy.unit", "Ha"), &_ecut_u);
       auto const ecut = control::get("plane_wave.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
-      if (echo > 1) std::printf("# plane_wave.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n",
-                              ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
+      if (echo > 1) {
+          auto const kcut = std::sqrt(2*ecut); // in sqRy
+          std::printf("# plane_wave.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n",
+                                    ecut*ecut_u, _ecut_u, kcut, ecut*eV,_eV);
+          auto const reci_volume = pow3(2*constants::pi)/cell_volume; // in sqRy^3
+          auto const pw_ball = 4*constants::pi/3*pow3(kcut); // in sqRy^3
+          std::printf("# estimated number of plane waves is %.1f\n", pw_ball/reci_volume);
+      } // echo
+
 
       int const nG[3] = {g[0], g[1], g[2]}; // same as the numbers of real-space grid points
       view4D<double> Vcoeffs(2, nG[2], nG[1], nG[0], 0.0);

@@ -195,13 +195,14 @@ namespace pseudo_tools {
 
       if (echo > 2) std::printf("\n# %s %s\n", label, __func__);
       status_t stat(0);
-      if (n_Lagrange_points < 1) { // construct initial smooth spherical potential as parabola
-          set(V_smt, rg[SMT].n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
+      if (n_Lagrange_points < 1) {
           if (echo > 2) std::printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
+          set(V_smt, rg[SMT].n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
           stat = pseudize_function(V_smt, rg[SMT].r, ir_cut[SMT], 2, rpow); // replace by a parabola
           if (echo > 5) std::printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
                           label, r_cut*Ang, _Ang, V_tru[ir_cut[TRU]]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
       } else {
+          if (echo > 2) std::printf("\n# %s construct initial smooth spherical potential with sinc\n", label);
           assert(rpow == rpow*rpow); // rpow either 0 or 1
           // construct a Lagrange polynomial of controllable order to fit r*V_true(r) around r_cut
           int const ir0 = ir_cut[TRU];
@@ -323,7 +324,7 @@ namespace pseudo_tools {
       , char const ell='?' // ell-character for display
       , int const echo=0 // log-level
       , char const op[]="UUUUUUUUUUUUUUU" // treated as array of chars, not as string
-  ) { 
+  ) {
       // perform a Gram-Schmidt orthogonalization to restore PAW duality
 
       if (n < 1) return 0.0; // but no warning

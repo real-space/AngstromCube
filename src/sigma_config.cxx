@@ -22,7 +22,8 @@ namespace sigma_config {
         switch (iZ) {
             case  1: return "1s* 1 0 2p | 0.9 sigma .247";                              // H
             case  2: return "1s* 2 2p | 1.5 sigma .48";                                 // He
-            case  3: return "2s* 1 0 2p 2e-99 | 2.0 sigma 1";                           // Li
+            case  3: return "1s 2 2s 1 0 2p 2e-99 3d | 1.43 sigma 1.1 V=sinc";          // Li
+         // case  3: return "2s* 1 0 2p 2e-99 | 2.0 sigma 1";                           // Li
             case  4: return "2s* 2 2p 2e-99 0 | 1.5 sigma .45";                         // Be
             case  5: return "2s* 2 2p* 1 0 3d | 1.2 sigma .45";                         // B
             case  6: return "2s* 2 2p* 2 0 3d | 1.2 sigma .43";                         // C
@@ -200,7 +201,7 @@ namespace sigma_config {
     } // char2key
 
     // same definition as atom_core::nl_index
-    inline int nl_index(int const enn, int const ell) { 
+    inline int nl_index(int const enn, int const ell) {
         assert(ell < enn);
         return (enn*(enn - 1))/2 + ell;
     } // nl_index
@@ -315,7 +316,7 @@ namespace sigma_config {
             } // try_numeric
 
             ++iword;
- 
+
             auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
             if (next_blank) {
                 string = next_blank;
@@ -523,7 +524,7 @@ namespace sigma_config {
   status_t test_parsing(int const echo=0) {
 
       int const iZ_show = control::get("sigma_config.test.Z", -120); // use -127 to check also the custom configuration strings and vacuum
-      if (echo > 0) std::printf("# running with +sigma_config.test.Z=%i\n", iZ_show);
+      if (echo > 0) std::printf("# %s with +sigma_config.test.Z=%i\n", __func__, iZ_show);
       if (iZ_show >= 0) {
 
           // parse one selected element and show the configuration string used

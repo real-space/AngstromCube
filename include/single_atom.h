@@ -39,19 +39,20 @@
 
 */
 
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     #ifndef __cplusplus
-        #error "C-Interface and C++Implementations share a file!"
-    #endif
+        #error "C-interface and C++implementations share a file!"
+    #endif // __cplusplus
     #include "control.hxx" // ::set, ::read_control_file, ::get, ::show_variables
     #include "unit_system.hxx" // ::set
     #include "recorded_warnings.hxx" // warn, ::show_warnings
 #endif // SINGLE_ATOM_SOURCE
 
+// subroutines in Fortran are equivalent to void functions in C
 #define fortran_callable(NAME) void live_atom_##NAME##_
 
 /*
-    Example for inclusion in Fortran: 
+    Example for inclusion in Fortran:
         integer(kind=4), parameter :: na = 2
         integer(kind=4) :: status
         real(kind=8) :: quantity(na)
@@ -64,7 +65,7 @@
         integer(kind=4)       int32_t
         integer(kind=1)        int8_t
          real(kind=8)           double
-         character(len=*)    char[] 
+         character(len=*)    char[]
      Mind that strings are not null-terminated in Fortran
 */
 
@@ -74,7 +75,7 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        std::printf("\n# init environment variables for LiveAtoms from \'%s\'\n", filename); 
+        std::printf("\n# init environment variables for LiveAtoms from \'%s\'\n", filename);
         int const echo = 1;
         *status = control::read_control_file(filename, echo);
         *status += unit_system::set(control::get("output.length.unit", "Bohr"),
@@ -133,7 +134,7 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        std::printf("# set environment variable for LiveAtoms:\t%s = %s\n", 
+        std::printf("# set environment variable for LiveAtoms:\t%s = %s\n",
                                                         varname, newvalue);
         control::set(varname, newvalue);
         *status = (nullptr == newvalue);

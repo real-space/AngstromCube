@@ -166,12 +166,12 @@ if (std::string("upf") == suffix) {
                       std::fprintf(f, "%c%.12g", c4(ij), h[ij]*2); // *2 for Rydberg units
                   } // ij
                   std::fprintf(f, "\n</PP_DIJ>\n");
-                  // // unless norm-conserving:
-                  // std::fprintf(f, "<PP_QIJ type=\"real\" size=\"%d\" columns=\"4\">", n_proj*n_proj);
-                  // for (int ij = 0; ij < n_proj*n_proj; ++ij) {
-                  //     std::fprintf(f, "%c%.12g", c4(ij), s[ij]); // charge deficits are the same in Rydberg units
-                  // } // ij
-                  // std::fprintf(f, "\n</PP_QIJ>\n");
+                  // unless norm-conserving:
+                  std::fprintf(f, "<PP_QIJ type=\"real\" size=\"%d\" columns=\"4\">", n_proj*n_proj);
+                  for (int ij = 0; ij < n_proj*n_proj; ++ij) {
+                      std::fprintf(f, "%c%.12g", c4(ij), s[ij]); // charge deficits are the same in Rydberg units
+                  } // ij
+                  std::fprintf(f, "\n</PP_QIJ>\n");
               std::fprintf(f, "</PP_NONLOCAL>\n");
 
               if (echo > 5) std::printf("# not implemented: PP_PSWFC\n");
