@@ -104,10 +104,9 @@ namespace single_atom {
   } // minimize_curvature
 #endif // DEVEL
 
-  template <typename int_t>
   int display_delimiter( // returns mln (or mlmn if resolve=='m')
         int const numax // size of the SHO basis
-      , int_t const nn[] // numbers of partial waves per ell-channel
+      , uint8_t const nn[] // numbers of partial waves per ell-channel
       , char const resolve='\0' // 'm':emm_Resolved, otherwise emm_Degenerate
   ) {
       // we want to display only the non-zero SHO contributions and skip higher ell entries
@@ -1725,6 +1724,7 @@ namespace single_atom {
                                        label, __func__, Z_core, partial_wave_char.data());
 
         double previous_ell_energy{0};
+        int previous_enn{0}; // enn quantum number of the partial wave of which the energy parameter was copied
         for (int ell = 0; ell <= numax; ++ell) { // loop runs serial, loop-carried dependency on previous_ell_energy
             for (int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes, serial due to partial_wave[iln - 1].energy
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
@@ -1754,8 +1754,8 @@ namespace single_atom {
                 } else if ('p' == c) {
                     if (0 == ell) warn("%s energy parameter for ell=%i nrn=%i undetermined", label, ell, nrn);
                     vs.energy = previous_ell_energy;
-                    if (echo > 4) std::printf("# %s the %s partial wave is at E= %g %s, copy %c-energy\n",
-                                                 label, vs.tag, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
+                    if (echo > 4) std::printf("# %s the %s partial wave is at E= %g %s, copy %d%c-energy\n",
+                                                 label, vs.tag, vs.energy*eV, _eV, previous_enn, (ell > 0)?ellchar[ell - 1]:'?');
                 } else {
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
@@ -1764,7 +1764,7 @@ namespace single_atom {
                     if (echo > 4) std::printf("# %s the %s partial wave is at E= %g %s, the %i%c-eigenvalue\n",
                                                  label, vs.tag, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
                 } // c
-                if (0 == nrn) previous_ell_energy = vs.energy;
+                if (0 == nrn) { previous_ell_energy = vs.energy; previous_enn = vs.enn; }
             } // nrn
         } // ell
 

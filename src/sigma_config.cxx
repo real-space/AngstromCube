@@ -168,7 +168,7 @@ namespace sigma_config {
                      KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyUndef = -8;
     char const Key2String[][8] = {"ignored", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "?"};
 
-    inline int8_t char2ell(char const c) {
+    int8_t char2ell(char const c) {
         switch (c) {
             case 's': return 0;
             case 'p': return 1;
@@ -183,7 +183,7 @@ namespace sigma_config {
         } // switch
     } // char2ell
 
-    inline int8_t char2key(char const c) {
+    int8_t char2key(char const c) {
         // interpret the leading character of a word
         switch (c) { // case sensitive
             case ' ': case '\0': case '\t': case '\n': return KeyIgnore; // ignore whitespaces
