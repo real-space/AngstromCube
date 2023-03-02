@@ -848,6 +848,11 @@ namespace single_atom {
                             std::snprintf(vs.tag, 7, "%c%.5g", ellchar[ell], vs.energy*eV); // create a state label
                         } else // use_energy_parameter
                         if (occ > 0) {
+                            if (occ <= 2e-100) { // indicate to use the previous energy parameter from the config string
+                                if (echo > 3) std::printf("# %s a tiny occupation number in the %d%c-orbital indicates to use the previous energy parameter\n", label, enn, ellchar[ell]);
+                                if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0", label);
+                                if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization orbital)
+                            }
                             // eigenstate unchanged, see above
                         } else { // occ > 0
                             if (nrn > 0) { // only for higher states
@@ -863,6 +868,8 @@ namespace single_atom {
                                 } // |dE| small
                             } else
                             if (prev_energy_parameter & (1 << ell)) { // nrn > 0
+                                if (echo > 3) std::printf("# %s +single_atom.previous.energy.parameter=0x%x indicates to use the previous energy parameter in the %d%c-orbital\n",
+                                                             label, prev_energy_parameter, enn, ellchar[ell]);
                                 if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0", label);
                                 if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization orbital)
                             } else {
