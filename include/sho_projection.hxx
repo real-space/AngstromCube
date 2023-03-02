@@ -85,7 +85,6 @@ namespace sho_projection {
           } // i
       } // dir
 
-
 #ifdef DEVEL
       if (1 == PROJECT0_OR_ADD1) {
           if (echo > 6) {
@@ -98,13 +97,15 @@ namespace sho_projection {
       } // ADD
 #endif // DEVEL
 
-
       for (        int iz = 0; iz < num[2]; ++iz) {
           for (    int iy = 0; iy < num[1]; ++iy) {
               for (int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
 
                   complex_t val(0);
+                  if (0 == PROJECT0_OR_ADD1) {
+                      val = values[ixyz]; // load
+                  } // project
                   if (true) {
 //                    if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO{0};

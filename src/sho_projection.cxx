@@ -70,7 +70,7 @@ namespace sho_projection {
       double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
       status_t stat(0);
       for (int i = 0; i < nSHO; ++i) {
-          double const prefactor = sho_projection::sho_prefactor(icoeff[i][0], icoeff[i][1], icoeff[i][2], sigma);
+          auto const prefactor = sho_projection::sho_prefactor(icoeff[i][0], icoeff[i][1], icoeff[i][2], sigma);
           // now prefactor == sqrt(  2^nx 2^ny 2^nz  / ( nx! ny! nz! pi^{3/2} sigma^3 )  );
           set(coeff.data(), nSHO, (real_t)0);
           coeff[i] = pow2(prefactor);
@@ -114,9 +114,9 @@ namespace sho_projection {
           stat += _analyze_row(maxdev, i, coeff.data(), nSHO, echo);
       } // i
       if (echo > 0) {
-          for (int d = 0; d <= 1; ++d) {
-              std::printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
-          } // d
+          for (int diag = 0; diag <= 1; ++diag) {
+              std::printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(diag), maxdev[diag]);
+          } // diag
       } // echo
       delete[] icoeff;
       return stat;
@@ -130,7 +130,7 @@ namespace sho_projection {
       real_space::grid_t g(dims);
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
-      if (echo > 1) std::printf("# %s %s: for sigma= %g numax= %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
+      if (echo > 1) std::printf("# %s %s: for sigma= %g numax= %i with grid spacing %g Bohr\n", __FILE__, __func__, sigma, numax, g.h[0]);
       double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
 

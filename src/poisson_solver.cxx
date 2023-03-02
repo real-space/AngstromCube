@@ -64,8 +64,8 @@ namespace poisson_solver {
       if (echo > 1) print_stats(rho, g.all(), g.dV(), "# real-space stats of input density:   ");
       
       double const grid_center[] = {(g[0] - 1)*g.h[0], (g[1] - 1)*g.h[1], (g[2] - 1)*g.h[2]};
-      if (nullptr == center) center = grid_center;
-      
+      if (nullptr == center) center = grid_center; // overwrite the argument
+
       if (echo > 5) std::printf("# Bessel j0 projection around position %g %g %g %s\n",
                               center[0]*Ang, center[1]*Ang, center[2]*Ang, _Ang);
       float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));

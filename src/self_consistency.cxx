@@ -142,7 +142,7 @@ namespace self_consistency {
   } // init_geometry_and_grid
 
 
-  inline double get_temperature(int const echo, double const def=1e-3) {
+  double get_temperature(int const echo, double const def=1e-3) {
       auto const unit = control::get("electronic.temperature.unit", "Ha");
       char const *_eu;
       auto const eu = unit_system::energy_unit(unit, &_eu);
@@ -313,11 +313,14 @@ namespace self_consistency {
 
       // configuration
       auto const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
+      if (echo > 2) std::printf("# select electrostatic.solver=%s from list {fft, multi-grid, MultiGrid, CG, SD, none}\n", es_solver_name);
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
       auto const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32; // {'f', 'g'}
+      if (echo > 2) std::printf("# select electrostatic.compensator=%c from list {factorizable, generalizedGaussian}\n", compensator_method);
 
       auto const occupation_method = *control::get("fermi.level", "exact") | 32; // {'e':"exact", 'l':"linearized"}
+      if (echo > 2) std::printf("# select fermi.level=%c from list {exact, linearized}\n", occupation_method);
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);

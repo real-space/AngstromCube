@@ -1703,7 +1703,7 @@ namespace single_atom {
                 for (int i = 0; i < nmx; ++i) kinetic_coeff[i] = projector_coeff[ell][irn][i] * (ell + 2*i + 1.5); // nu + 3/2
                 auto const E_kin = kinetic_pref * dot_product(nmx, projector_coeff[ell][irn], kinetic_coeff);
                 if (norm2 > 0) {
-                    if (echo > 0) {
+                    if (echo > 5) {
                         auto const length = std::sqrt(norm2); assert(length > 0);
                         std::printf("# %s %scoefficients of the %s-projector: %.6e * [", label, attribute, partial_wave[iln].tag, length);
                         printf_vector(" %9.6f", projector_coeff[ell][irn], nmx, " ]", 1./length);
@@ -2088,7 +2088,7 @@ namespace single_atom {
                         auto const c = projector_coeff[ell](nrn,mrn);
                         if (0.0 != c) {
                             add_product(projectors_ell[nrn], rg[SMT].n, radial_sho_basis[ln_off + mrn], c);
-                            if (echo > 5) std::printf("# %s re-construct %s projector by taking %9.6f of the %c%i radial SHO basis function\n",
+                            if (echo > 7) std::printf("# %s re-construct %s projector by taking %9.6f of the %c%i radial SHO basis function\n",
                                                          label, partial_wave[iln].tag, c, ellchar[ell],mrn);
                         } // coefficient non-zero
                     } // mrn
@@ -2434,7 +2434,7 @@ namespace single_atom {
                     for     (int irn = 0; irn < n; ++irn) { // number of partial waves
                         for (int jrn = 0; jrn < n; ++jrn) { // number of partial waves
                             ovl(irn,jrn) = dot_product(rg[SMT].n, projectors_ell[irn], partial_wave[ln_off + jrn].wave[SMT], rg[SMT].rdr);
-                            if (echo > 4) std::printf("# %s %c-projector #%i with partial wave #%i has overlap %g\n",
+                            if (echo > 7) std::printf("# %s %c-projector #%i with partial wave #%i has overlap %g\n",
                                                          label, ellchar[ell], irn, jrn, ovl(irn,jrn));
                         } // jrn
                     } // irn
@@ -2457,7 +2457,7 @@ namespace single_atom {
                             for (int jrn = 0; jrn < n; ++jrn) {
                                 auto const p_coeff = LU_inv(0,irn,jrn);
                                 if (p_coeff != 0) {
-                                    if (echo_GS > 3) {
+                                    if (echo_GS > 7) {
                                         std::printf("# %s create orthogonalized %c-projector #%i with %g * projector #%i\n",
                                                        label, ellchar[ell], irn, p_coeff, jrn);
                                     } // echo
@@ -2485,7 +2485,7 @@ namespace single_atom {
                             for (int jrn = 0; jrn < n; ++jrn) {
                                 auto const w_coeff = LU_inv(1,jrn,irn);
                                 if (w_coeff != 0) {
-                                    if (ts == TRU && echo_GS > 3) {
+                                    if (ts == TRU && echo_GS > 7) {
                                         std::printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n",
                                                        label, ellchar[ell], irn, w_coeff, jrn);
                                     } // echo

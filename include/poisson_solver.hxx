@@ -17,7 +17,7 @@ namespace poisson_solver {
       , double const Bessel_center[]=nullptr
   ); // declaration only
 
-  inline char solver_method(char const *method) { return *method; }
+  inline char solver_method(char const *const method) { return *method; } // returns the 1st char
 
 #ifdef DEVEL
 
