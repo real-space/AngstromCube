@@ -178,6 +178,6 @@ for Z in {117..117}; do
         +show.state.diagram=-1 \
         >> $out_Z
 done
-## We find stability execept for ell=2 of Z=7--9 and ell=0 of Z=80,84--92,117--120
+## We find stability except for ell=2 of Z=7--9 and ell=0 of Z=80,84--92,117--120
 ##   which we need to analyze further for the "well-configured" elements (Z<=86)
 

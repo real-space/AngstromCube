@@ -17,8 +17,8 @@ namespace sigma_config {
 
 #define EXPERIMENTAL
 
-  char const * default_config(unsigned const iZ) { // compiled into the code
-
+  char const* default_config(unsigned const iZ) { // compiled into the code
+        // returns char const* in constant memory
         switch (iZ) {
             case  1: return "1s* 1 0 2p | 0.9 sigma .247";                              // H
             case  2: return "1s* 2 2p | 1.5 sigma .48";                                 // He
@@ -166,7 +166,7 @@ namespace sigma_config {
 
     int8_t constexpr KeyIgnore = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
                      KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyUndef = -8;
-    char const Key2String[][8] = {"ignored", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "?"};
+    char const Key2String[][8] = {"", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "?"};
 
     int8_t char2ell(char const c) {
         switch (c) {
@@ -214,11 +214,11 @@ namespace sigma_config {
     } // set_default_core_shells
 
     struct parsed_word_t {
-        double value;
-        int8_t key;
-        int8_t enn;
-        int8_t ell;
-        int8_t mrn;
+        double value; // numeric value
+        int8_t key;   // what meaning
+        int8_t enn;   // pricipal quantum number
+        int8_t ell;   // angular momentum quantum number
+        int8_t mrn;   // -3:invalid, -2:core, -1:semicore, 0:eigenstate, 1:1st excited partial wave, 2:2nd exited partial wave
     }; // parsed_word_t
 
 
@@ -231,26 +231,23 @@ namespace sigma_config {
         int const iZ = chemical_symbol::get(symbol, Zcore);
         char element_Sy[16];
         std::snprintf(element_Sy, 15, "element_%s", symbol);
-        auto const default_config_iZ = default_config(iZ);
+        auto const default_config_iZ = default_config(iZ); // default_config returns a char const* in constant memory
         auto const config = control::get(element_Sy, default_config_iZ);
-        if (configuration) *configuration = config;
+        if (nullptr != configuration) *configuration = config;
 
         if (echo > 3) std::printf("# for Z=%g use %sconfiguration +%s=\"%s\"\n",
             Zcore, std::strcmp(default_config_iZ, config)?"":"default ", element_Sy, config);
+        if (nullptr == config) error("null string for configuation of +%s", element_Sy);
+
         // now convert config into an element_t
         auto & e = *(new element_t);
 
-        e.Z = ((iZ + 1) & 127) - 1; // preliminary integer number of protons
-        e.rcut = 2.;
-        e.sigma = .5;
-        e.numax = -1; // automatic
-        set(e.method, 15, '\0');
-        set(e.nn, 8, uint8_t(0));
-
-        if (nullptr == config) {
-            warn("occupation numbers for Z=%g not set", e.Z);
-            return e;
-        }
+        e.Z = ((iZ + 1) & 127) - 1.; // preliminary integer number of protons in [-1, 126]
+        e.rcut = 2.; // default cutoff radius
+        e.sigma = .5; // default SHO projector spread
+        e.numax = -1; // -1:automatic determination
+        set(e.method, 15, '\0'); // local potential generation method
+        set(e.nn, 8, uint8_t(0)); // clear numbers of projectors per ell
 
         // start to parse the config string
         std::vector<parsed_word_t> words;
@@ -258,7 +255,8 @@ namespace sigma_config {
         int iword{0};
         char local_potential_method[32];
 
-        char const * string{config + ('"' == config[0])}; // drop first char if it is '"'
+        char const * string{config + ('"' == config[0])}; // drop first char if it is a quotation mark '"'
+                                 // quotation marks are needed to pass config strings by the command line
         char c0{*string};
         while(c0) {
             if (echo > 11) std::printf("# start from '%s'\n", string);
@@ -269,6 +267,7 @@ namespace sigma_config {
             w.enn =  0; // init invalid
             w.ell = -1; // init invalid
             w.mrn = -3; // init invalid
+            ++iword;
 
             bool try_numeric{false};
             char const cn = *string;
@@ -304,8 +303,11 @@ namespace sigma_config {
                 } else if (KeyMethod == w.key) {
                     std::strncpy(local_potential_method, string, 31);
                     if (echo > 7) std::printf("# found local potential method '%s'\n", local_potential_method);
+                } else if (KeyUndef == w.key) {
+                    if (echo > 8) std::printf("# found undefined word in '%s'\n", string);
+                    w.mrn = *string; // store the leading character
                 } else {
-                    if (echo > 8) std::printf("# found special '%s'\n", string);
+                    if (echo > 8) std::printf("# found special expression '%s'\n", string);
                 }
             }
 
@@ -315,24 +317,22 @@ namespace sigma_config {
                 w.key = KeyNumeric; // -9:numeric
             } // try_numeric
 
-            ++iword;
-
             auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
             if (next_blank) {
                 string = next_blank;
-                while(*string == ' ') ++string; // forward to the next non-blank
+                while(*string == ' ') { ++string; } // forward to the next non-blank
                 c0 = *string;
             } else {
-                c0 = 0; // stop the while loop
+                c0 = '\0'; // stop the while loop
             }
         } // while;
         int const nwords = iword; // how many words were in the string
+        assert(nwords == words.size());
         if (echo > 8) std::printf("# process %d words\n", nwords);
 
         char constexpr ellchar[12] = "spdfghijkl?";
 
-        if (echo > 7) {
-            // repeat what was just parsed
+        if (echo > 7) { // repeat what was just parsed
             std::printf("# repeat config string '");
             char const mrn2string[][4] = {"", "*", "**", "***"};
             for (int iword = 0; iword < nwords; ++iword) {
@@ -442,6 +442,8 @@ namespace sigma_config {
                     set_default_core_shells(ncmx, e.Z); // adjust default core shells
                     if (echo > 9) std::printf("# found core charge Z= %g for %s\n", e.Z, symbol);
                     if (e.Z >= 120) warn("some routine may not be prepared for Z= %g >= 120", e.Z);
+                } else if (KeyUndef == w.key) {
+                    warn("%s undefined expression staring from \'%c\' in word #%i", symbol, char(w.mrn), iword);
                 } else {
                     warn("%s unknown key= %d (%s) in word #%i", symbol, w.key, Key2String[-w.key], iword);
                 }

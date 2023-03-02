@@ -841,21 +841,21 @@ namespace single_atom {
 
                         if (echo > 0) show_state(label, csv_name(valence), vs.tag, vs.occupation, E);
 
-                        partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
+                        partial_wave_char[iln] = '0' + enn; // mask as eigenstate: '1', '2', '3', ...
                         if (use_energy_parameter) {
                             vs.energy = energy_parameter;
-                            partial_wave_char[iln] = 'e'; // use energy parameter
+                            partial_wave_char[iln] = 'e'; // mark to use the energy parameter defined in +single_atom.partial.wave.energy.parameter
                             std::snprintf(vs.tag, 7, "%c%.5g", ellchar[ell], vs.energy*eV); // create a state label
                         } else // use_energy_parameter
                         if (occ > 0) {
                             // eigenstate unchanged, see above
                         } else { // occ > 0
-                            if (nrn > 0) {
+                            if (nrn > 0) { // only for higher states
                                 char asterisk[8] = "*******"; asterisk[nrn] = '\0';
                                 std::snprintf(vs.tag, 8, "%c%s", ellchar[ell], asterisk); // create a state label
-                                partial_wave_char[iln] = '*'; // set as excited
+                                partial_wave_char[iln] = '*'; // mark as excited
 #ifdef    DEVEL
-                                if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';
+                                if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D'; // mark as energy derivative
 #endif // DEVEL
                                 if ('*' == partial_wave_char[iln] && std::abs(partial_wave_energy_split[ell]) < 1e-3) {
                                     warn("%s partial wave energy split for ell=%c is small (%g %s)",
@@ -864,14 +864,14 @@ namespace single_atom {
                             } else
                             if (prev_energy_parameter & (1 << ell)) { // nrn > 0
                                 if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0", label);
-                                if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization)
+                                if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization orbital)
                             } else {
                                 // eigenstate unchanged, see above
                             } // nrn > 0
                         } // occ > 0
 
                     } else { // active
-                        partial_wave_char[iln] = '_'; // partial wave inactive
+                        partial_wave_char[iln] = '_'; // mark partial wave as inactive
                         std::snprintf(vs.tag, 7, "%c?", ellchar[ell]); // create a label for inactive states
                     } // partial_wave_active
 
@@ -3796,7 +3796,7 @@ namespace single_atom {
             for (int ir = 0; ir < rg[SMT].n; ++ir) {
                 Vsmt[ir] = potential[SMT][ir]*rg[SMT].rinv[ir] - V_rmax;
             } // ir
-            int const nrad = control::get("eigenstate.analysis.points", 384.);
+            int const nrad = control::get("single_atom.eigenstate.analysis.points", 384.);
             if (echo > 1) std::printf("\n\n# %s %s: eigenstate_analysis with %d points\n", label, __func__, nrad);
             if (nrad > 1) {
                 if (echo > 5) std::printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
