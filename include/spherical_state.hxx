@@ -48,12 +48,12 @@
           double const rho_wf = pow2(wave[ir]);
           double const dV = rg.r2dr[ir];
           double const r = rg.r[ir];
-          double const r_inv_dV = rg.rdr[ir];
+          double const r_inv_dV = rg.rdr[ir]; // (1/r)*r^2 dr = r*dr
           q    += rho_wf*dV; // charge
           qr   += rho_wf*r*dV; // for <r>
           qr2  += rho_wf*r*r*dV; // for variance
           qrm1 += rho_wf*r_inv_dV; // Coulomb integral without -Z
-          qout += rho_wf*dV*(ir >= ir_cut);
+          qout += rho_wf*dV*(ir >= ir_cut); // masked
       } // ir
       double const qinv = (q > 0) ? 1./q : 0;
       double const charge_outside = qout*qinv;

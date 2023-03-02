@@ -430,17 +430,17 @@ namespace pseudo_tools {
 
   inline status_t test_pseudize_function(int const echo=0, int const nr=96) {
       status_t stat(0);
-      std::vector<double> fun(nr), rg(nr), ori(nr);
+      std::vector<double> r(nr), pseudized_function(nr), original_function(nr);
       for (int ir = 0; ir < nr; ++ir) {
-          rg[ir] = 0.1*ir;
-          fun[ir] = std::cos(rg[ir]);
-          ori[ir] = fun[ir]; // make a copy
+          r[ir] = 0.1*ir; // radial grid
+          original_function[ir] = std::cos(r[ir]); // original function
+          pseudized_function[ir] = original_function[ir]; // function to be pseudized
       } // ir
-      stat += pseudize_function(fun.data(), rg.data(), nr/2);
+      stat += pseudize_function(pseudized_function.data(), r.data(), nr/2);
       if (echo > 7) { // plot
           std::printf("\n## r, original_function(r), pseudized_function(r):\n");
           for (int ir = 0; ir < nr; ++ir) {
-              std::printf("%g %g %g\n", rg[ir], ori[ir], fun[ir]);
+              std::printf("%g %g %g\n", r[ir], original_function[ir], pseudized_function[ir]);
           } // ir
       } // echo
       return stat;

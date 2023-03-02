@@ -1,5 +1,4 @@
 #ifndef   DEVEL
-
 /*
  *  Make sure to modify this file only in the development branch
  */
@@ -15,36 +14,36 @@
 #include "single_atom.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::create_default_radial_grid, ::create_pseudo_radial_grid,
+                           // ::destroy_radial_grid, ::equation_reciprocal, ::find_grid_index
 #include "radial_eigensolver.hxx" // ::shooting_method
 #include "radial_potential.hxx" // ::Hartree_potential
-#include "angular_grid.hxx" // ::transform, ::get_grid_size
-#include "radial_integrator.hxx" // ::integrate_outwards
-#include "exchange_correlation.hxx" // ::lda_PZ81_kernel
+#include "angular_grid.hxx" // ::transform, ::get_grid_size, ::create_numerical_Gaunt, ::cleanup
+#include "radial_integrator.hxx" // ::integrate_outwards, ::shoot
+#include "exchange_correlation.hxx" // ::lda_PZ81_kernel, ::default_LDA
 
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow, dot_product, align<nBits>
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
-#include "sho_tools.hxx" // ...
+#include "sho_tools.hxx" // :: ...
 
 #include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
-#include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index
+#include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index, ::read_Zeff_from_file, ::solve, ::guess_energy
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, TRU_ONLY, partial_wave_t
 #include "spherical_state.hxx" // spherical_state_t, core, semicore, valence, csv_name, show_state_analysis, show_state
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "unit_system.hxx" // ::energy_unit
-#include "simple_math.hxx" // ::invert
+#include "unit_system.hxx" // ::energy_unit, ::_Rydberg
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // ::transform_to_r2grid
-#include "scattering_test.hxx" // ::eigenstate_analysis, ::logarithmic_derivative, ::emm_average
+#include "scattering_test.hxx" // ::eigenstate_analysis, ::logarithmic_derivative, ::emm_average, ::expand_sho_projectors
 #include "linear_algebra.hxx" // ::eigenvalues
 #include "data_view.hxx" // view4D<T>, view3D<T>, view2D<T>, transpose, gemm
 #include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
 #include "chemical_symbol.hxx" // ::get
-#include "sigma_config.hxx" // ::get, element_t
-#include "bisection_tools.hxx" // bisector_t
+#include "sigma_config.hxx" // ::get
+#include "bisection_tools.hxx" // ::bisector_t<T>
 #include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, final="\n", scale=1, add=0)
 #include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
