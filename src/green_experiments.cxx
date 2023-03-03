@@ -27,7 +27,7 @@
 
 #include "green_memory.hxx" // get_memory, free_memory
 #include "green_action.hxx" // ::plan_t, ::action_t
-#include "green_function.hxx" // ::update_phases, ::construct_Green_function
+#include "green_function.hxx" // ::update_phases, ::construct_Green_function, ::update_energy_parameter
 #include "control.hxx" // ::get
 #include "linear_algebra.hxx" // ::eigenvalues
 

@@ -18,6 +18,7 @@ OBJECTS = \
 	display_units.o \
 	load_balancer.o \
 	green_experiments.o \
+	green_function.o \
 	green_parallel.o \
 	green_input.o \
 	green_tests.o \
