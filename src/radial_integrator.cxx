@@ -446,10 +446,8 @@ namespace radial_integrator {
       return nnodes;
   } // integrate_outwards
 
-  template // explicit template instantiation needed for logarithmic derivatives
-  int integrate_outwards<1>(double gg[], double ff[],
-        radial_grid_t const & g, double const rV[], ell_QN_t const ell, double const E,
-        int const ir_stop=-1, double *dg=nullptr, double const *rp=nullptr);
+  template // explicit template instantiation for SRA=1 needed for logarithmic derivatives
+  int integrate_outwards<1>(double*, double*, radial_grid_t const &, double const*, ell_QN_t, double, int, double*, double const*);
 
   template <int SRA>
   double shoot_sra( // returns the kink

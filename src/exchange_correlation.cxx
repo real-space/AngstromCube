@@ -133,10 +133,10 @@ namespace exchange_correlation {
   } // lda_PW91_kernel
 
   template // explicit template instantiation for double
-  double lda_PW91_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
+  double lda_PW91_kernel<double>(double, double &, double, double*);
 
   template // explicit template instantiation for double
-  double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
+  double lda_PZ81_kernel<double>(double, double &, double, double*);
 
 
 #ifdef  NO_UNIT_TESTS

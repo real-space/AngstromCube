@@ -29,6 +29,7 @@ OBJ = \
 	self_consistency.o \
 	iterative_poisson.o \
 	bessel_transform.o \
+	dense_solver.o \
 	potential_generator.o \
 	poisson_solver.o \
 	plane_wave.o \
@@ -87,8 +88,8 @@ FEAFLAGS += -D DEVEL
 # normal mode
 OPTFLAGS=
 # OPTFLAGS += -Ofast
-OPTFLAGS += -O2
-# OPTFLAGS += -O0
+# OPTFLAGS += -O2
+OPTFLAGS += -O0
 OPTFLAGS += -g -pedantic -Wall
 # gcc-options
 OPTFLAGS += -Wno-format

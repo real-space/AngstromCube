@@ -517,12 +517,10 @@ namespace sho_overlap {
 
 
   template // explicit template instantiation for double
-  status_t moment_tensor(double tensor[], double const distance, int const n1, int const n0,
-                         double const sigma1, double const sigma0, int const maxmoment);
+  status_t moment_tensor(double*, double, int, int, double, double, int);
 
   template // explicit template instantiation for double
-  status_t product_tensor(double tensor[], int const n, double const sigma,
-                                   double const sigma1, double const sigma0);
+  status_t product_tensor(double*, int, double, double, double);
 
 
 
