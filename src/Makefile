@@ -31,6 +31,7 @@ OBJ = \
 	iterative_poisson.o \
 	bessel_transform.o \
 	dense_solver.o \
+	multi_grid.o \
 	potential_generator.o \
 	poisson_solver.o \
 	plane_wave.o \
