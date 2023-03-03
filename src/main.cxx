@@ -299,14 +299,15 @@
   } // show_version
 
   int main(int const argc, char const *argv[]) {
-      status_t stat(0);
-      char const *test_unit{nullptr}; // the name of the unit to be tested
-      int run_tests{0};
-      int verbosity{3}; // set default verbosity low
       if (argc < 2) {
           std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
           return -1;
       } // no argument passed to executable
+      status_t stat(0);
+      char const *test_unit{nullptr}; // the name of the unit to be tested
+      int run_tests{0};
+      int verbosity{3}; // set default verbosity low
+      control::set("executable.name", argv[0]);
       for (int iarg = 1; iarg < argc; ++iarg) {
           assert(nullptr != argv[iarg]);
           char const ci0 = *argv[iarg]; // char #0 of command line argument #iarg

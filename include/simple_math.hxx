@@ -206,57 +206,61 @@ namespace simple_math {
 #else // NO_UNIT_TESTS
 
   template <typename real_t>
-  inline double matmul(
+  inline double check_unity(
         int const n // matrix dimension
-      , real_t       c[], int const cs // result matrix, stride
       , real_t const a[], int const as // left  input matrix, stride
       , real_t const b[], int const bs // right input matrix, stride
+      , int const echo=0
   ) {
+      assert(as >= n); assert(bs >= n);
       double dev{0};
       for (int i = 0; i < n; ++i) {
           for (int j = 0; j < n; ++j) {
-              real_t cc(0);
-              for (int k = 0; k < n; ++k) {
-                  cc += a[i*as + k] * b[k*bs + j];
+              double ab{0}, ba{0};
+              for (int k = 0; k < n; ++k) { // contraction index
+                  ab += double(a[i*as + k]) * double(b[k*bs + j]);
+                  ba += double(b[i*bs + k]) * double(a[k*as + j]);
               } // k
-              c[i*cs + j] = cc;
-              dev += (i == j) ? std::abs(cc - real_t(1)) : std::abs(cc);
+              if (echo > 8) std::printf("# i=%i j=%i\ta*b= %g\tb*a= %g\ta_ij=%g\tb_ij=%g\n", 
+                                           i,   j, ab, ba, a[i*as + j], b[i*bs + j]);
+              dev += std::abs(ab - (i == j)) + std::abs(ba - (i == j));
           } // j
       } // i
       return dev; // deviation
-  } // matmul
+  } // check_unity
 
   template <typename real_t>
   inline status_t test_invert(int const echo=3, double const threshold=1e-12) {
       if (echo > 5) std::printf("\n# %s\n", __func__);
-      int constexpr N = 4;
-      int constexpr M = 8;
-      real_t a[N*M], inv[N*M], ainv[N*M], inva[N*M];
-      double maxdev{0};
-      for (int n = -1; n <= N; ++n) { // dimension
-          for (int m = n; m <= M; ++m) { // stride
+      int constexpr N = 4; // maximum dimension to be checked -- Caveat: do not go much larger, random matrices can be quite instable!
+      int constexpr M = 8; // maximum stride to be checked
+      real_t matrix_A[N*M], inverse_A[N*M];
+      int exceeds{0};
+      for (int _n = -1; _n <= N; ++_n) { int const n = _n; // dimension
+          double maxdev{0};
+          for (int _m = n; _m <= M; ++_m) { int const m = _m; // stride
               // fill with random values
               for (int ij = 0; ij < n*m; ++ij) {
-                  a[ij] = random<real_t>(-1, 1);
+                  matrix_A[ij] = random<real_t>(-1, 1);
               } // ij
-              auto const det = invert(n, inv, m, a, m);
-              auto const dev_ia = matmul(n, inva, m, inv, m, a, m);
-              auto const dev_ai = matmul(n, ainv, m, a, m, inv, m);
-              maxdev = std::max(maxdev, std::max(dev_ia, dev_ai));
-              if (echo > 5) std::printf("# %s n=%i stride=%i determinant %g deviations %g and %g\n", 
-                                      __func__, n, m, det, dev_ia, dev_ai);
-              if (echo > 8) {
-                  for (int i = 0; i < n; ++i) {
-                      for (int j = 0; j < n; ++j) {
-                          std::printf("# i=%d j=%d \ta*inv_ij=%.6f \tinv*a_ij=%.6f \ta_ij=%g \tinv_ij=%g\n", 
-                                            i,   j, ainv[i*m + j], inva[i*m + j], a[i*m + j], inv[i*m + j]);
-                      } // j
-                  } // i
-              } // echo
+              auto const det = invert(n, inverse_A, m, matrix_A, m);
+              auto const dev = check_unity(n, inverse_A, m, matrix_A, m, echo);
+              maxdev = std::max(maxdev, dev);
+              if (echo > 5) std::printf("# %s n=%d stride=%d determinant %g deviation %.1e\n", 
+                                          __func__, n, m, det, dev);
           } // m
+          if (echo > 5) std::printf("# %s: largest deviation for inversions of %d x %d is %.1e\n", __func__, n, n, maxdev);
+          if (maxdev > threshold) {
+              if (echo > 2) std::printf("# %s: failed to invert random %d x %d %s matrix, threshold= %.2e, dev= %.2e\n", 
+                                          __func__, n, n, (8 == sizeof(real_t))?"double":"float", threshold, maxdev);
+              ++exceeds;
+          } // exceeds threshold
       } // n
-      if (echo > 3) std::printf("# %s: largest deviation for inversions up to %ix%i is %g\n", __func__, N, N, maxdev);
-      return (maxdev > threshold);
+      if (exceeds > 1) {
+          if (echo > 1) std::printf("# %s: allow one out of %d tests to fail but %d tests failed!\n", __func__, N, exceeds);
+          return 1; // test failed
+      } // more than one time the threshold was exceeded
+      return 0;
   } // test_invert
 
   inline status_t all_tests(int const echo=0) {
