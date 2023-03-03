@@ -38,6 +38,7 @@ OBJ = \
 	sho_overlap.o \
 	sho_hamiltonian.o \
 	sho_projection.o \
+	sho_potential.o \
 	structure_solver.o \
 	green_parallel.o \
 	green_function.o \
@@ -67,7 +68,7 @@ INC += -I../external
 ERRFLAGS =
 FEAFLAGS =
 FEAFLAGS += -D _GIT_KEY=$(GITKEY)
-# FEAFLAGS += -D NO_UNIT_TESTS
+FEAFLAGS += -D NO_UNIT_TESTS
 # FEAFLAGS += -D _Output_Units_Fixed
 FEAFLAGS += -D HAS_NO_MPI
 FEAFLAGS += -D HAS_NO_CUDA

@@ -9,7 +9,7 @@
 
 #include "sho_hamiltonian.hxx"
 
-#include "sho_potential.hxx" // ::load_local_potential
+#include "sho_potential.hxx" // ::load_local_potential, ::normalize_potential_coefficients, ::potential_matrix
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
