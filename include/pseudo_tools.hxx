@@ -334,7 +334,7 @@ namespace pseudo_tools {
           warn("%s Determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
           return det;
       }
-      // Gram-Schmidt orthonormalization is effectively a LU-decomposition, however, we modify it here
+      // Gram-Schmidt orthonormalization is effectively an LU-decomposition, however, we modify it here
       view2D<double> L(n, n, 0.0), U(n, n, 0.0); // get memory for LU factors
       for (int i = 0; i < n; ++i) {
           U(i,i) = 1; // start from unit matrix

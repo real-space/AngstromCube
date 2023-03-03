@@ -16,6 +16,7 @@ OBJATOM = \
 	radial_potential.o \
 	radial_eigensolver.o \
 	exchange_correlation.o \
+	scattering_test.o \
 	chemical_symbol.o \
 	display_units.o \
 	sigma_config.o \
