@@ -17,8 +17,6 @@
 
 namespace sho_unitary {
 
-  using real_t = double;
-
   inline double signed_sqrt(double const x) { return (x < 0)? -std::sqrt(-x) : std::sqrt(x); }
 
   status_t read_unitary_matrix_from_file(
@@ -106,10 +104,10 @@ namespace sho_unitary {
       Unitary_SHO_Transform::Unitary_SHO_Transform(int const lmax, int const echo) // constructor
         : numax_(lmax)
       {
-          u_ = new real_t*[1 + numax_]; // allocate pointers to blocks
+          u_ = new double*[1 + numax_]; // allocate pointers to blocks
           for (int nu = 0; nu <= numax_; ++nu) { // run serial forward
               int const nb = sho_tools::n2HO(nu); // dimension of block
-              u_[nu] = new real_t[nb*nb]; // allocate square blocks
+              u_[nu] = new double[nb*nb]; // allocate square blocks
               // ToDo: fill with more than pseudo-values
               std::fill(u_[nu], u_[nu] + nb*nb, 0); // clear
           } // nu
@@ -149,7 +147,8 @@ namespace sho_unitary {
       } // get_entry
 
 
-    double Unitary_SHO_Transform::test_unitarity(int const echo) const {
+      double Unitary_SHO_Transform::test_unitarity(int const echo) const
+      {
           double maxdevall{0};
           for (int nu = 0; nu <= numax_; ++nu) {
               // as the transform is block-diagonal, we can test each block for unitarity
@@ -263,7 +262,6 @@ namespace sho_unitary {
           return stat;
       } // transform_vector
   
-
       status_t Unitary_SHO_Transform::construct_dense_matrix(
             double matrix[]
           , int const nu_max
