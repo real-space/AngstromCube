@@ -632,13 +632,13 @@ namespace green_kinetic {
         , size_t   const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
         , int      const echo=0
     ) {
-        int nFD[] = {FD_range[0], FD_range[1], FD_range[2]};
+        int nFD[3];
         size_t nops{0};
         for (int dd = 0; dd < 3; ++dd) { // derivative direction, serial due to update of Tpsi
             auto const f = -0.5/pow2(hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
             int  const stride = 1 << (2*dd);
             auto const list = (2 == dd) ? z_list : ((1 == dd) ? y_list : x_list);
-            nFD[dd] = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase[dd], nFD[dd]);
+            nFD[dd] = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase[dd], FD_range[dd]);
             nops += nnzb*std::max(0, 2*nFD[dd] + 1)*R1C2*pow2(Noco*64ul)*2; // total number of floating point operations performed
         } // dd
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f';
@@ -660,8 +660,6 @@ namespace green_kinetic {
         , int const echo=0
     ) {
         int const nFD[] = {FD_range[0], FD_range[1], FD_range[2]};
-//         auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
-//         set_phase(phase, nullptr, echo); // neutral (Gamma-point) phase factors
         uint32_t num[3];
         int32_t const ** lists[3];
         for (int dd = 0; dd < 3; ++dd) {
@@ -680,9 +678,8 @@ namespace green_kinetic {
         auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
 
         for (int dd = 0; dd < 3; ++dd) {
-            free_memory(lists[dd]); // segfaults
+            free_memory(lists[dd]);
         } // dd
-//         free_memory(phase);
         return nops;
    } // multiply (kinetic energy operator)
 
@@ -694,18 +691,19 @@ namespace green_kinetic {
   template <typename real_t, int R1C2=2, int Noco=1>
   inline status_t test_finite_difference(int const echo=0) {
       size_t const nnzb = 15;
+      if (echo > 4) std::printf("\n# %s<%s,R1C2=%d,Noco=%d> start with nnzb= %d\n", __func__, real_t_name<real_t>(), R1C2, Noco, nnzb);
       auto Tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "Tpsi");
       auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo,  "psi");
-      set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64), real_t(0)); // clear
+      set(Tpsi[0][0][0], nnzb*R1C2*pow2(Noco*64ul), real_t(0)); // clear
+      set( psi[0][0][0], nnzb*R1C2*pow2(Noco*64ul), real_t(0)); // clear
       auto indx = get_memory<int32_t>(4 + nnzb + 4);
       set(indx, 4 + nnzb + 4, 0); for (size_t i = 0; i < nnzb; ++i) indx[4 + i] = i + 1;
-      uint32_t const num[] = {1, 1, 1}; // number of lists
+      uint32_t const num[] = {1, 1, 1}; // number of lists, derive in all 3 directions
       int const nFD4[] = {4, 4, 4}, nFD8[] = {8, 8, 8};
       double const hgrid[] = {1, 1, 1};
       // merely check if memory accesses are allowed
       multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD4, nullptr, nnzb, echo);
       multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD8, nullptr, nnzb, echo);
-
 
       // test also the periodic case (nFD4 only)
       for (int i = 0; i < 4; ++i) { indx[i] = 4 - (nnzb + i + 1); indx[4 + nnzb + i] = -(i + 1); }
@@ -713,40 +711,40 @@ namespace green_kinetic {
       double const phase_angle[] = {(2 == R1C2) ? -1./3. : -.5, (2 == R1C2) ? 0.125 : 0, 0.5}; // in units of 2*pi
       // if we use real numbers only, phase_angle must be a multiple of 0.5
 
-      double const wave_vector[] = {-2*constants::pi*phase_angle[0]/(nnzb*4), 0, 0};
+      double const k_x = -2*constants::pi*phase_angle[0]/(nnzb*4); // wave vector
       // set up a periodic wave in the lowest rhs
-      int const Re = 0, Im = R1C2 - 1;
+      int constexpr Re = 0, Im = R1C2 - 1;
       for (size_t inzb = 0; inzb < nnzb; ++inzb) {
-          int const iz = 0, iy = 0;
+          int constexpr iz = 0, iy = 0;
           for (int ix = 0; ix < 4; ++ix) {
-              auto const arg = wave_vector[0]*(inzb*4 + ix)*hgrid[0];
-              psi[inzb][Re][(iz*4 + iy)*4 + ix][0] = std::cos(arg);
+              auto const arg = k_x*(inzb*4 + ix)*hgrid[0];
               psi[inzb][Im][(iz*4 + iy)*4 + ix][0] = std::sin(arg);
+              psi[inzb][Re][(iz*4 + iy)*4 + ix][0] = std::cos(arg);
           } // ix
       } // inzb
       auto phase = get_memory<double[2][2]>(3, echo, "phase"); // --> TODO move into argument list
       set_phase(phase, phase_angle, 2*echo);
       uint32_t const num100[] = {1, 0, 0}; // only derive in x-direction
+      set(Tpsi[0][0][0], nnzb*R1C2*pow2(Noco*64ul), real_t(0)); // clear
       multiply<real_t,R1C2,Noco>(Tpsi, psi, num100, &indx, &indx, &indx, hgrid, nFD4, phase, nnzb, echo);
       free_memory(phase);
 
       double deviation{0};
       { // scope: check
-          auto const t = 0.5*pow2(wave_vector[0]);
+          auto const Ek = 0.5*pow2(k_x); // kinetic energy
           double dev2{0}, deva{0}, norm2{0};
-          if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im  psi_Re, psi_Im:"
-                      " (wave vector k= %g, k^2/2= %g)\n", wave_vector[0], t);
+          if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im  psi_Re, psi_Im: (wave vector k= %g sqRy, k^2/2= %g Ha)\n", k_x, Ek);
           for (size_t inzb = 0; inzb < nnzb; ++inzb) {
               int const iz = 0, iy = 0;
               for (int ix = 0; ix < 4; ++ix) {
                   int const i64 = (iz*4 + iy)*4 + ix;
                   if (echo > 9) {
                       std::printf("%g  %g %g  %g %g\n", (inzb*4 + ix)*hgrid[0],
-                           Tpsi[inzb][Re][i64][0],  Tpsi[inzb][Im][i64][0]*(2 == R1C2),
-                          t*psi[inzb][Re][i64][0], t*psi[inzb][Im][i64][0]*(2 == R1C2));
+                            Tpsi[inzb][Re][i64][0],   Tpsi[inzb][Im][i64][0]*Im,
+                          Ek*psi[inzb][Re][i64][0], Ek*psi[inzb][Im][i64][0]*Im);
                   } // echo
-                  for(int reim = 0; reim < R1C2; ++reim) {
-                      auto const dev = Tpsi[inzb][reim][i64][0] - t*psi[inzb][reim][i64][0]; // deviation
+                  for (int reim = 0; reim < R1C2; ++reim) {
+                      auto const dev = Tpsi[inzb][reim][i64][0] - Ek*psi[inzb][reim][i64][0]; // deviation
                       deva  += std::abs(dev); // measure the absolute deviation
                       dev2  += pow2(dev); // measure the square deviation
                       norm2 += pow2(psi[inzb][reim][i64][0]);
@@ -755,7 +753,7 @@ namespace green_kinetic {
           } // inzb
           deviation = std::sqrt(dev2);
           if (echo > 5) std::printf("# deviation of a periodic Bloch wave with wave vector k= %g is %.1e (abs)"
-                                  " and %.1e (rms) at norm^2 %g\n\n", wave_vector[0], deva, deviation, norm2);
+                                  " and %.1e (rms) at norm^2 %g\n\n", k_x, deva, deviation, norm2);
       } // scope
 
       free_memory(Tpsi);
@@ -773,7 +771,7 @@ namespace green_kinetic {
       return (maxdev > 3e-16);
   } // test_set_phase
 
-  inline status_t all_tests(int const echo=0) {
+  inline status_t all_tests(int echo=0) {
       status_t stat(0);
       stat += test_set_phase(echo);
       stat += test_finite_difference<float ,1,1>(echo);

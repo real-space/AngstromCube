@@ -5,10 +5,10 @@
 //    #include <cstdio> // std::printf
 //    #include "simple_timer.hxx" // SimpleTimer
 //    std::vector<std::tuple<char const*, double, status_t>> results;
+//    std::string const input_name;
 //    int const echo;
 //    bool const all;
 //    bool const show;
-//    bool const chapters;
 
 #define   add_module_test(MODULE_NAME) {                                            \
               auto const module_name = #MODULE_NAME;                                \

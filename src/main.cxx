@@ -126,10 +126,8 @@
 #include "add_module_test.h" // macro definition of add_module_test(MODULE_NAME)
 
 #define   start_a_chapter(chapter_name) {                                           \
-              if (all) {                                                            \
-                  if (chapters) std::printf("\n\n\n\n#\n# %s modules\n#\n\n\n\n", chapter_name); \
-                  if (!show) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
-              }                                                                     \
+              if (chapters) std::printf("\n\n\n\n#\n# %s modules\n#\n\n\n\n", chapter_name); \
+              if (all && !show) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
           } // start_a_chapter
 
           start_a_chapter("general"); // *****************************************
@@ -243,7 +241,7 @@
       if (results.size() < 1) { // nothing has been tested
           error("test for '%s' not found, use -t '?' to see available modules!", module);
       } else {
-          if (show && echo > 0) std::printf("\n\n# %ld modules can be tested:\n", results.size());
+          if (echo > 0) std::printf("\n\n");
           int const show_timings = control::get("timings.show", 0.);
           int nonzero_status{0};
           int nmodules{0}; // count the module without counting chapters
@@ -252,13 +250,14 @@
               auto const time = std::get<1>(result);
               auto const stat = std::get<2>(result);
               if (ChapterMarker == time) {
-                  if (echo > 1) std::printf("#  ==== %s modules ====\n", name);  // this is a chapter marker
+                  if (echo > 1) std::printf("#  ==== %s modules ====\n", name); // this is a chapter marker
               } else {
                   if (echo > 1) {
                       if (show) {
                           std::printf("#    module= %s\n", name);
                       } else {
                           std::printf("#    module= %-24s status= %i", name, int(stat));
+                          if (0 != stat)    std::printf(" FAILED");
                           if (show_timings) std::printf(" \ttime=%9.3f seconds", time);
                           std::printf("\n");
                       }
@@ -269,7 +268,7 @@
               } // chapter marker
           } // result
           if (show) {
-              if (echo > 0) std::printf("\n");
+              if (echo > 0) std::printf("\n# %d modules can be tested");
               warn("display mode only, none of %d modules has been tested", nmodules);
           } else { // show
               if (nmodules > 1 && echo > 0) {
