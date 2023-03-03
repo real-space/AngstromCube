@@ -25,15 +25,16 @@
   std::complex<real_t> inline conjugate(std::complex<real_t> const x) { return std::conj(x); }
 
   template <typename complex_t, typename real_t> inline
-  complex_t to_complex_t(std::complex<real_t> const x); // no generic implementation given
+  complex_t to_complex_t(std::complex<real_t> const x); // no generic implementation given on purpose
   template <> inline std::complex<double> to_complex_t(std::complex<double> const x) { return x; }
   template <> inline std::complex<float>  to_complex_t(std::complex<float>  const x) { return x; }
   template <> inline double               to_complex_t(std::complex<double> const x) { return x.real(); }
   template <> inline float                to_complex_t(std::complex<float>  const x) { return x.real(); }
-
   template <> inline float                to_complex_t(std::complex<double> const x) { return x.real(); }
-  template <> inline std::complex<float>  to_complex_t(std::complex<double> const x) { return std::complex<float>(x.real(), x.imag()); }
-  
+  template <> inline double               to_complex_t(std::complex<float>  const x) { return x.real(); }
+  template <> inline std::complex<float>  to_complex_t(std::complex<double> const x) { return std::complex<float> (x.real(), x.imag()); }
+  template <> inline std::complex<double> to_complex_t(std::complex<float>  const x) { return std::complex<double>(x.real(), x.imag()); }
+
   // use this function to extract the type of matrix elements e.g. 
   //    using double_complex_t = decltype(to_double_complex_t(complex_t(1)));
   inline std::complex<double> to_double_complex_t(std::complex<double> const x) { return x; }

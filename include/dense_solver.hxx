@@ -327,19 +327,18 @@ namespace dense_solver {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  template <typename real_t>
-  inline status_t test_inverse(int const echo=0) {
+  template <typename complex_t>
+  inline status_t test_inverse(int const echo=0, int const N=9) {
       status_t status(0);
-      int constexpr N = 9;
-      real_t dev{0};
-      view2D<std::complex<real_t>> mat(N, N, 0), inv(N, N);
+      double dev{0};
+      view2D<complex_t> mat(N, N, 0), inv(N, N);
       for (int n = 1; n <= N; ++n) { // dimension
-          // fill with random values
+          
           for (int i = 0; i < n; ++i) {
               for (int j = 0; j < n; ++j) {
-                  auto const Re = simple_math::random<real_t>(-1, 1);
-                  auto const Im = simple_math::random<real_t>(-1, 1);
-                  mat(i,j) = std::complex<real_t>(Re, Im);
+                  auto const re = simple_math::random<float>(-1, 1),
+                             im = simple_math::random<float>(-1, 1);
+                  mat(i,j) = to_complex_t<complex_t,float>(std::complex<float>(re, im)); // fill with random values
                   inv(i,j) = mat(i,j); // copy
               } // j
           } // i
@@ -348,17 +347,17 @@ namespace dense_solver {
           if (stat) warn("inversion failed with status= %i", stat);
           status += stat;
 
-          real_t devN{0}, devT{0};
+          double devN{0}, devT{0};
           for (int i = 0; i < n; ++i) {
               for (int j = 0; j < n; ++j) {
-                  std::complex<real_t> cN(0), cT(0);
+                  complex_t cN(0), cT(0);
                   for (int k = 0; k < n; ++k) {
                       cN += mat(i,k) * inv(k,j);
                       cT += inv(i,k) * mat(k,j);
                   } // k
-                  std::complex<real_t> const diag = (i == j);
-                  devN = std::max(devN, std::abs(cN - diag));
-                  devT = std::max(devT, std::abs(cT - diag));
+                  complex_t const diag = (i == j);
+                  devN = std::max(devN, 1.*std::abs(cN - diag));
+                  devT = std::max(devT, 1.*std::abs(cT - diag));
                   if (echo > 9) std::printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,
                       std::real(mat(i,j)), std::imag(mat(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
                       std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
@@ -369,14 +368,16 @@ namespace dense_solver {
           dev = std::max(dev, std::max(devN, devT));
       } // n
       if (echo > 0) std::printf("# %s<%s>(N=%d) deviations from unity are %.1e\n\n",
-                                  __func__, complex_name<real_t>(), N, dev);
+                                  __func__, complex_name<complex_t>(), N, dev);
       return status + (dev > 1e-5);
   } // test_inverse
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_inverse<float >(echo);
+      stat += test_inverse<float>(echo);
       stat += test_inverse<double>(echo);
+      stat += test_inverse<std::complex<float>>(echo);
+      stat += test_inverse<std::complex<double>>(echo);
       return stat;
   } // all_tests
 

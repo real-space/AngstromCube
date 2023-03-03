@@ -127,7 +127,7 @@
 
 #define   start_a_chapter(chapter_name) {                                           \
               if (chapters) std::printf("\n\n\n\n#\n# %s modules\n#\n\n\n\n", chapter_name); \
-              if (all && !show) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
+              if (all) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
           } // start_a_chapter
 
           start_a_chapter("general"); // *****************************************
@@ -268,7 +268,7 @@
               } // chapter marker
           } // result
           if (show) {
-              if (echo > 0) std::printf("\n# %d modules can be tested");
+              if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
               warn("display mode only, none of %d modules has been tested", nmodules);
           } else { // show
               if (nmodules > 1 && echo > 0) {
@@ -276,7 +276,7 @@
                   if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop()); // total time
                   std::printf("\n\n");
               } // show total status if many modules have been tested
-              if (status > 0) warn("Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
+              if (status > 0) warn("Tests for %d module%s failed!", nonzero_status, (1 == nonzero_status)?"":"s");
           } // show
       } // something has been tested
       return status;
