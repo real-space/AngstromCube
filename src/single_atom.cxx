@@ -24,7 +24,7 @@
 
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow, dot_product, align<nBits>
 
-#include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
+#include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 #include "sho_tools.hxx" // :: ...
 
 #include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
@@ -914,7 +914,7 @@ namespace single_atom {
 
         unitary_zyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
         { // scope: fill the Unitary_SHO_Transform with values from a file
-            sho_unitary::Unitary_SHO_Transform<double> const u(numax);
+            sho_unitary::Unitary_SHO_Transform const u(numax);
             auto const stat = u.construct_dense_matrix(unitary_zyx_lmn.data(), numax, nSHO, sho_tools::order_zyx, sho_tools::order_lmn);
             assert(0 == int(stat));
         } // scope
@@ -1360,7 +1360,7 @@ namespace single_atom {
 
         unitary_zyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
         { // scope: fill the Unitary_SHO_Transform with values from a file
-            sho_unitary::Unitary_SHO_Transform<double> const u(numax);
+            sho_unitary::Unitary_SHO_Transform const u(numax);
             auto const stat = u.construct_dense_matrix(unitary_zyx_lmn.data(), numax, nSHO, sho_tools::order_zyx, sho_tools::order_lmn);
             assert(0 == int(stat));
         } // scope

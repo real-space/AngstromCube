@@ -140,7 +140,7 @@ namespace sho_projection {
 //       std::vector<char> sho_label(nSHO*8);
 //       sho_tools::construct_label_table(sho_label.data(), numax, sho_tools::order_Ezyx);
 
-      sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
+      sho_unitary::Unitary_SHO_Transform u(numax);
 
 //       solid_harmonics::cleanup();
 

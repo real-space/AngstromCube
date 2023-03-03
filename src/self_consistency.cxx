@@ -26,7 +26,7 @@
 #include "print_tools.hxx" // print_stats, printf_vector
 #include "debug_tools.hxx" // ::manage_stop_file
 
-#include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
+#include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
 #include "single_atom.hxx" // ::atom_update
 #include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
@@ -302,7 +302,7 @@ namespace self_consistency {
       data_list<double> atom_vbar(nr2, 0.0); // zero potentials
       data_list<double> atom_rhoc(nr2, 0.0); // core_densities
 
-      sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
+      sho_unitary::Unitary_SHO_Transform const unitary(9);
 
       // allocations of grid quantities
       std::vector<double>  rho(run*g.all()); // [augmented] charge density

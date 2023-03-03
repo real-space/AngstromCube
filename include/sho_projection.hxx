@@ -263,7 +263,7 @@ namespace sho_projection {
       , double const vzyx[] // input zyx_ordered, unnormalized, [nSHO(ellmax)]
       , int const ellmax
       , double const sigma
-      , sho_unitary::Unitary_SHO_Transform<double> const & u
+      , sho_unitary::Unitary_SHO_Transform const & u
       , int const echo=0
   ) {
       status_t stat(0);
@@ -289,7 +289,7 @@ namespace sho_projection {
       , double const qlm[] // input charge moments, normalized, [pow2(1 + ellmax)]
       , int const ellmax
       , double const sigma
-      , sho_unitary::Unitary_SHO_Transform<double> const & u
+      , sho_unitary::Unitary_SHO_Transform const & u
       , int const echo=0
   ) {
       status_t stat(0);
