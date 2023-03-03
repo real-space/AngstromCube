@@ -771,7 +771,7 @@ namespace green_kinetic {
       return (maxdev > 3e-16);
   } // test_set_phase
 
-  inline status_t all_tests(int echo=0) {
+  inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_set_phase(echo);
       stat += test_finite_difference<float ,1,1>(echo);

@@ -32,6 +32,7 @@ OBJ = \
 	bessel_transform.o \
 	dense_solver.o \
 	multi_grid.o \
+	mpi_parallel.o \
 	potential_generator.o \
 	poisson_solver.o \
 	plane_wave.o \

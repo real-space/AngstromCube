@@ -1,4 +1,4 @@
-### JUSUF: :   module --force purge && module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
+### JUSUF:   module --force purge && module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 
 ## Check whether CUDA compiler is available
 ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
@@ -17,6 +17,7 @@ OBJECTS = \
 	recorded_warnings.o \
 	display_units.o \
 	load_balancer.o \
+	mpi_parallel.o \
 	green_experiments.o \
 	green_function.o \
 	green_parallel.o \
