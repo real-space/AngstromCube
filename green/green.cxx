@@ -55,7 +55,6 @@
       std::string const input_name(module ? module : "");
       bool const show = ('?' == input_name[0]);
       bool const all  = ( 0  == input_name[0]) || show;
-      bool const chapters = all && (!show) && (echo > 0); // show chapter separators
       if (echo > 0) {
           if (show) { std::printf("\n# show available module tests:\n"); } else
           if (all)  { std::printf("\n# run all tests!\n\n"); }
@@ -67,7 +66,6 @@
 
 #include "add_module_test.h" // macro definition of add_module_test(MODULE_NAME)
 
-          if (chapters) std::printf("\n\n\n\n#\n# general modules\n#\n\n\n\n");
           add_module_test(control);
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
@@ -81,8 +79,6 @@
           add_module_test(load_balancer);
           add_module_test(sho_tools);
           add_module_test(mpi_parallel);
-
-          if (chapters) std::printf("\n\n\n\n#\n# Green function modules\n#\n\n\n\n");
           add_module_test(green_parallel);
           add_module_test(green_input);
           green_tests::add_tests(results, input_name, show, all, echo);

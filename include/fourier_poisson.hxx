@@ -33,9 +33,12 @@ namespace fourier_poisson {
 
       status_t stat(0);
       stat += fourier_transform::fft(x_Re, x_Im, b, b_Im, ng, true); // transform b into reciprocal space
-      if (0 != stat) error("fourier transform failed with status ", stat);
+      if (0 != stat) {
+          if (echo > 0) std::printf("# %s fourier transform failed with status %d\n", __FILE__, stat);
+          return stat;
+      } // failed
 
-      if (echo > 0) std::printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
+      if (echo > 1) std::printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
       x_Re[0] = 0; x_Im[0] = 0; // charge neutrality, clear the k=[0 0 0]-component
 
       real_t const scale = -factor/ng_all;

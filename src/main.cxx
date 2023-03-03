@@ -100,10 +100,10 @@
 #include <string> // std::string
 #include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
-  status_t run_unit_tests(char const *module=nullptr, int const echo=0) {
+  status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
 #ifdef  NO_UNIT_TESTS
-      error("version was compiled with -D NO_UNIT_TESTS", 0);
+      error("version was compiled with -D NO_UNIT_TESTS but try to test \'%s\'", module);
       return STATUS_TEST_NOT_INCLUDED;
 #else // NO_UNIT_TESTS
 
@@ -119,12 +119,20 @@
           else      { std::printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
       } // echo
 
+      double constexpr ChapterMarker = -1.; // passed in the time entry
       std::vector<std::tuple<char const*, double, status_t>> results;
       { // testing scope
 
 #include "add_module_test.h" // macro definition of add_module_test(MODULE_NAME)
 
-          if (chapters) std::printf("\n\n\n\n#\n# general modules\n#\n\n\n\n");
+#define   start_a_chapter(chapter_name) {                                           \
+              if (all) {                                                            \
+                  if (chapters) std::printf("\n\n\n\n#\n# %s modules\n#\n\n\n\n", chapter_name); \
+                  if (!show) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
+              }                                                                     \
+          } // start_a_chapter
+
+          start_a_chapter("general"); // *****************************************
           add_module_test(control);
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
@@ -134,7 +142,7 @@
           add_module_test(xml_reading);
           add_module_test(data_view);
 
-          if (chapters) std::printf("\n\n\n\n#\n# math modules\n#\n\n\n\n");
+          start_a_chapter("math"); // *****************************************
           add_module_test(inline_math);
           add_module_test(simple_math);
           add_module_test(complex_tools);
@@ -144,9 +152,14 @@
           add_module_test(finite_difference);
           add_module_test(hermite_polynomial);
           add_module_test(spherical_harmonics);
+          add_module_test(dense_operator);
           add_module_test(angular_grid);
 
-          if (chapters) std::printf("\n\n\n\n#\n# input modules\n#\n\n\n\n");
+          start_a_chapter("inactive"); // *****************************************
+          add_module_test(vector_layout);
+          add_module_test(linear_operator);
+
+          start_a_chapter("input"); // *****************************************
           add_module_test(chemical_symbol);
           add_module_test(boundary_condition);
           add_module_test(geometry_analysis);
@@ -154,13 +167,13 @@
           add_module_test(unit_system);
           add_module_test(real_space);
 
-          if (chapters) std::printf("\n\n\n\n#\n# parallelization modules\n#\n\n\n\n");
+          start_a_chapter("parallelization"); // *****************************************
           add_module_test(mpi_parallel);
           add_module_test(parallel_domains);
           add_module_test(global_coordinates);
           add_module_test(load_balancer);
 
-          if (chapters) std::printf("\n\n\n\n#\n# electrostatics modules\n#\n\n\n\n");
+          start_a_chapter("electrostatics"); // *****************************************
           add_module_test(multi_grid);
           add_module_test(fourier_transform);
           add_module_test(fourier_poisson);
@@ -168,19 +181,20 @@
           add_module_test(iterative_poisson);
           add_module_test(poisson_solver);
 
-          if (chapters) std::printf("\n\n\n\n#\n# radial modules\n#\n\n\n\n");
+          start_a_chapter("radial"); // *****************************************
           add_module_test(radial_grid);
           add_module_test(radial_integrator);
           add_module_test(radial_eigensolver);
           add_module_test(atom_core);
           add_module_test(sigma_config);
+          add_module_test(element_config);
           add_module_test(pseudo_tools);
           add_module_test(bessel_transform);
           add_module_test(scattering_test);
           add_module_test(single_atom);
           add_module_test(pawxml_import);
 
-          if (chapters) std::printf("\n\n\n\n#\n# SHO-specific modules\n#\n\n\n\n");
+          start_a_chapter("SHO-specific"); // *****************************************
           add_module_test(sho_tools);
           add_module_test(sho_unitary);
           add_module_test(sho_overlap);
@@ -190,7 +204,7 @@
           add_module_test(sho_basis);
           add_module_test(sho_hamiltonian);
 
-          if (chapters) std::printf("\n\n\n\n#\n# Hamiltonian modules\n#\n\n\n\n");
+          start_a_chapter("Hamiltonian"); // *****************************************
           add_module_test(atom_image);
           add_module_test(plane_wave);
           add_module_test(grid_operators);
@@ -206,13 +220,13 @@
 //           add_module_test(green_experiments);
           green_tests::add_tests(results, input_name, show, all, echo); // The 7 green_* modules above are grouped for faster development
 
-          if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
+          start_a_chapter("eigensolver"); // *****************************************
           add_module_test(conjugate_gradients);
           add_module_test(davidson_solver);
           add_module_test(dense_solver);
           add_module_test(structure_solver);
 
-          if (chapters) std::printf("\n\n\n\n#\n# DFT-specific modules\n#\n\n\n\n");
+          start_a_chapter("DFT-specific"); // *****************************************
           add_module_test(brillouin_zone);
           add_module_test(fermi_distribution);
           add_module_test(exchange_correlation);
@@ -220,48 +234,47 @@
           add_module_test(density_generator);
           add_module_test(self_consistency);
 
-          if (chapters) std::printf("\n\n\n\n#\n# inactive modules\n#\n\n\n\n");
-          add_module_test(vector_layout);
-          add_module_test(linear_operator);
-          add_module_test(dense_operator);
-          add_module_test(element_config);
-
+#undef    start_a_chapter
 #undef    add_module_test
 
       } // testing scope
 
       status_t status(0);
-      int const nmodules = results.size();
-      if (nmodules < 1) { // nothing has been tested
-          if (echo > 0) std::printf("# ERROR: test for '%s' not found, use -t '?' to see available modules!\n", module);
-          status = STATUS_TEST_NOT_INCLUDED;
+      if (results.size() < 1) { // nothing has been tested
+          error("test for '%s' not found, use -t '?' to see available modules!", module);
       } else {
-          if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, show?"can be":"have been");
+          if (show && echo > 0) std::printf("\n\n# %ld modules can be tested:\n", results.size());
           int const show_timings = control::get("timings.show", 0.);
           int nonzero_status{0};
+          int nmodules{0}; // count the module without counting chapters
           for (auto result : results) {
               auto const name = std::get<0>(result);
               auto const time = std::get<1>(result);
               auto const stat = std::get<2>(result);
-              if (echo > 0) {
-                  if (show) {
-                      std::printf("#    module= %s\n", name);
-                  } else {
-                      std::printf("#    module= %-24s status= %i", name, int(stat));
-                      if (show_timings) std::printf(" \ttime=%9.3f seconds", time);
-                      std::printf("\n");
-                  }
-              } // echo
-              status += std::abs(int(stat));
-              nonzero_status += (0 != stat);
+              if (ChapterMarker == time) {
+                  if (echo > 1) std::printf("#  ==== %s modules ====\n", name);  // this is a chapter marker
+              } else {
+                  if (echo > 1) {
+                      if (show) {
+                          std::printf("#    module= %s\n", name);
+                      } else {
+                          std::printf("#    module= %-24s status= %i", name, int(stat));
+                          if (show_timings) std::printf(" \ttime=%9.3f seconds", time);
+                          std::printf("\n");
+                      }
+                  } // echo
+                  status += std::abs(int(stat)); // we must take |stat| so that positive and negative statuses do not cancel out
+                  nonzero_status += (0 != int(stat));
+                  ++nmodules;
+              } // chapter marker
           } // result
           if (show) {
               if (echo > 0) std::printf("\n");
-              warn("Display only, none of %d modules has been tested", nmodules);
+              warn("display mode only, none of %d modules has been tested", nmodules);
           } else { // show
               if (nmodules > 1 && echo > 0) {
                   std::printf("\n#%3d modules have been tested,  total status= %d", nmodules, int(status));
-                  if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop());
+                  if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop()); // total time
                   std::printf("\n\n");
               } // show total status if many modules have been tested
               if (status > 0) warn("Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
@@ -304,7 +317,7 @@
           return -1;
       } // no argument passed to executable
       status_t stat(0);
-      char const *test_unit{nullptr}; // the name of the unit to be tested
+      char const *test_unit = ""; // the name of the unit to be tested
       int run_tests{0};
       int verbosity{3}; // set default verbosity low
       control::set("executable.name", argv[0]);
@@ -382,7 +395,9 @@
       stat += unit_system::set(control::get("output.length.unit", "Bohr"),
                                control::get("output.energy.unit", "Ha"), echo);
       // run
-      if (run_tests) stat += run_unit_tests(test_unit, echo);
+      if (run_tests) {
+          stat += run_unit_tests(test_unit, echo);
+      } // run_tests
 
       // finalize
       {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show unused, 4:show defaults

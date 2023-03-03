@@ -17,7 +17,7 @@
 #include "complex_tools.hxx" // conjugate, to_complex_t
 #include "inline_math.hxx" // intpow
 #include "sho_projection.hxx" // ::sho_project, ::sho_add, ::sho_prefactor
-
+#include "simple_stats.hxx" // ::Stats<>
 #include "chemical_symbol.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
 #include "print_tools.hxx" // printf_vector

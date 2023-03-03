@@ -153,8 +153,8 @@ namespace self_consistency {
 
 
   status_t init(
-        float const ion=0.f // ionization between first and last atom
-      , int const echo=0 // log-level
+        int const echo // =0 // log-level
+      , float const ion // =0.f // ionization between first and last atom
   ) {
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
@@ -722,14 +722,13 @@ namespace self_consistency {
       return stat;
   } // init
 
-
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
       float const ion = control::get("self_consistency.test.ion", 0.);
-      return init(ion, echo);
+      return init(echo, ion);
   } // test_init
 
   status_t all_tests(int const echo) {

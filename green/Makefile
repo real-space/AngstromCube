@@ -32,6 +32,13 @@ allclean: clean
 
 CU    ?= nvcc
 CC    ?= gcc
+ifeq ($(HOSTNAME),MacBook-Pro.local)
+	EXTFLAGS += -D HAS_NO_MKL
+	LDFLAGS += -lm
+	LDFLAGS += -lblas
+	LDFLAGS += -llapack
+endif
+
 ifeq ($(HOSTNAME),Pauls-MacBook-Pro.local)
 	### Apple clang version 13.1.6 (clang-1316.0.21.2.5)
 	CXX    = g++ -Wno-unused-command-line-argument
@@ -39,6 +46,7 @@ else
 	### JUSUF: module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 	CXX    = mpic++ -Wno-unused-command-line-argument
 endif
+
 
 INC ?=
 INC += -I../include

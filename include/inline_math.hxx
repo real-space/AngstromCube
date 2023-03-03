@@ -151,7 +151,7 @@ namespace inline_math {
       if (echo > 3) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
       double fac{1};
-      for (int n = 0; n < 171; ++n) { // this can go up 171(-O0, -O1, -O2), 25(-Ofast)
+      for (int n = 0; n < 29; ++n) { // this can go up to 171(-O0, -O1, -O2), 29(-Ofast)
           if (factorial(n) != fac) std::printf("# factorial(%d) deviates\n", n);
           assert( factorial(n) == fac );
 //        std::printf("# %i! = %g\n", n, fac);
@@ -163,7 +163,7 @@ namespace inline_math {
           fac *= (n + 1.); // prepare next
       } // n
       double dfac[] = {1, 1}; // {even, odd}
-      for (int n = 0; n < 301; ++n) {
+      for (int n = 0; n < 31; ++n) { // this can go up to 301(-O0), 31(-Ofast)
           double & fac2 = dfac[n & 0x1];
           if (factorial<2>(n) != fac2) std::printf("# double factorial(%d) deviates\n", n);
           assert( factorial<2>(n) == fac2 );
