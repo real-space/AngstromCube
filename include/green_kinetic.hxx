@@ -29,7 +29,7 @@ namespace green_kinetic {
 
     int constexpr nhalo = 4; // a maximum of 4 bocks (i.e. 16 grid points) is the range of the FD stencil.
 
-    int32_t get_inz(
+    inline int32_t get_inz(
           uint32_t const idx[3]
         , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
         , uint32_t const RowStart[]

@@ -505,7 +505,7 @@ namespace green_function {
   char const boundary_condition_shortname[][8] = {"iso", "peri", "vacu"};
 
 
-  std::vector<int64_t> get_right_hand_sides(
+  inline std::vector<int64_t> get_right_hand_sides(
         uint32_t const nb[3] // number of blocks
       , std::vector<uint16_t> & owner_rank
       , int const echo=0

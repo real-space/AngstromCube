@@ -17,6 +17,7 @@ OBJECTS = \
 	recorded_warnings.o \
 	display_units.o \
 	load_balancer.o \
+	green_experiments.o \
 	green_parallel.o \
 	green_input.o \
 	green_tests.o \
@@ -32,6 +33,14 @@ allclean: clean
 
 CU    ?= nvcc
 CC    ?= gcc
+FEAFLAGS ?=
+INC ?=
+LDFLAGS ?=
+ERRFLAGS ?=
+OPTFLAGS ?=
+CUOPTFLAGS ?=
+CXXOPTFLAGS ?=
+
 ifeq ($(HOSTNAME),MacBook-Pro.local)
 	EXTFLAGS += -D HAS_NO_MKL
 	LDFLAGS += -lm
@@ -39,30 +48,24 @@ ifeq ($(HOSTNAME),MacBook-Pro.local)
 	LDFLAGS += -llapack
 endif
 
-ifeq ($(HOSTNAME),Pauls-MacBook-Pro.local)
+ifeq ($(HOSTNAME),MacBook-Pro.local)
 	### Apple clang version 13.1.6 (clang-1316.0.21.2.5)
 	CXX    = g++ -Wno-unused-command-line-argument
+	FEAFLAGS += -DHAS_NO_MPI
 else
 	### JUSUF: module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 	CXX    = mpic++ -Wno-unused-command-line-argument
+	LDFLAGS  += -lmpi
 endif
 
 
-INC ?=
 INC += -I../include
 INC += -I../external
 
-LDFLAGS ?=
-ERRFLAGS ?=
-FEAFLAGS ?=
-OPTFLAGS ?=
-CUOPTFLAGS ?=
-CXXOPTFLAGS ?=
 
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 # FEAFLAGS += -DHAS_NO_MPI
-LDFLAGS  += -lmpi
 
 FEAFLAGS += -DHAS_RAPIDXML
 FEAFLAGS += -DHAS_RAPIDJSON
