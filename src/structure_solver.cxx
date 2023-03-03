@@ -2,11 +2,13 @@
 #include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-// #include "structure_solver.hxx" // RealSpaceKohnSham, status_t
 
-// #include "real_space.hxx" // ::grid_t
-// #include "fermi_distribution.hxx" // ::FermiLevel_t, ::Fermi_level
-// #include "data_list.hxx" // data_list<T>
+#include "structure_solver.hxx" // RealSpaceKohnSham, status_t
+
+#include "real_space.hxx" // ::grid_t
+#include "fermi_distribution.hxx" // ::FermiLevel_t, ::Fermi_level
+#include "data_list.hxx" // data_list<T>
+#include "data_view.hxx" // view2D<T>
 
 namespace structure_solver {
 
@@ -16,34 +18,43 @@ namespace structure_solver {
 
   status_t test_create_and_destroy(int const echo) {
       status_t stat(0);
-//       real_space::grid_t g(7, 8, 9);
-//       RealSpaceKohnSham KS(g, list_of_atoms, 1, echo);
+      if (echo > 5) std::printf("\n# %s start\n\n", __func__);
+      real_space::grid_t g(7, 8, 9);
+      int const natoms = 0;
+      view2D<double> xyzZinso(natoms, 8, 0.0);
+      RealSpaceKohnSham KS(g, xyzZinso, natoms, 0, echo);
+      if (echo > 5) std::printf("\n# %s done\n\n", __func__);
       return stat;
   } // test_create_and_destroy
 
   status_t test_free_electrons(int const echo) {
       status_t stat(0);
-      stat = STATUS_TEST_NOT_INCLUDED; // ToDo
-      if (echo > 0) std::printf("# %s %s currently deactivated!\n", __FILE__, __func__);
-
-//       real_space::grid_t g(8, 8, 8);
-//       std::vector<atom_image::sho_atom_t> list_of_atoms(1);
-//       list_of_atoms[0] = atom_image::sho_atom_t(1., 1, -1, nullptr, 0);
-//       double const pos[3] = {0, 0, 0};
-//       list_of_atoms[0].set_image_positions(pos);
-//       RealSpaceKohnSham KS(g, list_of_atoms, 1, echo);
-//       std::vector<int32_t> n_atom_rho(1, 4);
-//       data_list<double> atom_mat(n_atom_rho);
-//       fermi_distribution::FermiLevel_t Fermi;
-//       std::vector<double> Vtot(g.all(), 0.0);
-//       KS.solve(Fermi, g, Vtot.data(), n_atom_rho, atom_mat);
+      if (echo > 5) std::printf("\n# %s start\n\n", __func__);
+      real_space::grid_t g(16, 16, 16); // so far boundary condition is isolated
+      g.set_boundary_conditions(1, 1, 1);
+      int const natoms = 0;
+      view2D<double> xyzZinso(natoms, 8, 0.0);
+      assert(control::get("bands.extra", 1.) > 0); // overwrite the default for "bands.extra" which is 0 in the RealSpaceKohnSham constructor.
+      RealSpaceKohnSham KS(g, xyzZinso, natoms, 1, echo);
+      double charges[] = {0, 0, 0, 0};
+      view2D<double> valence_rho(2, g.all(), 0.0);
+      std::vector<int32_t> n_atom_rho(natoms, 1); // list of pow2(nSHO(numax[ia]))
+      data_list<double> atom_rho[2];
+      atom_rho[0] = data_list<double>(n_atom_rho); // density
+      atom_rho[1] = data_list<double>(n_atom_rho); // response
+      std::vector<int32_t> n_atom_mat(natoms, 2); // list of 2*pow2(nSHO(numax[ia]))
+      data_list<double> atom_mat(n_atom_mat, 0.0);
+      fermi_distribution::FermiLevel_t Fermi(control::get("valence.electrons", 0.5));
+      std::vector<double> Vtot(g.all(), 0.0); // empty potential
+      stat += KS.solve(valence_rho, atom_rho, charges, Fermi, g, Vtot.data(), natoms, atom_mat, 'e', -1, echo);
+      if (echo > 5) std::printf("\n# %s done\n\n", __func__);
       return stat;
   } // test_free_electrons
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_create_and_destroy(echo);
       stat += test_free_electrons(echo);
+      stat += test_create_and_destroy(echo); // this needs to run seconds as it asks for control::get("bands.extra", 0.);
       return stat;
   } // all_tests
 

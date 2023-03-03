@@ -1,44 +1,39 @@
 #pragma once
 
 #include <cassert> // assert
-#include <cstdio> // std::printf, ::snprintf
+#include <cstdio> // std::printf, ::snprintf, ::fflush, stdout
 #include <vector> // std::vector<T>
-#include <complex> // std::complex<real_t>
-
+#include <complex> // std::complex<real_t>, ::real
+#include <cmath> // std::sqrt
+#include <algorithm> // std::max
 
 // #define DEBUG
 
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2, align<n>
-
 #include "real_space.hxx" // ::grid_t
-#include "sho_tools.hxx" // ::quantum_number_table
+#include "sho_tools.hxx" // ::quantum_number_table, ::order_Ezyx, ::zyx_index
 #include "data_view.hxx" // view2D<T>
 #include "data_list.hxx" // data_list<T> // replaces std::vector<T*> constructions
-
 #include "control.hxx" // ::get
-
+#include "constants.hxx" // ::pi
 #include "debug_tools.hxx" // ::read_from_file
 #include "debug_output.hxx" // dump_to_file, here
-
 #include "atom_image.hxx"// ::sho_atom_t
-#include "grid_operators.hxx" // ::grid_operator_t
+#include "real_space.hxx" // ::grid_t
+#include "grid_operators.hxx" // ::grid_operator_t, ::list_of_atoms
 #include "conjugate_gradients.hxx" // ::eigensolve
 #include "davidson_solver.hxx" // ::rotate, ::eigensolve
 #include "dense_solver.hxx" // ::display_spectrum, ::solve
 #include "fermi_distribution.hxx" // ::FermiLevel_t, ::Fermi_level
-#include "density_generator.hxx" // ::density
+#include "density_generator.hxx" // ::density, ::atom_coefficients
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
-#include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::needs_complex
-
-// alternative basis set methods
-#include "plane_wave.hxx" // ::solve
+#include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::needs_complex, ::WEIGHT
+#include "plane_wave.hxx" // ::solve, ::DensityIngredients
 #include "sho_hamiltonian.hxx" // ::solve
-
 #include "print_tools.hxx" // print_stats
 #include "complex_tools.hxx" // complex_name
-
 #include "status.hxx" // status_t
 
 namespace structure_solver {
@@ -76,7 +71,7 @@ namespace structure_solver {
         //       local potential and atom matrices of op are still unset!
 
         if (echo > 0) std::printf("# real-space grid wave functions are of type %s\n", complex_name<wave_function_t>());
-        psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), 0.0); // get memory (potentially large)
+        psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), 1.0); // get memory (potentially large)
 
         int const na = list_of_atoms.size();
         auto start_wave_file = control::get("start.waves", "");
@@ -108,6 +103,7 @@ namespace structure_solver {
             data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
             for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                 op.set_kpoint(kmesh[ikpoint], echo);
+                if (na > 0) {
                 for (int iband = 0; iband < nbands; ++iband) {
                     int const ia = iband % na1; // which atom?
                     int const io = iband / na1; // which orbital?
@@ -119,6 +115,7 @@ namespace structure_solver {
                     if (run) op.get_start_waves(psi(ikpoint,iband), single_atomic_orbital.data(), scale_sigmas, echo);
                     single_atomic_orbital[ia][isho] = 0; // reset
                 } // iband
+                } // na > 0
             } // ikpoint
             op.set_kpoint(); // reset k-point
         } // start wave method
@@ -303,8 +300,9 @@ namespace structure_solver {
         bool const use_complex = needs_complex | (0 != force_complex);
 
         double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
-        if (echo > 0) std::printf("# bands.per.atom=%g\n", nbands_per_atom);
-        nbands = int(nbands_per_atom*na);
+        int    const nbands_extra    = control::get("bands.extra", 0.);
+        if (echo > 0) std::printf("# bands.per.atom=%g\n# bands.extra=%d\n", nbands_per_atom, nbands_extra);
+        nbands = int(nbands_per_atom*na) + nbands_extra;
 
 
         if (psi_on_grid) {
@@ -358,11 +356,10 @@ namespace structure_solver {
     } // constructor
 
     ~RealSpaceKohnSham() { // destructor
-        // call destructors
-        if (nullptr != z) z->~KohnShamStates();
-        if (nullptr != c) c->~KohnShamStates();
-        if (nullptr != d) d->~KohnShamStates();
-        if (nullptr != s) s->~KohnShamStates();
+        if (z) z->~KohnShamStates();
+        if (c) c->~KohnShamStates();
+        if (d) d->~KohnShamStates();
+        if (s) s->~KohnShamStates();
     } // destructor
 
     status_t solve(
@@ -371,8 +368,8 @@ namespace structure_solver {
         , double charges[] // 0:kpoint_denominator, 1:charge, 2:d_charge
         , fermi_distribution::FermiLevel_t & Fermi
         , real_space::grid_t const & g // dense grid
-        , double const Vtot[] // local effective potential
-        , std::vector<int32_t> const & n_atom_rho
+        , double const Vtot[] // local effective potential on dense grid
+        , int const & natoms
         , data_list<double> & atom_mat // (removed const)
         , char const occupation_method='e' // occupation method
         , int const scf=-1 // scf_iteration
@@ -388,8 +385,8 @@ namespace structure_solver {
 
         assert(g.all() == rho_valence_new.stride());
 
-        int const na = n_atom_rho.size();
         if (psi_on_grid) {
+            sanity_check();
 
             // restrict the local effective potential to the coarse grid
             view2D<double> Veff(1, gc.all());
@@ -398,23 +395,23 @@ namespace structure_solver {
 
             view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
 
-            if ('z' == key) z->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
-            if ('c' == key) c->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
-            if ('d' == key) d->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
-            if ('s' == key) s->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
+            if (z) z->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
+            if (c) c->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
+            if (d) d->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
+            if (s) s->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
 
             auto const dcc_coarse = dot_product(gc.all(), rho_valence_gc[0], Veff.data()) * gc.dV();
             if (echo > 4) std::printf("\n# double counting (coarse grid) %.9f %s\n", dcc_coarse*eV, _eV);
             // beware: if fermi.level=linearized, dcc_coarse is computed from uncorrected densities
 
-            stat += multi_grid::interpolate3D(rho_valence_new[0], g, rho_valence_gc[0], gc);
-            stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc);
+            stat += multi_grid::interpolate3D(rho_valence_new[0], g, rho_valence_gc[0], gc); // new valence density
+            stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc); // new response density
 
         } else if ('p' == key) { // plane-waves
 
             std::vector<plane_wave::DensityIngredients> export_rho;
 
-            stat += plane_wave::solve(na, xyzZ, g, Vtot, sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
+            stat += plane_wave::solve(natoms, xyzZ, g, Vtot, sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
 
             if ('e' == (occupation_method | 32)) {
                 // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
@@ -443,7 +440,7 @@ namespace structure_solver {
 
         } else {
 
-            stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot, nkpoints, kmesh, na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+            stat += sho_hamiltonian::solve(natoms, xyzZ, g, Vtot, nkpoints, kmesh, natoms, sigma_a.data(), numax.data(), atom_mat.data(), echo);
             warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
 
         } // psi_on_grid
@@ -458,10 +455,11 @@ namespace structure_solver {
         if (nullptr != filename) {
             if ('\0' != filename[0]) {
                 if (psi_on_grid) {
-                    if ('z' == key) nerrors += z->store(filename, echo);
-                    if ('c' == key) nerrors += c->store(filename, echo);
-                    if ('d' == key) nerrors += d->store(filename, echo);
-                    if ('s' == key) nerrors += s->store(filename, echo);
+                    sanity_check();
+                    if (z) nerrors += z->store(filename, echo);
+                    if (c) nerrors += c->store(filename, echo);
+                    if (d) nerrors += d->store(filename, echo);
+                    if (s) nerrors += s->store(filename, echo);
                 } // psi_on_grid
                 if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, filename);
             } else {
@@ -473,6 +471,17 @@ namespace structure_solver {
     } // store
 
   private:
+    
+      void sanity_check() {
+            char str[] = "\0\0\0\0\0\0\0";
+            int n{0};
+            if (z) { str[n] = 'z'; ++n; }
+            if (c) { str[n] = 'c'; ++n; }
+            if (d) { str[n] = 'd'; ++n; }
+            if (s) { str[n] = 's'; ++n; }
+            if (1 != n) error("expect exactly one of four pointers active but found %d {%s}", n, str);
+      } // sanity_check
+
       view2D<double> kmesh; // kmesh(nkpoints, 4);
       int nkpoints = 0;
       int nbands = 0;

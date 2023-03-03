@@ -192,7 +192,7 @@ namespace brillouin_zone {
       double from[3], to[3];
       auto const c_from = get_special_kpoint(from, "hamiltonian.kpath.from", "Gamma");
       auto const c_to   = get_special_kpoint(to,   "hamiltonian.kpath.to",   "X");
-      auto const dk = control::get("hamiltonian.kpath.spacing", 0.01);
+      auto const dk = control::get("hamiltonian.kpath.spacing", 0.05);
       auto const length = std::sqrt(pow2(to[0] - from[0]) + pow2(to[1] - from[1]) + pow2(to[2] - from[2]));
       int const nk = std::ceil(length/std::max(dk, 1e-9));
       int const npath = nk + 1;

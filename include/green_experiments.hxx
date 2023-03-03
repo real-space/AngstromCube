@@ -152,7 +152,6 @@ namespace green_experiments {
       free_memory(rho);
 #else  // HAS_TFQMRGPU
       warn("%s needs tfQMRgpu", __func__);
-      return -1;
 #endif // HAS_TFQMRGPU
       return 0;
   } // bandstructure
@@ -231,9 +230,9 @@ namespace green_experiments {
               dev[2] += std::abs(mat[iband*nbands + iband][Imag]);
           } // iband
           if (Imag) {
-              if (echo > 0) std::printf("# %cmat deviation from hermitian off-diag (%.1e, %.1e), diagonal %.1e\n", hs?'H':'S', dev[0], dev[1], dev[2]);
+              if (echo > 4) std::printf("# %cmat deviation from hermitian off-diag (%.1e, %.1e), diagonal %.1e\n", hs?'H':'S', dev[0], dev[1], dev[2]);
           } else {
-              if (echo > 0) std::printf("# %cmat deviation from symmetric %.2e\n", hs?'H':'S', dev[0]);
+              if (echo > 4) std::printf("# %cmat deviation from symmetric %.2e\n", hs?'H':'S', dev[0]);
           }
       } // check hermitian property
 
@@ -303,6 +302,7 @@ namespace green_experiments {
       , int const nblocks
       , int const nb
       , float min_max_res[] // side result
+      , int const echo=0
   )
     // psi_j = Hpsi_i - E_i * Spsi_i, j=i+nbhalf
   {
@@ -352,9 +352,9 @@ namespace green_experiments {
               isrc += (res_norm2[iband] > threshold2);
           } // iband
           newbands = isrc;
-          if (0 == (iteration & 0xf)) std::printf("# %s iteration=%i threshold^2=%.1e\n", __func__, iteration, threshold2);
+          if (0 == (iteration & 0xf) && echo > 3) std::printf("# %s iteration=%i threshold^2=%.1e\n", __func__, iteration, threshold2);
       } // while
-      std::printf("# %d new bands have been selected with residuals in [%.1e, %.1e]\n", newbands, std::sqrt(threshold2), std::sqrt(min_max_res[1]));
+      if (echo > 4) std::printf("# %d new bands have been selected with residuals in [%.1e, %.1e]\n", newbands, std::sqrt(threshold2), std::sqrt(min_max_res[1]));
       std::vector<int> i_index(nbands, -1);
       std::vector<int> j_index(nbands, -1);
       int isrc{0}, itrg{0};
@@ -609,10 +609,10 @@ namespace green_experiments {
       simple_stats::Stats<> Gflop_count;
       simple_stats::Stats<> Wtime_count;
       for (int ik = 0; ik < nkpoints; ++ik) {
-          SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+          SimpleTimer timer(__FILE__, __LINE__, __func__, 0);
           double const *const k_point = k_path[ik];
 
-          if (echo > 0) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
+          if (echo > 3) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
           green_function::update_phases(pH, k_point, Noco, echo);
           green_function::update_phases(pS, k_point, Noco, echo/2);
           double nops{0};
@@ -677,7 +677,7 @@ namespace green_experiments {
 
                           nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
                           nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
-                          nops += gradient_waves(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, min_max_res);
+                          nops += gradient_waves(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, min_max_res, echo);
                           if (echo > 5) std::printf("# gradient_waves in iteration #%i has residual norms in [%.1e, %.1e]\n",
                                                     it, min_max_res[0], min_max_res[1]);
                         }

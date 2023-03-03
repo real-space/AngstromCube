@@ -544,8 +544,7 @@ namespace self_consistency {
               double charges[4] = {0, 0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:d_charge, 3:unused
 
               KS.solve(rho_valence_new, atom_rho_new, charges, Fermi,
-                  g, Vtot.data(), n_atom_rho, atom_mat,
-                  occupation_method, scf_iteration, echo);
+                        g, Vtot.data(), na, atom_mat, occupation_method, scf_iteration, echo);
 
               double band_energy_sum = Fermi.get_band_sum(); // non-const since we might need to correct this
 

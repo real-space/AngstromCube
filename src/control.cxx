@@ -27,11 +27,11 @@ namespace control {
 
 
   int32_t constexpr default_value_tag = 2e9; // pass this as linenumber
-  // hidden function: _manage_variables(echo, name, value) --> set
-  //                  _manage_variables(echo, name, value, linenumber) --> set_to_default
-  //                  _manage_variables(echo, name) --> get
-  //                  _manage_variables(echo) --> show_variables
-  char const* _manage_variables(
+  // hidden function: _environment(echo, name, value) --> set
+  //                  _environment(echo, name, value, linenumber) --> set_to_default
+  //                  _environment(echo, name) --> get
+  //                  _environment(echo) --> show_variables
+  char const* _environment(
         int const echo
       , char const *const name=nullptr
       , char const *const value=nullptr
@@ -121,30 +121,30 @@ namespace control {
 
       } // name
 
-  } // _manage_variables
+  } // _environment
 
   void set(char const *const name, char const *const value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
       assert(nullptr != name  && "control::set(name, value) needs a valid string as name!");
       assert(nullptr != value && "control::set(name, value) needs a valid string as value!");
-      _manage_variables(echo, name, value); // set
+      _environment(echo, name, value); // set
   } // set<string>
 
   char const* get(char const *const name, char const *const default_value) {
       assert(nullptr != name && "control::get(name, default_value) needs a valid string as name!");
       int const echo = default_echo_level;
-      auto const value = _manage_variables(echo, name); // get
+      auto const value = _environment(echo, name); // get
       if (nullptr != value && '\0' != *value) {
           if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
           return value;
       } else {
           if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
-          return _manage_variables(echo, name, default_value, default_value_tag); // set_to_default
+          return _environment(echo, name, default_value, default_value_tag); // set_to_default
       }
   } // get<string>
 
   status_t show_variables(int const echo) {
-      _manage_variables(echo); // show_variables
+      _environment(echo); // show_variables
       return 0;
   } // show_variables
 
@@ -165,7 +165,7 @@ namespace control {
       name[equal_char] = '\0'; // delete the '=' sign to mark the name
       char const *value = equal + 1; // everything after the '=' marker
       if (echo > 7) std::printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
-      _manage_variables(echo, name, value, iarg); // set
+      _environment(echo, name, value, iarg); // set
       return 0;
   } // command_line_interface
 

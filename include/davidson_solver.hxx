@@ -115,6 +115,7 @@ namespace davidson_solver {
     , float const mbasis=2
     , int const niterations=2
     , float const threshold=1e-4
+    , char const * func="Davidson"
   ) {
       using complex_t = typename operator_t::complex_t; // abbreviate
       using doublecomplex_t = decltype(to_double_complex_t(complex_t(1))); // double or complex<double>
@@ -127,7 +128,7 @@ namespace davidson_solver {
 
       int const max_space = std::ceil(mbasis*nbands);
       int sub_space{nbands}; // init with the waves from the input
-      if (echo > 0) std::printf("# start Davidson with %d bands, subspace size up to %d bands\n", sub_space, max_space);
+      if (echo > 7) std::printf("# start %s with %d bands, subspace size up to %d bands\n", func, sub_space, max_space);
 
       double const threshold2 = pow2(threshold); // do not add residual vectors with a norm < 1e-4
 
@@ -148,7 +149,7 @@ namespace davidson_solver {
 
       int niter{niterations};
       for (int iteration = 0; iteration < niter; ++iteration) {
-          if (echo > 9) std::printf("# Davidson iteration %i\n", iteration);
+          if (echo > 9) std::printf("# %s iteration %i\n", func, iteration);
 
           int n_drop{0};
           do {
@@ -179,14 +180,14 @@ namespace davidson_solver {
                           } // j
                       } // i
                       auto const dev = std::sqrt(std::max(0.0, dev2)); // since std::norm(z) generates |z|^2
-                      if (echo > 9 && dev > 1e-14) std::printf("# Davidson: the %d x %d overlap matrix deviates from %s by %.1e\n",
+                      if (echo > 9 && dev > 1e-14) std::printf("# %s: the %d x %d overlap matrix deviates from %s by %.1e\n", func,
                           sub_space, sub_space, is_complex<doublecomplex_t>() ? "Hermitian" : "symmetric", dev);
                       if (dev > 1e-12) warn("the overlap matrix deviates by %.1e from symmetric/Hermitian", dev);
                   } // check if the overlap matrix is symmetric/Hermitian
 
                   auto const info = linear_algebra::eigenvalues(eigval.data(), sub_space, Ovl_copy.data(), Ovl_copy.stride());
                   if (1) {
-                      std::printf("# Davidson: lowest eigenvalues of the %d x %d overlap matrix ", sub_space, sub_space);
+                      std::printf("# %s: lowest eigenvalues of the %d x %d overlap matrix ", func, sub_space, sub_space);
                       for (int i = 0; i < std::min(9, sub_space) - 1; ++i) {
                           std::printf(" %.3g", eigval[i]);
                       } // i
@@ -202,7 +203,7 @@ namespace davidson_solver {
                   int drop_bands{0}; while (eigval[drop_bands] < 1e-4) ++drop_bands;
                   n_drop = drop_bands;
                   if (n_drop > 0) {
-                      if (echo > 0) std::printf("# Davidson: drop %d bands to stabilize the overlap\n", n_drop);
+                      if (echo > 0) std::printf("# %s: drop %d bands to stabilize the overlap\n", func, n_drop);
                       for (int i = 0; i < sub_space - n_drop; ++i) {
                           int const ii = i + n_drop;
                           set(epsi[i], ndof, zero);
@@ -336,7 +337,7 @@ namespace davidson_solver {
     , operator_t const & op // Hamiltonian and overlap operators
     , int const echo=0 // log-level
   ) {
-      return eigensolve(waves, energies, nbands, op, echo, 1, 1);
+      return eigensolve(waves, energies, nbands, op, echo, 1, 1, 0.f, __func__);
   } // rotate
 
 #ifdef NO_UNIT_TESTS
