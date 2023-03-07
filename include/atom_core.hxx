@@ -13,11 +13,11 @@
 namespace atom_core {
 
   status_t solve(
-        double const Z
-      , int const echo=0
+        double const Z // number of protons
+      , int const echo=0 // log output level
       , char const config='a' // a:auto or custom
-      , radial_grid_t const *rg=nullptr
-      , double *export_Zeff=nullptr
+      , radial_grid_t const *rg=nullptr // optional: use this radial grid
+      , double *export_Zeff=nullptr // optional result: -r*V_eff(r)
   ); // declaration only
 
   status_t scf_atom(
@@ -29,13 +29,13 @@ namespace atom_core {
   ); // declaration only
 
   status_t read_Zeff_from_file(
-        double Zeff[]
-      , radial_grid_t const & g
+        double Zeff[] // -r*V_eff(r), -r*V_eff(r=0) should be ~= Z
+      , radial_grid_t const & g // radial grid descriptor
       , double const Z // number of protons
-      , char const basename[]="pot/Zeff"
-      , double const factor=1
+      , char const *basename="pot/Zeff" // beginning of the filename
+      , double const factor=1 // optional factor, e.g. -1 if the output is r*V(r)
       , int const echo=0 // log output level
-      , char const *prefix=""
+      , char const *prefix="" // logging prefix
   ); // declaration only
 
   status_t store_Zeff_to_file(
@@ -43,9 +43,9 @@ namespace atom_core {
       , double const r[] // radial grid support points
       , int const nr // number of radial grid points
       , double const Z // number of protons
-      , char const basename[]="pot/Zeff" // beginning of the filename
+      , char const *basename="pot/Zeff" // beginning of the filename
       , double const factor=1 // optional factor, e.g. -1 if the input is r*V(r)
-      , int const echo=9 // log output level
+      , int const echo=0 // log output level
       , char const *prefix="" // ="" // logging prefix
   ); // declaration only
 
@@ -63,7 +63,7 @@ namespace atom_core {
       , radial_grid_t const & g // radial grid descriptor
       , double const rho4pi[] // 4*pi*rho(r)
       , double const Z=0 // number of protons
-      , double *energies=nullptr // energy contribution break down
+      , double *energies=nullptr // result: energy contribution break down
   ); // declaration only
 
   inline double guess_energy(double const Z, int const enn) {
