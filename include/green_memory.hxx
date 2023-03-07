@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
   #include <cuda.h> // dim3, cudaStream_t, __syncthreads, cuda*
 
   __host__ inline
@@ -15,7 +15,7 @@
   } // __cudaSafeCall
   #define cuCheck(err) __cudaSafeCall((err), __FILE__, __LINE__, #err) // Syntactic sugar to enhance output
 
-#else
+#else  // HAS_NO_CUDA
   // replace CUDA specifics
   #define __global__
   #define __restrict__
@@ -29,11 +29,11 @@
       dim3(int xx, int yy=1, int zz=1) : x(xx), y(yy), z(zz) {}
   }; // dim3
 
-#ifndef HAS_TFQMRGPU
+#ifndef   HAS_TFQMRGPU
     inline void __syncthreads(void) {} // dummy
     typedef int cudaError_t;
     inline cudaError_t cudaDeviceSynchronize(void) { return 0; } // dummy
-#else
+#else  // HAS_TFQMRGPU
     #define gpuStream_t cudaStream_t
     #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
 #endif // HAS_TFQMRGPU

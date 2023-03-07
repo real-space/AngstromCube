@@ -45,7 +45,10 @@ namespace geometry_analysis {
   ) {
 
       std::ifstream infile(filename, std::ifstream::in);
-      if (infile.fail()) error("Unable to open file '%s' for reading coordinates", filename);
+      if (infile.fail()) {
+          warn("unable to open file '%s' for reading coordinates", filename);
+          return 1; // error
+      }
 
       int natoms{0}, linenumber{2};
       infile >> natoms; // read the number of atoms
@@ -1071,6 +1074,10 @@ namespace geometry_analysis {
       double cell[3] = {0, 0, 0};
       int8_t bc[3] = {-7, -7, -7};
       stat += read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
+      if (0 != stat) {
+          warn("read_xyz_file failed with status= %i", int(stat));
+          return stat;
+      }
       if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       { // SimpleTimer timer(__FILE__, __LINE__, "analysis");

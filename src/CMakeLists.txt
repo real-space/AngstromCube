@@ -141,6 +141,11 @@ else(HAS_MKL)
     add_definitions(-DHAS_NO_MKL)
     target_link_libraries(libliveatom PUBLIC blas lapack)
     target_link_libraries(a43 PUBLIC blas lapack)
+    if(HAS_FFTW)
+        add_definitions(-DHAS_FFTW)
+        find_package(fftw REQUIRED)
+        target_link_libraries(a43 PUBLIC fftw)
+    endif(HAS_FFTW)
 endif(HAS_MKL)
 
 if(HAS_UNIT_TESTS)
@@ -149,12 +154,24 @@ else(HAS_UNIT_TESTS)
     add_definitions(-DNO_UNIT_TESTS)
 endif(HAS_UNIT_TESTS)
 
-
-target_include_directories(a43
-        PUBLIC
+target_include_directories(a43 PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
    )
+
+if(HAS_RAPIDXML)
+    add_definitions(-DHAS_RAPIDXML)
+    target_include_directories(a43 PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../external/rapidxml>
+    )
+endif(HAS_RAPIDXML)
+
+if(HAS_RAPIDJSON)
+    add_definitions(-DHAS_RAPIDJSON)
+    target_include_directories(a43 PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../external/rapidjson>
+    )
+endif(HAS_RAPIDJSON)
 
 target_include_directories(libliveatom
         PUBLIC

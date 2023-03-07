@@ -165,14 +165,14 @@ namespace atom_core {
   } // read_Zeff_from_file
 
   status_t store_Zeff_to_file(
-        double const Zeff[]
-      , double const r[]
-      , int const nr
-      , double const Z
-      , char const basename[]
-      , double const factor
-      , int const echo
-      , char const prefix[]
+        double const Zeff[] // -r*V_eff(r), -r*V_eff(r=0) should be ~= Z
+      , double const r[] // radial grid support points
+      , int const nr // number of radial grid points
+      , double const Z // number of protons
+      , char const basename[] // beginning of the filename
+      , double const factor // optional factor, e.g. -1 if the input is r*V(r)
+      , int const echo // =9 // log output level
+      , char const prefix[] // ="" // logging prefix
   ) {
       char filename[96];
       get_Zeff_file_name(filename, basename, Z);
@@ -185,7 +185,7 @@ namespace atom_core {
           } // write to file
           return 0; // success
       } else {
-          warn("failed to open file \'%s\' for writing", filename);
+          warn("%s Z=%g failed to open file \'%s\' for writing", prefix, Z, filename);
           return 1; // failure
       } // is_open
   } // store_Zeff_to_file
@@ -204,7 +204,7 @@ namespace atom_core {
       , double const Z // atomic number
       , int const echo // log output level
       , double const occupations[][2] // =nullptr
-      , char const *export_as_json // =nullptr
+      , double *export_Zeff // =nullptr
   ) {
       status_t stat(0);
       if (echo > 7) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
@@ -417,7 +417,19 @@ namespace atom_core {
               } // i
 //            std::printf("\n"); // blank line after displaying spectrum
           } // echo
-          stat += store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1);
+
+          if (nullptr != export_Zeff) {
+              if (echo > 0) std::printf("# %s  Z=%g copy effective potential on %d radial grid points\n", __func__, Z, g.n);
+              set(export_Zeff, g.n, rV_old.data(), -1.);
+          } // export_Zeff
+
+          auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1);
+          if (0 != store_stat && nullptr != export_Zeff) {
+              warn("Z=%g failed to store self-consistent atom potential (status= %i) but passed in memory", Z, int(store_stat));
+              // ignore the store_stat
+          } else {
+              stat += store_stat;
+          }
       } // converged?
 
       // dump_to_file("rV_converged.dat", g.n, rV_old, g.r);
@@ -438,7 +450,7 @@ namespace atom_core {
       } // i
 #endif
 
-      int const show_state_diagram = control::get("show.state.diagram", 0.); // 0:do not show, 1:show
+      int const show_state_diagram = control::get("atom_core.show.state.diagram", 0.); // 0:do not show, 1:show
       if (show_state_diagram) {
           float state_diagram[30][4]; // [inl][start,end,energy,spare]
           for (int inl = 0; inl < 30; ++inl) { 
@@ -477,7 +489,8 @@ namespace atom_core {
           } // ir
       } // show_state_diagram
 
-      if ((nullptr != export_as_json) && ('\0' != *export_as_json)) {
+      char const *const export_as_json = control::get("atom_core.export.as.json", ""); //
+      if ('\0' != *export_as_json) {
 
           std::ofstream json(export_as_json, std::ios::out);
           json << "{"; // begin json
@@ -539,7 +552,7 @@ namespace atom_core {
       } // export_as_json
 
       if (echo > 2) std::printf("\n"); // blank line after atoms is computed
-      
+
       return stat;
   } // scf_atom
 
@@ -550,17 +563,16 @@ namespace atom_core {
       , int const echo // =0
       , char const config // ='a'
       , radial_grid_t const *rg // =nullptr
-      , char const *jsonfile // =nullptr
+      , double *export_Zeff // =nullptr
   ) {
       bool const my_radial_grid = (nullptr == rg);
       radial_grid_t       *const m = my_radial_grid ? radial_grid::create_default_radial_grid(Z) : nullptr;
       radial_grid_t const *const g = my_radial_grid ? m : rg;
       if ('a' == config) { // "auto"
-          if (jsonfile) warn("JSON export filename %s ignored", jsonfile);
-          return scf_atom(*g, Z, echo);
+          return scf_atom(*g, Z, echo, nullptr, export_Zeff);
       } else {
           auto const element = sigma_config::get(Z, echo);
-          return scf_atom(*g, Z, echo, element.occ, jsonfile);
+          return scf_atom(*g, Z, echo, element.occ, export_Zeff);
       }
       if (my_radial_grid) radial_grid::destroy_radial_grid(m);
   } // solve
@@ -618,13 +630,12 @@ namespace atom_core {
                       __FILE__, __LINE__, __func__, echo, Z_begin, Z_end - Z_inc, Z_inc);
       status_t stat(0);
       char const custom_config = 32 | *control::get("atom_core.occupations", "custom");
-      auto const jsonfilenname = control::get("atom_core.export.json", "");
       int const i_end = std::round((Z_end - Z_begin)/std::max(1e-9, Z_inc));
       // ToDo: OpenMP loop
       for (int i = 0; i < i_end; ++i) {
           double const Z = Z_begin + i*Z_inc;
           if (echo > 1) std::printf("\n# atom_core solver for Z= %g\n", Z);
-          auto const stat_Z = solve(Z, echo, custom_config, nullptr, jsonfilenname);
+          auto const stat_Z = solve(Z, echo, custom_config);
           if (stat_Z) warn("atom_core.test for Z=%g returned status=%i", Z, int(stat_Z));
           stat += stat_Z;
       } // i

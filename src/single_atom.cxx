@@ -557,11 +557,19 @@ namespace single_atom {
             if (0 != load_stat) {
                 if ('g' == (*control::get("single_atom.start.potentials", "generate") | 32)) {
                     if (echo > 0) std::printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
-                    auto const gen_stat = atom_core::solve(Z_core, echo/2, 'c', &rg[TRU]);
+                    std::vector<double> Zeff(rg[TRU].n, 0.);
+                    auto const gen_stat = atom_core::solve(Z_core, echo/2, 'c', &rg[TRU], Zeff.data());
                     if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
                     // should be able to read from file now
-                    auto const s = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
-                    if (0 != s) error("loading of potential file failed for Z= %g failed although generated", Z_core);
+                    if (std::abs(Zeff[0] - Z_core) > Z_core*1e-5) {
+                        if (echo > 0) std::printf("# %s Z_eff(r) passed in memory differs from Z=%g at the origin, Z_eff= %g %g %g ...\n",
+                                                                                        label, Z_core, Zeff[0], Zeff[1], Zeff[2]);
+                        auto const read_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
+                        if (0 != read_stat) error("loading of potential file failed for Z= %g failed although generated", Z_core);
+                    } else {
+                        if (echo > 0) std::printf("# %s use Z_eff(r) passed in memory\n", label);
+                        set(potential[TRU].data(), rg[TRU].n, Zeff.data(), -1.);
+                    }
                 } else { // generate
                     error("loading of potential file failed for Z= %g\n#   run -t atom_core +atom_core.test.Z=%g", Z_core, Z_core);
                 } // start.potentials=generate

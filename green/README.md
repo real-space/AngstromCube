@@ -3,10 +3,8 @@
 Compilation
 
     green can be compiled for the CPU without CUDA to check its functionality.
-    To do this, create a soft link
-        ln -s green.cu green.cxx
-
     Otherwise, green is a CUDA code for NVIDIA GPUs.
+    Please use either the Makefile in this folder or CMake
 
 Input
 

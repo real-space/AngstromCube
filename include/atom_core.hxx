@@ -17,7 +17,7 @@ namespace atom_core {
       , int const echo=0
       , char const config='a' // a:auto or custom
       , radial_grid_t const *rg=nullptr
-      , char const *jsonfile=nullptr
+      , double *export_Zeff=nullptr
   ); // declaration only
 
   status_t scf_atom(
@@ -25,7 +25,7 @@ namespace atom_core {
       , double const Z // number of protons
       , int const echo=0 // log output level
       , double const occupations[][2]=nullptr // occupation numbers by nl_index and spin
-      , char const *export_as_json=nullptr
+      , double *export_Zeff=nullptr
   ); // declaration only
 
   status_t read_Zeff_from_file(
@@ -39,14 +39,14 @@ namespace atom_core {
   ); // declaration only
 
   status_t store_Zeff_to_file(
-        double const Zeff[]
-      , double const r[]
-      , int const nr
+        double const Zeff[] // -r*V_eff(r), -r*V_eff(r=0) should be ~= Z
+      , double const r[] // radial grid support points
+      , int const nr // number of radial grid points
       , double const Z // number of protons
-      , char const basename[]="pot/Zeff"
-      , double const factor=1
+      , char const basename[]="pot/Zeff" // beginning of the filename
+      , double const factor=1 // optional factor, e.g. -1 if the input is r*V(r)
       , int const echo=9 // log output level
-      , char const *prefix=""
+      , char const *prefix="" // ="" // logging prefix
   ); // declaration only
 
   inline void get_Zeff_file_name(

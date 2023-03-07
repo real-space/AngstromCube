@@ -6,19 +6,20 @@
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
 
-#ifndef HAS_NO_MKL
+#ifndef   HAS_NO_MKL
   #include "mkl_dfti.h" // Dfti* (discrete Fourier transform interface of the Intel(c) Math Kernel Library)
-#endif
+#endif // HAS_NO_MKL
 
-#ifdef HAS_FFTW
+#ifdef    HAS_FFTW
 extern "C" {
   #include <fftw3.h> // fftw_plan, fftw_plan_dft_r2r_3d
 } // extern "C"
-#endif
+#endif // HAS_FFTW
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "constants.hxx" // ::pi
-#endif
+#endif // HAS_UNIT_TESTS
+
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace fourier_transform {
@@ -79,13 +80,13 @@ namespace fourier_transform {
                , int const ng[3] // grid numbers
                , bool const forward=true
                , int const echo=0) { // log level
-#ifndef HAS_NO_MKL
+#ifndef   HAS_NO_MKL
       status_t status(-1);
       if (echo > 0) std::printf("# MKL-FFT returns status=%i, not implemented\n", int(status));
       return status;
-#else // not defined HAS_NO_MKL
+#else  // HAS_NO_MKL
 
-#ifdef HAS_FFTW
+#ifdef    HAS_FFTW
       auto const plan = fftw_plan_dft_3d(ng[2], ng[1], ng[0], (fftw_complex*) in,
                                                               (fftw_complex*) out,
                                   forward ? FFTW_FORWARD : FFTW_BACKWARD, FFTW_ESTIMATE);
@@ -93,10 +94,10 @@ namespace fourier_transform {
       fftw_execute(plan);
       fftw_destroy_plan(plan);
       return 0; // success
-#endif // defined HAS_FFTW
+#endif // HAS_FFTW
 
       return -1; // has no FFT library
-#endif // defined HAS_NO_MKL
+#endif // HAS_NO_MKL
   } // fft
 
 
@@ -106,9 +107,9 @@ namespace fourier_transform {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename real_t>
   inline status_t test_fft(int const echo=6) {
