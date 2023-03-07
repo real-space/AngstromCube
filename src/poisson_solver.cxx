@@ -67,7 +67,7 @@ namespace poisson_solver {
       if (nullptr == center) center = grid_center; // overwrite the argument
 
       if (echo > 5) std::printf("# Bessel j0 projection around position %g %g %g in units of the grid spacing\n",
-                              center[0]*g.inv_h[0], center[1]*g.inv_h[1], center[2]*g.inv_h[2], _Ang);
+                              center[0]*g.inv_h[0], center[1]*g.inv_h[1], center[2]*g.inv_h[2]);
       auto const dq = 1/16.;
       auto const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
       std::vector<double> qc(nq, 0.0);

@@ -20,10 +20,7 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "xml_reading.hxx" // ::read_sequence
 #include "inline_math.hxx" // set
-#ifdef DEVEL
-  #include "control.hxx" // ::get
-#endif // DEVEL
-
+#include "control.hxx" // ::get
 #include "json_reading.hxx" // ::load_Hamiltonian
 
 namespace green_input {

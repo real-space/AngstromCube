@@ -691,7 +691,7 @@ namespace green_kinetic {
   template <typename real_t, int R1C2=2, int Noco=1>
   inline status_t test_finite_difference(int const echo=0) {
       size_t const nnzb = 15;
-      if (echo > 4) std::printf("\n# %s<%s,R1C2=%d,Noco=%d> start with nnzb= %d\n", __func__, real_t_name<real_t>(), R1C2, Noco, nnzb);
+      if (echo > 4) std::printf("\n# %s<%s,R1C2=%d,Noco=%d> start with nnzb= %ld\n", __func__, real_t_name<real_t>(), R1C2, Noco, nnzb);
       auto Tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "Tpsi");
       auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo,  "psi");
       set(Tpsi[0][0][0], nnzb*R1C2*pow2(Noco*64ul), real_t(0)); // clear
