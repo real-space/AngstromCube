@@ -553,18 +553,18 @@ namespace single_atom {
         } // true and smooth
 
         { // scope to load potential[TRU] from file pot/Zeff.00Z
-            auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
+            auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1., echo, label);
             if (0 != load_stat) {
                 if ('g' == (*control::get("single_atom.start.potentials", "generate") | 32)) {
                     if (echo > 0) std::printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
                     std::vector<double> Zeff(rg[TRU].n, 0.);
                     auto const gen_stat = atom_core::solve(Z_core, echo/2, 'c', &rg[TRU], Zeff.data());
                     if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
-                    // should be able to read from file now
                     if (std::abs(Zeff[0] - Z_core) > Z_core*1e-5) {
                         if (echo > 0) std::printf("# %s Z_eff(r) passed in memory differs from Z=%g at the origin, Z_eff= %g %g %g ...\n",
                                                                                         label, Z_core, Zeff[0], Zeff[1], Zeff[2]);
-                        auto const read_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
+                        // should be able to read from file now
+                        auto const read_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1., echo, label);
                         if (0 != read_stat) error("loading of potential file failed for Z= %g failed although generated", Z_core);
                     } else {
                         if (echo > 0) std::printf("# %s use Z_eff(r) passed in memory\n", label);
@@ -579,11 +579,11 @@ namespace single_atom {
 #ifdef    DEVEL
         // show the loaded Zeff(r) == -r*V(r)
         if (echo > 33) {
-           std::printf("\n## loaded Z_eff(r) function:\n");
-           for (int ir = 0; ir < rg[TRU].n; ++ir) {
-               std::printf("%.15g %.15g\n", rg[TRU].r[ir], -potential[TRU][ir]);
-           } // ir
-           std::printf("\n\n");
+            std::printf("\n## loaded Z_eff(r) function:\n");
+            for (int ir = 0; ir < rg[TRU].n; ++ir) {
+                std::printf("%.15g %.15g\n", rg[TRU].r[ir], -potential[TRU][ir]);
+            } // ir
+            std::printf("\n\n");
         } // echo
 #endif // DEVEL
 

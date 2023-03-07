@@ -273,7 +273,7 @@ namespace atom_core {
 
           if (loading_failed) {
               if (Z != std::round(Z)) {
-                  auto const read_stat_noninteger = read_Zeff_from_file(rV_old.data(), g, std::round(Z), "pot/Zeff", -1);
+                  auto const read_stat_noninteger = read_Zeff_from_file(rV_old.data(), g, std::round(Z), "pot/Zeff", -1.);
                   // maybe loading failed because there is no file for non-integer core charges
                   loading_failed = (0 != int(read_stat_noninteger));
               }
@@ -423,7 +423,7 @@ namespace atom_core {
               set(export_Zeff, g.n, rV_old.data(), -1.);
           } // export_Zeff
 
-          auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1);
+          auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1.);
           if (0 != store_stat && nullptr != export_Zeff) {
               warn("Z=%g failed to store self-consistent atom potential (status= %i) but passed in memory", Z, int(store_stat));
               // ignore the store_stat
@@ -655,7 +655,7 @@ namespace atom_core {
       status_t stat(0);
       auto & g = *radial_grid::create_default_radial_grid(Z);
       std::vector<double> y(g.n, 0.0);
-      stat += read_Zeff_from_file(y.data(), g, Z, "full_pot/Zeff", 1., echo);
+      stat += read_Zeff_from_file(y.data(), g, Z, "full_pot/Zeff", -1., echo);
       // ToDo: this routine interpolates to a radial_default_grid
       //        however, we only need the position of the support points g.r
       //        so we extract that from the Zeff-file avoiding
@@ -677,7 +677,7 @@ namespace atom_core {
           } // ir
           assert(i == new_n); // after running RDP, there must be exactly new_n true entries left
       } // scope
-      stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "pot/Zeff", 1., echo));
+      stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "pot/Zeff", -1., echo));
       radial_grid::destroy_radial_grid(&g);
       return stat;
   } // simplify_Zeff_file

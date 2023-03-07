@@ -28,5 +28,8 @@ endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
+# serial executable ./a43 and ./libliveatom.dylib
 add_subdirectory(src)
+
+# parallel executable ./green
 add_subdirectory(green)
