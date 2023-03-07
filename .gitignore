@@ -3,5 +3,6 @@ del/*
 lib/
 not/*
 release/*
+build/*
 .DS_Store
 [tT][eE][sS][tT]*
