@@ -1,9 +1,15 @@
+// This file is part of AngstromCube under MIT License
 /*
  *    Green function code
  *    for the real-space grid based single-particle Hamiltonians
  *    as produced by density functional theory (DFT)
  */
 
+#include <cstdio> // std::printf
+#include <cassert> // assert
+#include <vector> // std::vector
+#include <string> // std::string
+#include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
 #ifndef   NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests
@@ -37,11 +43,6 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
-#include <cstdio> // std::printf
-#include <cassert> // assert
-#include <vector> // std::vector
-#include <string> // std::string
-#include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
   status_t run_unit_tests(char const *unit_name, int const echo=0) {
 #ifdef    NO_UNIT_TESTS

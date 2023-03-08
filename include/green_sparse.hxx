@@ -1,10 +1,11 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, int16_t, int8_t
 #include <cassert> // assert
 #include <algorithm> // std::max
 #include <vector> // std::vector<T>
-#include <cstdio> // std::printf
 #include <type_traits> // std::is_signed
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED

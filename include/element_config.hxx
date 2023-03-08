@@ -1,8 +1,8 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-#include <cassert> // assert
 #include <cstdio> // std::printf, ::snprintf
+#include <cassert> // assert
 #include <vector> // std::vector
 #include <algorithm> // std::min, ::max
 

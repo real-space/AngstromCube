@@ -1,7 +1,8 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
-#include <cassert> // assert
 #include <cstdio> // std::printf, ::snprintf, ::fflush, stdout
+#include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>, ::real
 #include <cmath> // std::sqrt

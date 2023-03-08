@@ -1,3 +1,6 @@
+# This file is part of AngstromCube under MIT License
+
+
 ### JUSUF:   module --force purge && module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 
 ## Check whether CUDA compiler is available
