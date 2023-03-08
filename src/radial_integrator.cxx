@@ -1,8 +1,10 @@
-#include <cstdio> // std::printf, std::fflush, stdout
+// This file is part of AngstromCube under MIT License
+
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <vector> // std::vector
 #include <cstdlib> // std::abs
-#include <cmath> // std::sqrt, std::pow
-#include <algorithm> // std::min, std::max
+#include <cmath> // std::sqrt, ::pow
+#include <algorithm> // std::min, ::max
 
 #include "radial_integrator.hxx"
 

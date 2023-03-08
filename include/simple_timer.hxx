@@ -1,7 +1,8 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
-#include <chrono> // std::chrono::high_resolution_clock
 #include <cstdio> // std::printf
+#include <chrono> // std::chrono::high_resolution_clock
 #include <string> // std::string
 
 #include "status.hxx" // status_t

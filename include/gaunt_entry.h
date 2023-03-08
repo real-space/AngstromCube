@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <stdint.h> // int16_t, int32_t
 

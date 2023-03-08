@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio>  // std::printf, ::fprintf, ::snprintf, ::fflush, stdout, stderr
 #include <utility> // std::forward, ::pair<T1,T1>

@@ -1,9 +1,9 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio>     // std::printf, ::snprintf, ::fopen, ::fprintf, ::fclose
 #include <cstdint>    // int8_t
 #include <cassert>    // assert
-#include <cstdio>     // std::printf, ::snprintf
-//       <cstdio>     // std::fopen, ::fprintf, ::fclose
 #include <cstring>    // std::strcmp
 #include <cmath>      // std::sqrt
 #include <algorithm>  // std::max

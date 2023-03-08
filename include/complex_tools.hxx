@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <type_traits> // std::true_type, std::false_type
 #include <complex> // std::complex<real_t>

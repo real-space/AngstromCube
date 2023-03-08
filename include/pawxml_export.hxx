@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf, ::fprintf, ::fopen, ::fclose, ::snprintf
 #include <vector> // std::vector<T>

@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::sprintf
 #include <cmath> // std::exp, ::sqrt

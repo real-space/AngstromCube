@@ -1,5 +1,7 @@
-#include <vector> // std::vector
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf
+#include <vector> // std::vector
 #include <cmath> // std::abs
 #include <cassert> // assert
 

@@ -1,5 +1,7 @@
-#include <vector> // std::vector<T>
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf, ::snprintf
+#include <vector> // std::vector<T>
 #include <cstdlib> // std::abs
 #include <algorithm> // std::max
 

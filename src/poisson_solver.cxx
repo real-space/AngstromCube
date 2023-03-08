@@ -1,4 +1,6 @@
-#include <cstdio> // std::printf, std::sprintf
+// This file is part of AngstromCube under MIT License
+
+#include <cstdio> // std::printf, ::sprintf
 #include <cassert> // assert
 #include <algorithm> // std::copy
 #include <cmath> // std::floor

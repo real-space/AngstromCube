@@ -1,10 +1,11 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
-#include <complex> // std::real, std::norm
+#include <complex> // std::real, ::norm
 #include <vector> // std::vector<T>
-#include <algorithm> // std::swap, std::max, std::min, std::sort
-#include <cmath> // std::ceil, std::sqrt
+#include <algorithm> // std::swap, ::max, ::min, ::sort
+#include <cmath> // std::ceil, ::sqrt
 
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>, view3D<T>

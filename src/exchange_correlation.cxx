@@ -1,4 +1,6 @@
-#include <cmath> // std::sqrt, std::pow, std::log
+// This file is part of AngstromCube under MIT License
+
+#include <cmath> // std::sqrt, ::pow, ::log
 #include <cassert> // assert
 #include <cstdio> // std::printf
 

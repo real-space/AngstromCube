@@ -1,6 +1,7 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
-#include <cstdio> // std::printf, std::fflush, stdout
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert
 #include <cstdint> // uint32_t --> replace size_t with this?
 #include <algorithm> // std::fill

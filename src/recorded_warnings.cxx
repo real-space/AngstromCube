@@ -1,7 +1,9 @@
+// This file is part of AngstromCube under MIT License
+
+#include <cstdio> // std::printf, ::snprintf
 #include <cstdint> // uint64_t
 #include <string> // std::string
 #include <cstring> // std::strrchr
-#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <map> // std::map
 #include <utility> // std::pair<T1, T2>, ::make_pair

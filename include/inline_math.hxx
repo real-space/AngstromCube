@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdlib> // size_t
 #include <cmath> // std::round

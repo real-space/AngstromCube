@@ -1,5 +1,5 @@
 #pragma once
-
+// This file is part of AngstromCube under MIT License
 
   int constexpr STATUS_TEST_NOT_INCLUDED = -1;
 

@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>

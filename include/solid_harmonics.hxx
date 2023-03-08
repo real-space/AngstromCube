@@ -1,7 +1,8 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
-#include <cmath> // std::sqrt, std::sin, std::cos
+#include <cmath> // std::sqrt, ::sin, ::cos
 #include <cassert> // assert
 #include <vector> // std::vector
 

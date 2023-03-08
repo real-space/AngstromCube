@@ -1,8 +1,8 @@
-**A4cube**
+**AngstromCube**
 
 *This README is only about the code base, please refer to ../README.md for the entire application*
   
-AAcube code base is structured as follows:
+The AngstromCube code base is structured as follows:
 There is at max one namespace per file.
 Each namespace offers the function
 ```C++
@@ -74,7 +74,15 @@ More vector functionality can be found in `inline_math.hxx` as e.g.
     add_product(vec, n, vector, vector_factors[, scalar_factor]);
 ```
 
-
 The largest feature-envy for Fortran90, however, are the intrinsic support of
 multi-dimensional arrays including run-time checking of index-out-of-bounds.
 Please see `data_view.md` for more details.
+
+*Style Comment*
+In each code file (*.hxx, *.cxx) we try to make dependencies easily identifyable.
+In Fortran, this would be a "use <modulename>, only: <function1>, <function2>" statement.
+In C++ we treat it as a comment after the included header file
+    #include <cstdio> // std::printf, ::snprintf
+    #include "tools.hxx" // ::foo, ::bar
+We only mention the namespace name when it deviates from the header's file name,
+e.g. std:: should be mentioned once here.

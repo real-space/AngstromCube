@@ -1,6 +1,8 @@
+// This file is part of AngstromCube under MIT License
+
+#include <cstdio> // std::printf
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <cstdio> // std::printf
 #include <cstdlib> // std::atoi, ::atof
 #include <cstdint> // int8_t
 #include <string> // std::string, ::string:npos

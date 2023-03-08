@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cstdint> // int8_t
 #include <cassert> // assert
 #include <cstdio> // std::printf, ::snprintf

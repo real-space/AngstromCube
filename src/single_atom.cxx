@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #ifndef   DEVEL
 /*
  *  Make sure to modify this file only in the development branch

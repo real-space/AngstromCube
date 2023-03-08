@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include "radial_grid.h" // radial_grid_t
 #include "quantum_numbers.h" // ell_QN_t

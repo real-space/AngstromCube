@@ -1,13 +1,13 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio> // std::printf
+#include <cmath> // std::sqrt, ::round
+#include <algorithm> // std::max
 #ifndef NO_UNIT_TESTS
   #include <cstdint> // int64_t, uint8_t
   #include <vector> // std::vector<T>
 #endif // NO_UNIT_TESTS
-#include <cstdio> // std::printf
-
-#include <cmath> // std::sqrt, ::round
-#include <algorithm> // std::max
 
 #include "constants.hxx" // ::pi
 #include "display_units.h" // Ang, _Ang

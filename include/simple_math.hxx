@@ -1,8 +1,9 @@
 #pragma once
-
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
-#include <random> // std::random_device, std::mt19937, std::is_integral, std::conditional, std::uniform_int_distribution, std::uniform_real_distribution
+#include <random> // std::random_device, ::mt19937, ::is_integral, ...
+// ..., ::conditional, ::uniform_int_distribution, ::uniform_real_distribution
 #include <complex> // std::complex<real_t>
 
 #include "status.hxx" // status_t

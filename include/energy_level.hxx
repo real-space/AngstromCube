@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 

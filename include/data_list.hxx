@@ -1,11 +1,11 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
 #include <cassert> // assert
 #include <cstdint> // uint32_t
 #include <vector> // std::vector<T>
 #include <algorithm> // std::fill
-// #include <utility> // std::move
 
 // #define debug_printf(...) std::printf(__VA_ARGS__)
 #define debug_printf(...)

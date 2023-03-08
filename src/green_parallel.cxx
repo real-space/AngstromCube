@@ -1,5 +1,7 @@
-#include <cstdint> // uint16_t
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf
+#include <cstdint> // uint16_t
 #include <vector> // std::vector<T>
 
 #include "simple_stats.hxx" // ::Stats<double>

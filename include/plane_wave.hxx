@@ -1,7 +1,8 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
-#include <cstdint> // uint32_t
 #include <cstdio> // std::printf, std::snprintf
+#include <cstdint> // uint32_t
 #include <complex> // std::complex
 #include <vector> // std::vector<T>
 

@@ -1,8 +1,10 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
-#include <cstdio> // printf, FILE, std::fwrite
+#include <cstdio> // std::printf, ::fwrite, ::fopen, ::fclose, ::snprintf
 #include <vector> // std::vector<T>
-#include <numeric> // std::iota
+
+#include "status.hxx" // status_t
 
 namespace bitmap {
 
@@ -20,7 +22,7 @@ namespace bitmap {
       , float const factor=255
       , char const *extension=".bmp"
       , bool const invert_y=true
-      , int const echo=0
+      , int const echo=1
   ) {
 
       int const s = (stride < int(w)) ? int(w) : stride;
@@ -29,13 +31,13 @@ namespace bitmap {
       //    writing-bmp-image-in-pure-c-c-without-other-libraries
 
       size_t const filesize = 54 + 3*w*h; // w is your image width, h is image height, both int
-      if (echo > 0) printf("# write %d x %d (stride %d) %.3f kByte\n", h, w, s, filesize*1e-3);
+      if (echo > 0) std::printf("# write %d x %d (stride %d) %.3f kByte\n", h, w, s, filesize*1e-3);
 
-      int constexpr MaxFilenameLenth = 999;
+      int constexpr MaxFilenameLenth = 1024;
       char filename[MaxFilenameLenth];
       std::snprintf(filename, MaxFilenameLenth, "%s%s", basename, extension);
       auto const f = std::fopen(filename, "wb"); // w:write, b:binary
-      if (echo > 0) printf("# write bitmap to file '%s'\n", filename);
+      if (echo > 0) std::printf("# write bitmap to file '%s'\n", filename);
       if (nullptr == f) return 1; // failed
 
       unsigned char bmpfileheader[14] = {'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0};
@@ -71,8 +73,7 @@ namespace bitmap {
       return 0;
   } // write_bmp_file
 
-  inline
-  status_t test_image(int const echo=0) {
+  inline status_t test_image(int const echo=0) {
       int const d=64, h=4*d, w=5*d;
       std::vector<uint8_t> data(h*w*4, 0);
       float const decay = -.5f/(d*d);
@@ -93,7 +94,6 @@ namespace bitmap {
       return write_bmp_file("test_file", data, h, w, w, 1);
   } // test_image
 
-  inline
-  status_t all_tests(int const echo=1) { return test_image(echo); }
+  inline status_t all_tests(int const echo=1) { return test_image(echo); }
   
 } // namespace bitmap

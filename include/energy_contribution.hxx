@@ -1,7 +1,5 @@
 #pragma once
-
-// #include "inline_math.hxx" // set
-// #include "energy_level.hxx" // TRU, SMT
+// This file is part of AngstromCube under MIT License
 
 namespace energy_contribution {
 
@@ -16,6 +14,8 @@ namespace energy_contribution {
   int constexpr DOUBLE_COUNTING=8;
   int constexpr KINETIC=10;
   int constexpr EXTERNAL=11; // due to an external potential
+
+} // namespace energy_contribution
 
   // 
   // To compute the total energy, we need
@@ -64,5 +64,3 @@ namespace energy_contribution {
 //       double _resolved[1 + _ellmax];
 // 
 //   }; // class energy_contribution_t
-
-} // namespace energy_contribution

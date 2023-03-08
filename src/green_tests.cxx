@@ -1,3 +1,4 @@
+// This file is part of AngstromCube under MIT License
 /*
  *    Green function code, unit tests
  *    for the real-space grid based single-particle Hamiltonians

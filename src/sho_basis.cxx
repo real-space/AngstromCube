@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf
 #include <cstdlib> // std::atof, ::atoi
 #include <vector> // std::vector<T>

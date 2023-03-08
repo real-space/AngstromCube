@@ -1,9 +1,10 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio> // std::printf
 #include <chrono> // std::chrono::high_resolution_clock
 #include <cstring> // std::strcpy
 #include <cstdint> // int32_t
-#include <cstdio> // std::printf
 #include <algorithm> // std::max
 
 #include "status.hxx" // status_t

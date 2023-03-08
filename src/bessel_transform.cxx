@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cmath> // std::cos, std::exp
 
 #include "bessel_transform.hxx"

@@ -1,3 +1,4 @@
+// This file is part of AngstromCube under MIT License
 
 #ifndef NO_UNIT_TESTS
   #include "exchange_correlation.hxx" // ::all_tests

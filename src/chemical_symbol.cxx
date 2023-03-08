@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf, ::snprintf
 #include <cmath> // std::round, ::abs
 

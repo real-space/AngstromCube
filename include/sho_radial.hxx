@@ -1,15 +1,14 @@
 #pragma once
-
-#include <cmath> // std::sqrt
-#include <cassert> // assert
-
-#include "constants.hxx" // ::sqrtpi
+// This file is part of AngstromCube under MIT License
 
 #ifndef NO_UNIT_TESTS
   #include <cstdio> // std::printf
   #include <algorithm> // std::max
 #endif
+#include <cmath> // std::sqrt
+#include <cassert> // assert
 
+#include "constants.hxx" // ::sqrtpi
 #include "status.hxx" // status_t
 #include "quantum_numbers.h" // ell_QN_t
 

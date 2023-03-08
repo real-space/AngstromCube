@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #ifndef   HAS_NO_CUDA
   #include <cuda.h> // dim3, cudaStream_t, __syncthreads, cuda*

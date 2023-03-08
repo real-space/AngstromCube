@@ -1,9 +1,10 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio> // std::printf
 #include <cstdint> // uint32_t, int8_t
 #include <algorithm> // std::min, ::max
 #include <cmath> // std::floor, ::ceil, ::sqrt, ::abs
-#include <cstdio> // std::printf
 #include <cassert> // assert
 
 #include "inline_math.hxx" // set, scale

@@ -1,6 +1,7 @@
+// This file is part of AngstromCube under MIT License
 
-#include <cmath> // std::abs, std::exp
 #include <cstdio> // std::printf
+#include <cmath> // std::abs, std::exp
 #include <algorithm> // std::min, std::max
 
 #include "radial_grid.hxx" // radial_grid_t

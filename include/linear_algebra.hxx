@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <complex> // std::complex, ::norm
 #include <vector> // std::vector

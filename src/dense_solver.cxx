@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf
 #include <complex> // std::complex<T>, ::real, ::imag
 #include <cmath> // std::abs, ::floor

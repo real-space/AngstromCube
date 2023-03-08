@@ -1,3 +1,4 @@
+// This file is part of AngstromCube under MIT License
 /*
  *  This file is meant to be include inside the namespaces
  *      davidson_solver

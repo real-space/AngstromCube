@@ -1,4 +1,4 @@
-
+// This file is part of AngstromCube under MIT License
 /*
  * load balancing for A43
  *    main purpose is the distribution of right-hand-side blocks

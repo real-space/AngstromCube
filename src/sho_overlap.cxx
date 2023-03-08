@@ -1,9 +1,10 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf
 #include <cstdlib> // std::abs
 #include <cmath> // std::sqrt, ::exp, ::pow, ::abs
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
-#include <utility> // std::pair<T1,T2>, make_pair
 #include <vector> // std::vector<T>
 #include <array> // std::array<T,n>
 #include <cassert> // assert

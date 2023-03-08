@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio>  // std::printf, ::fopen, ::fprintf, ::fclose
 #include <cmath>   // std::abs, ::round, ::pow

@@ -1,6 +1,7 @@
 #pragma once
-#include <cstdio> // std::printf
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio> // std::printf
 #include <vector> // std::vector
 
 // #define CRTP_printf(...) std::printf(__VA_ARGS__)

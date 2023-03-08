@@ -1,3 +1,4 @@
+// This file is part of AngstromCube under MIT License
 /*
  * Where does A43 need MPI parallelization?
  *

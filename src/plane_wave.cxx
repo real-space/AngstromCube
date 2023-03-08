@@ -1,4 +1,6 @@
-#include <cstdio> // std::printf, std::fflush, stdout
+// This file is part of AngstromCube under MIT License
+
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>

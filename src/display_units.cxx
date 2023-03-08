@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #ifndef _Output_Units_Fixed
 
 #include "display_units.h"

@@ -1,10 +1,12 @@
+// This file is part of AngstromCube under MIT License
+
+#include <cstdio>     // std::printf, ::snprintf
 #include <cstdint>    // int64_t, int32_t, uint32_t, int16_t, uint16_t, int8_t, uint8_t
 #include <cassert>    // assert
 #include <cmath>      // std::sqrt, ::cbrt
 #include <algorithm>  // std::max, ::min
 #include <utility>    // std::swap
 #include <vector>     // std::vector<T>
-#include <cstdio>     // std::printf, ::snprintf
 #include <complex>    // std::complex
 
 #include "green_function.hxx" // ::update_energy_parameter

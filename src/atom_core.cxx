@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf
 #include <cassert> // assert
 #include <cmath> // std::sqrt, ::pow, ::exp, ::abs, ::sqrt, ::round

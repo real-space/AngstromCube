@@ -1,3 +1,5 @@
+// This file is part of AngstromCube under MIT License
+
 // This header serves to #define add_module_test needed in main.cxx, green.cxx and green_tests.cu
 
 // requirements: (the following include statements and varaiable definitions must

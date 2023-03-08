@@ -1,5 +1,7 @@
+// This file is part of AngstromCube under MIT License
+
 #include <cstdio> // std::printf
-#include <cmath> // ::log10
+#include <cmath> // std::log10
 #include <algorithm> // std::min, ::max
 #include <vector> // std::vector<T>
 #include <cstdint> // uint32_t

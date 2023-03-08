@@ -1,9 +1,10 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio> // std::printf
 #include <algorithm> // std::min, ::max
 #include <cmath> // std::sqrt
 #include <string> // std::string
-#include <cstdio> // std::printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 // #include "mpi_parallel.hxx" // ::max, ::sum

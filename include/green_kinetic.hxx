@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t

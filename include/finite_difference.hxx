@@ -1,8 +1,8 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
-#include <cstdint> // uint32_t, int16_t
-#include <limits> // std::numerical_limits::max
 #include <cstdio> // std::printf
+#include <cstdint> // uint32_t, int16_t
 #include <vector> // std::vector<T>
 
 #include "real_space.hxx" // ::grid_t

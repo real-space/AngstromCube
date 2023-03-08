@@ -1,8 +1,9 @@
 #pragma once
+// This file is part of AngstromCube under MIT License
 
+#include <cstdio> // std::printf, ::fprintf, stdout, FILE
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <cstdio> // std::printf, ::fprintf, stdout, FILE
 
   template <typename real_t, typename real_y_t>
   int RamerDouglasPeucker(
