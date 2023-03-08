@@ -149,7 +149,7 @@ namespace structure_solver {
 
         for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
             op.set_kpoint(kmesh[ikpoint], echo);
-            char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
+            char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
             auto psi_k = psi[ikpoint]; // get a sub-view
             bool display_spectrum{true};
 
@@ -184,7 +184,7 @@ namespace structure_solver {
                 ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
             } // grid_eigensolver_method
 
-            if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
+            if (display_spectrum && echo > 0) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
 
 //          if we used the fermi.level=linearized option, we could combine the Kohn-Sham
 //          equation solving for a k-point with the evaluation of the density contribution
@@ -232,7 +232,9 @@ namespace structure_solver {
     } // store
 
     ~KohnShamStates() {
+#ifdef    DEBUG
         std::printf("# ~KohnShamStates<%s>\n", complex_name<wave_function_t>());
+#endif // DEBUG
         psi = view3D<wave_function_t>(0,0,0, 0);
     } // destructor
 

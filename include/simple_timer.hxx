@@ -1,9 +1,8 @@
 #pragma once
 
 #include <chrono> // std::chrono::high_resolution_clock
-#include <cstring> // std::strcpy
-#include <cstdint> // int32_t
 #include <cstdio> // std::printf
+#include <string> // std::string
 
 #include "status.hxx" // status_t
 #ifndef NO_UNIT_TESTS
@@ -16,23 +15,21 @@
     // When stop() is called, the timer returns the elapsed time in seconds as double.
     private:
       std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
-      char  file[56];
-      int32_t line;
-      int32_t echo;
-      char  func[32];
+      std::string file;
+      std::string func;
+      int line;
+      int echo;
     public:
 
-      SimpleTimer(char const *sourcefile, int const sourceline=0, char const *function=nullptr, int const echo=1)
-      : line(sourceline), echo(echo) {
-          std::strcpy(file, sourcefile);
-          if (nullptr != function) std::strcpy(func, function); else func[0] = 0;
+      SimpleTimer(char const *sourcefile, int const sourceline=0, char const *function=nullptr, int const echo=2)
+      : file(sourcefile), func(function), line(sourceline), echo(echo) {
           start_time = std::chrono::high_resolution_clock::now(); // start
       } // constructor
 
       double stop(int const stop_echo=0) const { 
           auto const stop_time = std::chrono::high_resolution_clock::now(); // stop
           auto const musec = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
-          if (stop_echo > 0) std::printf("# timer started at %s:%d %s took %.5f sec\n", file, line, func, 1e-6*musec);
+          if (stop_echo > 0) std::printf("# timer started at %s:%d %s took %.5f sec\n", file.c_str(), line, func.c_str(), 1e-6*musec);
           return 1e-6*musec;
       } // stop
 

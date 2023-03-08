@@ -5,7 +5,7 @@
  */
 
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
@@ -25,7 +25,7 @@
   // "green_*.hxx" headers requiring CUDA are included in green_tests.cu/green_tests.cxx
   #include "green_tests.hxx" // ::add_tests
 
-#endif // not NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS
 
 #include <cstdlib> // std::abs, ::abort
 
@@ -43,16 +43,17 @@
 #include <string> // std::string
 #include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
-  status_t run_unit_tests(char const *module=nullptr, int const echo=0) {
-
-#ifdef  NO_UNIT_TESTS
+  status_t run_unit_tests(char const *unit_name, int const echo=0) {
+#ifdef    NO_UNIT_TESTS
       error("version was compiled with -D NO_UNIT_TESTS", 0);
       return STATUS_TEST_NOT_INCLUDED;
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
-      SimpleTimer unit_test_timer(__func__, 0, module, 0); // timer over all tests
+      SimpleTimer unit_test_timer(__func__, 0, unit_name, 0); // timer over all tests
 
-      std::string const input_name(module ? module : "");
+      assert(unit_name);
+      std::string const input_name(unit_name ? unit_name : "");
+      std::printf("\n# module tests \"%s\" --> \"%s\"\n", unit_name, input_name.c_str());
       bool const show = ('?' == input_name[0]);
       bool const all  = ( 0  == input_name[0]) || show;
       if (echo > 0) {
@@ -71,16 +72,16 @@
           add_module_test(simple_stats);
           add_module_test(simple_timer);
           add_module_test(inline_math);
-          add_module_test(xml_reading);
-          add_module_test(json_reading);
+          add_module_test(sho_tools);
           add_module_test(unit_system);
           add_module_test(boundary_condition);
           add_module_test(global_coordinates);
+          add_module_test(xml_reading);
+          add_module_test(json_reading);
+          add_module_test(green_input);
           add_module_test(load_balancer);
-          add_module_test(sho_tools);
           add_module_test(mpi_parallel);
           add_module_test(green_parallel);
-          add_module_test(green_input);
           green_tests::add_tests(results, input_name, show, all, echo);
 
 #undef    add_module_test
@@ -90,7 +91,7 @@
       status_t status(0);
       int const nmodules = results.size();
       if (nmodules < 1) { // nothing has been tested
-          if (echo > 0) std::printf("# ERROR: test for '%s' not found, use -t '?' to see available modules!\n", module);
+          if (echo > 0) std::printf("# ERROR: test for '%s' not found, use -t '?' to see available modules!\n", input_name.c_str());
           status = STATUS_TEST_NOT_INCLUDED;
       } else {
           if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, show?"can be":"have been");
@@ -132,7 +133,7 @@
       std::printf("Usage %s [OPTION]\n"
         "   --help           [-h]\tThis help message\n"
         "   --version            \tShow version number\n"
-#ifndef  NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
         "   --test <module>  [-t]\tRun module unit test\n"
 #endif // NO_UNIT_TESTS
         "   --verbose        [-V]\tIncrement verbosity level\n"
@@ -142,7 +143,7 @@
   } // show_help
 
   int show_version(char const *executable="#", int const echo=0) {
-#ifdef _GIT_KEY
+#ifdef    _GIT_KEY
       // stringify the value of a macro, two expansion levels needed
       #define macro2string(a) stringify(a)
       #define stringify(b) #b
@@ -153,12 +154,13 @@
       if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
 #endif // _GIT_KEY
       if (echo > 1) {
-#ifdef HAS_NO_MPI
+#ifdef    HAS_NO_MPI
           std::printf("# version was compiled with -D HAS_NO_MPI\n");
-#endif //  NO_MPI
-#ifdef HAS_NO_CUDA
+#endif // HAS_NO_MPI
+
+#ifdef    HAS_NO_CUDA
           std::printf("# version was compiled with -D HAS_NO_CUDA\n");
-#endif //  NO_CUDA
+#endif // HAS_NO_CUDA
       } // echo
       return 0;
   } // show_version
@@ -169,7 +171,7 @@
       auto const myrank = mpi_parallel::rank();
 
       status_t stat(0);
-      char const *test_unit{nullptr}; // the name of the unit to be tested
+      char const *test_unit = ""; // the name of the unit to be tested
       int run_tests{0};
       int verbosity{3}; // set default verbosity low
       if (argc < 2) {
@@ -182,7 +184,7 @@
           if ('-' == ci0) {
 
               // options (short or long)
-              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #iarg
+              char const ci1 = *(argv[iarg] + 1); // + 1 to remove "-" in front, char #1 of command line argument #iarg
               char const IgnoreCase = 'a' - 'A'; // use with | to convert upper case chars into lower case chars
               if ('-' == ci1) {
 
@@ -225,7 +227,7 @@
               stat += control::command_line_interface(argv[iarg] + 1, iarg); // start after the '+' char
           } else
           if (argv[iarg] != test_unit) {
-              ++stat; warn("ignored command line argument \'%s\'", argv[iarg]);
+              ++stat; warn("ignored command line argument #%i \'%s\'", iarg, argv[iarg]);
           } // ci0
 
       } // iarg

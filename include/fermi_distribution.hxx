@@ -176,7 +176,7 @@ namespace fermi_distribution {
             double const n_electrons=0.0
           , int const spinfactor=2
           , double const kT=default_temperature
-          , int const echo=9 // log-level
+          , int const echo=0 // log-level
       )
         : _ne(std::max(0.0, n_electrons))
         , _mu(Fermi_level_not_initialized)

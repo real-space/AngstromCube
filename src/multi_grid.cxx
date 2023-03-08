@@ -360,7 +360,7 @@ namespace multi_grid {
           double const db = b[1] - b[0];
           double const dx = .5*c0inv*db;
           x[0] = -.5*dx; x[1] = .5*dx;
-          if (echo > -1) std::printf("# %s h=%g b= %g %g, x= %g %g\n", __func__, h, b[0],b[1], x[0],x[1]);
+          if (echo > 5) std::printf("# %s h=%g b= %g %g, x= %g %g\n", __func__, h, b[0],b[1], x[0],x[1]);
       } else {
           return 1; // only these two exact solvers implemented!
       }

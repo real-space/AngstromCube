@@ -545,7 +545,7 @@ namespace sho_hamiltonian {
           std::complex<double> const Bloch_phase[3] = {std::pow(minus_one, 2*kmesh(ikp,0))
                                                      , std::pow(minus_one, 2*kmesh(ikp,1))
                                                      , std::pow(minus_one, 2*kmesh(ikp,2))};
-          char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikp,0), kmesh(ikp,1), kmesh(ikp,2));
+          char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kmesh(ikp,0), kmesh(ikp,1), kmesh(ikp,2));
           double Bloch_phase_real[3];
           bool can_be_real{true};
           for (int d = 0; d < 3; ++d) {

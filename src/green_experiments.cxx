@@ -612,7 +612,7 @@ namespace green_experiments {
 
           if (echo > 3) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
           green_function::update_phases(pH, k_point, Noco, echo);
-          green_function::update_phases(pS, k_point, Noco, echo/2);
+          green_function::update_phases(pS, k_point, Noco, echo/2); // less output since it will print the same as above
           double nops{0};
 
         int it{0}, lastiter{maxiter - 1};

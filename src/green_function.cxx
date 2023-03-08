@@ -1271,7 +1271,10 @@ namespace green_function {
       uint32_t const nnzbX = p.colindx.size();
       if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
 
-      if (0 == iterations) return;
+      if (0 == iterations) { 
+          if (echo > 2) std::printf("# requested to run 0 iterations --> only check the action_t constructor\n");
+          return;
+      } // 0 iterations
 
 #ifdef    HAS_TFQMRGPU
       if (iterations > 0) {
@@ -1293,14 +1296,17 @@ namespace green_function {
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
+          double time_needed{1};
           {   SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
               tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
 
+              time_needed = timer.stop();
           } // timer
           if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
                                                              p.residuum_reached,    p.iterations_needed);
           if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
+          if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
           free_memory(memory_buffer);
           return;
       } // iterations > 0
@@ -1364,29 +1370,35 @@ namespace green_function {
           return stat;
       } // stat
 
-      green_action::plan_t p;
-      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo,
-                        nullptr, int(control::get("green_function.benchmark.noco", 1.)));
+      int const r1c2 = control::get("green_function.benchmark.complex", 1.) + 1;
+      int const noco = control::get("green_function.benchmark.noco", 1.);
 
+      green_action::plan_t p;
+      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo, nullptr, noco);
+
+      assert(1 == r1c2 || 2 == r1c2);
+      assert(1 == noco || r1c2 == noco);
+      int const fp = control::get("green_function.benchmark.floating.point.bits", 32.);
       int const iterations = control::get("green_function.benchmark.iterations", 1.);
+      int const action_key = 1000*((32 == fp) ? 32 : 64) + 10*r1c2 + noco;
+      int const action = control::get("green_function.benchmark.action", action_key*1.);
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
       // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
-      int const action = control::get("green_function.benchmark.action", 412.);
       switch (action) {
-          case 422: test_action<float ,2,2>(p, iterations, echo); break; // complex non-collinear
-          case 822: test_action<double,2,2>(p, iterations, echo); break; // complex non-collinear
+          case 32022: test_action<float ,2,2>(p, iterations, echo); break; // complex non-collinear
+          case 64022: test_action<double,2,2>(p, iterations, echo); break; // complex non-collinear
 
-          case 412: test_action<float ,2,1>(p, iterations, echo); break; // complex
-          case 812: test_action<double,2,1>(p, iterations, echo); break; // complex
-#ifndef   HAS_TFQMRGPU
-          case 411: test_action<float ,1,1>(p, iterations, echo); break; // real
-          case 811: test_action<double,1,1>(p, iterations, echo); break; // real
+          case 32021: test_action<float ,2,1>(p, iterations, echo); break; // complex
+          case 64021: test_action<double,2,1>(p, iterations, echo); break; // complex
+#ifdef    HAS_TFQMRGPU
+          case 32011:                                                       // real
+          case 64011: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
 #else  // HAS_TFQMRGPU
-          case 411:                                                       // real
-          case 811: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
+          case 32011: test_action<float ,1,1>(p, iterations, echo); break; // real
+          case 64011: test_action<double,1,1>(p, iterations, echo); break; // real
 #endif // HAS_TFQMRGPU
           case 0: if (echo > 1) std::printf("# green_function.benchmark.action=0 --> test_action is not called!\n"); break;
-          default: warn("green_function.benchmark.action must be in {411, 412, 422, 811, 812, 822} but found %d", action);
+          default: warn("green_function.benchmark.action must be in {32011, 32021, 32022, 64011, 64021, 64022} but found %d", action);
                    ++stat;
       } // switch action
 

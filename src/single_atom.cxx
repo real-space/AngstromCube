@@ -3817,7 +3817,7 @@ namespace single_atom {
                 if (echo > 5) std::printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
                 scattering_test::eigenstate_analysis( // find the eigenstates of the spherical Hamiltonian
                    rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(),
-                   nrad, V_rmax, label, echo, reference_spdf, control::get("eigenstate.analysis.warn", 3.675e-3)); // threshold=0.1 eV
+                   nrad, V_rmax, label, echo, reference_spdf, control::get("scattering_test.eigenstate.analysis.warn", 3.675e-3)); // threshold=0.1 eV
             } // nrad > 1
             if (echo > 0) std::fflush(stdout);
         } // echo

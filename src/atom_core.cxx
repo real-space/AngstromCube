@@ -6,7 +6,7 @@
 #include <iomanip> // std::setprecision
 #include <vector> // std::vector<T>
 
-#include "atom_core.hxx" // guess_energy, nl_index, ellchar 
+#include "atom_core.hxx" // ::guess_energy, ::nl_index, ::ellchar 
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "radial_grid.h" // radial_grid_t
@@ -19,7 +19,7 @@
 #include "constants.hxx" // ::pi
 #include "control.hxx" // ::get
 #include "lossful_compression.hxx" // RDP_lossful_compression
-#include "sigma_config.hxx" // ::get, element_t
+#include "sigma_config.hxx" // ::get
 #include "recorded_warnings.hxx" // warn
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 

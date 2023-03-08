@@ -34,7 +34,6 @@
 #include "davidson_solver.hxx" // ::eigensolve
 #include "conjugate_gradients.hxx" // ::eigensolve
 #include "dense_operator.hxx" // ::dense_operator_t
-#include "fermi_distribution.hxx" // ::Fermi_level
 #include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::needs_complex
 
 #ifdef DEVEL
@@ -476,7 +475,7 @@ namespace plane_wave {
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
       std::vector<double> eigenenergies(nbands, -9e9);
-      { SimpleTimer timer("plane wave solver");
+      { SimpleTimer timer("plane wave solver", __LINE__, __func__, echo);
       if (run_solver[0]) solver_stat += iterative_solve(eigenenergies.data(), HSm, x_axis, echo, nbands, direct_ratio); // ToDo: needs to export eigenenergies
       if (run_solver[1]) solver_stat += dense_solver::solve(HSm, x_axis, echo, nbands, eigenenergies.data());
       } // timer
@@ -658,7 +657,7 @@ namespace plane_wave {
 #pragma omp parallel for
       for (int ikp = 0; ikp < nkpoints; ++ikp) {
           auto const *kpoint = kmesh[ikp];
-          char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kpoint[0], kpoint[1], kpoint[2]);
+          char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kpoint[0], kpoint[1], kpoint[2]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
 //        bool const could_be_real = brillouin_zone::needs_complex(kpoint);
@@ -755,8 +754,7 @@ namespace plane_wave {
       for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
           p2[iSHO] = pp(iSHO,iSHO).real()*d3g;
       } // iSHO
-      std::printf("\n# %s: norms ", __func__);
-      printf_vector(" %g", p2.data(), nSHO);
+      if (echo > 5) { std::printf("\n# %s: norms ", __func__); printf_vector(" %g", p2.data(), nSHO); }
       double maxdev{0};
       for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
           for (int jSHO = 0; jSHO < nSHO; ++jSHO) {
@@ -769,7 +767,7 @@ namespace plane_wave {
               printf_vector(" %.1e", p2.data(), nSHO);
           } // echo
       } // iSHO
-      std::printf("# %s: orthogonality max dev %.1e\n", __func__, maxdev);
+      if (echo > 3) std::printf("# %s: orthogonality max dev %.1e\n", __func__, maxdev);
       return 0;
   } // test_Hermite_Gauss_normalization
 
