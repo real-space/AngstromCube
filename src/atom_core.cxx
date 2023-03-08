@@ -577,6 +577,43 @@ namespace atom_core {
       if (my_radial_grid) radial_grid::destroy_radial_grid(m);
   } // solve
 
+
+  double neutral_atom_total_energy_LDA(double const Z) {
+      // fitting LDA total energies/Z^2 for Z=10..120
+      double const a0 = 0.18094;
+      double const a1 = 0.383205;
+      double const a2 = -0.0109251;
+      double const a3 = 4.75216e-05;
+      // or fitting LDA total energies/Z^2.5 for Z=10..120
+      // 	a0 = 0.178902
+      // 	a1 = 0.384094
+      // 	a2 = -0.0110257
+      // 	a3 = 4.78395e-05
+      return -std::max(0., Z)*Z*(a0 + a1*std::sqrt(std::max(0., Z)) + a2*Z + a3*Z*Z);
+  } // neutral_atom_total_energy_LDA
+
+  double neutral_atom_total_energy(double const Z) {
+      if (Z <= 0) return 0;
+      double const E_LDA[16] = {0,-0.445893560,-2.834410555,-7.333797749,
+        -14.448933773,-24.350492007,-37.440386817,-54.053760337,
+        -74.524727413,-99.186432180, -128.371547297,-161.650489998,
+        -199.451741467,-241.760703146,-288.815708267,-340.781209719};
+      if (Z <= 0) return 0;
+      if (Z > 16) return neutral_atom_total_energy_LDA(Z);
+      int const iZ = int(Z);
+      assert(iZ >= 0 && iZ <= 16 && "internal error");
+      // compute weights for a cubic Lagrange polynomial through E[iZ-1], E[iZ] and E[iZ+1]
+      double const xm1 = iZ - 1, x_0 = iZ, xp1 = iZ + 1;
+      double const wm1 = ((Z - x_0)*(Z - xp1))/((xm1 - x_0)*(xm1 - xp1));
+      double const w_0 = ((Z - xp1)*(Z - xm1))/((x_0 - xp1)*(x_0 - xm1));
+      double const wp1 = ((Z - xm1)*(Z - x_0))/((xp1 - xm1)*(xp1 - x_0));
+      double const ym1 = (iZ >  0)? E_LDA[iZ - 1] : 0;
+      double const y_0 = (iZ < 16)? E_LDA[iZ]     : neutral_atom_total_energy_LDA(x_0);
+      double const yp1 = (iZ < 15)? E_LDA[iZ + 1] : neutral_atom_total_energy_LDA(xp1);
+      return wm1*ym1 + w_0*y_0 + wp1*yp1;
+  } // neutral_atom_total_energy
+
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
