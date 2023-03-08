@@ -1,6 +1,6 @@
-**A4cube**
+**AngstromCube**
 
-    A4cube is an experimental all-electron DFT application.
+    AngstromCube is an experimental all-electron DFT application.
     It is based on a various representations:
         real-space grids,
         plane waves and
