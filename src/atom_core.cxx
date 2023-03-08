@@ -1,8 +1,8 @@
 #include <cstdio> // std::printf
 #include <cassert> // assert
-#include <cmath> // std::sqrt, std::pow, std::exp, std::abs, std::sqrt, std::round
-#include <fstream> // std::ifstream, std::ofstream
-#include <algorithm> // std::min, std::max
+#include <cmath> // std::sqrt, ::pow, ::exp, ::abs, ::sqrt, ::round
+#include <fstream> // std::ifstream, ::ofstream
+#include <algorithm> // std::min, ::max
 #include <iomanip> // std::setprecision
 #include <vector> // std::vector<T>
 

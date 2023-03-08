@@ -8,7 +8,7 @@
 #include <string> // std::string, ::getline
 #include <vector> // std::vector<T>
 
-#include "geometry_analysis.hxx"
+#include "geometry_analysis.hxx" // ::fold_back
 
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, ::periodic_images
 #include "display_units.h" // eV, _eV, Ang, _Ang

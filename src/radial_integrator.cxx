@@ -548,12 +548,12 @@ namespace radial_integrator {
       auto & g = *radial_grid::create_radial_grid(256);
       std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn_prev{-1};
-      if (echo > 5) std::printf("\n## -Energy(Ha) kink numberOfNodes:\n"); // shows that the kink is a falling function of E 
+      if (echo > 6) std::printf("\n## -Energy(Ha) kink numberOfNodes:\n"); // shows that the kink is a falling function of E 
       for (int iE = 1; iE < 10000; ++iE) {
-          double const E = -.075e-8*pow2(iE*Z);
+          auto const E = -.75e-9*pow2(iE*Z);
           int nnn, ell{0};
           auto const kink = shoot(0, g, rV.data(), ell, E, nnn);
-          if (echo > 5) {
+          if (echo > 6) {
               if (nnn_prev != nnn) std::printf("\n"); // branch separation
               std::printf("%g %g %d\n", -E, kink, nnn); // shows that the kink is a falling function of E
           } // echo
@@ -569,9 +569,9 @@ namespace radial_integrator {
       std::vector<double> rf(g.n), rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn{0};
       auto const kink = shoot(0, g, rV.data(), 0, -0.5, nnn, rf.data());
-      if (echo > 5) debug(dump_to_file("H1s_radial_wave_function.dat", g.n, rf.data(), g.r));
+      if (echo > 6) debug(dump_to_file("H1s_radial_wave_function.dat", g.n, rf.data(), g.r));
       radial_grid::destroy_radial_grid(&g);
-      if (echo > 2) std::printf("# %s kink= %.2e\n", __func__, kink);
+      if (echo > 3) std::printf("# %s kink= %.2e\n", __func__, kink);
       return (std::abs(kink) > 1e-3); // error if kink is too large
   } // test_hydrogen_wave_functions
   
@@ -579,20 +579,33 @@ namespace radial_integrator {
       // unit test for the outwards integration
       auto & g = *radial_grid::create_radial_grid(512); // radial grid descriptor
       std::vector<double> gg(g.n), ff(g.n), rV(g.n, 0.0); // fill all potential values with r*V(r) == 0 everywhere
-      double const k = 1; // wave number of the Bessel function
-      integrate_outwards<0>(gg.data(), ff.data(), g, rV.data(), 0, 0.5*k*k);
-      if (echo > 5) std::printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
-      double dev{0}, norm{0};
-      for (int ir = 1; ir < g.n; ++ir) {
-          double const x = k*g.r[ir], ref = std::sin(x), diff = ref - gg[ir];
-          if (echo > 5) std::printf("%g %g %g %g\n", x, ref, gg[ir], diff); // compare result to x*j0(x)==sin(x)
-          norm += pow2(ref)*g.dr[ir]; // integrate
-          dev += pow2(diff)*g.dr[ir]; // integrate
-      } // ir
-      if (echo > 2) std::printf("\n# %s: integral (sin(%g*r) - r*f(r))^2 dr= %g\n", __func__, k, dev);
-      if (echo > 3) std::printf("# %s: integral sin^2(%g*r) dr= %g\n", __func__, k, norm);
+      // j_0(x) = sin(x)/x, j_1(x) = (sin(x) - x*cos(x))/x^2
+      auto const k = 1.; // wave number of the Bessel function
+      double reldev{0};
+      for (ell_QN_t ell = 1; ell >= 0; --ell) {
+          integrate_outwards<0>(gg.data(), ff.data(), g, rV.data(), ell, 0.5*k*k);
+          double norm2j{0}, norm2f{0}, dotprd{0};
+          for (int ir = 1; ir < g.n; ++ir) {
+              auto const x = k*g.r[ir];
+              auto const j_ell = (1 == ell) ? (std::sin(x)/x - std::cos(x)) : std::sin(x);
+              norm2f += gg[ir]*gg[ir]*g.dr[ir]; // integrate
+              norm2j +=  j_ell*j_ell *g.dr[ir]; // integrate
+              dotprd +=  j_ell*gg[ir]*g.dr[ir]; // integrate
+              ff[ir] = j_ell; // store reference function for plotting
+          } // ir
+          if (echo > 6) {
+              auto const f = std::sqrt(norm2j/norm2f); // adjust scaling
+              std::printf("\n## %s: x, x*j_%i(x), f(x):\n", __func__, ell, ell);
+              for (int ir = 1; ir < g.n; ++ir) {
+                  std::printf("%g %g %g\n", k*g.r[ir], ff[ir], f*gg[ir]);
+              } // ir
+          } // echo
+          auto const dev = dotprd/std::sqrt(norm2j*norm2f) - 1;
+          if (echo > 3) std::printf("# %s: deviation(ell=%i) = %.2e\n", __func__, ell, dev);
+          reldev = std::max(reldev, std::abs(dev));
+      } // ell
       radial_grid::destroy_radial_grid(&g);
-      return (dev > 1e-11*norm); // return error if deviations become large
+      return (reldev > 2e-12); // return error if deviations become large, threshold chosen for k==1.
   } // test_Bessel_functions
 
   // unit test for the inhomogeneous outwards integration
