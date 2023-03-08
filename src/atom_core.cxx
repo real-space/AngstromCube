@@ -6,7 +6,7 @@
 #include <iomanip> // std::setprecision
 #include <vector> // std::vector<T>
 
-#include "atom_core.hxx" // ::guess_energy, ::nl_index, ::ellchar 
+#include "atom_core.hxx" // ::guess_energy, ::nl_index, ::get_Zeff_file_name
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "radial_grid.h" // radial_grid_t
