@@ -33,7 +33,8 @@
 #endif // HAS_TFQMRGPU
 
 #include "green_sparse.hxx"    // ::sparse_t<,>
-#include "green_kinetic.hxx"   // ::multiply, ::finite_difference_plan_t
+// #include "green_kinetic.hxx"// ::multiply, ::finite_difference_plan_t
+#include "green_kinetic.hxx"   // ::kinetic_plan_t
 #include "green_potential.hxx" // ::multiply
 #include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 
@@ -111,7 +112,10 @@ namespace green_action {
       std::complex<double> E_param; // energy parameter
 
       green_sparse::sparse_t<int32_t> kinetic_plan[3];
+      double *grid_spacing = nullptr; // [3]
       int16_t kinetic_nFD[4];
+
+      green_kinetic::kinetic_plan_t kinetic[3]; // new struct replacing [kinetic_plan, grid_spacing, kinetic_nFD]
 
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
       uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
@@ -125,7 +129,6 @@ namespace green_action {
       int32_t*  veff_index          = nullptr; // [nnzb] indirection list, values -1 for non-existent indices
 
       double *grid_spacing_trunc = nullptr; // [3]
-      double *grid_spacing       = nullptr; // [4]
       double (*phase)[2][2]      = nullptr; // [3]
 
       bool noncollinear_spin = false;
@@ -245,8 +248,11 @@ namespace green_action {
                       p->V_confinement, pow2(p->r_confinement), p->echo);
 
           // add the kinetic energy expressions
-          nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
-                      p->grid_spacing, p->phase, p->kinetic_nFD, nnzb, p->echo);
+        //   nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
+        //               p->grid_spacing, p->phase, p->kinetic_nFD, nnzb, p->echo);
+          for (int dd = 0; dd < 3; ++dd) { // loop must run serial
+              nops += p->kinetic[dd].multiply<real_t,R1C2,Noco>(y, x, p->phase[dd], p->echo);
+          } // dd derivative direction
 
           // add the non-local potential using the dyadic action of project + add
           nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->dyadic_plan,

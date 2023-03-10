@@ -4,8 +4,6 @@
 #include <cstdio> // std::printf
 #include <cstdint> // uint32_t, int32_t, uint16_t, int16_t
 #include <cassert> // assert
-#include <cmath> // std::sqrt
-#include <algorithm> // std::max
 
 #include "status.hxx" // status_t
 #include "green_memory.hxx" // get_memory, free_memory --> used in multiply, ToDo: move into planning phase
@@ -359,20 +357,20 @@ namespace green_kinetic {
         , uint32_t const num
         , int const Stride // Stride is determined by the lattice dimension along which we derive: 1, 4 or 4^2
         , double const phase[2][2]=nullptr
-        , int const nFD=4
+        , int const FD_range=4 // 4 or 8 are implemented
     ) {
-        if (num < 1 || nFD < 1) return -1;
+        if (num < 1 || FD_range < 1) return 0;
         assert(1 == Stride || 4 == Stride || 16 == Stride);
-        auto const kernel_ptr = (8 == nFD) ? Laplace16th<real_t,R1C2,Noco> : Laplace8th<real_t,R1C2,Noco>;
+        auto const kernel_ptr = (8 == FD_range) ? Laplace16th<real_t,R1C2,Noco> : Laplace8th<real_t,R1C2,Noco>;
         dim3 const gridDim(num, 16, 1), blockDim(Noco*64, Noco, R1C2);
         kernel_ptr // GPU kernel, must be launched with <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>
-#ifdef HAS_NO_CUDA
+#ifdef    HAS_NO_CUDA
                   (    gridDim, blockDim,
 #else  // HAS_NO_CUDA
                    <<< gridDim, blockDim >>> (
 #endif // HAS_NO_CUDA
                    Tpsi, psi, index_list, prefactor, Stride, phase);
-        return (8 == nFD) ? 8 : 4;
+        return (8 == FD_range) ? 17 : 9; // returns the number of stencil coefficients
     } // Laplace_driver
 
 
@@ -396,20 +394,112 @@ namespace green_kinetic {
         , size_t   const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
         , int      const echo=0
     ) {
-        int nFD[3];
+        int nFD[3]; // numbers of stencil coefficients
         size_t nops{0};
         for (int dd = 0; dd < 3; ++dd) { // derivative direction, serial due to update of Tpsi
             auto const f = -0.5/pow2(hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
             int  const stride = 1 << (2*dd);
             auto const list = (2 == dd) ? z_list : ((1 == dd) ? y_list : x_list);
             nFD[dd] = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase[dd], FD_range[dd]);
-            nops += nnzb*std::max(0, 2*nFD[dd] + 1)*R1C2*pow2(Noco*64ul)*2; // total number of floating point operations performed
+            nops += nnzb*nFD[dd]*R1C2*pow2(Noco*64ul)*2ul; // total number of floating point operations performed
         } // dd
-        char const fF = (8 == sizeof(real_t)) ? 'F' : 'f';
+        char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
         if (echo > 7) std::printf("# green_kinetic::%s nFD= %d %d %d, numbers= %d %d %d, %.3f M%clop\n",
                               __func__, nFD[0], nFD[1], nFD[2], num[0], num[1], num[2], nops*1e-6, fF);
         return nops;
     } // multiply (kinetic energy operator)
+
+
+    class kinetic_plan_t {
+    public:
+
+        kinetic_plan_t() {} // default constructor
+#if 0
+        kinetic_plan_t(
+            green_sparse::sparse_t<int32_t> & sparse // result
+          , int16_t & FD_range // side result
+          , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
+          , bool const boundary_is_periodic
+          , uint32_t const num_target_coords[3]
+          , uint32_t const RowStart[]
+          , uint16_t const ColIndex[]
+          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
+          , std::vector<bool> const sparsity_pattern[] // memory saving bit-arrays sparsity_pattern[irhs][idx3]
+          , unsigned const nrhs=1 // number of right hand sides
+          , double const grid_spacing=1 // grid spacing in derivative direction
+          , int const echo=0 // log level
+      ) 
+        : derivative_direction(dd)
+      {
+          auto const stat = finite_difference_plan(sparse, FD_range, // results
+                    dd, boundary_is_periodic, num_target_coords, RowStart, ColIndex,
+                    iRow_of_coords, sparsity_pattern, nrhs, echo);
+          if (0 == stat) {
+              prefactor = -0.5/(grid_spacing*grid_spacing);
+              lists = get_memory<int32_t const *>(sparse.nRows(), echo, "lists[dd]");
+          } else {
+              if (echo > 2) std::printf("# failed to set up finite_difference_plan for %c-direction, status= %i\n", 'x' + dd, int(stat));
+          }
+      } // constructor
+#endif // does not work because the copy assignment operator of sparse is deleted
+
+      void set(
+            int const dd
+          , double const grid_spacing=1
+          , size_t const nnzbX=1
+          , int const echo=0 // log level
+      ) {
+            derivative_direction = dd;
+            nnzb = nnzbX;
+            prefactor = -0.5/(grid_spacing*grid_spacing);
+            char lists_[8] = "list[?]"; lists_[5] = 'x' + dd;
+            lists = get_memory<int32_t const *>(sparse.nRows(), echo, lists_);
+            auto const rowStart = sparse.rowStart();
+            auto const colIndex = sparse.colIndex();
+            for (uint32_t il = 0; il < sparse.nRows(); ++il) {
+                lists[il] = &colIndex[rowStart[il]];
+            } // il
+      } // set
+
+      ~kinetic_plan_t() {
+          if (lists) {
+              std::printf("# free list for dd=%i\n", derivative_direction);
+              free_memory(lists);
+          }
+      } // destructor
+
+    public:
+        // members
+        green_sparse::sparse_t<int32_t> sparse;
+        double prefactor = 0; // = -0.5/h^2,  h:grid spacing in X,Y,Z // prefactor of the kinetic energy in Hartree atomic units
+        size_t nnzb; // total number of non-zero blocks (to get the operations count correct)
+        int16_t FD_range = 8; // 4 or 8
+        int32_t const ** lists = nullptr; // in device memory
+        int derivative_direction = -1; // derivative direction
+
+    public:
+
+        template <typename real_t, int R1C2=2, int Noco=1>
+        size_t multiply(
+              real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
+            , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
+            , double   const phase[2][2]=nullptr // complex Bloch phase factors
+            , int      const echo=0
+        ) const { // members of the kinetic_plan_t are not changed
+            int  const stride = 1 << (2*derivative_direction); // 4^dd: X:1, Y:4, Z:16
+            auto const nFD = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, lists, prefactor, sparse.nRows(), stride, phase, FD_range);
+            size_t const nops = nnzb*nFD*R1C2*pow2(Noco*64ul)*2ul;
+            if (echo > 7) {
+                char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
+                std::printf("# green_kinetic::%s dd=\'%c\', nFD= %d, number= %d, %.3f M%clop\n",
+                    __func__, 'x' + derivative_direction, nFD, sparse.nRows(), nops*1e-6, fF);
+            } // echo
+            return nops; // return the total number of floating point operations performed
+        } // multiply (kinetic energy operator)
+
+    }; // class kinetic_plan_t
+
+
 
 
     template <typename real_t, int R1C2=2, int Noco=1>
@@ -436,7 +526,7 @@ namespace green_kinetic {
                 lists[dd][il] = &colIndex[rowStart[il]];
             } // il
         } // dd
-        if (echo > 13) std::printf("# green_kinetic::%s nFD= %d %d %d, numbers= %d %d %d\n",
+        if (echo > 13) std::printf("# green_kinetic::%s FD_range= %d %d %d, numbers= %d %d %d\n",
                    __func__, FD_range[0], FD_range[1], FD_range[2], num[0], num[1], num[2]);
 
         auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);

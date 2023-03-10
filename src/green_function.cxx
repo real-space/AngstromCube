@@ -425,7 +425,7 @@ namespace green_function {
 
       update_atom_matrices(p, E_param, AtomMatrices, dVol, Noco, 1.0, echo);
 
-      if (echo > 1) std::printf("# found %d contributing atoms and %ld atom images\n", nac, nai);
+      if (echo > 1) std::printf("# found %d contributing atoms with %ld atom images\n", nac, nai);
 
       p.update_flop_counts(echo); // prepare to count the number of floating point operations
 
@@ -936,7 +936,7 @@ namespace green_function {
               } // i
           } // echo
 
-          // create a histogram about the distribution of the number of columns per row
+          // a histogram about the distribution of the number of columns per row
           std::vector<uint32_t> hist(1 + nrhs, 0);
           for (size_t idx3 = 0; idx3 < column_indices.size(); ++idx3) {
               auto const n = column_indices[idx3].size();
@@ -945,8 +945,8 @@ namespace green_function {
           } // idx3
 
           // eval the histogram
-          size_t nall{0};
-          size_t nnzb{0}; // number of non-zero BSR entries
+          size_t nall{0}; // checksum for histogram
+          size_t nnzb{0}; // number of non-zero BSR entries in X
           for (int n = 0; n <= nrhs; ++n) {
               nall += hist[n];
               nnzb += hist[n]*n;
@@ -1163,10 +1163,32 @@ namespace green_function {
                       , iRow_of_coords
                       , sparsity_pattern.data()
                       , nrhs, echo);
-                      if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
-                      char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
-                      p.kinetic_nFD[dd] = control::get(keyword_dd, double(kinetic_nFD_dd));
-                } // dd derivate direction
+                  if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+                  char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
+                  p.kinetic_nFD[dd] = control::get(keyword_dd, double(kinetic_nFD_dd));
+
+                //   p.kinetic[dd] = green_kinetic::kinetic_plan_t(p.kinetic_plan[dd], kinetic_nFD_dd
+                //       , dd
+                //       , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
+                //       , num_target_coords
+                //       , p.RowStart, p.colindx.data()
+                //       , iRow_of_coords
+                //       , sparsity_pattern.data()
+                //       , nrhs, hg[dd], echo);
+
+                  auto const new_stat = green_kinetic::finite_difference_plan(p.kinetic[dd].sparse, p.kinetic[dd].FD_range // results
+                      , dd
+                      , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
+                      , num_target_coords
+                      , p.RowStart, p.colindx.data()
+                      , iRow_of_coords
+                      , sparsity_pattern.data()
+                      , nrhs, echo);
+                  if (0 == new_stat) {
+                      p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
+                  } else error("failed to create new kinetic_plan_t in %c-direction", 'x' + dd);             
+
+              } // dd derivate direction
           } // scope: set up kinetic plans
 
           // transfer grid spacing into managed GPU memory
