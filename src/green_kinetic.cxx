@@ -8,7 +8,7 @@
 #include <utility> // std::swap //, ::move
 #include <vector> // std::vector<T>
 
-#include "green_kinetic.hxx" // index3D, ::nhalo
+#include "green_kinetic.hxx" // index3D, ::nhalo, multiply
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory
@@ -70,22 +70,22 @@ namespace green_kinetic {
         //
         //
         //  6 x-lists:
-        //    list[0] == { 0  0  0  0  1  2  3  4  5  0  0  0  0}
+        //    list[0] ==    { 0  0  0  0  1  2  3  4  5  0  0  0  0}
         //    list[1] == { 0  0  0  0  6  7  8  9 10 11 12  0  0  0  0}
         //    list[2] == { 0  0  0  0 13 14 15 16 17 18 19 20  0  0  0  0}
         //    list[3] == { 0  0  0  0 21 22 23 24 25 26 27 28  0  0  0  0}
         //    list[4] == { 0  0  0  0 29 30 31 32 33 34 35  0  0  0  0}
-        //    list[5] == { 0  0  0  0 36 37 38 39 40  0  0  0  0}
+        //    list[5] ==    { 0  0  0  0 36 37 38 39 40  0  0  0  0}
         //
         //  8 y-lists:
-        //    list[0] == { 0  0  0  0  6 13 21 29  0  0  0  0}
+        //    list[0] ==    { 0  0  0  0  6 13 21 29  0  0  0  0}
         //    list[1] == { 0  0  0  0  1  7 14 22 30 36  0  0  0  0}
         //    list[2] == { 0  0  0  0  2  8 15 23 31 37  0  0  0  0}
         //    list[3] == { 0  0  0  0  3  9 16 24 32 38  0  0  0  0}
         //    list[4] == { 0  0  0  0  4 10 17 25 33 39  0  0  0  0}
         //    list[5] == { 0  0  0  0  5 11 18 26 34 40  0  0  0  0}
-        //    list[6] == { 0  0  0  0 12 19 27 35  0  0  0  0}
-        //    list[7] == { 0  0  0  0 20 28  0  0  0  0}
+        //    list[6] ==    { 0  0  0  0 12 19 27 35  0  0  0  0}
+        //    list[7] ==       { 0  0  0  0 20 28  0  0  0  0}
         //
         // Preparation of Finite-Difference index lists
         // 2D example with a periodic x-direction

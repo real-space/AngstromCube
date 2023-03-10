@@ -2,21 +2,15 @@
 // This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
-#include <cstdint> // int64_t, int32_t, uint32_t, int8_t
+#include <cstdint> // uint32_t, int32_t, uint16_t, int16_t
 #include <cassert> // assert
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
-#include <utility> // std::swap //, ::move
-#include <vector> // std::vector<T>
 
-#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "green_memory.hxx" // get_memory, free_memory
-#include "green_sparse.hxx" // ::sparse_t<>
+#include "status.hxx" // status_t
+#include "green_memory.hxx" // get_memory, free_memory --> used in multiply, ToDo: move into planning phase
+#include "green_sparse.hxx" // ::sparse_t<T>
 #include "data_view.hxx" // view3D<T>
-#include "inline_math.hxx" // set
-#include "simple_stats.hxx" // ::Stats<>
-#include "print_tools.hxx" // printf_vector(format, ptr, number [, ...])
-#include "constants.hxx" // ::pi
 
   // ToDo: move to green_utils.hxx or similar
   template <typename uint_t, typename int_t> inline
