@@ -24,6 +24,7 @@ OBJECTS = \
 	green_experiments.o \
 	green_function.o \
 	green_parallel.o \
+	green_kinetic.o \
 	green_input.o \
 	green_tests.o \
 	green.o

@@ -45,6 +45,7 @@ OBJ = \
 	sho_potential.o \
 	structure_solver.o \
 	green_parallel.o \
+	green_kinetic.o \
 	green_function.o \
 	green_experiments.o \
 	green_input.o \
