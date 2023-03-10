@@ -278,6 +278,36 @@ namespace green_kinetic {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+    template <typename real_t, int R1C2=2, int Noco=1>
+    size_t multiply(
+          real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
+        , uint32_t const num[3] // number of sticks in X,Y,Z direction
+        , int32_t  const *const *const __restrict__ x_list //
+        , int32_t  const *const *const __restrict__ y_list //
+        , int32_t  const *const *const __restrict__ z_list //
+        , double   const hgrid[3] // grid spacing in X,Y,Z
+        , int      const FD_range[3] // finite-difference stencil range (in grid points)
+        , double   const phase[3][2][2] // complex Bloch phase factors
+        , size_t   const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
+        , int      const echo=0
+    ) {
+        int nFD[3]; // numbers of stencil coefficients
+        size_t nops{0};
+        for (int dd = 0; dd < 3; ++dd) { // derivative direction, serial due to update of Tpsi
+            auto const f = -0.5/pow2(hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
+            int  const stride = 1 << (2*dd);
+            auto const list = (2 == dd) ? z_list : ((1 == dd) ? y_list : x_list);
+            nFD[dd] = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase[dd], FD_range[dd]);
+            nops += nnzb*nFD[dd]*R1C2*pow2(Noco*64ul)*2ul; // total number of floating point operations performed
+        } // dd
+        char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
+        if (echo > 7) std::printf("# green_kinetic::%s nFD= %d %d %d, numbers= %d %d %d, %.3f M%clop\n",
+                              __func__, nFD[0], nFD[1], nFD[2], num[0], num[1], num[2], nops*1e-6, fF);
+        return nops;
+    } // multiply (kinetic energy operator)
+
+
   template <typename real_t, int R1C2=2, int Noco=1>
   status_t test_finite_difference(int const echo=0) {
       size_t const nnzb = 15;

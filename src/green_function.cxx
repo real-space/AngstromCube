@@ -439,7 +439,7 @@ namespace green_function {
       , int const Noco // =1
       , int const echo // =0 // verbosity
   ) {
-      assert(p.phase && "phase[3][2][2] must already be allocated");
+      assert(p.phase && "phase[3][2][2] must already be allocated in device memory");
       green_kinetic::set_phase(p.phase, k_point, echo); // neutral (Gamma-point) phase factors
 
       std::complex<double> phase[3][2]; // for each direction: forward and backward phase
