@@ -20,8 +20,12 @@
 
 namespace green_kinetic {
 
-    int constexpr nhalo = 4; // a maximum of 4 bocks (i.e. 16 grid points) is the range of the FD stencil.
+    int constexpr nhalo = 4; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
 
+    int32_t constexpr BLOCK_EXISTS = 1;
+    int32_t constexpr BLOCK_IS_ZERO = 0;
+    int32_t constexpr BLOCK_NEEDS_PHASE = -1;
+   
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
     void __global__ Laplace8th( // GPU kernel, must be launched with <<< {Nrows, 16, 1}, {Noco*64, Noco, R1C2} >>>
@@ -78,17 +82,19 @@ namespace green_kinetic {
 
         real_t w0{0}, w1{0}, w2{0}, w3{0}; // 4 registers for one block
 
-        int ilist{3}; // counter for index_list
+        int ilist{nhalo - 1}; // counter for index_list, use only the last entry of the halo
 
         int ii = list[ilist++]; // the 1st block can be 0 (non-existent) or <0 for a periodic image
         // =========================================================================================
         // === periodic boundary conditions ========================================================
-        if (ii) {
+        if (BLOCK_IS_ZERO == ii) {
+            // block does not exist (isolated/vacuum boundary condition), registers w0...w3 are initialized 0
+        } else { // is periodic
             if (ii > 0) std::printf("# Error: ii= %d ilist= %i\n", ii, ilist);
-            assert(ii < 0 && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
-            int const jj = -ii - 1; // index of the periodic image of a block
-            assert(jj >= 0);
-            assert(phase && "no phase given");
+            assert(ii <= BLOCK_NEEDS_PHASE && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
+            int const jj = BLOCK_NEEDS_PHASE*(ii + BLOCK_EXISTS); // index of the periodic image of a block
+            assert(jj >= 0); // must be a valid index to dereference psi[]
+            assert(phase && "a phase must be given for complex BCs");
             real_t const ph_Re = phase[0][0]; // real part of the left complex phase factor
             // inital block load
             w0 = ph_Re * psi[jj]INDICES(0);
@@ -104,15 +110,13 @@ namespace green_kinetic {
                 w2 -= ph_Im * psi[jj]INDICES_Im(2);
                 w3 -= ph_Im * psi[jj]INDICES_Im(3);
             } // is complex
-        } else { // is periodic
-            // block does not exist (isolated/vacuum boundary condition), registers w0...w3 are initialized 0
         } // is periodic
         // === periodic boundary conditions ========================================================
         // =========================================================================================
 
         real_t w4, w5, w6, w7, wn; // 4 + 1 registers, wn is the register that always receives the most recently loaded value
 
-        ii = list[ilist++] - 1; assert(ii >= 0); // this block must be a regular index since it is the 1st block for which we store a result
+        ii = list[ilist++] - BLOCK_EXISTS; assert(ii >= 0); // this block must be a regular index since it is the 1st block for which we store a result
         // initially load one block in advance
         w4 = psi[ii]INDICES(0);
         w5 = psi[ii]INDICES(1);
@@ -123,7 +127,7 @@ namespace green_kinetic {
         assert(5 == ilist);
         while (ii >= 0) {
             int const i0 = ii; // set central index
-            ii = list[ilist++] - 1; // get next index
+            ii = list[ilist++] - BLOCK_EXISTS; // get next index
 //          if (0 == threadIdx.x && 0 == blockIdx.x) std::printf("# loop: ii= %d ilist= %i\n", ii, ilist);
             bool const load = (ii >= 0);
             // use a rotating register file, see figs/rotating_register_file.fig or *.pdf
@@ -152,12 +156,14 @@ namespace green_kinetic {
         // === periodic boundary conditions ========================================================
         // correct for the tail part if periodic
         ii = list[ilist - 1]; // recover the list entry which stopped the while-loop
-        if (ii) {
+        if (BLOCK_IS_ZERO == ii) {
+            // block does not exist (isolated/vacuum boundary condition), no further action necessary
+        } else {
             assert(ii < 0 && "last list item must be either 0 (isolated BC) or negative (periodic BC)");
-            int const jj = -ii - 1; // index of the periodic image of a block
-            assert(jj >= 0);
-            int const i0 = list[ilist - 2] - 1; // recover the last central index
-            assert(i0 >= 0);
+            int const jj = BLOCK_NEEDS_PHASE*(ii + BLOCK_EXISTS); // index of the periodic image of a block
+            assert(jj >= 0); // must be a valid index to dereference psi[]
+            int const i0 = list[ilist - 2] - BLOCK_EXISTS; // recover the last central index
+            assert(i0 >= 0); // must be a valid index to dereference Tpsi[]
             assert(phase && "no (right) phase given"); // should have failed already above
             real_t const ph_Re = phase[1][0]; // real part of the right complex phase factor
             // final block load
@@ -205,7 +211,7 @@ namespace green_kinetic {
         , int const Stride // Stride is determined by the lattice dimension along which we derive: 1, 4 or 4^2
         , double const phase[2][2]=nullptr // WARNING this routine cannot treat periodic boundary conditions
     ) {
-        assert(nullptr == phase);
+        assert(nullptr == phase);          // WARNING this routine cannot treat periodic boundary conditions
         // prepare finite-difference coefficients
         //            c_0        c_1         c_2       c_3        c_4      c_5       c_6     c_7     c_8
         // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
@@ -252,19 +258,19 @@ namespace green_kinetic {
                w8, w9, wa, wb, wc, wd, we, wf, wn; // 8 + 8 + 1 registers
 
         int ilist{0}; // counter for index_list
-        for (int i4 = 0; i4 < 4; ++i4) {
+        for (int i4 = 0; i4 < nhalo; ++i4) {
             assert(0 == list[ilist++] && "Laplace16th can only deal with isolated boundary conditions");
         } // i4
 
         // initially load two blocks in advance
-        int i0 = list[ilist++] - 1; // load index for 1st non-zero block
+        int i0 = list[ilist++] - BLOCK_EXISTS; // load index for 1st non-zero block
         assert(i0 >= 0); // 1st central block must exist
         w8 = psi[i0]INDICES(0); // inital load
         w9 = psi[i0]INDICES(1); // inital load
         wa = psi[i0]INDICES(2); // inital load
         wb = psi[i0]INDICES(3); // inital load
 
-        int i1 = list[ilist++] - 1; // load index for the 2nd block
+        int i1 = list[ilist++] - BLOCK_EXISTS; // load index for the 2nd block
         if (i1 >= 0) {
             wc = psi[i1]INDICES(0); // inital load
             wd = psi[i1]INDICES(1); // inital load
@@ -275,13 +281,13 @@ namespace green_kinetic {
         } // i1 valid
 
         // main loop
-        int i2 = list[ilist++] - 1; // get next index
+        int i2 = list[ilist++] - BLOCK_EXISTS; // get next index
 
         assert(ilist == 7);
 
         while (i0 >= 0) {
             bool const load = (i2 >= 0); // load or not?
-            // use a rotating register file, see above version of Laplace8th
+            // use a rotating register file, compare version of Laplace8th above
 
             // FD17POINT = load?, compute, store, update rotating register file
 #define FD17POINT(i4,  M8, M7, M6, M5, M4, M3, M2, M1, W0, P1, P2, P3, P4, P5, P6, P7, P8) \
@@ -314,7 +320,7 @@ namespace green_kinetic {
                 FD17POINT(3,  wf, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, wa, wb, wc, wd, we, wn)
             } // ilist mod(4)
 #undef  FD17POINT
-            i0 = i1; i1 = i2; i2 = list[ilist++] - 1; // rotate and get next index
+            i0 = i1; i1 = i2; i2 = list[ilist++] - BLOCK_EXISTS; // rotate and get next index
         } // while loop
 
 #undef  INDICES
