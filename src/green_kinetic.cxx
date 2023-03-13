@@ -33,14 +33,10 @@ namespace green_kinetic {
         auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
         assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
 
-        int32_t inz_found{-1};
         for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-            if (ColIndex[inz] == irhs) {
-                inz_found = inz; // store where it was found
-                inz = RowStart[iRow + 1]; // stop search loop
-            } // found
+            if (ColIndex[inz] == irhs) return inz; // ToDo: bisection search would be smarter...
         } // search
-        return inz_found;
+        return -1; // not found
     } // get_inz
 
 
@@ -245,7 +241,7 @@ namespace green_kinetic {
             corrected = " corrected";
         }
         double dev{0};
-// #ifdef  DEBUG
+// #ifdef    DEBUG
         if ('\0' != *corrected) {
             if (std::abs(cs - std::cos(arg)) > 2.3e-16) error("cosine for phase_angle= %g degrees deviates after purification, cos= %g expected %g", phase_angle*360, cs, std::cos(arg));
             if (std::abs(sn - std::sin(arg)) > 2.8e-16) error(  "sine for phase_angle= %g degrees deviates after purification, sin= %g expected %g", phase_angle*360, sn, std::sin(arg));
@@ -274,9 +270,9 @@ namespace green_kinetic {
         } // dd
     } // set_phase
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
