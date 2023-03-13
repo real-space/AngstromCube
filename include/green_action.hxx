@@ -111,9 +111,10 @@ namespace green_action {
       float V_confinement   = 1; // potential prefactor
       std::complex<double> E_param; // energy parameter
 
-      green_sparse::sparse_t<int32_t> kinetic_plan[3];
-      double *grid_spacing = nullptr; // [3]
-      int16_t kinetic_nFD[4];
+    //   // these members are now replaced by kinetic_plan_t kinetic
+    //   green_sparse::sparse_t<int32_t> kinetic_plan[3];
+    //   double *grid_spacing = nullptr; // [3]
+    //   int16_t kinetic_nFD[4];
 
       green_kinetic::kinetic_plan_t kinetic[3]; // new struct replacing [kinetic_plan, grid_spacing, kinetic_nFD]
 
@@ -155,9 +156,9 @@ namespace green_action {
           free_memory(colCubePos);
           free_memory(rowCubePos);
           free_memory(grid_spacing_trunc);
-          free_memory(grid_spacing);
+     //   free_memory(grid_spacing);
           free_memory(phase);
-          for (int dd = 0; dd < 3; ++dd) kinetic_plan[dd].~sparse_t();
+     //   for (int dd = 0; dd < 3; ++dd) kinetic_plan[dd].~sparse_t();
       } // destructor
 
   }; // plan_t

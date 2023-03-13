@@ -1153,19 +1153,19 @@ namespace green_function {
               auto const *const keyword = "green_kinetic.range";
               int16_t const kinetic_nFD_default = control::get(keyword, 8.0);
               for (int dd = 0; dd < 3; ++dd) { // derivate direction
-                  int16_t kinetic_nFD_dd = kinetic_nFD_default;
+                  int16_t kinetic_nFD_dd{kinetic_nFD_default};
                   // create lists for the finite-difference derivatives
-                  auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], kinetic_nFD_dd
-                      , dd
-                      , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
-                      , num_target_coords
-                      , p.RowStart, p.colindx.data()
-                      , iRow_of_coords
-                      , sparsity_pattern.data()
-                      , nrhs, echo);
-                  if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+                //   auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], kinetic_nFD_dd
+                //       , dd
+                //       , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
+                //       , num_target_coords
+                //       , p.RowStart, p.colindx.data()
+                //       , iRow_of_coords
+                //       , sparsity_pattern.data()
+                //       , nrhs, echo);
+                //   if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
                   char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
-                  p.kinetic_nFD[dd] = control::get(keyword_dd, double(kinetic_nFD_dd));
+                //   p.kinetic_nFD[dd] = control::get(keyword_dd, double(kinetic_nFD_dd));
 
                 //   p.kinetic[dd] = green_kinetic::kinetic_plan_t(p.kinetic_plan[dd], kinetic_nFD_dd
                 //       , dd
@@ -1176,7 +1176,7 @@ namespace green_function {
                 //       , sparsity_pattern.data()
                 //       , nrhs, hg[dd], echo);
 
-                  auto const new_stat = green_kinetic::finite_difference_plan(p.kinetic[dd].sparse, p.kinetic[dd].FD_range // results
+                  auto const new_stat = green_kinetic::finite_difference_plan(p.kinetic[dd].sparse, kinetic_nFD_dd // results
                       , dd
                       , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
                       , num_target_coords
@@ -1186,14 +1186,15 @@ namespace green_function {
                       , nrhs, echo);
                   if (0 == new_stat) {
                       p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
-                  } else error("failed to create new kinetic_plan_t in %c-direction", 'x' + dd);             
+                      p.kinetic[dd].FD_range = control::get(keyword_dd, double(kinetic_nFD_dd));
+                  } else error("failed to create new kinetic_plan_t in %c-direction", 'x' + dd);   
 
               } // dd derivate direction
           } // scope: set up kinetic plans
 
           // transfer grid spacing into managed GPU memory
-          p.grid_spacing = get_memory<double>(3, echo, "grid_spacing");
-          set(p.grid_spacing, 3, hg); // for kinetic
+        //   p.grid_spacing = get_memory<double>(3, echo, "grid_spacing");
+        //   set(p.grid_spacing, 3, hg); // for kinetic
 
           p.grid_spacing_trunc = get_memory<double>(3, echo, "grid_spacing_trunc");
           set(p.grid_spacing_trunc, 3, h); // customized grid spacings used for the construction of the truncation sphere
