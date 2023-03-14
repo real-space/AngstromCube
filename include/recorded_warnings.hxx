@@ -4,6 +4,7 @@
 #include <cstdio>  // std::printf, ::fprintf, ::snprintf, ::fflush, stdout, stderr
 #include <utility> // std::forward, ::pair<T1,T1>
 #include <cstring> // std::strrchr
+#include <cstdlib> // std::abort
 
 #include "status.hxx" // status_t
 
