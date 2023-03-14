@@ -49,6 +49,9 @@ namespace green_kinetic {
                       c4 =         -9*norm; //-> NStep = 4
         // the NStep=4 8th order stencil has a ratio of c0/c4 = 2^10.64 so half precision (11 significant bits) is the limit
 
+        // type of coefficients could be double, also for float, but this does not give much accuracy improvement and many
+        // more conversion operations since we do not want to have the registers holing the wave function also in double.
+
         // the following list gives the indices of blocks that belong to the same right hand side
         // and are neighbors in the direction of derivation
 
@@ -128,7 +131,7 @@ namespace green_kinetic {
         while (ii >= 0) {
             int const i0 = ii; // set central index
             ii = list[ilist++] - BLOCK_EXISTS; // get next index
-//          if (0 == threadIdx.x && 0 == blockIdx.x) std::printf("# loop: ii= %d ilist= %i\n", ii, ilist);
+//          if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# loop: ii= %d ilist= %i\n", ii, ilist);
             bool const load = (ii >= 0);
             // use a rotating register file, see figs/rotating_register_file.fig or *.pdf
 
@@ -150,6 +153,7 @@ namespace green_kinetic {
                 FD9POINT(3,  w7, w0, w1, w2, w3, w4, w5, w6, wn)
             } // ilist is even or odd
 #undef  FD9POINT
+            // if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# loop: ii= %d, i0= %d, ilist= %i\n", ii, i0, ilist);
         } // while loop
 
         // =========================================================================================
@@ -164,23 +168,24 @@ namespace green_kinetic {
             assert(jj >= 0); // must be a valid index to dereference psi[]
             int const i0 = list[ilist - 2] - BLOCK_EXISTS; // recover the last central index
             assert(i0 >= 0); // must be a valid index to dereference Tpsi[]
+            // if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# r-BC: ii= %d, i0= %d, ilist= %i, jj= %d\n", ii, i0, ilist, jj);
             assert(phase && "no (right) phase given"); // should have failed already above
             real_t const ph_Re = phase[1][0]; // real part of the right complex phase factor
-            // final block load
+            // load right halo block
             w0 = ph_Re * psi[jj]INDICES(0);
             w1 = ph_Re * psi[jj]INDICES(1);
             w2 = ph_Re * psi[jj]INDICES(2);
             w3 = ph_Re * psi[jj]INDICES(3);
             if (2 == R1C2) {
                 real_t const ph_Im = phase[1][1] * (1 - 2*threadIdx.z); // imaginary part of the right complex phase factor
-                // final load of imaginary part
+                // load of imaginary part right halo block
                 w0 -= ph_Im * psi[jj]INDICES_Im(0);
                 w1 -= ph_Im * psi[jj]INDICES_Im(1);
                 w2 -= ph_Im * psi[jj]INDICES_Im(2);
                 w3 -= ph_Im * psi[jj]INDICES_Im(3);
 #undef  INDICES_Im
             } // is complex
-            // compute correction and add
+            // add missing terms
             Tpsi[i0]INDICES(0) += c4*w0;
             Tpsi[i0]INDICES(1) += c3*w0 + c4*w1;
             Tpsi[i0]INDICES(2) += c2*w0 + c3*w1 + c4*w2;

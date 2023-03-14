@@ -3,6 +3,7 @@
 Compilation
 
     green can be compiled for the CPU without CUDA to check its functionality.
+    Run the HAS_NO_CUDA.sh in this folder and activate -DHAS_NO_CUDA in Makefile.
     Otherwise, green is a CUDA code for NVIDIA GPUs.
     Please use either the Makefile in this folder or CMake
 

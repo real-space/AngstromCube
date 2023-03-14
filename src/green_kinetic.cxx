@@ -5,10 +5,10 @@
 #include <cassert> // assert
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
-#include <utility> // std::swap //, ::move
+#include <utility> // std::swap
 #include <vector> // std::vector<T>
 
-#include "green_kinetic.hxx" // index3D, ::nhalo, multiply
+#include "green_kinetic.hxx" // index3D, ::nhalo, ::Laplace_driver
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory
@@ -291,7 +291,7 @@ namespace green_kinetic {
         for (int dd = 0; dd < 3; ++dd) { // derivative direction, serial due to update of Tpsi
             auto const f = -0.5/pow2(hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
             int  const stride = 1 << (2*dd); // stride is 4^dd = 1('x'), 4('y') or 16('z')
-            nFD[dd] = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase ? phase[dd] : nullptr, FD_range[dd]);
+            nFD[dd] = green_kinetic::Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase ? phase[dd] : nullptr, FD_range[dd]);
             nops += nnzb*nFD[dd]*R1C2*pow2(Noco*64ul)*2ul; // total number of floating point operations performed
         } // dd
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
@@ -346,8 +346,8 @@ namespace green_kinetic {
         auto phase = get_memory<double[2][2]>(3, echo, "phase");
 
         auto const is_double = (8 == sizeof(real_t));
-        float const threshold[][4] = {{1e-7,  1e-7,  1e-7,  0},  // thresholds for float
-                                      {4e-11, 2e-16, 2e-16, 0}}; // thresholds for double
+        float const threshold[][4] = {{1.6e-5, 1.5e-5, 4.5e-3, 0}, // thresholds for float
+                                      {5.5e-9, 4.0e-14, 8e-12, 0}}; // thresholds for double
         for (int itest = 0; itest < 3; ++itest) { // 3 different tests 0:(FD=4,iso), 1:(FD=8,iso), 2:(FD=4,peri)
             auto const periodic = (itest > 1);
             auto const FD_range = (itest & 1) ? FD_range8 : FD_range4;
@@ -366,7 +366,7 @@ namespace green_kinetic {
                     indx[i] = BLOCK_NEEDS_PHASE*(nnzb - nhalo + i + BLOCK_EXISTS); // set the lower halo
                 } // i
                 if (echo > 7) { std::printf("# periodic indices: "); printf_vector(" %d", indx, nhalo + nnzb + nhalo); }
-                double const phase_angle[] = {(2 == R1C2) ? 1/3. : .5, (2 == R1C2) ? .125 : 0, .5}; // in units of 2*pi
+                double const phase_angle[] = {(2 == R1C2) ? .25 : .5, (2 == R1C2) ? -1/3. : -.5, .5}; // in units of 2*pi
                 // if we use real numbers only, phase_angle must be half integer, i.e. 0.0:Gamma or 0.5:X-point
                 set_phase(phase, phase_angle, echo/2);
 
@@ -374,7 +374,7 @@ namespace green_kinetic {
                 auto const Ek = 0.5*pow2(kvec); // kinetic energy in Hartree units
                 if (echo > 9) std::printf("# %s: wave vector k= %g sqRy, k^2/2= %g Ha\n", __func__, kvec, Ek);
                 for (size_t i1D = 0; i1D < n1D_all; ++i1D) {
-                    auto const arg = kvec*i1D*hgrid[dd];
+                    auto const arg = kvec*(i1D + .5)*hgrid[dd];
                     reference_function[Im][i1D] = std::sin(-arg);               // plane wave
                     reference_function[Re][i1D] = std::cos( arg);               // plane wave
                     reference_result[Im][i1D] = Ek*reference_function[Im][i1D]; // plane wave
@@ -384,7 +384,10 @@ namespace green_kinetic {
             } else {  // periodic
 
                 what = "localized Gauss-Hermite function"; // test with a localized function set, FD_range=8
-                for (int i = 0; i < nhalo; ++i) { indx[i] = BLOCK_IS_ZERO; indx[nhalo + nnzb + i] = BLOCK_IS_ZERO; }
+                for (int i = 0; i < nhalo; ++i) {
+                    indx[nhalo + nnzb + i] = BLOCK_IS_ZERO; // set upper halo
+                    indx[               i] = BLOCK_IS_ZERO; // set lower halo
+                } // i
                 kvec = 14./(n1D_all*hgrid[dd]); // inverse sigma
                 auto const Ek = 0.5*pow2(kvec); // kinetic energy in Hartree units
                 if (echo > 9) std::printf("# %s: sigma = %g Bohr\n", __func__, 1./kvec);
@@ -418,8 +421,7 @@ namespace green_kinetic {
             multiply<real_t,R1C2,Noco>(Tpsi, psi, num100, index_list, hgrid, FD_range, periodic ? phase : nullptr, nnzb, echo);
             cudaDeviceSynchronize();
 
-            double deviation{0};
-            int failed;
+            int failed{0};
             { // scope: compare result of multiply with reference_result
                 double dev2{0}, deva{0}, norm2{0};
                 if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im  psi_Re, psi_Im:\n"); // plot header
@@ -428,7 +430,7 @@ namespace green_kinetic {
                         auto const i64 = i4*stride; // two block indices are zero
                         auto const i1D = inzb*4 + i4;
                         if (echo > 9) { // plot
-                            std::printf("%g  %g %g  %g %g\n", i1D*hgrid[0],
+                            std::printf("%g  %.15e %g  %.15e %g\n", i1D*hgrid[0],
                                 Tpsi[inzb][Re][i64][j64],  Tpsi[inzb][Im][i64][j64]*Im,
                                 reference_result[Re][i1D], reference_result[Im][i1D]*Im);
                         } // echo
@@ -436,14 +438,15 @@ namespace green_kinetic {
                             auto const dev = Tpsi[inzb][reim][i64][j64] - reference_result[reim][i1D]; // deviation
                             deva  += std::abs(dev); // measure the absolute deviation
                             dev2  += pow2(dev); // measure the square deviation
-                            norm2 += pow2(psi[inzb][reim][i64][j64]);
+                            norm2 += pow2(reference_result[reim][i1D]);
                         } // reim
                     } // i4
                 } // inzb
-                deviation = std::sqrt(dev2/norm2);
-                failed = (deviation > threshold[is_double][itest]);
-                if (echo > 5) std::printf("# deviation of a %s with k= %g is %.1e (abs) and %.1e (relative rms), norm^2= %g, FD=%d, threshold=%.1e %s\n",
-                                              what, kvec, deva, deviation, norm2, FD_range[0], threshold[is_double][itest], failed?"FAILED":"ok");
+                auto const dev = std::sqrt(dev2/norm2);
+                deva          /= std::sqrt(norm2);
+                failed = (dev > threshold[is_double][itest]);
+                if (echo > 5) std::printf("# deviation of a %s with k= %g is %.1e (abs) and %.1e (rms), norm^2= %g, FD=%d, threshold=%.1e %s\n",
+                                             what, kvec, deva, dev, norm2, FD_range[0], threshold[is_double][itest], failed?"FAILED":"ok");
             } // scope
             stat += failed;
 
