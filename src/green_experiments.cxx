@@ -31,7 +31,9 @@
 #include "green_action.hxx" // ::plan_t, ::action_t
 #include "green_function.hxx" // ::update_phases, ::construct_Green_function, ::update_energy_parameter
 #include "control.hxx" // ::get
-#include "linear_algebra.hxx" // ::eigenvalues
+#ifdef    HAS_LAPACK
+    #include "linear_algebra.hxx" // ::eigenvalues
+#endif // HAS_LAPACK
 
 namespace green_experiments {
 
@@ -609,8 +611,10 @@ namespace green_experiments {
 
       int const maxiter = control::get("green_experiments.eigen.maxiter", (nb == nblocks) ? 1. : 9.);
 
+
       simple_stats::Stats<> Gflop_count;
       simple_stats::Stats<> Wtime_count;
+#ifdef    HAS_LAPACK
       for (int ik = 0; ik < nkpoints; ++ik) {
           SimpleTimer timer(__FILE__, __LINE__, __func__, 0);
           double const *const k_point = k_path[ik];
@@ -733,10 +737,9 @@ namespace green_experiments {
           Wtime_count.add(timer.stop());
       } // ik
 
-      free_memory(Smat); free_memory(Hmat);
-      free_memory(Spsi); free_memory(Hpsi);
-      free_memory(psi);  free_memory(tpsi);
-      free_memory(colIndex);
+#else  // HAS_LAPACK
+      warn("cannot run this test without Lapack", 0); return -1;
+#endif // HAS_LAPACK
 
       if (echo > 0) {
           {   auto const & st = Gflop_count;
@@ -747,6 +750,10 @@ namespace green_experiments {
               std::printf("# %s needed [%g, %g +/- %g, %g] seconds per k-point, %g seconds in total\n",
                             __func__, st.min(), st.mean(), st.dev(), st.max(),     st.sum()); }
       } // echo
+      free_memory(Smat); free_memory(Hmat);
+      free_memory(Spsi); free_memory(Hpsi);
+      free_memory(psi);  free_memory(tpsi);
+      free_memory(colIndex);
 
       return 0;
   } // eigensolver

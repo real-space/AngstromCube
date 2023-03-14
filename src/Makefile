@@ -82,6 +82,7 @@ FEAFLAGS += -D HAS_BITMAP_EXPORT
 # FEAFLAGS += -D LARGE_ANGULAR_GRIDS
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
+FEAFLAGS += -D HAS_LAPACK
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 

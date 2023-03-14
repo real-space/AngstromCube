@@ -303,7 +303,7 @@ namespace green_kinetic {
 
     template <typename real_t, int R1C2=2, int Noco=1>
     status_t test_finite_difference(int const echo=0, int const dd=0) {
-        size_t const nnzb = 35; // as test we use a 1D chain of nnzb blocks
+        int const nnzb = 35; // as test we use a 1D chain of nnzb blocks
         if (echo > 4) std::printf("\n# %s<%s,R1C2=%d,Noco=%d>(derivative_direction=\'%c\'), nnzb= %ld\n",
                                         __func__, real_t_name<real_t>(), R1C2, Noco, 'x' + dd, nnzb);
         assert(nnzb > 0); // later we will divide by nnzb
@@ -326,8 +326,13 @@ namespace green_kinetic {
         int const FD_range4[] = {4, 4, 4}, FD_range8[] = {8, 8, 8};
         double const hgrid[] = {1, 1, 1};
         // merely check if memory accesses are allowed
-        multiply<real_t,R1C2,Noco>(Tpsi, psi, num111, &indx, hgrid, FD_range8, nullptr, nnzb, echo);
-        multiply<real_t,R1C2,Noco>(Tpsi, psi, num111, &indx, hgrid, FD_range4, nullptr, nnzb, echo);
+        auto index_list = get_memory<int32_t const*>(1, echo, "index_list");
+        index_list[0] = indx;
+        cudaDeviceSynchronize();
+        multiply<real_t,R1C2,Noco>(Tpsi, psi, num111, index_list, hgrid, FD_range8, nullptr, nnzb, echo);
+        cudaDeviceSynchronize();
+        multiply<real_t,R1C2,Noco>(Tpsi, psi, num111, index_list, hgrid, FD_range4, nullptr, nnzb, echo);
+        cudaDeviceSynchronize();
 
         size_t const n1D_all = nnzb*4; // total number of sampling points
         std::vector<double> reference_function[R1C2], reference_result[R1C2];
@@ -379,6 +384,7 @@ namespace green_kinetic {
             } else {  // periodic
 
                 what = "localized Gauss-Hermite function"; // test with a localized function set, FD_range=8
+                for (int i = 0; i < nhalo; ++i) { indx[i] = BLOCK_IS_ZERO; indx[nhalo + nnzb + i] = BLOCK_IS_ZERO; }
                 kvec = 14./(n1D_all*hgrid[dd]); // inverse sigma
                 auto const Ek = 0.5*pow2(kvec); // kinetic energy in Hartree units
                 if (echo > 9) std::printf("# %s: sigma = %g Bohr\n", __func__, 1./kvec);
@@ -408,9 +414,12 @@ namespace green_kinetic {
 
             uint32_t num100[] = {0, 0, 0}; num100[dd] = 1; // only derive in dd-direction
             set(Tpsi[0][0][0], nnzb*R1C2*pow2(Noco*64ul), real_t(0)); // clear
-            multiply<real_t,R1C2,Noco>(Tpsi, psi, num100, &indx, hgrid, FD_range, periodic ? phase : nullptr, nnzb, echo);
+            cudaDeviceSynchronize();
+            multiply<real_t,R1C2,Noco>(Tpsi, psi, num100, index_list, hgrid, FD_range, periodic ? phase : nullptr, nnzb, echo);
+            cudaDeviceSynchronize();
 
             double deviation{0};
+            int failed;
             { // scope: compare result of multiply with reference_result
                 double dev2{0}, deva{0}, norm2{0};
                 if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im  psi_Re, psi_Im:\n"); // plot header
@@ -432,10 +441,11 @@ namespace green_kinetic {
                     } // i4
                 } // inzb
                 deviation = std::sqrt(dev2/norm2);
-                if (echo > 5) std::printf("# deviation of a %s with k= %g is %.1e (abs) and %.1e (relative rms), norm^2= %g, FD=%d\n",
-                                                            what, kvec, deva, deviation, norm2, FD_range[0]);
+                failed = (deviation > threshold[is_double][itest]);
+                if (echo > 5) std::printf("# deviation of a %s with k= %g is %.1e (abs) and %.1e (relative rms), norm^2= %g, FD=%d, threshold=%.1e %s\n",
+                                              what, kvec, deva, deviation, norm2, FD_range[0], threshold[is_double][itest], failed?"FAILED":"ok");
             } // scope
-            stat += (deviation > threshold[is_double][itest]);
+            stat += failed;
 
         } // do84
 
@@ -443,6 +453,7 @@ namespace green_kinetic {
         free_memory(Tpsi);
         free_memory(psi);
         free_memory(indx);
+        free_memory(index_list);
         return stat;
     } // test_finite_difference
 

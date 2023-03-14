@@ -61,6 +61,7 @@ ifeq ($(HOSTNAME),MacBook-Pro.local)
 else
 	### JUSUF: module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 	CXX    = mpic++ -Wno-unused-command-line-argument
+	FEAFLAGS += -DHAS_NO_MKL
 	LDFLAGS  += -lmpi
 endif
 
@@ -125,7 +126,7 @@ CUOPTFLAGS += -lineinfo
 ifdef ENABLE_GPU
 	INC += -I/usr/local/cuda/include
 	FEAFLAGS += -DUSE_NVTX
-	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt -lcurand  #-rdynamic
+	LDFLAGS  += -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt -lcurand #-rdynamic
 #	FEAFLAGS += -DHAS_NO_CUDA
 else
 	FEAFLAGS += -DHAS_NO_CUDA

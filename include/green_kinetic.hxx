@@ -96,7 +96,7 @@ namespace green_kinetic {
             assert(jj >= 0); // must be a valid index to dereference psi[]
             assert(phase && "a phase must be given for complex BCs");
             real_t const ph_Re = phase[0][0]; // real part of the left complex phase factor
-            // inital block load
+            // inital halo-block load
             w0 = ph_Re * psi[jj]INDICES(0);
             w1 = ph_Re * psi[jj]INDICES(1);
             w2 = ph_Re * psi[jj]INDICES(2);
@@ -123,8 +123,8 @@ namespace green_kinetic {
         w6 = psi[ii]INDICES(2);
         w7 = psi[ii]INDICES(3);
 
+        assert(nhalo + 1 == ilist);
         // main loop
-        assert(5 == ilist);
         while (ii >= 0) {
             int const i0 = ii; // set central index
             ii = list[ilist++] - BLOCK_EXISTS; // get next index
@@ -205,8 +205,8 @@ namespace green_kinetic {
 #endif // HAS_NO_CUDA
           real_t        (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // intent(inout)
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // intent(in)
-        , int32_t const (*const *const __restrict__ index_list) // index list that brings the blocks in order,
-                                                                // list must contain at least 4+1+4 elements
+        , int32_t const (*const *const __restrict__ index_list) // index lists that bring the blocks in order,
+                                                                // lists must contain at least 4+1+4 elements
         , double const prefactor
         , int const Stride // Stride is determined by the lattice dimension along which we derive: 1, 4 or 4^2
         , double const phase[2][2]=nullptr // WARNING this routine cannot treat periodic boundary conditions
@@ -258,9 +258,10 @@ namespace green_kinetic {
                w8, w9, wa, wb, wc, wd, we, wf, wn; // 8 + 8 + 1 registers
 
         int ilist{0}; // counter for index_list
-        for (int i4 = 0; i4 < nhalo; ++i4) {
+        for (int ih = 0; ih < nhalo; ++ih) {
+            // if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# Laplace16th ih=%i list[ilist=%i]=%i\n", ih, ilist, list[ilist]);
             assert(0 == list[ilist++] && "Laplace16th can only deal with isolated boundary conditions");
-        } // i4
+        } // ih
 
         // initially load two blocks in advance
         int i0 = list[ilist++] - BLOCK_EXISTS; // load index for 1st non-zero block
