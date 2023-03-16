@@ -94,7 +94,7 @@ FEAFLAGS += -DDEVEL
 # normal mode
 # OPTFLAGS += -Ofast
 # OPTFLAGS += -O2
-OPTFLAGS += -O0
+# OPTFLAGS += -O0
 OPTFLAGS += -g -Wall
 CXXOPTFLAGS += -pedantic
 # gcc-options
@@ -109,12 +109,13 @@ LDFLAGS += ## -lmkl_intel_thread
 CUOPTFLAGS =
 #### production mode
 # CUOPTFLAGS += -O3 --use_fast_math
+CUOPTFLAGS += -O2
 #### debug mode
 # CUOPTFLAGS += -g -O0 -G -lineinfo
 # CUOPTFLAGS += -DDEBUGGPU
 
 ## verbose GPU assembler
-# CUOPTFLAGS += -Xptxas -v
+CUOPTFLAGS += -Xptxas -v
 CUOPTFLAGS += --expt-relaxed-constexpr
 
 # for profiling
@@ -138,7 +139,7 @@ GENCODE80= -gencode arch=compute_80,code=sm_80 -gencode arch=compute_80,code=com
 GENCODE_FLAGS=
 # GENCODE_FLAGS += ${GENCODE60}
 GENCODE_FLAGS += ${GENCODE70}
-GENCODE_FLAGS += ${GENCODE80}
+# GENCODE_FLAGS += ${GENCODE80}
 
 CCFLAGS  = -std=gnu99 ${FLAGS}
 # K80
