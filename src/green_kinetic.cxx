@@ -220,15 +220,14 @@ namespace green_kinetic {
         double const arg = 2*constants::pi*phase_angle;
         double cs = std::cos(arg), sn = std::sin(arg);
 
-        double dev{0};
         // purify the values for multiples of 15 degrees
-        int const phase24 = std::round(phase_angle*24);
+        int const phase24 = phase_angle*24;
         char const *corrected = "";
         if (phase_angle*24 == phase24) { // exactly on the grid of 15 degree steps
-            int const phase4 = (phase24 + 24) /  6;
-            int const phase2 = (phase24 + 24) % 12;
-            double const s12 = std::sqrt(.5), s34 = std::sqrt(.75);
-            double const abs_values6[7] = {0., (s34 - .5)*s12, .5, s12, s34, (s34 + .5)*s12, 1.}; // == sin(i*15degrees)
+            int const phase4 = (phase24 + 120) /  6;
+            int const phase2 = (phase24 + 120) % 12;
+            double const sh = std::sqrt(0.5), s3 = std::sqrt(3);
+            double const abs_values6[7] = {0.0, (s3 - 1)*sh*.5, .5, sh, s3*.5, (s3 + 1)*sh*.5, 1.0}; // == sin(i*15degrees)
 
             int64_t const sin_values = 0x0123456543210; // look-up table with 12 entries (4bit wide each)
             int const i6_sin = (sin_values >> (4*phase2)) & 0x7;
@@ -240,19 +239,24 @@ namespace green_kinetic {
             sn = sgn_sin * abs_values6[i6_sin];
             cs = sgn_cos * abs_values6[i6_cos];
             corrected = " corrected";
-            if (std::abs(cs - std::cos(arg)) > 2.0e-16) error("cosine for phase_angle= %g degrees deviates after purification, cos= %g expected %g", phase_angle*360, cs, std::cos(arg));
+        }
+        double dev{0};
+// #ifdef    DEBUG
+        if ('\0' != *corrected) {
+            if (std::abs(cs - std::cos(arg)) > 2.8e-16) error("cosine for phase_angle= %g degrees deviates after purification, cos= %g expected %g", phase_angle*360, cs, std::cos(arg));
             if (std::abs(sn - std::sin(arg)) > 2.8e-16) error(  "sine for phase_angle= %g degrees deviates after purification, sin= %g expected %g", phase_angle*360, sn, std::sin(arg));
             dev = std::max(std::abs(cs - std::cos(arg)), std::abs(sn - std::sin(arg)));
-        } // on the grid of 15 degree steps
+        }
+// #endif // DEBUG
 
         int constexpr Re=0, Im=1, Left=0, Right=1;
         phase[Left][Re] = cs;
         phase[Left][Im] = sn;
-        phase[Right][Re] =  cs;
-        phase[Right][Im] = -sn; // right phase factor is conjugate of the left
         if (echo > 9) std::printf("# %s angle in %c-direction is %g degree, (%g, %g)%s\n",
                               __func__, direction, phase_angle*360,  cs, sn, corrected);
-        assert(std::abs(phase[Left][Re]*phase[Right][Re] - phase[Left][Im]*phase[Right][Im] - 1.) < 5e-16);
+        phase[Right][Re] =  cs;
+        phase[Right][Im] = -sn; // right phase factor is conjugate of the left
+
         return dev;
     } // set_phase
 
