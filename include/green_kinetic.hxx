@@ -22,6 +22,7 @@ namespace green_kinetic {
 
     int constexpr nhalo = 4; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
 
+    // ToDo: rename blocks in comments to cubes, otherwise confusing with CUDA blocks
     int32_t constexpr BLOCK_EXISTS = 1;
     int32_t constexpr BLOCK_IS_ZERO = 0;
     int32_t constexpr BLOCK_NEEDS_PHASE = -1;
@@ -52,7 +53,7 @@ namespace green_kinetic {
         // type of coefficients could be double, also for float, but this does not give much accuracy improvement and many
         // more conversion operations since we do not want to have the registers holing the wave function also in double.
 
-        // the following list gives the indices of blocks that belong to the same right hand side
+        // the following list gives the indices of cubes that belong to the same right hand side
         // and are neighbors in the direction of derivation
 
         assert(16 == gridDim.y);
@@ -83,7 +84,7 @@ namespace green_kinetic {
 
 #define INDICES(i4) [threadIdx.z][threadIdx.y*64 + i64 + Stride*i4][threadIdx.x]
 
-        real_t w0{0}, w1{0}, w2{0}, w3{0}; // 4 registers for one block
+        real_t w0{0}, w1{0}, w2{0}, w3{0}; // 4 registers for one cube
 
         int ilist{nhalo - 1}; // counter for index_list, use only the last entry of the halo
 
@@ -91,7 +92,7 @@ namespace green_kinetic {
         // =========================================================================================
         // === periodic boundary conditions ========================================================
         if (BLOCK_IS_ZERO == ii) {
-            // block does not exist (isolated/vacuum boundary condition), registers w0...w3 are initialized 0
+            // cube does not exist (isolated/vacuum boundary condition), registers w0...w3 are initialized 0
         } else { // is periodic
             if (ii > 0) std::printf("# Error: ii= %d ilist= %i\n", ii, ilist);
             assert(ii <= BLOCK_NEEDS_PHASE && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
@@ -99,7 +100,7 @@ namespace green_kinetic {
             assert(jj >= 0); // must be a valid index to dereference psi[]
             assert(phase && "a phase must be given for complex BCs");
             real_t const ph_Re = phase[0][0]; // real part of the left complex phase factor
-            // inital halo-block load
+            // inital halo-cube load
             w0 = ph_Re * psi[jj]INDICES(0);
             w1 = ph_Re * psi[jj]INDICES(1);
             w2 = ph_Re * psi[jj]INDICES(2);
@@ -107,7 +108,7 @@ namespace green_kinetic {
             if (2 == R1C2) {
                 real_t const ph_Im = phase[0][1] * (1. - 2*threadIdx.z); // imaginary part of the left complex phase factor
 #define INDICES_Im(i4) [R1C2 - 1 - threadIdx.z][threadIdx.y*64 + i64 + Stride*i4][threadIdx.x]
-                // inital load of imaginary part
+                // inital load of imaginary parts
                 w0 -= ph_Im * psi[jj]INDICES_Im(0);
                 w1 -= ph_Im * psi[jj]INDICES_Im(1);
                 w2 -= ph_Im * psi[jj]INDICES_Im(2);

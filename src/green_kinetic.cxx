@@ -288,6 +288,8 @@ namespace green_kinetic {
             auto const f = -0.5/pow2(hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
             int  const stride = 1 << (2*dd); // stride is 4^dd = 1('x'), 4('y') or 16('z')
             nFD[dd] = green_kinetic::Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase ? phase[dd] : nullptr, FD_range[dd]);
+            cuCheck( cudaPeekAtLastError() );
+            cuCheck( cudaDeviceSynchronize() );
             nops += nnzb*nFD[dd]*R1C2*pow2(Noco*64ul)*2ul; // total number of floating point operations performed
         } // dd
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
@@ -345,6 +347,8 @@ namespace green_kinetic {
         float const threshold[][4] = {{1.6e-5, 1.5e-5, 4.5e-3, 0}, // thresholds for float
                                       {5.5e-9, 4.0e-14, 8e-12, 0}}; // thresholds for double
         for (int itest = 0; itest < 3; ++itest) { // 3 different tests 0:(FD=4,iso), 1:(FD=8,iso), 2:(FD=4,peri)
+//      for (int itest = 2; itest < 3; ++itest) { // only 2:(FD=4,peri)
+//      for (int itest = 1; itest < 2; ++itest) { // only 1:(FD=8,iso)
             auto const periodic = (itest > 1);
             auto const FD_range = (itest & 1) ? FD_range8 : FD_range4;
             auto const border   = (itest + 1)*(itest < 2);
@@ -446,7 +450,7 @@ namespace green_kinetic {
             } // scope
             stat += failed;
 
-        } // do84
+        } // itest
 
         free_memory(phase);
         free_memory(Tpsi);
