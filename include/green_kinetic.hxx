@@ -37,7 +37,7 @@ namespace green_kinetic {
         , int32_t const (*const *const __restrict__ index_list) // index list that brings the blocks in order,
                                                                 // list must contain at least 4+1+4 elements
         , double const prefactor
-        , int const Stride // 4^0, 4^1 or 4^2
+        , int const Stride // 'x':4^0, 'y':4^1 or 'z':4^2
         , double const phase[2][2]
     ) {
         // prepare finite-difference coefficients
@@ -95,7 +95,7 @@ namespace green_kinetic {
         } else { // is periodic
             if (ii > 0) std::printf("# Error: ii= %d ilist= %i\n", ii, ilist);
             assert(ii <= BLOCK_NEEDS_PHASE && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
-            int const jj = BLOCK_NEEDS_PHASE*(ii + BLOCK_EXISTS); // index of the periodic image of a block
+            int const jj = BLOCK_NEEDS_PHASE*ii - BLOCK_EXISTS; // index of the periodic image of a block
             assert(jj >= 0); // must be a valid index to dereference psi[]
             assert(phase && "a phase must be given for complex BCs");
             real_t const ph_Re = phase[0][0]; // real part of the left complex phase factor
@@ -105,7 +105,7 @@ namespace green_kinetic {
             w2 = ph_Re * psi[jj]INDICES(2);
             w3 = ph_Re * psi[jj]INDICES(3);
             if (2 == R1C2) {
-                real_t const ph_Im = phase[0][1] * (1 - 2*threadIdx.z); // imaginary part of the left complex phase factor
+                real_t const ph_Im = phase[0][1] * (1. - 2*threadIdx.z); // imaginary part of the left complex phase factor
 #define INDICES_Im(i4) [R1C2 - 1 - threadIdx.z][threadIdx.y*64 + i64 + Stride*i4][threadIdx.x]
                 // inital load of imaginary part
                 w0 -= ph_Im * psi[jj]INDICES_Im(0);
@@ -164,11 +164,11 @@ namespace green_kinetic {
             // block does not exist (isolated/vacuum boundary condition), no further action necessary
         } else {
             assert(ii < 0 && "last list item must be either 0 (isolated BC) or negative (periodic BC)");
-            int const jj = BLOCK_NEEDS_PHASE*(ii + BLOCK_EXISTS); // index of the periodic image of a block
+            int const jj = BLOCK_NEEDS_PHASE*ii - BLOCK_EXISTS; // index of the periodic image of a block
             assert(jj >= 0); // must be a valid index to dereference psi[]
             int const i0 = list[ilist - 2] - BLOCK_EXISTS; // recover the last central index
             assert(i0 >= 0); // must be a valid index to dereference Tpsi[]
-            // if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# r-BC: ii= %d, i0= %d, ilist= %i, jj= %d\n", ii, i0, ilist, jj);
+//          if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# r-BC: ii= %d, i0= %d, ilist= %i, jj= %d\n", ii, i0, ilist, jj);
             assert(phase && "no (right) phase given"); // should have failed already above
             real_t const ph_Re = phase[1][0]; // real part of the right complex phase factor
             // load right halo block
@@ -177,7 +177,7 @@ namespace green_kinetic {
             w2 = ph_Re * psi[jj]INDICES(2);
             w3 = ph_Re * psi[jj]INDICES(3);
             if (2 == R1C2) {
-                real_t const ph_Im = phase[1][1] * (1 - 2*threadIdx.z); // imaginary part of the right complex phase factor
+                real_t const ph_Im = phase[1][1] * (1. - 2*threadIdx.z); // imaginary part of the right complex phase factor
                 // load of imaginary part right halo block
                 w0 -= ph_Im * psi[jj]INDICES_Im(0);
                 w1 -= ph_Im * psi[jj]INDICES_Im(1);
@@ -515,44 +515,6 @@ namespace green_kinetic {
 
     }; // class kinetic_plan_t
 
-
-
-#if 0
-    template <typename real_t, int R1C2=2, int Noco=1>
-    size_t multiply( // ToDo: delete this and see if it is still in use
-          real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
-        , green_sparse::sparse_t<int32_t> const kinetic_plan[3]
-        , double const hgrid[3] // grid spacing in X,Y,Z
-        , double const phase[3][2][2] // complex Bloch phase factors [direction][forward:backward][real:imag]
-        , int16_t const FD_range[3] // finite-difference stencil range (in grid points)
-        , size_t const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
-        , int const echo=0
-    ) {
-        int const nFD[] = {FD_range[0], FD_range[1], FD_range[2]};
-        uint32_t num[3];
-        int32_t const ** lists[3];
-        for (int dd = 0; dd < 3; ++dd) {
-            // convert fd_plan to arrays of GPU pointers
-            num[dd] = kinetic_plan[dd].nRows();
-            lists[dd] = get_memory<int32_t const *>(num[dd], echo, "num[dd]");
-            auto const rowStart = kinetic_plan[dd].rowStart();
-            auto const colIndex = kinetic_plan[dd].colIndex();
-            for (uint32_t il = 0; il < num[dd]; ++il) {
-                lists[dd][il] = &colIndex[rowStart[il]];
-            } // il
-        } // dd
-        if (echo > 13) std::printf("# green_kinetic::%s FD_range= %d %d %d, numbers= %d %d %d\n",
-                   __func__, FD_range[0], FD_range[1], FD_range[2], num[0], num[1], num[2]);
-
-        auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, phase, nnzb, echo);
-
-        for (int dd = 0; dd < 3; ++dd) {
-            free_memory(lists[dd]);
-        } // dd
-        return nops;
-    } // multiply (kinetic energy operator)
-#endif
 
     status_t all_tests(int const echo=0); // declaration only
 
