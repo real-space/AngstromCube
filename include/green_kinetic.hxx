@@ -22,11 +22,10 @@ namespace green_kinetic {
 
     int constexpr nhalo = 4; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
 
-    // ToDo: rename blocks in comments to cubes, otherwise confusing with CUDA blocks
-    int32_t constexpr BLOCK_EXISTS = 1;
-    int32_t constexpr BLOCK_IS_ZERO = 0;
-    int32_t constexpr BLOCK_NEEDS_PHASE = -1;
-   
+    int32_t constexpr CUBE_EXISTS = 1;
+    int32_t constexpr CUBE_IS_ZERO = 0;
+    int32_t constexpr CUBE_NEEDS_PHASE = -1;
+
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
     void __global__ Laplace8th( // GPU kernel, must be launched with <<< {Nrows, 16, 1}, {Noco*64, Noco, R1C2} >>>
@@ -47,8 +46,8 @@ namespace green_kinetic {
                       c1 =       8064*norm,
                       c2 =      -1008*norm,
                       c3 =        128*norm,
-                      c4 =         -9*norm; //-> NStep = 4
-        // the NStep=4 8th order stencil has a ratio of c0/c4 = 2^10.64 so half precision (11 significant bits) is the limit
+                      c4 =         -9*norm;  //-> FD_range = 4
+        // the FD_range=4 8th order stencil has a ratio of c0/c4 = 2^10.64 so half precision (11 significant bits) is the limit
 
         // type of coefficients could be double, also for float, but this does not give much accuracy improvement and many
         // more conversion operations since we do not want to have the registers holing the wave function also in double.
@@ -91,12 +90,12 @@ namespace green_kinetic {
         int ii = list[ilist++]; // the 1st block can be 0 (non-existent) or <0 for a periodic image
         // =========================================================================================
         // === periodic boundary conditions ========================================================
-        if (BLOCK_IS_ZERO == ii) {
+        if (CUBE_IS_ZERO == ii) {
             // cube does not exist (isolated/vacuum boundary condition), registers w0...w3 are initialized 0
         } else { // is periodic
             if (ii > 0) std::printf("# Error: ii= %d ilist= %i\n", ii, ilist);
-            assert(ii <= BLOCK_NEEDS_PHASE && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
-            int const jj = BLOCK_NEEDS_PHASE*ii - BLOCK_EXISTS; // index of the periodic image of a block
+            assert(ii <= CUBE_NEEDS_PHASE && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
+            int const jj = CUBE_NEEDS_PHASE*ii - CUBE_EXISTS; // index of the periodic image of a block
             assert(jj >= 0); // must be a valid index to dereference psi[]
             assert(phase && "a phase must be given for complex BCs");
             real_t const ph_Re = phase[0][0]; // real part of the left complex phase factor
@@ -120,7 +119,7 @@ namespace green_kinetic {
 
         real_t w4, w5, w6, w7, wn; // 4 + 1 registers, wn is the register that always receives the most recently loaded value
 
-        ii = list[ilist++] - BLOCK_EXISTS; assert(ii >= 0); // this block must be a regular index since it is the 1st block for which we store a result
+        ii = list[ilist++] - CUBE_EXISTS; assert(ii >= 0); // this block must be a regular index since it is the 1st block for which we store a result
         // initially load one block in advance
         w4 = psi[ii]INDICES(0);
         w5 = psi[ii]INDICES(1);
@@ -131,7 +130,7 @@ namespace green_kinetic {
         // main loop
         while (ii >= 0) {
             int const i0 = ii; // set central index
-            ii = list[ilist++] - BLOCK_EXISTS; // get next index
+            ii = list[ilist++] - CUBE_EXISTS; // get next index
 //          if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# loop: ii= %d ilist= %i\n", ii, ilist);
             bool const load = (ii >= 0);
             // use a rotating register file, see figs/rotating_register_file.fig or *.pdf
@@ -161,13 +160,13 @@ namespace green_kinetic {
         // === periodic boundary conditions ========================================================
         // correct for the tail part if periodic
         ii = list[ilist - 1]; // recover the list entry which stopped the while-loop
-        if (BLOCK_IS_ZERO == ii) {
+        if (CUBE_IS_ZERO == ii) {
             // block does not exist (isolated/vacuum boundary condition), no further action necessary
         } else {
             assert(ii < 0 && "last list item must be either 0 (isolated BC) or negative (periodic BC)");
-            int const jj = BLOCK_NEEDS_PHASE*ii - BLOCK_EXISTS; // index of the periodic image of a block
+            int const jj = CUBE_NEEDS_PHASE*ii - CUBE_EXISTS; // index of the periodic image of a block
             assert(jj >= 0); // must be a valid index to dereference psi[]
-            int const i0 = list[ilist - 2] - BLOCK_EXISTS; // recover the last central index
+            int const i0 = list[ilist - 2] - CUBE_EXISTS; // recover the last central index
             assert(i0 >= 0); // must be a valid index to dereference Tpsi[]
 //          if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# r-BC: ii= %d, i0= %d, ilist= %i, jj= %d\n", ii, i0, ilist, jj);
             assert(phase && "no (right) phase given"); // should have failed already above
@@ -270,14 +269,14 @@ namespace green_kinetic {
         } // ih
 
         // initially load two blocks in advance
-        int i0 = list[ilist++] - BLOCK_EXISTS; // load index for 1st non-zero block
+        int i0 = list[ilist++] - CUBE_EXISTS; // load index for 1st non-zero block
         assert(i0 >= 0); // 1st central block must exist
         w8 = psi[i0]INDICES(0); // inital load
         w9 = psi[i0]INDICES(1); // inital load
         wa = psi[i0]INDICES(2); // inital load
         wb = psi[i0]INDICES(3); // inital load
 
-        int i1 = list[ilist++] - BLOCK_EXISTS; // load index for the 2nd block
+        int i1 = list[ilist++] - CUBE_EXISTS; // load index for the 2nd block
         if (i1 >= 0) {
             wc = psi[i1]INDICES(0); // inital load
             wd = psi[i1]INDICES(1); // inital load
@@ -288,7 +287,7 @@ namespace green_kinetic {
         } // i1 valid
 
         // main loop
-        int i2 = list[ilist++] - BLOCK_EXISTS; // get next index
+        int i2 = list[ilist++] - CUBE_EXISTS; // get next index
 
         assert(ilist == 7);
 
@@ -327,7 +326,7 @@ namespace green_kinetic {
                 FD17POINT(3,  wf, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, wa, wb, wc, wd, we, wn)
             } // ilist mod(4)
 #undef  FD17POINT
-            i0 = i1; i1 = i2; i2 = list[ilist++] - BLOCK_EXISTS; // rotate and get next index
+            i0 = i1; i1 = i2; i2 = list[ilist++] - CUBE_EXISTS; // rotate and get next index
         } // while loop
 
 #undef  INDICES

@@ -129,7 +129,7 @@ namespace green_kinetic {
 
                           if (0 == list[ilist].size()) {
                               list[ilist].reserve(nhalo + num_dd + nhalo); // makes push_back operation faster
-                              list[ilist].resize(nhalo, BLOCK_IS_ZERO); // prepend {0, 0, 0, 0}
+                              list[ilist].resize(nhalo, CUBE_IS_ZERO); // prepend {0, 0, 0, 0}
                               // =====================================================================================================
                               // =====================================================================================================
                               if (boundary_is_periodic) {
@@ -141,7 +141,7 @@ namespace green_kinetic {
                                           if (sparsity_rhs[jdx3]) {
                                               auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
                                               if (jnz_found >= 0) {
-                                                  list[ilist][0 + ihalo] = BLOCK_NEEDS_PHASE*(jnz_found + BLOCK_EXISTS);
+                                                  list[ilist][0 + ihalo] = CUBE_NEEDS_PHASE*(jnz_found + CUBE_EXISTS);
                                               } // block exists
                                           } // block exists
                                       } // ihalo
@@ -151,7 +151,7 @@ namespace green_kinetic {
                               // =====================================================================================================
                           } // list was empty
 
-                          list[ilist].push_back(inz_found + BLOCK_EXISTS);
+                          list[ilist].push_back(inz_found + CUBE_EXISTS);
                           last_id = id;
                       } // sparsity pattern
                   } // id
@@ -161,7 +161,7 @@ namespace green_kinetic {
 //                    if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n", list_length, direction, idx[X], idx[Y], idx[Z]);
                       // add nhalo end-of-sequence markers
                       for (int ihalo = 0; ihalo < nhalo; ++ihalo) {
-                          list[ilist].push_back(BLOCK_IS_ZERO); // append {0, 0, 0, 0} to mark the end of the derivative sequence
+                          list[ilist].push_back(CUBE_IS_ZERO); // append {0, 0, 0, 0} to mark the end of the derivative sequence
                       } // ihalo
                       // =====================================================================================================
                       // =====================================================================================================
@@ -174,7 +174,7 @@ namespace green_kinetic {
                                           if (sparsity_rhs[jdx3]) {
                                               auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
                                               if (jnz_found >= 0) {
-                                                  list[ilist][list_length + ihalo] = BLOCK_NEEDS_PHASE*(jnz_found + BLOCK_EXISTS);
+                                                  list[ilist][list_length + ihalo] = CUBE_NEEDS_PHASE*(jnz_found + CUBE_EXISTS);
                                               } // block exists
                                           } // block exists
                                       } // ihalo
@@ -320,9 +320,9 @@ namespace green_kinetic {
 
         // create an index list with halo buffers on each side
         auto indx = get_memory<int32_t>(nhalo + nnzb + nhalo, echo, "indx");
-        set(indx, nhalo + nnzb + nhalo, BLOCK_IS_ZERO); // init all indices as non-existing
+        set(indx, nhalo + nnzb + nhalo, CUBE_IS_ZERO); // init all indices as non-existing
         for (size_t i = 0; i < nnzb; ++i) {
-            indx[nhalo + i] = i + BLOCK_EXISTS; // set the inner indices as existing
+            indx[nhalo + i] = i + CUBE_EXISTS; // set the inner indices as existing
         } // i
         uint32_t const num111[] = {1, 1, 1}; // number of lists, derive in all 3 directions
         int const FD_range4[] = {4, 4, 4}, FD_range8[] = {8, 8, 8};
@@ -366,8 +366,8 @@ namespace green_kinetic {
 
                 what = "periodic Bloch wave"; // test the periodic case, only FD_range=4 implemented
                 for (int i = 0; i < nhalo; ++i) {
-                    indx[nhalo + nnzb + i] = BLOCK_NEEDS_PHASE*(i + BLOCK_EXISTS); // set the upper halo
-                    indx[i] = BLOCK_NEEDS_PHASE*(nnzb - nhalo + i + BLOCK_EXISTS); // set the lower halo
+                    indx[nhalo + nnzb + i] = CUBE_NEEDS_PHASE*(i + CUBE_EXISTS); // set the upper halo
+                    indx[i] = CUBE_NEEDS_PHASE*(nnzb - nhalo + i + CUBE_EXISTS); // set the lower halo
                 } // i
                 if (echo > 7) { std::printf("# periodic indices: "); printf_vector(" %d", indx, nhalo + nnzb + nhalo); }
                 double const phase_angle[] = {(2 == R1C2) ? .25 : .5, (2 == R1C2) ? -1/3. : -.5, .5}; // in units of 2*pi
@@ -389,8 +389,8 @@ namespace green_kinetic {
 
                 what = "localized Gauss-Hermite function"; // test with a localized function set, FD_range=8
                 for (int i = 0; i < nhalo; ++i) {
-                    indx[nhalo + nnzb + i] = BLOCK_IS_ZERO; // set upper halo
-                    indx[               i] = BLOCK_IS_ZERO; // set lower halo
+                    indx[nhalo + nnzb + i] = CUBE_IS_ZERO; // set upper halo
+                    indx[               i] = CUBE_IS_ZERO; // set lower halo
                 } // i
                 kvec = 14./(n1D_all*hgrid[dd]); // inverse sigma
                 auto const Ek = 0.5*pow2(kvec); // kinetic energy in Hartree units
