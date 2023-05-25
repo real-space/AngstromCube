@@ -253,6 +253,7 @@ namespace control {
               stat += line_stat;
           }
       } // parse file line by line
+      if (echo > 7 && nempty > 0) std::printf("# %s has %d empty lines\n", filename, nempty);
       if (echo > 1) std::printf("\n");
       if (echo > 3) std::printf("# %s found %d comments in file '%s', status=%i\n\n",
                                    __func__, ncomments, filename, int(stat));

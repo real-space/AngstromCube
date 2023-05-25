@@ -292,7 +292,7 @@ namespace green_kinetic {
             auto const f = -0.5/pow2(hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
             int  const stride = 1 << (2*dd); // stride is 4^dd = 1('x'), 4('y') or 16('z')
             nFD[dd] = green_kinetic::Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, list, f, num[dd], stride, phase ? phase[dd] : nullptr, FD_range[dd]);
-            cuCheck( cudaPeekAtLastError() );
+            cuCheck( cudaPeekAtLastError() ); // If this fails, probably the Laplace-kernel required too many registers. Try to compile with optimization
             cuCheck( cudaDeviceSynchronize() );
             nops += nnzb*nFD[dd]*R1C2*pow2(Noco*64ul)*2ul; // total number of floating point operations performed
         } // dd

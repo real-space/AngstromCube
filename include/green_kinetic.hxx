@@ -265,7 +265,8 @@ namespace green_kinetic {
         int ilist{0}; // counter for index_list
         for (int ih = 0; ih < nhalo; ++ih) {
             // if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# Laplace16th ih=%i list[ilist=%i]=%i\n", ih, ilist, list[ilist]);
-            assert(0 == list[ilist++] && "Laplace16th can only deal with isolated boundary conditions");
+            assert(0 == list[ilist] && "Laplace16th can only deal with isolated boundary conditions");
+            ++ilist; // the increment may not stand inside the assert since that is deactivated with -D NDEBUG
         } // ih
 
         // initially load two blocks in advance

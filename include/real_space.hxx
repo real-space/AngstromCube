@@ -124,20 +124,21 @@ namespace real_space {
       assert(hcoeff*r2cut < ncoeff);
       assert(g.is_Cartesian());
       int imn[3], imx[3];
-#ifdef DEBUG
+#ifdef    DEBUG
       size_t nwindow{1};
+      size_t modified{0};
 #endif // DEBUG
       for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
           imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
-#ifdef DEBUG
+#ifdef    DEBUG
           std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
 #endif // DEBUG
       } // d
       assert(hcoeff > 0);
       double added_charge{0}; // clear
-      size_t modified{0}, out_of_range{0};
+      size_t out_of_range{0};
       for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
@@ -153,8 +154,11 @@ namespace real_space {
                                    + ((ir2p1 < ncoeff) ? r2coeff[ir2p1] : 0)*w8);
                               values[izyx] += factor*value_to_add;
                               added_charge += factor*value_to_add;
+#ifdef    DEBUG
                               ++modified;
-#if 0
+#endif // DEBUG
+
+#if       0
 //        std::printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
 //        std::printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
 #endif // 0
@@ -167,7 +171,7 @@ namespace real_space {
           } // iy
       } // iz
       if (added) *added = added_charge * g.dV(); // volume integral
-#ifdef DEBUG
+#ifdef    DEBUG
       std::printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
               __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3); // show stats
 #endif // DEBUG

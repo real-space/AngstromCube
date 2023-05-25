@@ -210,13 +210,7 @@ namespace green_function {
               uint32_t ntb{0}; // number of target blocks
               for (uint32_t icube = 0; icube < nRowsGreen; ++icube) { // loop over blocks
                   auto const *const target_block = target_coords[icube];
-//                    double d2{0};
-//                    for (int d = 0; d < 3; ++d) { // unroll
-//                        double const center_of_block = (target_block[d]*4 + 1.5)*grid_spacing[d];
-//                        d2 += pow2(center_of_block - atom_pos[d]);
-//                    } // d
-//                    if (d2 < r2projection_plus) {
-                  if (1) {
+                  if (true) {
                       // do more precise checking
 //                        if (echo > 9) std::printf("# target block #%i at %s gets corner check\n", icube, str(target_block));
                       int nci{0}; // number of corners inside
@@ -258,7 +252,8 @@ namespace green_function {
                       } // nci
 
                   } else { // d2 < r2projection_plus
-//                        if (echo > 21) std::printf("# target block #%i at %s is far outside\n", icube, str(target_block));
+                      assert(false);
+//                    if (echo > 21) std::printf("# target block #%i at %s is far outside\n", icube, str(target_block));
                   } // d2 < r2projection_plus
               } // icube
 
@@ -700,7 +695,7 @@ namespace green_function {
       p.r_truncation  = std::max(0., r_trunc);
       // confinement potential
       p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
-      p.V_confinement = 1;
+      p.V_confinement = control::get("green_function.confinement.potential", 1.);
       if (echo > 0) std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV);
       if (echo > 0) std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV);
 
@@ -839,13 +834,16 @@ namespace green_function {
 
                   int nci{0}; // init number of corners inside
                   if (d2 < r2trunc_plus) { // potentially inside, check all 8 or 27 corner cases
-//                    if (d2 < r2trunc_minus) { nci = max_nci; } else // skip the 8- or 27-corners test for inner blocks -> some speedup
+#ifdef    USE_SIMPLE_RANGE_TRUNCATION
+                      if (d2 <= r2trunc) { nci = max_nci; } // similar to tfqmrgpu_generate_FD_example.cxx
+                      if (false) // skip the 8- or 27-corners test for inner blocks
+#endif // USE_SIMPLE_RANGE_TRUNCATION
                       { // scope: 8 or 27 corner test
-                          int const far = (d2 > r2block_circum);
-                          int const mci = far ? 8 : 27;
+                          int const far = (d2 > r2block_circum); // far in [0, 1]
                           // i = i4 - j4 --> i in [-3, 3],
                           //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
                           //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
+                          int const mci = far ? 8 : 27;
                           for (int iz = -3; iz <= 3; iz += 3 + 3*far) { auto const d2z   = pow2((bz*4 + iz)*h[Z]);
                           for (int iy = -3; iy <= 3; iy += 3 + 3*far) { auto const d2yz  = pow2((by*4 + iy)*h[Y]) + d2z;
                           for (int ix = -3; ix <= 3; ix += 3 + 3*far) { auto const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
@@ -858,7 +856,7 @@ namespace green_function {
                               nci += (d2xyz < r2trunc); // add 1 if inside
                           }}} // ix iy iz
                           if (d2 < r2trunc_minus) assert(mci == nci); // for these, we could skip the 8-corners test
-                          nci = (nci*27)/mci; // limit nci to [0, 27]
+                          nci = (nci*27)/mci; // limit nci to [0, 27], also the 9 different far cases are cast into the bin numbers {0,3,6,10,13,16,20,23,27}
                       } // scope
 
                   } // d2 < r2trunc_plus
