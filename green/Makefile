@@ -55,7 +55,7 @@ ifeq ($(HOSTNAME),MacBook-Pro.local)
 	EXTFLAGS += -DHAS_NO_MKL
 	LDFLAGS  += -lm -lblas -llapack
 else
-	### JUSUF: module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
+	### JUSUF: module --force purge && module load Stages/2020 GCC/10.3.0 OpenMPI/4.1.1 CUDA/11.3
 	CXX    = mpic++ -Wno-unused-command-line-argument
 	FEAFLAGS += -DHAS_NO_MKL
 	LDFLAGS  += -lmpi
@@ -72,6 +72,7 @@ FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 
 FEAFLAGS += -DHAS_RAPIDXML
 FEAFLAGS += -DHAS_RAPIDJSON
+FEAFLAGS += -DUSE_SIMPLE_RANGE_TRUNCATION
 # FEAFLAGS += -DNO_UNIT_TESTS
 
 ## use the tfQMRgpu library to invert the shifted Hamiltonian
