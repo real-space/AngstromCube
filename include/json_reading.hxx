@@ -131,7 +131,7 @@ namespace json_reading {
       {
           auto const nzyx = grid[2]*size_t(grid[1])*size_t(grid[0]);
           if (potential.size() != nzyx) {
-              warn("in %s found %ld potential values, expect %ld, set missing to zero\n", filename, potential.size(), nzyx);
+              warn("in %s found %ld potential values, expect %ld, set missing to zero", filename, potential.size(), nzyx);
               potential.resize(nzyx, 0.0);
           } // sizes differ
       }

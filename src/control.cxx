@@ -10,8 +10,7 @@
 #include <cmath> // std::sqrt
 #include <fstream> // std::fstream
 
-#include "control.hxx" // default_echo_level
-// declarations: set, get, command_line_interface, read_control_file, all_tests
+#include "control.hxx" // ::default_echo_level, ::set, ::get, ::command_line_interface, ::read_control_file, ::all_tests
 
 #include "recorded_warnings.hxx" // warn
 
@@ -19,20 +18,24 @@ namespace control {
 
   int constexpr MaxNameLength = 64; // max variable name length
 
+  // convert numeric values to strings without precision loss
   inline void double2string(char buffer[32], double const number) {
       std::snprintf(buffer, 32, "%.16e", number);
   } // double2string
 
+  // convert a string to a scalar double value
   inline double string2double(char const *const string) {
       return std::atof(string);
   } // string2double
 
 
-  int32_t constexpr default_value_tag = 2e9; // pass this as linenumber
-  // hidden function: _environment(echo, name, value) --> set
-  //                  _environment(echo, name, value, linenumber) --> set_to_default
-  //                  _environment(echo, name) --> get
-  //                  _environment(echo) --> show_variables
+  int32_t constexpr default_value_tag = 2e9; // pass this as linenumber to _environment
+
+  // hidden function:
+  //    _environment(echo, name, value) --> set
+  //    _environment(echo, name, value, linenumber) --> set_to_default
+  //    _environment(echo, name) --> get
+  //    _environment(echo) --> show_variables
   char const* _environment(
         int const echo
       , char const *const name=nullptr
@@ -125,6 +128,7 @@ namespace control {
 
   } // _environment
 
+  // define a pair of strings (name,value) for the variable environment
   void set(char const *const name, char const *const value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
       assert(nullptr != name  && "control::set(name, value) needs a valid string as name!");
@@ -132,9 +136,10 @@ namespace control {
       _environment(echo, name, value); // set
   } // set<string>
 
+  // look up a name in the variable environment, return default string if not defined
   char const* get(char const *const name, char const *const default_value) {
       assert(nullptr != name && "control::get(name, default_value) needs a valid string as name!");
-      int const echo = default_echo_level;
+      int const echo = control::default_echo_level;
       auto const value = _environment(echo, name); // get
       if (nullptr != value && '\0' != *value) {
           if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
@@ -145,49 +150,49 @@ namespace control {
       }
   } // get<string>
 
+  // print a list of all variables. +control.show decides by (1:minimal, 2:unused, 4:defaults)
   status_t show_variables(int const echo) {
       _environment(echo); // show_variables
       return 0;
   } // show_variables
 
-  inline char const* find_equal_sign(char const *const string) {
-      return (char const*)std::strchr(string, '=');
-  } // find_equal_sign
-
   status_t command_line_interface(char const *const statement, int const iarg, int const echo) {
-      auto const equal = find_equal_sign(statement);
+      auto const equal = (char const*)std::strchr(statement, '='); // find the position of '=' in statement
       if (nullptr == equal) {
           warn("ignored statement \"%s\", maybe missing \'=\'", statement);
           return 1; // error, no '=' sign given
-      }
+      } // no '='-sign in statement
       auto const equal_char = equal - statement;
       assert('=' == statement[equal_char]);
       char name[MaxNameLength]; // get a mutable string
       std::strncpy(name, statement, std::min(MaxNameLength, int(equal_char))); // copy the statement up to '='
       name[equal_char] = '\0'; // delete the '=' sign to mark the name
-      char const *value = equal + 1; // everything after the '=' marker
+      char const *const value = equal + 1; // everything after the '=' marker
       if (echo > 7) std::printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
       _environment(echo, name, value, iarg); // set
       return 0;
   } // command_line_interface
 
+  // define a (name,value) pair, value is converted from double to a string
   void set(char const *const name, double const value, int const echo) {
       /* This version of set is only used in the tests below */
       char buffer[32]; double2string(buffer, value);
       return set(name, buffer, echo);
   } // set<double>
 
+  // look up a name in the variable environment, return default double if not defined
   double get(char const *const name, double const default_value) {
       char buffer[32]; double2string(buffer, default_value);
       return string2double(get(name, buffer));
   } // get<double>
 
+  // specify entire vectors of doubles, e.g. name.x, name.y, ...
   double get(
         double vec[] // result array
       , char const *const name // base keyword
       , char const *const xyz // ="xyz" // single characters to append to the base keyword after a '.'
       , double const default_value // =0 // default value
-  ) { // specify entire vectors, e.g. spacing.x, spacing.y, ... or coeff.a, coeff.b, ...
+  ) {
       double const def_val = get(name, default_value);
       char name_x[96];
       for (int d = 0; '\0' != xyz[d]; ++d) {
@@ -197,17 +202,20 @@ namespace control {
       return def_val;
   } // get
 
+  // remove whitespace character at the start of a string
   std::string left_trim(std::string const & s)  {
       std::string const WhiteSpaceChars = " \n\r\t\f\v";
       size_t const start = s.find_first_not_of(WhiteSpaceChars);
       return (start == std::string::npos) ? "" : s.substr(start);
   } // left_trim
 
+//   // remove whitespace character at the end of a string
 //   std::string trim(std::string const & s)  {
 //       size_t const end = s.find_last_not_of(WhiteSpaceChars);
 //       return (end == std::string::npos) ? "" : s.substr(0, end + 1);
 //   } // right_trim
 
+  // read definitions of variables from an input file
   status_t read_control_file(char const *const filename, int const echo) {
       status_t stat(0);
       char const CommentChar = '#'; // commented lines in control files
