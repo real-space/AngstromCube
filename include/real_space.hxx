@@ -176,7 +176,7 @@ namespace real_space {
               __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3); // show stats
 #endif // DEBUG
       if (out_of_range > 0) {
-          stat += 0 < warn("Found %ld entries out of range of the radial function!\n", out_of_range);
+          stat += 0 < warn("Found %ld entries out of range of the radial function!", out_of_range);
       } // out of range of the radial function
       return stat;
   } // add_function

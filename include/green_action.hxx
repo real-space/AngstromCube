@@ -249,8 +249,6 @@ namespace green_action {
                       p->V_confinement, pow2(p->r_confinement), p->echo);
 
           // add the kinetic energy expressions
-        //   nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic_plan,
-        //               p->grid_spacing, p->phase, p->kinetic_nFD, nnzb, p->echo);
           for (int dd = 0; dd < 3; ++dd) { // loop must run serial
               nops += p->kinetic[dd].multiply<real_t,R1C2,Noco>(y, x, p->phase[dd], p->echo);
           } // dd derivative direction

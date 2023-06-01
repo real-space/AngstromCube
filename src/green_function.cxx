@@ -739,8 +739,9 @@ namespace green_function {
                       auto const deformed_cell = h[d]*ng[d];
                       if (2*rtrunc > deformed_cell) {
                           if (h[d] > 0) {
-                              warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s)\n#          "
-                                   "better use +green_function.scale.grid.spacing.%c=0 for cylindrical truncation", 2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang, 'x'+ d);
+                              warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s)" "#          \n"
+                                   "better use +green_function.scale.grid.spacing.%c=0 for cylindrical truncation",
+                                   2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang, 'x'+ d);
                               is_periodic[d] = std::min(255., std::ceil(rtrunc/deformed_cell)); // truncation sphere may overlap with its periodic images
                           } else { // h[d] > 0
                               is_periodic[d] = 1; // truncation sphere may overlap with its periodic images
@@ -1308,12 +1309,15 @@ namespace green_function {
           p.echo = echo - 5;
           if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
 
+          p.E_param = std::complex<double>(control::get("green_function.energy.parameter.real", 0.0),
+                                           control::get("green_function.energy.parameter.imag", 0.0));
+
           // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
           tfqmrgpu::solve(action); // compute GPU memory requirements
 
           {
               simple_stats::Stats<> mem; mem.add(p.gpu_mem); green_parallel::allreduce(mem);
-              if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.1f %s total\n",
+              if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                 mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
           }
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");

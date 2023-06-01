@@ -4101,7 +4101,7 @@ namespace single_atom {
                 scale(rwave0[iln], g.n, 1./std::sqrt(norm2));
             } else {
                 status += 1;
-                warn("%s failed to normalize %d%c-state\n", label, enn, ellchar[ell]);
+                warn("%s failed to normalize %d%c-state", label, enn, ellchar[ell]);
             } // norm2
             energy0[iln] = E; // store
         } // ell

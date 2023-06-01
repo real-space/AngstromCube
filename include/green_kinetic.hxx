@@ -480,7 +480,7 @@ namespace green_kinetic {
 
       ~kinetic_plan_t() {
           if (lists) {
-              std::printf("# free list for dd=%i\n", derivative_direction);
+              std::printf("# free list for %c-direction\n", 'x'+derivative_direction);
               free_memory(lists);
           }
       } // destructor
