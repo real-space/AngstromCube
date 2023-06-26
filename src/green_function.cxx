@@ -1358,7 +1358,7 @@ namespace green_function {
               SimpleTimer timeit(__FILE__, __LINE__, __func__, echo);
 
               nflops += action.multiply(y, x, colIndex, nnzbX, p.nCols);
-	      cudaDeviceSynchronize();
+              cudaDeviceSynchronize();
 
               timings.add(timeit.stop());
               std::swap(x, y);
