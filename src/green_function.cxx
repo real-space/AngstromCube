@@ -1309,6 +1309,7 @@ namespace green_function {
           p.echo = echo - 5;
           if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
 
+          // beware, the changes only the local potential. In a non-benchmark situation use ::update_energy_parameter
           p.E_param = std::complex<double>(control::get("green_function.energy.parameter.real", 0.0),
                                            control::get("green_function.energy.parameter.imag", 0.0));
 
