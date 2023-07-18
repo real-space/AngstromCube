@@ -1,6 +1,10 @@
 #include <stdint.h> // int32_t, int8_t
 #include <stdio.h> // printf
 #include <math.h> // sqrt
+
+////////////////////////////////////////////
+// C-interface for the LiveAtom library
+////////////////////////////////////////////
 #include "single_atom.h" // single_atom_*_
 
 int main(int argc, char *argv[]) {
@@ -55,7 +59,7 @@ int main(int argc, char *argv[]) {
         printf("\n");
     } // ia
 
-    live_atom_get_start_waves_(&na, waves, occupations, &status);
+    live_atom_get_start_waves_(&na, waves[0][0], occupations[0][0], &status);
     printf("# live_atom_get_start_waves = %d\n", status);
 
     live_atom_get_compensation_charge_(&na, pointers, &status);

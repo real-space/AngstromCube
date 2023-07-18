@@ -161,8 +161,8 @@
 
     fortran_callable(get_start_waves)
         ( int32_t const *na
-        , double waves[]      // layout [na][6][4096]
-        , double occupation[] // layout [na][6][2], can be magnetic
+        , double waves[]      // assumed layout [na][6][4096]
+        , double occupation[] // assumed layout [na][6][2], can be magnetic
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {

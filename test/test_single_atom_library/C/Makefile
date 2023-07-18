@@ -13,7 +13,7 @@ OBJECTS=    test_live_atom.o
 
 ### directory containing source files
 LIBDIR= ../../../src
-LIBS= -L${LIBDIR} -lliveatom -lblas -llapack
+LIBS= -L$(LIBDIR) -lliveatom -lblas -llapack
 
 ### directory containing header files
 INCDIR= ../../../include

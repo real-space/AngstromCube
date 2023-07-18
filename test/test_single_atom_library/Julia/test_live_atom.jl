@@ -1,7 +1,8 @@
 #! /usr/bin/env julia
 ######################################################
-### interface the LiveAtom library
+### Julia interface for the LiveAtom library
 ######################################################
+### when running for the first time you may need to activate the following line
 # import Pkg; Pkg.add("Formatting")
 
 const LA = "libliveatom.so"
@@ -19,12 +20,12 @@ println("### live_atom_init_env_ = ", status[1])
 println("### live_atom_init_env = ", status[1])
 
 # the total number of atoms
-const natoms = 1
+const natoms = 10
 const ar2 = 16.
 const nr2 = 2^12
 pointers = Vector{Vector{Float64}}(undef, natoms) # this can be passed to double** arguments
 
-# initialize the atoms using pot/Zeff.00Z files
+# prepare arrays for atom properties
 Z_core = ones(Float64, natoms)
 atom_id = zeros(Int32, natoms)
 numax = ones(Int32, natoms)
@@ -46,6 +47,7 @@ for ia = 1:natoms
     atom_id[ia] = ia - 1
     pointers[ia] = zeros(Float64, nr2)
 end # ia
+# initialize the atoms using pot/Zeff.00Z files
 @ccall LA.live_atom_initialize_(
               natoms::Ref{Int32}
             , Z_core::Ref{Float64}
@@ -95,7 +97,7 @@ if true
             println("")
         end # ia
     end # plot
-end # false
+end # true
 
 # set density matrix
 atom_rho = Vector{Vector{Float64}}(undef, natoms)
@@ -168,7 +170,7 @@ if true
     for ia = 1:natoms
         println("### total energy contribution for atom #", ia," is ", energy[ia], " Hartree")
     end # ia
-end # plot
+end # true
 
 # direct update (developer access)
 ip = zeros(Int32, 1)

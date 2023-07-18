@@ -1,4 +1,7 @@
 program test_live_atom
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!  Fortran-interface for the LiveAtom library
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 implicit none
   ! compile time constants
   integer(kind=4), parameter :: na = 1 ! number of atoms
@@ -22,6 +25,7 @@ implicit none
   type doublePtr
       real(kind=8), pointer :: p(:)
   endtype doublePtr
+
   type(doublePtr) :: pointers(na) ! this is double** in C
   real(kind=8), target :: memory(nr2,na) = 0
   integer(kind=4) :: nonzero = 0, differ = 0
