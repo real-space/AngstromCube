@@ -1,6 +1,6 @@
 ################################################################
 #
-#   a43 control file
+#   libLiveAtom control file
 #
 ################################################################
 # use # for silent comments and #! for comments in the log file
@@ -54,4 +54,3 @@ logder.step=1e-2
 
 ## show all used control environment variables at the end
 control.show=3
-
