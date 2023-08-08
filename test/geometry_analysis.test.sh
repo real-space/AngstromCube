@@ -38,9 +38,18 @@ rm -f $targetdir/geometry_analysis.out_*.xyze
 
 
 ### test with self-generated input file
-./a43 +verbosity=7 \
+$exe +verbosity=7 \
       -test geometry_analysis \
       +geometry_analysis.select.test=-1 \
-      +geometry_analysis.test.nspecies=4 \
+      +geometry_analysis.test.nspecies=5 \
       +geometry.file=species_test.xyz \
       > $targetdir/geometry_analysis.out_species_test.xyz
+
+### also generated hcp.xyz and fcc.xyz with 12 Au-atoms in each file
+for geo in "fcc.xyz hcp.xyz" ; do
+    $exe +verbosity=7 \
+      -test geometry_analysis \
+      +geometry.file=$geo \
+      > $targetdir/geometry_analysis.out_$geo
+
+done

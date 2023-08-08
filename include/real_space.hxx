@@ -26,7 +26,7 @@ namespace real_space {
       int8_t bc[3]; // boundary conditions
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
-      double cell[3][4]; // cell shape (only [3][3] used)
+      double cell[3][4]; // cell shape (only [3][3] used, only diagonal elements {cell[0][0], cell[1][1], cell[2][2]} if is_Cartesian)
 
       grid_t(void) : dims{0,0,0,1}, bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} { set(cell[0], 12, 0.0); } // default constructor
 
@@ -45,7 +45,9 @@ namespace real_space {
                   dims[0], dims[1], dims[2], dims[3]);
           }
           set(cell[0], 12, 0.0);
-          for(int d = 0; d < 3; ++d) cell[d][d] = dims[d]*h[d];
+          for (int d = 0; d < 3; ++d) {
+              cell[d][d] = dims[d]*h[d];
+          } // d
       } // constructor
 
       template <typename int_t>
@@ -72,15 +74,20 @@ namespace real_space {
 
       status_t set_boundary_conditions(int8_t const bc3[3]) { set(bc, 3, bc3); return 0; }
       status_t set_boundary_conditions(int8_t const bcx
-                     , int8_t const bcy=Invalid_Boundary 
-                     , int8_t const bcz=Invalid_Boundary) {
+                                     , int8_t const bcy=Invalid_Boundary 
+                                     , int8_t const bcz=Invalid_Boundary) {
           bc[0] = bcx;
           bc[1] = (bcy == Invalid_Boundary) ? bcx : bcy;
           bc[2] = (bcz == Invalid_Boundary) ? bcx : bcz;
           return  (bcx == Invalid_Boundary);
       } // set
 
-      inline int is_Cartesian() const { return 1; } // true
+      inline int is_Cartesian() const {
+            // diagonal elements must be positive, off-diagonals zero
+            return (0  < cell[0][0]) && (0 == cell[0][1]) && (0 == cell[0][2]) &&
+                   (0 == cell[1][0]) && (0  < cell[1][1]) && (0 == cell[1][2]) &&
+                   (0 == cell[2][0]) && (0 == cell[2][1]) && (0  < cell[2][2]);
+      } // is_Cartesian
       inline int is_shifted() const { return 0; } // false
       inline int volume() const { return simple_math::determinant(
           cell[0][0], cell[0][1], cell[0][2],
@@ -88,7 +95,7 @@ namespace real_space {
           cell[2][0], cell[2][1], cell[2][2]); }
       inline int operator[] (int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
       inline int operator() (char const c) const { assert('x' <= (c|32)); assert((c|32) <= 'z'); return dims[(c|32) - 120]; }
-      inline double dV() const { return is_Cartesian() ? h[0]*h[1]*h[2] : volume()/(dims[0]*dims[1]*dims[2]); } // volume element
+      inline double dV() const { return is_Cartesian() ? h[0]*h[1]*h[2] : volume()/std::max(1u, dims[0]*dims[1]*dims[2]); } // volume element for integration
       inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // so far not used
       inline double const * grid_spacings() const { return h; } // so far not used
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
@@ -99,6 +106,57 @@ namespace real_space {
       inline int number_of_boundary_conditions(int const bc_ref=Periodic_Boundary) const { 
                     return (bc_ref == bc[0]) + (bc_ref == bc[1]) + (bc_ref == bc[2]); };
   }; // class grid_t
+
+
+
+  template <typename real_t>
+  status_t add_function_general(
+        real_t values[] // grid values which are modified
+      , grid_t const & g // grid descriptor
+      , double const r2coeff[] // coefficients of the radial function on r^2-grid
+      , int const ncoeff // number of coefficients on the r^2-grid
+      , float const hcoeff // r^2-grid parameter
+      , double *added=nullptr // optional result: how much (e.g. charge) was added
+      , double const center[3]=nullptr // spherical center w.r.t. the position of grid point (0,0,0), internal coords!
+      , double const factor=1 // optional scaling
+      , float const r_cut=-1 // radial truncation, -1:use the max radius of the r^2-grid
+  ) {
+      // Add a spherically symmetric regular function to a general grid.
+      // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff]
+      status_t stat(0);
+      double c[3] = {0,0,0}; if (center) set(c, 3, center);
+      double const r_max = std::sqrt((ncoeff - 1.)/hcoeff); // largest radius of the r^2-grid
+      double const rcut = (-1 == r_cut) ? r_max : std::min(double(r_cut), r_max);
+      double const r2cut = rcut*rcut;
+      assert(hcoeff*r2cut < ncoeff);
+      assert(hcoeff > 0);
+      double added_charge{0}; // clear
+      for (            int iz = 0; iz < g[2]; ++iz) {  double const vz = iz*g.h[2] - c[2];
+            for (      int iy = 0; iy < g[1]; ++iy) {  double const vy = iy*g.h[1] - c[1];
+                  for (int ix = 0; ix < g[0]; ++ix) {  double const vx = ix*g.h[0] - c[0];
+                      double const v[3] = {vx*g.cell[0][0] + vy*g.cell[1][0] + vz*g.cell[2][0],
+                                           vx*g.cell[0][1] + vy*g.cell[1][1] + vz*g.cell[2][1],
+                                           vx*g.cell[0][2] + vy*g.cell[1][2] + vz*g.cell[2][2]};
+                      double const r2 = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+                      if (r2 < r2cut) {
+                          int const ir2 = int(hcoeff*r2);
+                          if (ir2 < ncoeff) {
+                              int const izyx = (iz*g('y') + iy)*g('x') + ix;
+                              double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
+                              int const ir2p1 = ir2 + 1;
+                              auto const value_to_add = (r2coeff[ir2] * (1 - w8)
+                                   + ((ir2p1 < ncoeff) ? r2coeff[ir2p1] : 0)*w8);
+                              values[izyx] += factor*value_to_add;
+                              added_charge += factor*value_to_add;
+                          } // ir2 < ncoeff
+                      } // inside rcut
+                  } // ix
+            } // iy
+      } // iz
+      if (added) *added = added_charge * g.dV(); // volume integral
+      return stat;
+  } // add_function_general
+
 
 
 
@@ -122,7 +180,9 @@ namespace real_space {
       double const rcut = (-1 == r_cut) ? r_max : std::min(double(r_cut), r_max);
       double const r2cut = rcut*rcut;
       assert(hcoeff*r2cut < ncoeff);
-      assert(g.is_Cartesian());
+      if (!g.is_Cartesian()) {
+          return add_function_general(values, g, r2coeff, ncoeff, hcoeff, added, center, factor, r_cut);
+      } // not Cartesian
       int imn[3], imx[3];
 #ifdef    DEBUG
       size_t nwindow{1};

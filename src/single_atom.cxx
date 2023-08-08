@@ -4312,7 +4312,7 @@ namespace single_atom {
 
   // from https://hbfs.wordpress.com/2017/01/10/strings-in-c-switchcase-statements/
   inline uint64_t constexpr __mix_hash_(char const m, uint64_t const s) { return ((s << 7) + ~(s >> 3)) + ~m; }
-  inline uint64_t constexpr string2hash(char const * m) { return (*m) ? __mix_hash_(*m, string2hash(m + 1)) : 0; }
+  inline uint64_t constexpr string2hash(char const *m) { return (*m) ? __mix_hash_(*m, string2hash(m + 1)) : 0; }
 
   status_t test_string_switch(char const *const what, int const echo=0) {
       #define str2int string2hash
@@ -4373,6 +4373,7 @@ namespace single_atom {
       float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
 
       int na{natoms};
+      if (na < 1) return 0; // no work
 
       status_t stat(0);
       stat += test_string_switch(what); // muted

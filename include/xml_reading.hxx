@@ -259,8 +259,9 @@ namespace xml_reading {
                       if (matrix) {
                           if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
                           auto const v = read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
-                          if (echo > 5) std::printf("# %s matrix has %ld values, expect %d x %d = %d\n",
-                              matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
+                          int const as_expected = (v.size() == nSHO*nSHO);
+                          if (echo > 3 + 4*as_expected) std::printf("# %s matrix has %ld values, %s expected %d x %d = %d\n",
+                              matrix_name, v.size(), as_expected?"as":"but", nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
                           for (int ij = 0; ij < nSHO*nSHO; ++ij) {
                               atom_mat[ia][h0s1*nSHO*nSHO + ij] = v[ij]; // copy
@@ -295,8 +296,9 @@ namespace xml_reading {
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               int const nzyx = ng[2]*ng[1]*ng[0];
               Veff = read_sequence<double>(potential->value(), echo, nzyx);
-              if (echo > 5) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
-                  Veff.size(), ng[0], ng[1], ng[2], nzyx);
+              int const as_expected = (Veff.size() == nzyx);
+              if (echo > 3 + 4*as_expected) std::printf("# potential has %ld values, %s expected %d x %d x %d = %d\n",
+                  Veff.size(), as_expected?"as":"but", ng[0], ng[1], ng[2], nzyx);
               assert(Veff.size() == nzyx);
               for (int izyx = 0; izyx < nzyx; ++izyx) {
                   stat += (std::abs(Veff[izyx] - model_potential_function(izyx, nzyx)) > 1e-6);

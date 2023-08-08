@@ -599,22 +599,22 @@ namespace sho_hamiltonian {
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;
       int natoms{0}; // number of atoms
-      double cell[3] = {0, 0, 0}; // rectangular cell
+      double cell[9] = {0,0,0, 0,0,0, 0,0,0}; // general cell --> take only diagonal elements
       int8_t bc[3] = {-7, -7, -7}; // boundary conditions
       { // scope: read atomic positions
           stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+                              natoms, geo_file, cell[0]*Ang, cell[4]*Ang, cell[8]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
 
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc);
-      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
+      g.set_grid_spacing(cell[0]/g[0], cell[4]/g[1], cell[8]/g[2]);
       if (echo > 1) {
           std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
           std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       } // echo
-      
+
       int const nkpoints = control::get("hamiltonian.test.kpoints", 17.);
       auto const kpointdir = int(control::get("hamiltonian.test.kpoint.direction", 0.)) % 3;
       view2D<double> kmesh(nkpoints, 4, 0.0);

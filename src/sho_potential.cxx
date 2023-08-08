@@ -202,35 +202,32 @@ namespace sho_potential {
       status_t stat(0);
       set(dims, 3, 0); // clear
       vtot.clear();
-      { // scope: read in the potential from a file
-          std::ifstream infile(filename);
-          if (!infile.is_open()) {
-              warn("failed to open file '%s'", filename);
-              return 1; // failure
-          } // is_open
+      std::ifstream infile(filename);
+      if (infile.is_open()) {
+          char sep;
           for (int d = 2; d >= 0; --d) {
-              char sep;
-              infile >> sep >> dims[d];
-              if (echo > 3) std::printf("# found dim %c with %i grid points\n", 120+d, dims[d]);
+              infile >> sep >> dims[d]; // expect a line like "# 5 x 4 x 3"
+              if (echo > 5) std::printf("# %s: found dim %c with %i grid points\n", __func__, 120+d, dims[d]);
           } // d
           size_t const all = dims[2]*dims[1]*dims[0];
           vtot.reserve(all);
-          size_t npt{0}; // count the number of points found
           size_t idx;
           double val;
           while (infile >> idx >> val) {
               assert(idx < all);
-              ++npt;
               vtot.push_back(val);
           } // while
-          if (npt < all) {
+          if (vtot.size() < all) {
               warn("when loading local potential from file '%s' found only %ld of %ld entries", filename, vtot.size(), all);
+              if (echo > 3) std::printf("# %s: use %.3f k < %.3f k values from file '%s'\n", __func__, vtot.size()*.001, all*.001, filename);
               ++stat;
-              if (echo > 3) std::printf("# %s: use %.3f k < %.3f k values from file '%s'\n", __func__, npt*.001, all*.001, filename);
           } else {
               if (echo > 3) std::printf("# %s: use all %i x %i x %i values from file '%s'\n", __func__, dims[2], dims[1], dims[0], filename);
           } // not enough entries
-      } // scope
+      } else {
+          warn("failed to open file '%s', potential is all zero", filename);
+          ++stat;
+      } // is open
       return stat;
   } // load_local_potential
 
@@ -263,18 +260,18 @@ namespace sho_potential {
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;
       int natoms{0};
-      double cell[3] = {0, 0, 0}; 
       int8_t bc[3] = {-7, -7, -7};
+      real_space::grid_t g(dims);
       { // scope: read atomic positions
+          double cell[9] = {0,0,0, 0,0,0, 0,0,0}; 
           stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+                              natoms, geo_file, cell[0]*Ang, cell[4]*Ang, cell[8]*Ang, _Ang, bc[0], bc[1], bc[2]);
+          g.set_grid_spacing(cell[0]/g[0], cell[4]/g[1], cell[8]/g[2]);
       } // scope
 
 //    for (int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary && "Periodic BCs not implemented!");
 
-      real_space::grid_t g(dims);
-      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
       if (echo > 1) std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       double const origin[] = {.5*(g[0] - 1)*g.h[0],

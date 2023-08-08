@@ -172,14 +172,11 @@ namespace poisson_solver {
           } // echo
 #endif // DEVEL
 
-          if ('f' == (method | 32)) { // "fft", "fourier" 
+          if ((!g.is_Cartesian()) || ('f' == (method | 32))) { // "fft", "fourier" 
               // solve the Poisson equation using a Fast Fourier Transform
-              int ng[3]; double reci[3][4]; 
-              for (int d = 0; d < 3; ++d) { 
-                  ng[d] = g[d];
-                  set(reci[d], 4, 0.0);
-                  reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
-              } // d
+              int const ng[3] = {g[0], g[1], g[2]};
+              double reci[3][4];
+              simple_math::invert(3, reci[0], 4, g.cell[0], 4, 2*constants::pi);
               stat += fourier_poisson::solve(Ves, rho, ng, reci);
           } else
           if ('M' == method) { // "Multi-grid" (upper case!)

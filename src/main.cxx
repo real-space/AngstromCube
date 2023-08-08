@@ -40,6 +40,7 @@
   #include "grid_operators.hxx" // ::all_tests
   #include "dense_operator.hxx" // ::all_tests
   #include "element_config.hxx" // ::all_tests
+  #include "symmetry_group.hxx" // ::all_tests
   #include "complex_tools.hxx" // ::all_tests
   #include "vector_layout.hxx" // ::all_tests
   #include "sho_potential.hxx" // ::all_tests
@@ -226,6 +227,7 @@
           add_module_test(structure_solver);
 
           start_a_chapter("DFT-specific"); // *****************************************
+          add_module_test(symmetry_group);
           add_module_test(brillouin_zone);
           add_module_test(fermi_distribution);
           add_module_test(exchange_correlation);

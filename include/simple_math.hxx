@@ -32,7 +32,8 @@ namespace simple_math {
   // a10 a11
 
   template <typename T>
-  inline T determinant(T a00, T a01, T a10, T a11) {
+  inline T determinant(T a00, T a01
+                     , T a10, T a11) {
       return a00*a11 - a10*a01; 
   } // determinant
 
@@ -41,7 +42,9 @@ namespace simple_math {
   // a20 a21 a22
 
   template <typename T>
-  inline T determinant(T a00, T a01, T a02, T a10, T a11, T a12, T a20, T a21, T a22) {
+  inline T determinant(T a00, T a01, T a02
+                     , T a10, T a11, T a12
+                     , T a20, T a21, T a22) {
       return a00*determinant(a11, a12, a21, a22)
            - a10*determinant(a01, a02, a21, a22)
            + a20*determinant(a01, a02, a11, a12);
@@ -53,8 +56,10 @@ namespace simple_math {
   // a30 a31 a32 a33
 
   template <typename T>
-  inline T determinant(T a00, T a01, T a02, T a03, T a10, T a11, T a12, T a13, 
-                       T a20, T a21, T a22, T a23, T a30, T a31, T a32, T a33) {
+  inline T determinant(T a00, T a01, T a02, T a03
+                     , T a10, T a11, T a12, T a13
+                     , T a20, T a21, T a22, T a23
+                     , T a30, T a31, T a32, T a33) {
       return a00*determinant(a11, a12, a13, a21, a22, a23, a31, a32, a33)
            - a10*determinant(a01, a02, a03, a21, a22, a23, a31, a32, a33)
            + a20*determinant(a01, a02, a03, a11, a12, a13, a31, a32, a33)
@@ -167,11 +172,11 @@ namespace simple_math {
 
 
   template <typename T>
-  inline T invert(int const n, T inv[], int const is, T const a[], int const as) {
-      if (1 == n) return invert1x1(inv, is, a, as);
-      if (2 == n) return invert2x2(inv, is, a, as);
-      if (3 == n) return invert3x3(inv, is, a, as);
-      if (4 == n) return invert4x4(inv, is, a, as);
+  inline T invert(int const n, T inv[], int const is, T const a[], int const as, T const factor=1) {
+      if (1 == n) return invert1x1(inv, is, a, as, factor);
+      if (2 == n) return invert2x2(inv, is, a, as, factor);
+      if (3 == n) return invert3x3(inv, is, a, as, factor);
+      if (4 == n) return invert4x4(inv, is, a, as, factor);
       return 0; // returns zero
   } // invert
 

@@ -42,7 +42,7 @@ namespace potential_generator {
   template <typename real_t>
   status_t add_smooth_quantities(
         real_t values[] // add to this function on a 3D grid
-      , real_space::grid_t const & g // Cartesian real-space grid descriptor
+      , real_space::grid_t const & g // real-space grid descriptor
       , int const na // number of atoms (radial grid centers)
       , int32_t const nr2[] // number of r^2-grid points
       , float const ar2[] // r2-grid density
@@ -56,7 +56,6 @@ namespace potential_generator {
       , char const *quantity="???" // description for log-messages
   ) {
       // add contributions from smooth core densities
-      assert(g.is_Cartesian());
 
       status_t stat(0);
       for (int ia = 0; ia < na; ++ia) {
@@ -103,20 +102,12 @@ namespace potential_generator {
       // Add a generalized Gaussian multipole compensator charge
       status_t stat(0);
       if (ellmax < 0) return stat; // early return
-      assert(g.is_Cartesian());
       assert(sigma > 0);
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       double const r_max = 9*sigma; // default truncation radius
       double const rcut = (-1 == r_cut) ? r_max : std::min(double(r_cut), r_max);
       double const r2cut = rcut*rcut;
-      int imn[3], imx[3];
-      size_t nwindow{1};
-      for (int d = 0; d < 3; ++d) {
-          imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
-          imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
-          if (echo > 8) std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
-          nwindow *= std::max(0, imx[d] + 1 - imn[d]);
-      } // d
+
       int const nlm = pow2(1 + ellmax);
       double const sigma2inv = 0.5/pow2(sigma);
       std::vector<double> scaled_coefficients(nlm, 0.0);
@@ -136,11 +127,22 @@ namespace potential_generator {
       std::vector<double> rlXlm(nlm); // must be thread-private in case of OMP parallelism
       double added_charge{0}; // clear
       size_t modified{0};
-      for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
-          for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
-              if (vz2 + vy2 < r2cut) {
+      size_t nwindow{1};
+      if (g.is_Cartesian()) {
+          // define a window in which we add the radial function
+          int imn[3], imx[3];
+          for (int d = 0; d < 3; ++d) {
+              imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
+              imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
+              if (echo > 8) std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
+              nwindow *= std::max(0, imx[d] + 1 - imn[d]);
+          } // d
+
+          for (        int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
+              for (    int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
+                  if (vz2 + vy2 < r2cut) {
                   for (int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
-                      double const r2 = vz2 + vy2 + vx2;
+                      double const r2 = vx2 + vy2 + vz2;
                       if (r2 < r2cut) {
                           int const izyx = (iz*g('y') + iy)*g('x') + ix;
                           solid_harmonics::rlXlm(rlXlm.data(), ellmax, vx, vy, vz);
@@ -160,9 +162,38 @@ namespace potential_generator {
                           } // ilm
                       } // inside rcut
                   } // ix
-              } // rcut for (y,z)
-          } // iy
-      } // iz
+                  } // y-z inside rcut
+              } // iy
+          } // iz
+      } else { // is_Cartesian
+          // general cell
+          double const denom[] = {1./g[0], 1./g[1], 1./g[2]}; // grid denominators
+          for (        int iz = 0; iz < g[2]; ++iz) {
+              for (    int iy = 0; iy < g[1]; ++iy) {
+                  for (int ix = 0; ix < g[0]; ++ix) {
+                      double const iv[] = {ix*denom[0], iy*denom[1], iz*denom[2]};
+                      double rv[3];
+                      for (int d = 0; d < 3; ++d) {
+                          rv[d] = iv[0]*g.cell[0][d] + iv[1]*g.cell[1][d] + iv[2]*g.cell[2][d] - c[d];
+                      } // d
+                      double const r2 = pow2(rv[0]) + pow2(rv[1]) + pow2(rv[2]);
+                      if (r2 < r2cut) {
+                          int const izyx = (iz*g('y') + iy)*g('x') + ix;
+                          solid_harmonics::rlXlm(rlXlm.data(), ellmax, rv[0], rv[1], rv[2]);
+                          double const Gaussian = std::exp(-sigma2inv*r2);
+                          double const value_to_add = Gaussian * dot_product(nlm, scaled_coefficients.data(), rlXlm.data());
+                          values[izyx] += factor*value_to_add;
+                          added_charge += factor*value_to_add;
+                          ++modified;
+                          for (int ilm = 0; ilm < nlm*debug; ++ilm) {
+                              add_product(overlap_ij[ilm], nlm, rlXlm.data(), Gaussian*rlXlm[ilm]);
+                          } // ilm
+                      } // inside rcut
+                  } // ix
+              } // iy
+          } // iz
+          nwindow = g.all();
+      } // is_Cartesian
       added_charge *= g.dV(); // volume integral
       if (echo > 7) std::printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values, added charge= %g\n",
                                    __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3, added_charge); // show stats
@@ -203,7 +234,10 @@ namespace potential_generator {
       , int const echo=0 // log-level
   ) {
       status_t stat(0);
-      assert(g.is_Cartesian());
+      if (!g.is_Cartesian()) {
+          if (echo > 1) std::printf("# %s: only implemented for Cartesian grids\n", __func__);
+          return stat;
+      } // is_Cartesian
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);
 

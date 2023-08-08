@@ -13,7 +13,7 @@
 #include "plane_wave.hxx" // DensityIngredients
 
 #include "sho_potential.hxx" // ::load_local_potential
-#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
+#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back, length
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
 #include "real_space.hxx" // ::grid_t
@@ -56,6 +56,8 @@ namespace plane_wave {
   }; // class PlaneWave
 
   void Hermite_Gauss_projectors(std::complex<double> pzyx[], int const numax, double const sigma, double const gv[3]) {
+        // this routine is particularly implemented for non-Cartesian grids in reciprocal space
+        // no facorizability along the axes of gv is assumed
 
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for (int d = 0; d < 3; ++d) {
@@ -70,7 +72,7 @@ namespace plane_wave {
                 for (int d = 0; d < 3; ++d) {
                     Hermite_Gauss(d,nu) *= norm_factor; // scale
                 } // d
-                nufactorial *= (nu + 1)*0.5; // update nfactorial * 2^-nu
+                nufactorial *= (nu + 1)*0.5; // update factorial(nu) * 2^-nu
             } // nu
         } // scope
 
@@ -86,7 +88,7 @@ namespace plane_wave {
                     pzyx[lb] = Hermite_Gauss(0,lx) *
                                Hermite_Gauss(1,ly) *
                                Hermite_Gauss(2,lz) *
-                               imaginary[nu & 0x3]; // nu%4
+                               imaginary[nu & 0x3]; // nu & 0x3 == nu % 4
                     ++lb;
                 } // lx
             } // ly
@@ -99,7 +101,7 @@ namespace plane_wave {
   inline double Fourier_Gauss_factor_3D() {
       // \sqrt(2 pi)^3
       return pow3(constants::sqrt2 * constants::sqrtpi);
-  } //  Fourier_Gauss_factor_3D
+  } // Fourier_Gauss_factor_3D
 
 
   template <typename complex_t>
@@ -133,7 +135,7 @@ namespace plane_wave {
           return -1;
       } // enough plane waves?
 
-      { // scope: fill start wave functions with good, linear independent start vectors
+      if (nbands > 0) { // scope: fill start wave functions with good, linear independent start vectors
           int const nsubspace = std::max(nbands, int(direct_ratio*nbands));
           int const nsub = std::min(nsubspace, nPW);
           view3D<complex_t> SHmat_b(2, nsub, align<2>(nsub));
@@ -224,10 +226,9 @@ namespace plane_wave {
   } // iterative_solve
 
 
-
   template <typename complex_t>
   status_t solve_k(
-        double const ecut // plane wave cutoff energy
+        double const ecut // plane wave cutoff energy in Hartree
       , double const reci[3][4] // reciprocal cell matrix
       , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
       , int const nG[3] // half the number of plane wave entries in the potential
@@ -253,21 +254,34 @@ namespace plane_wave {
       using real_t = decltype(std::real(complex_t(1)));
 
       int boxdim[3], max_PWs{1};
-      for (int d = 0; d < 3; ++d) {
-          boxdim[d] = std::ceil(ecut/pow2(reci[d][d]));
-          if (echo > 17) std::printf("# %s reci[%d] = %.6f %.6f %.6f sqRy, kpoint=%9.6f\n", __func__, d, reci[d][0], reci[d][1], reci[d][2], kpoint[d]);
-          max_PWs *= (boxdim[d] + 1 + boxdim[d]);
-      } // d
-      if (echo > 11) std::printf("# %s boxdim = %d x %d x %d, E_cut= %g Ry\n", __func__, boxdim[0], boxdim[1], boxdim[2], 2*ecut);
+      { // scope: determine a box to compute the bounding box in reciprocal space
+          // reci == 2pi/Bravais
+          double a[3][4];
+          auto const det_reci = simple_math::invert3x3(a[0], 4, reci[0], 4);
+          // now a = 1/reci = Bravais/(2pi)
+          assert(std::abs(det_reci) > 2e-16 && "the reciprocal cell matrix must have a non-zero determinant");
+          double const factor = std::sqrt(2*ecut); // maximum length of a |k+G|-vector in sqRy
+          for (int d = 0; d < 3; ++d) {
+              // from https://github.com/qboxcode/qbox-public/blob/master/src/Basis.cpp
+              boxdim[d] = int(1.5 + factor*length(a[d]));
+              // this formula uses a lot of safety margin as it is not as accurate as FLEUR::boxdim
+              max_PWs *= (boxdim[d] + 1 + boxdim[d]);
+              if (echo > 17) std::printf("# %s reci[%d] = %.6f %.6f %.6f sqRy, kpoint=%9.6f\n", __func__, d, reci[d][0], reci[d][1], reci[d][2], kpoint[d]);
+              assert(std::abs(kpoint[d]) <= 0.5);
+          } // d
+      } // scope
+
+      if (echo > 11) std::printf("# %s boxdim = %d x %d x %d, max %.3f k, E_cut= %g Ry\n", __func__, boxdim[0], boxdim[1], boxdim[2], max_PWs*.001, 2*ecut);
       std::vector<PlaneWave> pw_basis(max_PWs);
       { // scope: generate set of plane waves
           int iB{0}, outside{0};
           for (int iGz = -boxdim[2]; iGz <= boxdim[2]; ++iGz) {
           for (int iGy = -boxdim[1]; iGy <= boxdim[1]; ++iGy) {
           for (int iGx = -boxdim[0]; iGx <= boxdim[0]; ++iGx) {
-              double const gv[3] = {(iGx + kpoint[0])*reci[0][0],
-                                    (iGy + kpoint[1])*reci[1][1],
-                                    (iGz + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci assumed here
+              double const kv[3] = {iGx + kpoint[0], iGy + kpoint[1], iGz + kpoint[2]};
+              double const gv[3] = {kv[0]*reci[0][0] + kv[1]*reci[0][1] + kv[2]*reci[0][2]
+                                  , kv[0]*reci[1][0] + kv[1]*reci[1][1] + kv[2]*reci[1][2]
+                                  , kv[0]*reci[2][0] + kv[1]*reci[2][1] + kv[2]*reci[2][2]};
               double const g2 = pow2(gv[0]) + pow2(gv[1]) + pow2(gv[2]);
 #ifdef FULL_DEBUG
               if (echo > 91) std::printf("# %s suggest PlaneWave(%d,%d,%d) with |k+G|^2= %g Ry inside= %d\n", __func__, iGx,iGy,iGz, g2, g2 < 2*ecut);
@@ -305,9 +319,9 @@ namespace plane_wave {
           auto compare_lambda = [](PlaneWave const & lhs, PlaneWave const & rhs) { return lhs.g2 < rhs.g2; };
           std::sort(pw_basis.begin(), pw_basis.end(), compare_lambda);
 #ifdef DEVEL
-          if (echo > 8) { // show in ascending order
+          if (echo > 8) { // show kinetic energies in ascending order
               std::printf("# %s|k+G|^2 =", x_axis);
-              for (int i = 0; i < std::min(5, nPWs); ++i) {
+              for (int i = 0; i < std::min(15, nPWs); ++i) {
                   std::printf(" %.4f", pw_basis[i].g2);
               } // i
               std::printf(" ...");
@@ -351,9 +365,11 @@ namespace plane_wave {
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
       for (int jB = 0; jB < nB; ++jB) {
           auto const & pw = pw_basis[jB];
-          double const gv[3] = {(pw.x + kpoint[0])*reci[0][0],
-                                (pw.y + kpoint[1])*reci[1][1],
-                                (pw.z + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci-matrix assumed here
+          double const kv[3] = {pw.x + kpoint[0], pw.y + kpoint[1], pw.z + kpoint[2]};
+          double const gv[3] = {kv[0]*reci[0][0] + kv[1]*reci[0][1] + kv[2]*reci[0][2]
+                              , kv[0]*reci[1][0] + kv[1]*reci[1][1] + kv[2]*reci[1][2]
+                              , kv[0]*reci[2][0] + kv[1]*reci[2][1] + kv[2]*reci[2][2]};
+
 
           for (int ka = 0; ka < natoms_PAW; ++ka) {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
@@ -553,14 +569,11 @@ namespace plane_wave {
       double const grid_offset[3] = {0.5*(g[0] - 1)*g.h[0], // position of the cell center w.r.t. the position of grid point(0,0,0)
                                      0.5*(g[1] - 1)*g.h[1],
                                      0.5*(g[2] - 1)*g.h[2]};
-      double const cell_matrix[3][4] = {{g[0]*g.h[0], 0, 0,   0},
-                                        {0, g[1]*g.h[1], 0,   0},
-                                        {0, 0, g[2]*g.h[2],   0}};
+      auto const & cell_matrix = g.cell; // double g.cell[3][4];
       double reci_matrix[3][4];
-      auto const cell_volume = simple_math::invert(3, reci_matrix[0], 4, cell_matrix[0], 4);
-      scale(reci_matrix[0], 3*4, 2*constants::pi); // scale by 2*pi
+      auto const cell_volume = simple_math::invert(3, reci_matrix[0], 4, cell_matrix[0], 4, 2*constants::pi);
       if (echo > 0) {
-          std::printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
+          std::printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang), _Ang);
           auto constexpr sqRy = 1; auto const _sqRy = "sqRy";
           std::printf("# cell matrix in %s\t\tand\t\treciprocal matrix in %s:\n", _Ang, _sqRy);
           for (int d = 0; d < 3; ++d) {
@@ -593,7 +606,7 @@ namespace plane_wave {
 
       auto const fft_stat = fourier_transform::fft(Vcoeffs(0,0,0), Vcoeffs(1,0,0), vtot, vtot_Im(0,0), nG, true, echo);
       if (0 == fft_stat) {
-          if (echo > 5) std::printf("# used FFT on %d x %d x %d to transform local potential into space of plane-wave differences\n", nG[0], nG[1], nG[2]);
+          if (echo > 5) std::printf("# used FFT on %d x %d x %d to transform local potential into the space of plane-wave differences\n", nG[0], nG[1], nG[2]);
       } else
       { // scope: Fourier transform the local potential "by hand"
           warn("FFT failed with status= %i, transform local potential manually", int(fft_stat));
@@ -693,7 +706,6 @@ namespace plane_wave {
                                 nPW_stats.min(), nPW_stats.mean(), nPW_stats.dev(), nPW_stats.max());
       if (echo > 3) std::printf("# time per k-point is [%.3f, %.3f +/- %.3f, %.3f] seconds\n",
                                 tPW_stats.min(), tPW_stats.mean(), tPW_stats.dev(), tPW_stats.max());
-
       return stat;
   } // solve
 
@@ -711,20 +723,30 @@ namespace plane_wave {
       std::vector<double> vtot; // total smooth potential on Cartesian grid
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
 
+      if (dims[0] < 1 || dims[1] < 1 || dims[2] < 1) {
+          warn("dimensions in vtot.dat are not positive, found [%d %d %d]", dims[0], dims[1], dims[2]);
+          return 1;
+      }
+
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;
       int natoms{0};
-      double cell[3] = {0, 0, 0};
+      double cell[3][3] = {{0,0,0}, {0,0,0}, {0,0,0}};
       int8_t bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
+          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell[0], bc, 0);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+                              natoms, geo_file, cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
 
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc); // is assumed periodic anyway
-      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
+      g.set_grid_spacing(length(cell[0])/g[0]
+                       , length(cell[1])/g[1]
+                       , length(cell[2])/g[2]);
+      for (int d = 0; d < 3; ++d) {
+          set(g.cell[d], 3, cell[d]);
+      } // d
       if (echo > 1) std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
 

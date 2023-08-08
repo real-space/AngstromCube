@@ -6,7 +6,7 @@
 #include "status.hxx" // status_t
 
 #include "fourier_transform.hxx" // ::fft
-#include "vector_math.hxx" // vec<n,T>
+#include "vector_math.hxx" // vec<n,T>, norm
 #include "constants.hxx" // ::pi
 #include "inline_math.hxx" // pow2, align<nBits>
 
@@ -19,7 +19,7 @@ namespace fourier_poisson {
         real_t x[] // (out) solution of Laplacian*x == b
       , real_t const b[] // right hand side b
       , int const ng[3] // grid numbers
-      , double const reci[3][4] // shape of the reciprocal space
+      , double const reci[3][4] // shape of the reciprocal space, only [0..2][0..2] used
       , double const factor=-epsilon0
       , int const echo=0
   ) {
@@ -45,17 +45,30 @@ namespace fourier_poisson {
       real_t const scale = -factor/ng_all;
 
       typedef vector_math::vec<3,double> vec3;
-      vec3 rec[3]; for (int d = 0; d < 3; ++d) rec[d] = reci[d];
+      vec3 rec[3];
+      for (int d = 0; d < 3; ++d) {
+      //  rec[d] = reci[d]; // convert matrix into 3 vectors, ToDo: do we need a transpose here?
+          double const rv[] = {reci[0][d], reci[1][d], reci[2][d]};
+          rec[d] = rv; // convert columns of the reciprocal space matrix into 3 vectors
+      } // d
 
       int const nh[] = {ng[0]/2, ng[1]/2, ng[2]/2};
 
-      for (        int j2 = 0; j2 < ng[2]; ++j2) { int const k2 = j2 - (j2 > nh[2])*ng[2]; vec3 const vec2   = rec[2]*k2;
-          for (    int j1 = 0; j1 < ng[1]; ++j1) { int const k1 = j1 - (j1 > nh[1])*ng[1]; vec3 const vec21  = rec[1]*k1 + vec2;
-              for (int j0 = 0; j0 < ng[0]; ++j0) { int const k0 = j0 - (j0 > nh[0])*ng[0]; vec3 const vec210 = rec[0]*k0 + vec21;
-                  int const i = (j2*ng[1] + j1)*ng[0] + j0;
+      for (        int j2 = 0; j2 < ng[2]; ++j2) {
+                      int const k2 = j2 - (j2 > nh[2])*ng[2];
+                      int const kk2   = k2*k2;
+                      vec3 const vec2   = rec[2]*k2;           
+          for (    int j1 = 0; j1 < ng[1]; ++j1) { 
+                      int const k1 = j1 - (j1 > nh[1])*ng[1];
+                      int const kk21  = k1*k1 + kk2;               
+                      vec3 const vec21  = rec[1]*k1 + vec2;    
+              for (int j0 = 0; j0 < ng[0]; ++j0) {
+                      int const k0 = j0 - (j0 > nh[0])*ng[0];
+                      int const kk210 = k0*k0 + kk21;
+                  if (kk210 > 0) {
+                      vec3 const vec210 = rec[0]*k0 + vec21;   
+                      int const i = (j2*ng[1] + j1)*ng[0] + j0;
 
-                  int const kk = k0*k0 + k1*k1 + k2*k2;
-                  if (kk > 0) {
                       real_t const invLaplacian = scale/norm(vec210);
                       // modify x_Re and x_Im in-place
                       x_Re[i] *= invLaplacian;

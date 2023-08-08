@@ -68,10 +68,10 @@ namespace green_input {
       } catch (...) {
           warn("failed to open \"%s\"", filename);
           return -1; // error
-      } // try + catch
+      } // catch
 
       set(ng, 3, 0u);
-      set(hg, 3, 1.0);
+      set(hg, 3, 1.);
       Veff.resize(0);
       natoms = 0;
       xyzZinso.resize(0);
@@ -220,7 +220,8 @@ namespace green_input {
       int natoms;
       std::vector<double> xyzZinso;
       std::vector<std::vector<double>> atom_mat;
-      return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, control::get("green_input.hamiltonian.file", "Hmt.json"), echo);
+      auto const filename = control::get("green_input.hamiltonian.file", "Hmt.json");
+      return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, filename, echo);
   } // test_loading
 
   status_t all_tests(int echo) {

@@ -21,7 +21,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "data_list.hxx" // data_list<T>
 
-#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
+#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back, length
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::get, ::set
 
@@ -72,9 +72,9 @@ namespace self_consistency {
 
       natoms = 0; // number of atoms
       int8_t bc[3]; // boundary conditions
-      double cell[3]; // rectangular cell parameters
+      double cell[3][3] = {{0,0,0}, {0,0,0}, {0,0,0}}; // general cell parameters
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
+      stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell[0], bc, echo);
 
       { // scope: determine grid spacings and number of grid points
 
@@ -110,7 +110,7 @@ namespace self_consistency {
                       'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
                   default_grid_spacing_used += is_default_grid_spacing;
                   if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-                  ng[d] = n_grid_points(cell[d]/hg);
+                  ng[d] = n_grid_points(length(cell[d])/hg);
                   if (ng[d] < 1) error("grid spacings too large, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
               } // ng < 1
               ng[d] = even(ng[d]); // if odd, increment to nearest higher even number
@@ -125,20 +125,28 @@ namespace self_consistency {
 
       if (echo > 1) std::printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
-      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
+      g.set_grid_spacing(length(cell[0])/g[0], length(cell[1])/g[1], length(cell[2])/g[2]);
       double const max_grid_spacing = std::max(std::max(std::max(1e-9, g.h[0]), g.h[1]), g.h[2]);
       if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
             g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
       for (int d = 0; d < 3; ++d) {
-          if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
-              warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s",
-                           'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
-              ++stat;
-          } // deviates
-          cell[d] = g.h[d]*g[d];
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16 && "grid spacing and its inverse do not match");
+          set(g.cell[d], 3, cell[d]); // copy into g.cell
       } // d
-      if (echo > 1) std::printf("# cell is  %g %g %g  %s\n", cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang);
+      if (g.is_Cartesian()) {
+          if (echo > 1) std::printf("# cell is  %g %g %g  %s\n", cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang);
+          for (int d = 0; d < 3; ++d) {
+              if (std::abs(g.h[d]*g[d] - cell[d][d]) >= 1e-6) {
+                  warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s",
+                           'x'+d, g[d], g.h[d]*Ang, cell[d][d]*Ang, _Ang);
+                  ++stat;
+              } // deviates
+          } // d
+      } else if (echo > 1) {
+          for (int d = 0; d < 3; ++d) {
+              std::printf("# cell is  %g %g %g  %s\n", g.cell[d][0]*Ang, g.cell[d][1]*Ang, g.cell[d][2]*Ang, _Ang);
+          } // d
+      } // is_Cartesian
 
       return stat;
   } // init_geometry_and_grid

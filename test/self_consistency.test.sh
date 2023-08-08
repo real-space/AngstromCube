@@ -30,15 +30,15 @@ exe=../src/a43
 # base=scf.methane
 # echo " 5" > $base.xyz
 # echo "#cell 16 16 16 i i i" >> $base.xyz
-base=scf.mini-methane
-echo " 5" > $base.xyz
-echo "#cell 8 8 8 i i i" >> $base.xyz
-dist=0.63
-echo "C  0 0 0"                 >> $base.xyz
-echo "H   -$dist -$dist -$dist" >> $base.xyz
-echo "H    $dist  $dist -$dist" >> $base.xyz
-echo "H    $dist -$dist  $dist" >> $base.xyz
-echo "H   -$dist  $dist  $dist" >> $base.xyz
+# base=scf.mini-methane
+# echo " 5" > $base.xyz
+# echo "#cell 8 8 8 i i i" >> $base.xyz
+# dist=0.63
+# echo "C  0 0 0"                 >> $base.xyz
+# echo "H   -$dist -$dist -$dist" >> $base.xyz
+# echo "H    $dist  $dist -$dist" >> $base.xyz
+# echo "H    $dist -$dist  $dist" >> $base.xyz
+# echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
 # echo " 1" > $base.xyz
@@ -77,6 +77,12 @@ echo "H   -$dist  $dist  $dist" >> $base.xyz
 # echo "Al    1.0  1.0 -1.0" >> $base.xyz
 # echo "Al    1.0 -1.0  1.0" >> $base.xyz
 # echo "Al   -1.0  1.0  1.0" >> $base.xyz
+
+base=scf.Ne-fcc
+echo " 1" > $base.xyz  
+echo "%fcc_unitcell 0 2.235 2.235  2.235 0 2.235  2.235 2.235 0" >> $base.xyz
+echo "Ne  0 0 0" >> $base.xyz
+
 
 ### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
 # base=scf.Cu-fcc
@@ -283,9 +289,11 @@ hamiltonian.export.format=json
 control.show=-7
 
 EOF
+## end of control file
 
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 2 1 1`; do
+  ## real-space grid spacing in Bohr
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -297,7 +305,8 @@ for spacing in `seq 1 1 1`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for numax in `seq 4 2 0`; do
+for numax in `seq 4 2 2`; do
+  ## SHO basis size numax
   project=$base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -310,13 +319,14 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 4 2 0`; do
+for ecut in `seq 11 3 11`; do
+  ## plane-wave cutoff energy in Hartree
   project=$base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
-        +basis=pw \
+        +basis=plane_wave \
         +plane_wave.cutoff.energy=$ecut \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
