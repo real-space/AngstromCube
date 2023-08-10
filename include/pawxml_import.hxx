@@ -43,6 +43,7 @@ namespace pawxml_import {
       double ae_energy[4];
       double core_energy_kinetic;
       double radial_grid_a;
+      double radial_grid_d;
       int    n; // radial_grid.n
       double shape_function_rc;
       std::vector<pawxmlstate_t> states;
@@ -66,6 +67,7 @@ namespace pawxml_import {
 #else  // HAS_RAPIDXML
 
       pawxml_t p;
+      p.parse_status = __LINE__;
 
       if (echo > 9) std::printf("# %s file=%s\n", __func__, filename);
       rapidxml::xml_document<> doc;
@@ -75,15 +77,15 @@ namespace pawxml_import {
               doc.parse<0>(infile.data());
           } catch (...) {
               warn("failed to parse \"%s\"", filename);
-              p.parse_status = 2; return p; // error
+              p.parse_status = __LINE__; return p; // error
           } // try + catch
       } catch (...) {
           warn("failed to open \"%s\"", filename);
-          p.parse_status = 1; return p; // error
+          p.parse_status = __LINE__; return p; // error
       } // try + catch
 
       auto const paw_setup = doc.first_node("paw_setup");
-      if (!paw_setup) return p; // error
+      if (!paw_setup) { p.parse_status = __LINE__; return p; } // error
 
       auto const atom = xml_reading::find_child(paw_setup, "atom", echo);
       if (atom) {
@@ -148,11 +150,14 @@ namespace pawxml_import {
           auto const istart = xml_reading::find_attribute(radial_grid, "istart", "0");
           auto const iend   = xml_reading::find_attribute(radial_grid, "iend", "-1");
           auto const id     = xml_reading::find_attribute(radial_grid, "id", "?");
+          auto const d      = xml_reading::find_attribute(radial_grid, "d", "1");
           if (echo > 5) std::printf("# %s:  <radial_grid eq=\"%s\" a=\"%s\" n=\"%s\" istart=\"%s\" iend=\"%s\" id=\"%s\"/>\n",
               filename, eq, a, n, istart, iend, id);
           p.n = std::atoi(n); // store
           p.radial_grid_a = std::atof(a); // store
-          if (0 != std::strcmp(eq, "r=a*i/(n-i)")) error("%s: assume a radial expontential grid", filename);
+          p.radial_grid_d = std::atof(d); // store
+     //   if (0 != std::strcmp(eq, "r=a*i/(n-i)")) error("%s: assume a radial reciprocal grid", filename);
+          if (0 != std::strcmp(eq, "r=a*(exp(d*i)-1)")) error("%s: assume a radial exponential grid", filename);
           if (0 != std::atoi(istart))              error("%s: assume a radial grid starting at 0", filename);
           if (p.n != std::atoi(iend) + 1)          error("%s: assume a radial grid starting from 0 to n-1", filename);
       } else warn("no <radial_grid> found in xml-file '%s'", filename);
@@ -268,6 +273,7 @@ namespace pawxml_import {
       if (echo > 7) std::printf("# %s file=%s\n", __func__, filename);
       auto const p = parse_pawxml(filename, echo);
 
+      char const ellchar[8] = "spdfghi";
       int const repeat_file = control::get("pawxml_import.test.repeat", 0.);
       if (repeat_file) {
           // create an XML file that should reproduce this
@@ -283,7 +289,6 @@ namespace pawxml_import {
                               p.ae_energy[0], p.ae_energy[1], p.ae_energy[2], p.ae_energy[3]);
           std::fprintf(f, "\t<core_energy kinetic=\"%.6f\"/>\n", p.core_energy_kinetic);
           std::fprintf(f, "\t<valence_states>\n");
-          char const ellchar[8] = "spdfghi";
           for (auto & s : p.states) {
               char id[8]; std::snprintf(id, 8, "%s-%d%c", p.Sy, s.n, ellchar[s.l]);
               std::fprintf(f, "\t\t<state n=\"%d\" l=\"%d\" f=\"%g\" rc=\"%g\" e=\"%g\" id=\"%s\"/>\n",
@@ -315,7 +320,7 @@ namespace pawxml_import {
               } // iq
           } // s
 
-          {
+          { // kinetic energy differences
               std::fprintf(f, "\t<kinetic_energy_differences>");
               int const n = p.states.size();
               for (int i = 0; i < n; ++i) {
@@ -323,11 +328,32 @@ namespace pawxml_import {
                       std::fprintf(f, "%s%g", j?" ":"\n\t\t", p.dkin[i*n + j]);
                   } // j
               } // i
-          }
-          std::fprintf(f, "\n\t</kinetic_energy_differences>\n");
+              std::fprintf(f, "\n\t</kinetic_energy_differences>\n");
+          } // scope
+
           std::fprintf(f, "</paw_setup>\n");
           std::fclose(f);
       } // repeat_file
+
+      int const plot_file = control::get("pawxml_import.test.plot", double(echo > 7));
+      if (plot_file) {
+          int const n = p.states.size();
+          std::printf("\n\n# plot projectors from %s in xmgrace -nxy\n", filename);
+          std::printf("# radius/Bohr");
+          for (int i = 0; i < n; ++i) {
+              std::printf(", %d%c-projector", p.states[i].n, ellchar[p.states[i].l]);
+          } // i
+          std::printf("\n");
+          for (int ir = 0; ir < p.n; ++ir) {
+              double const r = p.radial_grid_a*(std::exp(p.radial_grid_d*ir) - 1);
+              std::printf("%.6f", r);
+              for (int i = 0; i < n; ++i) {
+                  std::printf(" %g", p.states[i].tsp[2][ir]); // plot projector function
+              } // i
+              std::printf("\n");
+          } // ir
+          std::printf("\n\n");
+      } // plot_file
 
       return p.parse_status;
   } // test_loading

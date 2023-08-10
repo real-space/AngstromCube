@@ -1885,7 +1885,7 @@ namespace single_atom {
 
         // classical schemes:
         char constexpr classical_scheme = 'C';          // find partial waves by fitting a polynomial and evaluate preliminary projector functions according to Bloechl
-        char constexpr recreate_second = 'r';           // construct the higher projector orthogonal to the lowest smooth partial wave
+        char constexpr recreate_second = 'r';           // construct the higher projector bi-orthogonal to the lowest smooth partial wave
 #ifdef    DEVEL
         char constexpr classical_partial_waves = 'c';   // find partial waves by fitting a polynomial, SHO-filtered projector functions unchanged
                                                         // works ok but does not give perfect agreement in logder, instable s-charge deficit eigenvalues in Cu if numax=4
@@ -1898,10 +1898,10 @@ namespace single_atom {
 #endif // DEVEL
 
         char const method = ('?' != generation_method) ? generation_method :
-                      *control::get("single_atom.partial.wave.method", "recreate_second");
+            *control::get("single_atom.partial.wave.method", "recreate_second");
 
         int const Gram_Schmidt_iterations = (GS_iterations >= 0) ? GS_iterations :
-                              control::get("single_atom.gram.schmidt.repeat", 2.);
+            int(control::get("single_atom.gram.schmidt.repeat", 2.));
 
         double r_match{r_cut}; // init classical
 
@@ -1940,7 +1940,7 @@ namespace single_atom {
             } // echo
 #endif // DEVEL
 
-            r_match = 9*sigma; // exp(-9^2/2) = 2.6e-18, all projectors are zero beyond this r_match
+            r_match = 9*sigma; // exp(-9^2/2) = 2.6e-18, all projectors are de-facto zero beyond r_match
         } // not classical_scheme
 
         if (echo > 2) std::printf("\n# %s %s Z=%g method=\'%c\'\n", label, __func__, Z_core, method);
@@ -2051,8 +2051,8 @@ namespace single_atom {
                 } // scope
 
                 // create wKin for the computation of the kinetic energy density
-                product(vs.wKin[TRU], nr, potential[TRU].data(), vs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
-                add_product(vs.wKin[TRU], nr, rg[TRU].r, vs.wave[TRU], vs.energy); // now wKin = r*(E - V(r))*wave(r)
+                product(vs.wKin[TRU], nr, potential[TRU].data(), vs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r), potential contains r*V(r)
+                add_product(vs.wKin[TRU], nr, rg[TRU].r, vs.wave[TRU], vs.energy); // now wKin == r*(E - V(r))*wave(r)
 #ifdef    DEVEL
                 if (use_energy_derivative && nrn > 0) {
                     add_product(vs.wKin[TRU], nr, rg[TRU].r, partial_wave[iln - 1].wave[TRU]); // now wKin = r*(E - V(r))*wave(r) + r*psi0
@@ -2118,7 +2118,7 @@ namespace single_atom {
                     // We can use the usual pseudized partial waves together with SHO-filtered projectors,
                     // however, the PAW equation is not fullfilled and we can observe small deviations in
                     // the logarithmic_derivative, e.g. for C -.1 eV in the s- and +.3 eV in the p-channel
-                    // furthermore, eigenstate_analysis is not prepared for numerically given projectors
+                    // furthermore, eigenstate_analysis is also not prepared for an exact representation of numerically given projectors
 
                     // copy the tail of the true wave function into the smooth wave function
                     set(vs.wave[SMT], rg[SMT].n, vs.wave[TRU] + nr_diff);
@@ -2142,8 +2142,8 @@ namespace single_atom {
                         ckin[k - 1] = 0.5*( ell*(ell + 1) - (ell + 2*k)*(ell + 1 + 2*k) )*coeff[k];
                     } // k
 
-                    if (echo > 19) std::printf("\n## %s classical method for %c%i: r, smooth r*wave, smooth r*Twave, "
-                                          "true r*wave, true r*Twave, projector:\n", label, ellchar[ell], nrn);
+                    if (echo > 19) std::printf("\n## %s classical method for %c%i: r, smooth wave, smooth r*Twave, "
+                                               "true wave, true r*Twave, projector:\n", label, ellchar[ell], nrn);
                     // expand smooth kinetic wave up to r_cut
                     for (int ir = 0; ir <= ir_cut[SMT]; ++ir) {
                         double const r = rg[SMT].r[ir], r2 = pow2(r), rl1 = intpow(r, ell + 1);
@@ -2152,7 +2152,7 @@ namespace single_atom {
                         // ... describing the kinetic energy operator times the smooth wave function times r
 
                         if (modify_projectors) {
-                            // Here, we construct the preliminary projector functions accoding to the Bloechl scheme:
+                            // Here, we construct the preliminary projector functions according to the Bloechl scheme:
                             //    ~p(r) := (^T + V_loc - E) ~phi(r)
                             //    i.e. the projector functions are only given numerically and are non-zero only inside the sphere
                             projectors_ell(nrn,ir) = vs.wKin[SMT][ir] + (potential[SMT][ir] - r*vs.energy)*vs.wave[SMT][ir];
@@ -2172,7 +2172,7 @@ namespace single_atom {
                     } // echo
 
                     // Beware: the numerical projectors generated are only preliminary and not yet SHO filtered!
-                    // please run the sigma optimization after using this method.
+                    //         please run the sigma optimization after using this method.
 
                 } // classical_scheme or classical_partial_waves
                 else

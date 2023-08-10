@@ -45,8 +45,8 @@ namespace pawxml_export {
       // Export Projector Augmented Wave data in XML format
   {
       auto const git_key = control::get("git.key", "");
-      int  const show_rg = control::get("pawxml_export.show.radial.grid", 0.);  // ABINIT needs this
-      int  const ir0     = control::get("pawxml_export.start.radial.grid", 0.); // use 1. for ABINIT
+      int  const show_rg = control::get("pawxml_export.show.radial.grid", 0.);  // ABINIT needs this (works without also with xml in abinit)
+      int  const ir0     = control::get("pawxml_export.start.radial.grid", 0.); // use 1. for ABINIT (works with 0  also with xml in abinit)
 
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};

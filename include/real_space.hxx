@@ -131,27 +131,30 @@ namespace real_space {
       assert(hcoeff*r2cut < ncoeff);
       assert(hcoeff > 0);
       double added_charge{0}; // clear
-      for (            int iz = 0; iz < g[2]; ++iz) {  double const vz = iz*g.h[2] - c[2];
-            for (      int iy = 0; iy < g[1]; ++iy) {  double const vy = iy*g.h[1] - c[1];
-                  for (int ix = 0; ix < g[0]; ++ix) {  double const vx = ix*g.h[0] - c[0];
-                      double const v[3] = {vx*g.cell[0][0] + vy*g.cell[1][0] + vz*g.cell[2][0],
-                                           vx*g.cell[0][1] + vy*g.cell[1][1] + vz*g.cell[2][1],
-                                           vx*g.cell[0][2] + vy*g.cell[1][2] + vz*g.cell[2][2]};
-                      double const r2 = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
-                      if (r2 < r2cut) {
-                          int const ir2 = int(hcoeff*r2);
-                          if (ir2 < ncoeff) {
-                              int const izyx = (iz*g('y') + iy)*g('x') + ix;
-                              double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
-                              int const ir2p1 = ir2 + 1;
-                              auto const value_to_add = (r2coeff[ir2] * (1 - w8)
-                                   + ((ir2p1 < ncoeff) ? r2coeff[ir2p1] : 0)*w8);
-                              values[izyx] += factor*value_to_add;
-                              added_charge += factor*value_to_add;
-                          } // ir2 < ncoeff
-                      } // inside rcut
-                  } // ix
-            } // iy
+      double const denom[] = {1./g[0], 1./g[1], 1./g[2]}; // grid denominators
+      for (        int iz = 0; iz < g[2]; ++iz) {
+          for (    int iy = 0; iy < g[1]; ++iy) {
+              for (int ix = 0; ix < g[0]; ++ix) {
+                  double const iv[] = {ix*denom[0], iy*denom[1], iz*denom[2]};
+                  double rv[3];
+                  for (int d = 0; d < 3; ++d) {
+                      rv[d] = iv[0]*g.cell[0][d] + iv[1]*g.cell[1][d] + iv[2]*g.cell[2][d] - c[d];
+                  } // d
+                  double const r2 = pow2(rv[0]) + pow2(rv[1]) + pow2(rv[2]);
+                  if (r2 < r2cut) {
+                      int const ir2 = int(hcoeff*r2);
+                      if (ir2 < ncoeff) {
+                          int const izyx = (iz*g('y') + iy)*g('x') + ix;
+                          double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
+                          int const ir2p1 = ir2 + 1;
+                          auto const value_to_add = (r2coeff[ir2] * (1 - w8)
+                               + ((ir2p1 < ncoeff) ? r2coeff[ir2p1] : 0)*w8);
+                          values[izyx] += factor*value_to_add;
+                          added_charge += factor*value_to_add;
+                      } // ir2 < ncoeff
+                  } // inside rcut
+              } // ix
+          } // iy
       } // iz
       if (added) *added = added_charge * g.dV(); // volume integral
       return stat;
