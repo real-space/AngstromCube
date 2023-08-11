@@ -392,7 +392,7 @@
       //
       stat += show_version(argv[0], echo);
       //
-      if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
+      if (echo > 0) std::printf("\n# verbosity=%d\n", echo);
       //
       stat += unit_system::set(control::get("output.length.unit", "Bohr"),
                                control::get("output.energy.unit", "Ha"), echo);
@@ -403,6 +403,7 @@
 
       // finalize
       {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show unused, 4:show defaults
+          if (echo > 3) std::printf("\n# control.show=%d     0:none 1:used 2:unused 4:defaults\n", control_show);
           if (control_show && echo > 0) {
               stat += control::show_variables(control_show);
           }

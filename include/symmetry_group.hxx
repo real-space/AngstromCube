@@ -96,7 +96,7 @@ namespace symmetry_group {
 
       int64_t s[48][3][4]; // integer representations
 
-      char yes[33]; yes[32] = 0; // string summary which ops are included
+      char yes[33]; yes[32] = '\0'; // string summary which ops are included
 
       int nrot{0};
       for (int irot = 0; irot < 32; ++irot) {
@@ -123,7 +123,7 @@ namespace symmetry_group {
           if (0 == _check_set_s(overlap, rot, s[irot])) {
               if (echo > 13) std::printf("# symmetry op#%d is included\n", irot);
               ++nrot;
-              yes[irot] = '0' + ((irot + 1) % 10);
+              yes[irot] = '0' + ((irot + 1) % 10); // mark each included symmetry operation
           } else {
               if (echo > 15) std::printf("# symmetry op#%d is not included\n", irot);
               yes[irot] = ' ';

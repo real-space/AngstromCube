@@ -32,10 +32,10 @@
 namespace pawxml_import {
 
   struct pawxmlstate_t {
-      std::vector<double> tsp[3];
-      double e;
-      float f, rc;
-      int8_t n, l;
+      std::vector<double> tsp[3]; // 0:true,1:smooth,2:projector function
+      double e;    // energy eigenvalue
+      float f, rc; // occupation, cutoff radius
+      int8_t n, l; // principal quantum number, angular momentum quantum number
   }; // struct pawxmlstate_t
 
   struct pawxml_t {
@@ -60,7 +60,7 @@ namespace pawxml_import {
           "ae_core_kinetic_energy_density", "pseudo_core_kinetic_energy_density", 
           "zero_potential", "pseudo_valence_density"};
 
-  inline pawxml_t parse_pawxml(char const *filename, int const echo=0) {
+  inline pawxml_t parse_pawxml(char const *const filename, int const echo=0) {
 #ifndef HAS_RAPIDXML
       warn("Unable to test GPAW loading when compiled without -D HAS_RAPIDXML", 0);
       return pawxml_t();
@@ -84,7 +84,8 @@ namespace pawxml_import {
           p.parse_status = __LINE__; return p; // error
       } // try + catch
 
-      auto const paw_setup = doc.first_node("paw_setup");
+      auto const paw_dataset = doc.first_node("paw_dataset"); // defined by ESL: https://esl.cecam.org/data/paw-xml/
+      auto const paw_setup = (nullptr == paw_dataset) ? doc.first_node("paw_setup") : paw_dataset; // used by GPAW
       if (!paw_setup) { p.parse_status = __LINE__; return p; } // error
 
       auto const atom = xml_reading::find_child(paw_setup, "atom", echo);
@@ -95,20 +96,19 @@ namespace pawxml_import {
           auto const valence = xml_reading::find_attribute(atom, "valence", "0", echo);
           if (echo > 5) std::printf("# %s:  <atom symbol=\"%s\" Z=\"%s\" core=\"%s\" valence=\"%s\"/>\n",
               filename, symbol, Z, core, valence);
-          // store
           p.Z       = std::atof(Z);
           p.core    = std::atof(core);
           p.valence = std::atof(valence);
           std::snprintf(p.Sy, 3, "%s", symbol);
-      } else warn("no <atom> found in xml-file '%s'", filename);
+      } else warn("<atom> not found in xml-file '%s'", filename);
 
       auto const xc_functional = xml_reading::find_child(paw_setup, "xc_functional", echo);
       if (xc_functional) {
           auto const type = xml_reading::find_attribute(xc_functional, "type", "?type");
           auto const name = xml_reading::find_attribute(xc_functional, "name", "?name");
           if (echo > 5) std::printf("# %s:  <xc_functional type=\"%s\" name=\"%s\"/>\n", filename, type, name);
-          std::snprintf(p.xc, 15, "%s", name); // store
-      } else warn("no <xc_functional> found in xml-file '%s'", filename);
+          std::snprintf(p.xc, 15, "%s", name);
+      } else warn("<xc_functional> not found in xml-file '%s'", filename);
 
       auto const generator = xml_reading::find_child(paw_setup, "generator", echo);
       if (generator) {
@@ -127,24 +127,23 @@ namespace pawxml_import {
           auto const total         = xml_reading::find_attribute(ae_energy, "total",         "0");
           if (echo > 5) std::printf("# %s:  <ae_energy kinetic=\"%s\" xc=\"%s\" electrostatic=\"%s\" total=\"%s\"/>\n",
               filename, kinetic, xc, electrostatic, total);
-          // store
           p.ae_energy[0] = std::atof(kinetic);
           p.ae_energy[1] = std::atof(xc);
           p.ae_energy[2] = std::atof(electrostatic);
           p.ae_energy[3] = std::atof(total);
-      } else warn("no <ae_energy> found in xml-file '%s'", filename);
+      } else warn("<ae_energy> not found in xml-file '%s'", filename);
 
       auto const core_energy = xml_reading::find_child(paw_setup, "core_energy", echo);
       if (core_energy) {
           auto const kinetic = xml_reading::find_attribute(core_energy, "kinetic",       "0");
           if (echo > 5) std::printf("# %s:  <core_energy kinetic=\"%s\"/>\n", filename, kinetic);
-          p.core_energy_kinetic = std::atof(kinetic); // store
-      } else warn("no <core_energy> found in xml-file '%s'", filename);
+          p.core_energy_kinetic = std::atof(kinetic);
+      } else warn("<core_energy> not found in xml-file '%s'", filename);
 
       p.n = 0;
       auto const radial_grid = xml_reading::find_child(paw_setup, "radial_grid", echo);
       if (radial_grid) {
-          auto const eq     = xml_reading::find_attribute(radial_grid, "eq", "?eq");
+          auto const eq     = xml_reading::find_attribute(radial_grid, "eq", "?equation");
           auto const a      = xml_reading::find_attribute(radial_grid, "a", ".4");
           auto const n      = xml_reading::find_attribute(radial_grid, "n", "0");
           auto const istart = xml_reading::find_attribute(radial_grid, "istart", "0");
@@ -153,14 +152,14 @@ namespace pawxml_import {
           auto const d      = xml_reading::find_attribute(radial_grid, "d", "1");
           if (echo > 5) std::printf("# %s:  <radial_grid eq=\"%s\" a=\"%s\" n=\"%s\" istart=\"%s\" iend=\"%s\" id=\"%s\"/>\n",
               filename, eq, a, n, istart, iend, id);
-          p.n = std::atoi(n); // store
-          p.radial_grid_a = std::atof(a); // store
-          p.radial_grid_d = std::atof(d); // store
-     //   if (0 != std::strcmp(eq, "r=a*i/(n-i)")) error("%s: assume a radial reciprocal grid", filename);
-          if (0 != std::strcmp(eq, "r=a*(exp(d*i)-1)")) error("%s: assume a radial exponential grid", filename);
-          if (0 != std::atoi(istart))              error("%s: assume a radial grid starting at 0", filename);
-          if (p.n != std::atoi(iend) + 1)          error("%s: assume a radial grid starting from 0 to n-1", filename);
-      } else warn("no <radial_grid> found in xml-file '%s'", filename);
+          p.n = std::atoi(n);
+          p.radial_grid_a = std::atof(a);
+          p.radial_grid_d = std::atof(d);
+     //   if (std::string(eq) != "r=a*i/(n-i)")      error("%s: assume a radial reciprocal grid, found %s", filename, eq);
+          if (std::string(eq) != "r=a*(exp(d*i)-1)") error("%s: assume a radial exponential grid, found %s", filename, eq);
+          if (0 != std::atoi(istart))                error("%s: assume a radial grid starting at 0", filename);
+          if (p.n != std::atoi(iend) + 1)            error("%s: assume a radial grid starting from 0 to n-1", filename);
+      } else warn("<radial_grid> not found in xml-file '%s'", filename);
 
       int istate{0};
       p.states.resize(0);
@@ -204,12 +203,12 @@ namespace pawxml_import {
                   } // attr
                   if (1 != radial_data_found) error("%s: radial state quantities in pawxml files must be defined exactly once!", filename);
               } // iq
-              p.states.push_back(s); // store
+              p.states.push_back(s);
               ++istate;
 
           } // state
           if (echo > 5) std::printf("# %s:  </valence_states>\n", filename);
-      } else warn("no <valence_states> found in xml-file '%s'", filename);
+      } else warn("<valence_states> not found in xml-file '%s'", filename);
       int const nstates = istate;
       assert(nstates == p.states.size());
 
@@ -217,7 +216,7 @@ namespace pawxml_import {
           if (nwarn[iq]) {
               warn("%s: %d %s deviate from the expected number of %d grid points",
                    filename, nwarn[iq], radial_state_quantities[iq], p.n);
-          } // warn
+          } // nwarn
       } // iq
 
       auto const shape_function = xml_reading::find_child(paw_setup, "shape_function", echo);
@@ -226,8 +225,8 @@ namespace pawxml_import {
           auto const rc   = xml_reading::find_attribute(shape_function, "rc", "0");
           if (echo > 5) std::printf("# %s:  <shape_function type=\"%s\" rc=\"%s\"/>\n", filename, type, rc);
           if (std::strcmp(type, "gauss")) error("%s: assume a shape_function type gauss", filename);
-          p.shape_function_rc = std::atof(rc); // store
-      } else warn("no <shape_function> found in xml-file '%s'", filename);
+          p.shape_function_rc = std::atof(rc);
+      } else warn("<shape_function> not found in xml-file '%s'", filename);
 
       for (int iq = 0; iq < 5; ++iq) {
           auto const q_name = radial_quantities[iq];
@@ -239,8 +238,8 @@ namespace pawxml_import {
                   filename, q_name, grid, vals.size(), q_name);
               if (vals.size() != p.n) warn("%s: %s has %ld but expected %d grid points",
                    filename, q_name, vals.size(), p.n);
-              p.func[iq] = vals; // store
-          } else warn("no <%s> found in xml-file '%s'", q_name, filename);
+              p.func[iq] = vals;
+          } else warn("<%s> not found in xml-file '%s'", q_name, filename);
       } // iq
 
       auto const kinetic_energy_differences = xml_reading::find_child(paw_setup, "kinetic_energy_differences", echo);
@@ -248,8 +247,8 @@ namespace pawxml_import {
           auto const vals = xml_reading::read_sequence<double>(kinetic_energy_differences->value(), echo, nstates*nstates);
           if (echo > 7) std::printf("# %s:  <kinetic_energy_differences> ...(%ld numbers)... </kinetic_energy_differences>\n", filename, vals.size());
           if (vals.size() != nstates*nstates) warn("%s: expected %d^2 numbers in kinetic_energy_differences matrix but found %ld", filename, nstates, vals.size());
-          p.dkin = vals; // store
-      } else warn("no <kinetic_energy_differences> found in xml-file '%s'", filename);
+          p.dkin = vals;
+      } else warn("<kinetic_energy_differences> not found in xml-file '%s'", filename);
 
 // not covered:
 //   <exact_exchange_X_matrix>  </exact_exchange_X_matrix>
@@ -269,12 +268,13 @@ namespace pawxml_import {
   inline status_t test_loading(int const echo=0) {
       SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
-      char const *filename = control::get("pawxml_import.test.filename", "C.LDA");
-      if (echo > 7) std::printf("# %s file=%s\n", __func__, filename);
+      auto const filename = control::get("pawxml_import.test.filename", "C.LDA");
+      if (echo > 5) std::printf("# pawxml_import.test.filename=%s\n", filename);
       auto const p = parse_pawxml(filename, echo);
 
       char const ellchar[8] = "spdfghi";
       int const repeat_file = control::get("pawxml_import.test.repeat", 0.);
+      if (echo > 5) std::printf("# pawxml_import.test.repeat=%d\n", repeat_file);
       if (repeat_file) {
           // create an XML file that should reproduce this
           char outfile[992]; std::snprintf(outfile, 991, "%s.repeat.xml", filename);
@@ -336,24 +336,29 @@ namespace pawxml_import {
       } // repeat_file
 
       int const plot_file = control::get("pawxml_import.test.plot", double(echo > 7));
-      if (plot_file) {
-          int const n = p.states.size();
-          std::printf("\n\n# plot projectors from %s in xmgrace -nxy\n", filename);
-          std::printf("# radius/Bohr");
-          for (int i = 0; i < n; ++i) {
-              std::printf(", %d%c-projector", p.states[i].n, ellchar[p.states[i].l]);
-          } // i
-          std::printf("\n");
-          for (int ir = 0; ir < p.n; ++ir) {
-              double const r = p.radial_grid_a*(std::exp(p.radial_grid_d*ir) - 1);
-              std::printf("%.6f", r);
+      if (echo > 5) std::printf("# pawxml_import.test.plot=%d   # 0:none 1:true"
+                                " 2:smooth 4:projectors 7:all\n", plot_file);
+      int const n = p.states.size();
+      char const what[3][32] = {"true partial waves", "smooth partial waves", "projectors"};
+      for (int iq = 0; iq < 3; ++iq) { // TRU=0, SMT=1, PRJ=2
+          if (plot_file & (1 << iq)) { // query bits
+              std::printf("\n\n# plot %s from %s in xmgrace -nxy\n", what[iq], filename);
+              std::printf("# radius/Bohr");
               for (int i = 0; i < n; ++i) {
-                  std::printf(" %g", p.states[i].tsp[2][ir]); // plot projector function
+                  std::printf(", %d%c-projector", p.states[i].n, ellchar[p.states[i].l]);
               } // i
               std::printf("\n");
-          } // ir
-          std::printf("\n\n");
-      } // plot_file
+              for (int ir = 1; ir < p.n; ++ir) {
+                  double const r = p.radial_grid_a*(std::exp(p.radial_grid_d*ir) - 1);
+                  std::printf("%.6f", r);
+                  for (int i = 0; i < n; ++i) {
+                      std::printf(" %g", p.states[i].tsp[iq][ir]); // the state's radial function
+                  } // i
+                  std::printf("\n");
+              } // ir
+              std::printf("\n\n");
+          } // bit is set
+      } // iq
 
       return p.parse_status;
   } // test_loading
