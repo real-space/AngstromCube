@@ -217,7 +217,7 @@ namespace atom_core {
       double constexpr THRESHOLD = 1e-11;
 
       int imax_nonconst{-1};
-      assert(Z <= 120);
+      assert(Z <= 120 && "perpared for s,p,d and f electrons only");
       orbital_t orb[20];
       {   // prepare orbitals
           int iZ{0}; // integer atomic number needed for occupations
@@ -238,7 +238,7 @@ namespace atom_core {
                   } // warning
                   orb[i].E = guess_energy(Z, enn);
                   if (orb[i].occ > 0) {
-                      if (echo > 6) std::printf("# %s  Z=%g  i=%d %d%c f= %g  guess E= %g %s\n",
+                      if (echo > 6) std::printf("# %s  Z=%g  orb[%2d]  %d%c f= %g\tguess E= %g %s\n",
                            __func__, Z, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
                       imax_nonconst = std::max(i, imax_nonconst);
                   } // occupied
@@ -452,14 +452,13 @@ namespace atom_core {
       } // i
 #endif
 
-      int const show_state_diagram = control::get("atom_core.show.state.diagram", 0.); // 0:do not show, 1:show
-      if (show_state_diagram) {
-          float state_diagram[30][4]; // [inl][start,end,energy,spare]
-          for (int inl = 0; inl < 30; ++inl) { 
-              state_diagram[inl][0] = 0; // start
-              state_diagram[inl][1] = 0; // end
-              state_diagram[inl][2] = -1e5;
-          } // inl
+      auto const show_state_diagram = control::get("atom_core.show.state.diagram", -1.); // -1:do not show, 5: show with 5%
+      if (show_state_diagram >= 0) {
+          auto const percent = show_state_diagram*0.01;
+
+          int constexpr inl_max = 30; // 30:up to 8p-shell
+          std::vector<float> sd_r05(inl_max, 0.f), sd_r95(inl_max, 0.f), sd_ene(inl_max, -1e5);
+          std::vector<char>  sd_enn(inl_max, '?'), sd_ell(inl_max, '?');
 
           for (int i = 0; i <= imax; ++i) {
               if (orb[i].occ > 0) {
@@ -468,27 +467,47 @@ namespace atom_core {
                   assert(norm > 0);
                   scale(r2rho.data(), g.n, 1./norm);
                   int const inl = atom_core::nl_index(orb[i].enn, orb[i].ell);
-                  // find the radius where the state starts (95%) and where it ends (95%) such that 90% are inside that range
-                  double q{0}; int ir{1};
-                  while (q < .05) { q += r2rho[ir]*g.dr[ir]; ++ir; }
-                  state_diagram[inl][0] = g.r[ir];
-                  q = 0; ir = g.n;
-                  while (q < .05) { --ir; q += r2rho[ir]*g.dr[ir]; }
-                  state_diagram[inl][1] = g.r[ir];
-                  state_diagram[inl][2] = orb[i].E;
+                  assert(inl < inl_max);
+                  sd_enn[inl] = '0' + orb[i].enn;
+                  sd_ell[inl] = ellchar(orb[i].ell);
+                  sd_ene[inl] = orb[i].E; // store the energy
+                  // find the radius where the state starts (5%) and where it ends (95%) such that 90% are inside that range
+                  {   double q{0}; int ir{1};
+                      while (q < percent) { q += r2rho[ir]*g.dr[ir]; ++ir; }
+                      sd_r05[inl] = g.r[ir];
+                  }
+                  {   double q{0}; int ir{g.n};
+                      while (q < percent) { --ir; q += r2rho[ir]*g.dr[ir]; }
+                      sd_r95[inl] = g.r[ir];
+                  }
               } // occupied
+
+              // suggest cutoff radii by finding r_cut such that the kinetic energy of the smooth partial wave inside r_cut is minimized
+              // find r such that E==V(r) + ell*(ell+1)/(2*r*r), the classical turning point
+              int ir_cut{0}; double Vabs{9e9};
+              double const angular = orb[i].ell*(orb[i].ell + 1)*0.5;
+              for (int ir = g.n/2; ir < g.n - 1; ++ir) {
+                  double const EmV = orb[i].E - rV_old[ir]*g.rinv[ir] - angular*pow2(g.rinv[ir]);
+                  if (std::abs(EmV) < Vabs) {
+                      Vabs = std::abs(EmV);
+                      ir_cut = ir;
+                  }
+              } // ir
+              std::printf("# Z=%g %d%c-state classical return radius at %g %s\n", Z, orb[i].enn, ellchar(orb[i].ell), g.r[ir_cut]*Ang, _Ang);
+
           } // i, orbitals
 
-          std::printf("## state diagram for Z=%g in %s (sqrt on radius, log10 on energies)\n", Z, _eV);
-          for (int inl = 0; inl < 30; ++inl) {
-              std::printf("%g %g\n%g %g\n\n", std::sqrt(state_diagram[inl][0]*Ang), -std::log10(-state_diagram[inl][2]*eV), 
-                                         std::sqrt(state_diagram[inl][1]*Ang), -std::log10(-state_diagram[inl][2]*eV)); // energy level
-          } // inl
-          std::printf("## potential state diagram for Z=%g in %s\n", Z, _eV);
+          std::printf("\n## potential for state diagram of Z=%g in sqrt(%s), log10(%s)\n", Z, _Ang, _eV);
           for (int ir = 1; ir < g.n; ++ir) {
               double const pot = rV_old[ir]*g.rinv[ir];
               if (pot > -1e5 && pot < 0) std::printf("%g %g\n", std::sqrt(g.r[ir]*Ang), -std::log10(-pot*eV));
           } // ir
+          std::printf("\n## state diagram (%g%% to %g%%) for Z=%g in sqrt(%s), log10(%s)\n", percent*100, (1 - percent)*100, Z, _Ang, _eV);
+          for (int inl = 0; inl < inl_max; ++inl) {
+              std::printf("# %c%c\n%g %g\n%g %g\n\n", sd_enn[inl], sd_ell[inl], // energy level
+                  std::sqrt(sd_r05[inl]*Ang), -std::log10(-sd_ene[inl]*eV), 
+                  std::sqrt(sd_r95[inl]*Ang), -std::log10(-sd_ene[inl]*eV));
+          } // inl
       } // show_state_diagram
 
       char const *const export_as_json = control::get("atom_core.export.as.json", ""); //
