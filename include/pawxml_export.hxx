@@ -27,6 +27,7 @@ namespace pawxml_export {
       , double const n_electrons[3] // core, semicore, valence
       , view2D<double> const spherical_density[TRU_AND_SMT] // spherical_density[ts](csv,ir), ToDo: extend to have KIN for meta-GGAs
       , view2D<double> const & projector_functions // ==r[ir]*Projectors(nln,ir)
+      , view2D<double> const & projector_coefficients // SHO-coefficients used to create projectors, [ell]
       , view3D<double> const & aHSm // non-local Hamiltonian and chargeDeficit elements in ln_basis
       , double const r_cut=2
       , double const sigma_cmp=.5
@@ -39,14 +40,15 @@ namespace pawxml_export {
       , double const total_energy=0
       , char const *custom_configuration_string=nullptr
       , char const *xc_functional="LDA"
-      , char const *pathname="."
+      , char const *pathname=nullptr // nullptr: use a default path
       , char const *filename=nullptr // nullptr: use a default name
   )
       // Export Projector Augmented Wave data in XML format
   {
       auto const git_key = control::get("git.key", "");
-      int  const show_rg = control::get("pawxml_export.show.radial.grid", 0.);  // ABINIT needs this (works without also with xml in abinit)
-      int  const ir0     = control::get("pawxml_export.start.radial.grid", 0.); // use 1. for ABINIT (works with 0  also with xml in abinit)
+      auto const suffix = control::get("pawxml_export.type", "xml"); // "xml" or "upf"
+      int  const ir0    = control::get("pawxml_export.radial.grid.from", 0.); // use 1. for ABINIT (works with 0 also with xml in abinit)
+      if (nullptr == pathname) pathname = control::get("pawxml_export.path", ".");
 
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
@@ -55,14 +57,13 @@ namespace pawxml_export {
       char Sy[4]; // chemical symbol
       int const iZ = chemical_symbol::get(Sy, Z);
 
-      auto const suffix = control::get("pawxml_export.type", "xml"); // "xml" or "upf"
-
       char file_name_buffer[512];
       if (nullptr == filename) {
           std::snprintf(file_name_buffer, 512, "%s/%s.%s", pathname, Sy, suffix);
           filename = file_name_buffer;
       } // generate a default file name
       if (echo > 0) std::printf("# %s %s Z=%g iZ=%d filename='%s'\n", Sy, __func__, Z, iZ, filename);
+
 
       auto *const f = std::fopen(filename, "w");
       if (nullptr == f) {
@@ -98,14 +99,14 @@ namespace pawxml_export {
                   std::fprintf(f, "\ngenerated=\"libliveatom %s\"", git_key);
                   std::fprintf(f, "\nauthor=\"Paul Baumeister\"");
                   auto const now = std::time(0);
-                  char date[80]; std::strftime(date, sizeof(date), "%Y-%m-%d", std::localtime(&now));
+                  char date[64]; std::strftime(date, sizeof(date), "%Y-%m-%d", std::localtime(&now));
                   std::fprintf(f, "\ndate=\"%s\"", date);
                   std::fprintf(f, "\ncomment=\"pseudo_type should be PAW\"");
                   std::fprintf(f, "\nelement=\"%s\"", Sy);
                   std::fprintf(f, "\npseudo_type=\"NC\""); // should be US and PAW in the future
                   std::fprintf(f, "\nrelativistic=\"scalar\"");
                   std::fprintf(f, "\nis_ultrasoft=\"F\"");
-                  std::fprintf(f, "\nis_paw=\"F\"");
+                  std::fprintf(f, "\nis_paw=\"F\""); // ToDo: set is_paw="T"
                   std::fprintf(f, "\nis_coulomb=\"F\"");
                   std::fprintf(f, "\nhas_so=\"F\""); // SO:spin-orbit
                   std::fprintf(f, "\nhas_wfc=\"F\"");
@@ -123,22 +124,23 @@ namespace pawxml_export {
               std::fprintf(f, "/>\n"); // end of PP_HEADER
               std::fprintf(f, "<PP_MESH>\n");
                   std::fprintf(f, "<PP_R type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
-                  for (int ir = 0; ir < n_mesh; ++ir) {
+                  for (int ir = ir0; ir < n_mesh; ++ir) {
                       std::fprintf(f, "%c%.12g", c4(ir), rg[SMT].r[ir]);
                   } // ir
                   std::fprintf(f, "\n</PP_R>\n");
                   std::fprintf(f, "<PP_RAB type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
-                  for (int ir = 0; ir < n_mesh; ++ir) {
+                  for (int ir = ir0; ir < n_mesh; ++ir) {
                       std::fprintf(f, "%c%.12g", c4(ir), rg[SMT].dr[ir]);
                   } // ir
                   std::fprintf(f, "\n</PP_RAB>\n");
               std::fprintf(f, "</PP_MESH>\n");
 
               std::fprintf(f, "<PP_LOCAL type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
-              for (int ir = 0; ir < n_mesh; ++ir) {
-                  auto const r = rg[SMT].r[std::max(1, ir)];
+              for (int ir = ir0; ir < n_mesh; ++ir) {
+                  auto const ir1 = std::max(1, ir);
+                  auto const r = rg[SMT].r[ir1];
                   auto const pp_local = -n_electrons[valence]*std::erf(r/sigma_cmp)/r; // tail must be unscreened potential -Z_valence/r
-                  std::fprintf(f, "%c%.12g", c4(ir), (pp_local + zero_potential[std::max(1, ir)]*Y00)*2); // *2 for Rydberg units
+                  std::fprintf(f, "%c%.12g", c4(ir), (pp_local + zero_potential[ir1]*Y00)*2); // *2 for Rydberg units
               } // ir
               std::fprintf(f, "\n</PP_LOCAL>\n");
 
@@ -151,7 +153,7 @@ namespace pawxml_export {
                       std::fprintf(f, "<PP_BETA.%d type=\"real\" size=\"%d\" columns=\"4\"\n", ibeta+1, n_mesh);
                       std::fprintf(f, "index=\"%i\" angular_momentum=\"%d\"\n", ibeta+1, valence_states[iln].ell);
                       std::fprintf(f, "cutoff_radius_index=\"%i\" cutoff_radius=\"%g\">", ircut, r_cut);
-                      for (int ir = 0; ir < n_mesh; ++ir) {
+                      for (int ir = ir0; ir < n_mesh; ++ir) {
                           std::fprintf(f, "%c%.12g", c4(ir), projector_functions(iln,ir));
                       } // ir
                       std::fprintf(f, "\n</PP_BETA.%d>\n", ibeta+1);
@@ -178,16 +180,30 @@ namespace pawxml_export {
               if (echo > 5) std::printf("# not implemented: PP_PSWFC\n");
 
               std::fprintf(f, "<PP_RHOATOM type=\"real\" size=\"%d\" columns=\"4\">", n_mesh);
-              for (int ir = 0; ir < n_mesh; ++ir) {
+              for (int ir = ir0; ir < n_mesh; ++ir) {
                   std::fprintf(f, "%c%.12g", c4(ir), spherical_density[SMT](core,ir) + spherical_density[SMT](valence,ir));
               } // ir
               std::fprintf(f, "\n</PP_RHOATOM>\n");
+
+              // ToDo: insert 
+              // <PAW>
+              // <PP_PAW_FORMAT_VERSION> 0.1
+              // <PP_AE_RHO_ATC> // All-electron atomic density on the radial grid.
+              // <PP_AUGMENTATION> // Data required to build augmentation functions
+              // <PP_AEWFC> // All-electron wavefunctions used for the generation of the dataset; there is one wavefunction for each beta projector.
+              // <PP_PSWFC_FULL> // Pseudo wavefunction used for the generation of the dataset
+              // <PP_AEVLOC> // All-electron local potential
+              // <PP_KDIFF> // Kinetic energy difference between all-electron and pseudo component of each augmentation channel.
+              // <PP_OCCUP> // Occupations of atomic orbitals.
+              // <PP_GRID_RECON> // Addition data necessary to accurately reconstruct the radial grid used for the dataset generation.
+
 
           std::fprintf(f, "</UPF>\n");
 
       } else {
 
         int const version = control::get("pawxml_export.version", 7.); // 6:GPAW, 7:ABINIT/ESL
+        int const show_rg = control::get("pawxml_export.show.radial.grid", 0.);  // ABINIT needs this (works without also with xml in abinit)
 
         // XML file header
         std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
@@ -244,11 +260,11 @@ namespace pawxml_export {
                 if (show_rg) { // pass the radial grid values explictly, ABINIT needs this, ToDo: check if still the case
                     std::fprintf(f, "    <values>\n      ");
                     for (int ir = ir0; ir < rg[ts].n; ++ir) {
-                        std::fprintf(f, " %.15e\n", rg[ts].r[ir]);
+                        std::fprintf(f, " %.15e", rg[ts].r[ir]);
                     } // ir
                     std::fprintf(f, "    </values>\n    <derivative>\n      ");
                     for (int ir = ir0; ir < rg[ts].n; ++ir) {
-                        std::fprintf(f, " %.15e\n", rg[ts].dr[ir]);
+                        std::fprintf(f, " %.15e", rg[ts].dr[ir]);
                     } // ir
                     std::fprintf(f, "    </derivative>\n  </radial_grid>\n");
                 } // final
@@ -323,7 +339,12 @@ namespace pawxml_export {
                     std::fprintf(f, "\n  </%s_partial_wave>\n", ts_label[ts]);
                 } // ts
                 {   auto const ts = SMT;
-                    std::fprintf(f, "  <projector_function state=\"%s-%s\" grid=\"%s\">\n    ", Sy,vs.tag, ts_grid[ts]);
+                    std::fprintf(f, "  <projector_function state=\"%s-%s\" grid=\"%s\"", Sy,vs.tag, ts_grid[ts]);
+                    for (int imx = 0; imx < projector_coefficients.stride(); ++imx) {
+                        auto const c = projector_coefficients(iln,imx); // show the SHO-basis coefficients
+                        if (c != 0.0) std::fprintf(f, " c%d=\"%.15g\"", 2*imx, c);
+                    } // imx
+                    std::fprintf(f, ">\n    ");
                     for (int ir = ir0; ir < rg[ts].n*m; ++ir) {
                         std::fprintf(f, " %.12e", projector_functions(iln,ir)*rg[ts].rinv[ir]);
                     } // ir

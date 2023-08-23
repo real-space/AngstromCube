@@ -427,7 +427,7 @@ namespace single_atom {
       int32_t atom_id; // global atom identifier
       double Z_core; // number of protons in the core
       char label[16]; // label string
-      radial_grid_t rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
+      radial_grid_t rg[TRU_AND_SMT]; // radial grid descriptors for the true and smooth grid:
               // SMT may point to TRU, but at least both radial grids must have the same tail
       int nr_diff; // how many more radial grid points are in *rg[TRU] compared to *rg[SMT]
       ell_QN_t ellmax_pot; // limit ell for full_potential
@@ -537,8 +537,9 @@ namespace single_atom {
 
         { // scope: setup radial grids
             auto const rmax = control::get("single_atom.radial.grid.upto", 14.173);
+            auto const rg_equation = control::get("single_atom.radial.grid.equation", &radial_grid::equation_exponential);
             // here use the preliminary Z_core, may be adjusted
-            rg[TRU] = *radial_grid::create_default_radial_grid(Z_core, rmax);
+            rg[TRU] = *radial_grid::create_default_radial_grid(Z_core, rmax, *rg_equation);
             // create a radial grid descriptor which has less points at the origin
             rg[SMT] = *radial_grid::create_pseudo_radial_grid(rg[TRU], control::get("single_atom.smooth.radial.grid.from", 1e-3));
             // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
@@ -986,21 +987,39 @@ namespace single_atom {
         int const export_xml = control::get("single_atom.export", 0.);
         if (export_xml) {
             update_potential(potential_mixing, nullptr, echo); // compute the zero_potential and total energy contributions
-            if (echo > 0) std::printf("\n\n# %s export configuration to pawxml file\n", label);
+            if (echo > 0) std::printf("\n\n# %s export configuration to PAW-XML file\n", label);
+
+        // for (int ell = 0; ell <= numax; ++ell) {
+        //     projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
+        //     for (int nrn = 0; nrn < nn[ell]; ++nrn) {
+        //         projector_coeff[ell](nrn,nrn) = 1.0; // Kronecker
+        //     } // nrn
+        // } // ell
+
+            view2D<double> projector_coefficients(nln, sho_tools::nn_max(numax, 0), 0.0);
+            for (int ell = 0; ell <= numax; ++ell) {
+                int const nmx = sho_tools::nn_max(numax, ell);
+                for (int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                    int const iln = sho_tools::ln_index(numax, ell, nrn);
+                    for (int imx = 0; imx < nmx; ++imx) {
+                        projector_coefficients(iln,imx) = projector_coeff[ell](nrn,imx);
+                    } // imx
+                } // nrn
+            } // ell
+            if (echo > 0) std::printf("\n\n# %s export configuration to PAW-XML file\n", label);
             auto const stat = pawxml_export::write_to_file(Z_core, rg,
                 partial_wave, partial_wave_active.data(),
-                kinetic_energy, csv_charge, spherical_density, projectors, matrices_ln,
+                kinetic_energy, csv_charge, spherical_density, projectors, projector_coefficients, matrices_ln,
                 r_cut, sigma_compensator, zero_potential.data(), echo,
                 energy_kin_csvn[core][TRU],
                 energy_kin[TRU], energy_xc[TRU], energy_es[TRU], energy_tot[TRU],
                 custom_configuration,
-                exchange_correlation::default_LDA,
-                control::get("single_atom.export.path", "."));
+                exchange_correlation::default_LDA);
             if (stat) warn("pawxml_export::write_to_file returned status= %i", int(stat));
             if (control::get("single_atom.optimize.sigma", 0.) > 0) {
                 warn("optimized sigma may differ from config string for Z=%g", Z_core);
             }
-            if (echo > 0) std::printf("# %s exported configuration to pawxml file\n", label);
+            if (echo > 0) std::printf("# %s exported configuration to PAW-XML file\n", label);
             if (export_xml < 0) abort("single_atom.export=%d (negative leads to a stop)", export_xml);
         } // export_xml
 
@@ -1916,7 +1935,7 @@ namespace single_atom {
             radial_sho_basis = view2D<double>(nln, align<2>(rg[SMT].n), 0.0); // get memory
             // create a set of radial SHO basis function for given sigma
             scattering_test::expand_sho_projectors(radial_sho_basis.data(),
-                radial_sho_basis.stride(), rg[SMT], sigma, numax, 1, echo >> 1);
+                radial_sho_basis.stride(), rg[SMT], sigma, numax, 1, echo/2);
 #ifdef    DEVEL
             if (echo > 5) { // show normalization and orthogonality of the radial SHO basis
                 double max_dev{0};
@@ -2110,7 +2129,6 @@ namespace single_atom {
 #endif // DEVEL
 
                 if (classical_scheme == method || classical_partial_waves == method) {
-                    bool const modify_projectors = (classical_scheme == method);
 
                     // Bloechl scheme
 
@@ -2123,9 +2141,6 @@ namespace single_atom {
                     // copy the tail of the true wave function into the smooth wave function
                     set(vs.wave[SMT], rg[SMT].n, vs.wave[TRU] + nr_diff);
                     set(vs.wKin[SMT], rg[SMT].n, vs.wKin[TRU] + nr_diff);
-                    if (modify_projectors) {
-                        set(projectors_ell[nrn], projectors_ell.stride(), 0.0); // clear
-                    } // modify_projectors
 
                     // pseudize the true partial wave by matching a polynomial r^ell*(c_0 + c_1 r^2 + c_2 r^4 + c_3 r^6)
                     double coeff[4]; // matching polynomial coefficients
@@ -2142,25 +2157,42 @@ namespace single_atom {
                         ckin[k - 1] = 0.5*( ell*(ell + 1) - (ell + 2*k)*(ell + 1 + 2*k) )*coeff[k];
                     } // k
 
+                    
+
                     if (echo > 19) std::printf("\n## %s classical method for %c%i: r, smooth wave, smooth r*Twave, "
                                                "true wave, true r*Twave, projector:\n", label, ellchar[ell], nrn);
+                    if (classical_scheme == method) {
+                        set(projectors_ell[nrn], projectors_ell.stride(), 0.0); // clear, projectors fully localized
+                    } // classical_scheme
                     // expand smooth kinetic wave up to r_cut
+                    double Ekin{0}, wnrm{0}; // the kinetic energy of this wave part
                     for (int ir = 0; ir <= ir_cut[SMT]; ++ir) {
                         double const r = rg[SMT].r[ir], r2 = pow2(r), rl1 = intpow(r, ell + 1);
 
                         vs.wKin[SMT][ir] = rl1*(ckin[0] + r2*(ckin[1] + r2*ckin[2])); // expand polynomial ...
                         // ... describing the kinetic energy operator times the smooth wave function times r
+                        
+                        Ekin += vs.wKin[SMT][ir]*vs.wave[SMT][ir]*rg[SMT].rdr[ir];
+                        wnrm += pow2(vs.wave[SMT][ir])*rg[SMT].r2dr[ir];
 
-                        if (modify_projectors) {
+                        if (classical_scheme == method) {
                             // Here, we construct the preliminary projector functions according to the Bloechl scheme:
                             //    ~p(r) := (^T + V_loc - E) ~phi(r)
                             //    i.e. the projector functions are only given numerically and are non-zero only inside the sphere
                             projectors_ell(nrn,ir) = vs.wKin[SMT][ir] + (potential[SMT][ir] - r*vs.energy)*vs.wave[SMT][ir];
-                        } // modify_projectors
+
+                            // Beware: the numerical projectors generated are only preliminary and not yet SHO filtered!
+                            //         please run the sigma optimization after using this method.
+                        } // classical_scheme
 
                         if (echo > 19) std::printf("%g %g %g %g %g %g\n", r, vs.wave[SMT][ir], vs.wKin[SMT][ir],
                             vs.wave[TRU][ir + nr_diff], vs.wKin[TRU][ir + nr_diff], projectors_ell(nrn,ir)*rg[SMT].rinv[ir]);
                     } // ir
+
+                    if (wnrm > 0) {
+                        if (echo > 6) std::printf("# %s smooth partial %c%i-wave kinetic energy inside rcut %g %s, coefficients= %g %g %g %g\n",
+                                                     label, ellchar[ell], nrn, Ekin/wnrm*eV, _eV, coeff[0], coeff[1], coeff[2], coeff[3]);
+                    } // wnrm > 0
 
                     if (echo > 19) {
                         // beyond the cutoff radius show only SMT since smooth and true are identical by construction
@@ -2170,9 +2202,6 @@ namespace single_atom {
                         } // ir
                         std::printf("\n\n");
                     } // echo
-
-                    // Beware: the numerical projectors generated are only preliminary and not yet SHO filtered!
-                    //         please run the sigma optimization after using this method.
 
                 } // classical_scheme or classical_partial_waves
                 else
@@ -2413,7 +2442,7 @@ namespace single_atom {
                     } // echo
 
 #else  // DEVEL
-                    error("single_atom.partial.wave.method=%c requires DEVEL features", method);
+                    error("single_atom.partial.wave.method=%c requires -D DEVEL features", method);
 #endif // DEVEL
                 } // not classical, revPAW
 
@@ -2560,7 +2589,7 @@ namespace single_atom {
         } // not classical
 
 #ifdef    DEVEL
-        char const *export_as_json = control::get("single_atom.export.json", "");
+        auto const export_as_json = control::get("single_atom.export.json", "");
         if ((nullptr != export_as_json) && ('\0' != *export_as_json)) {
 
             std::ofstream json(export_as_json, std::ios::out);
@@ -4620,10 +4649,10 @@ namespace single_atom {
 
   status_t test_LiveAtom(int const echo=9) {
       bool const avd     = control::get("single_atom.test.atomic.valence.density", 1.) > 0; // atomic valence density
-      auto const ionic   = control::get("single_atom.test.ion", 0.); // only with HAS_ELEMENT_CONFIG
+      auto const ionic   = control::get("single_atom.test.ion", 0.); // only with -D HAS_ELEMENT_CONFIG
       auto const Z_begin = control::get("single_atom.test.Z", 29.); // default copper
       auto const Z_inc   = control::get("single_atom.test.Z.inc", 1.); // default: sample only integer values
-      auto const Z_end   = control::get("single_atom.test.Z.end", Z_begin + Z_inc); // default: only one atom
+      auto const Z_end   = control::get("single_atom.test.Z.end", Z_begin + Z_inc); // default: only one atomic number
       for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {
           if (echo > 3) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n");
           if (echo > 1) std::printf("\n# %s: Z = %g\n", __func__, Z);

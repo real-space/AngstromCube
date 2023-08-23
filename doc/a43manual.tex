@@ -165,7 +165,7 @@ hence the name \emph{local}.
 GGAs include some gradients of the density, $|\vec \nabla n(\vec r)|$.
 Still, the spatial argument $\vec r$ is the same but thinking for example
 in terms of finite-difference derivatives on a grid, 
-a little non-local character of GGAs becomes visible.
+a slightly non-local character of GGAs becomes visible.
 Finally, meta-GGAs incorporate information about the kinetic energy density.
 In analogy to eq.~(\ref{eqn:simplified_density_generation}), the kinetic energy density $\tau$ can be found by
 \begin{equation}
@@ -184,9 +184,9 @@ but it is planned to interface \ttt{libxc} with access to most existing function
 \codename{} is an all-electron \ac{DFT} application 
 based on the \ac{PAW} method \cite{PhysRevB.50.17953} % Bloechl 1994
 with the extension of analytical projectors \cite{BaumeisterTsukamoto2019}
-where the projectors are eigenfunctions of a \ac{SHO}.
+where the projectors are expanded in eigenfunctions of a \ac{SHO}.
 \ttt{C++} has been chosen for its expressivity
-when it comes to mult-precision algorithms 
+when it comes to mult-precision algorithms
 and its good interoperability with common \ac{GPU} programming models.
 
 \noindent
@@ -202,6 +202,7 @@ For an up-to-date list of the code features, please see the \ttt{README.md} file
 %
 Two \ttt{Makefile}s are contained in the folders \ttt{src/} and \ttt{green/} that work with current compilers, e.g.~\ttt{GNU c++ 7.4.0} or \ttt{clang 14.0.0}.
 Alternatively, \ttt{CMake} is supported for most configurations.
+\todo[inline]{Make sure CMake runs}
 
 \noindent
 The application \codename{}, while being written in \ttt{C++}, strongly relies on plane-old-data types,
@@ -313,15 +314,15 @@ Some quantities are displayed in characteristic units, e.g., plane wave cutoff e
 
 \subsection{Try a first structure} \label{sec:first-steps}
 %
-Make sure there is a \ttt{jmol}-viewable structure file \ttt{atoms.xyz}
-with atomic coordinates given in \AA{} and run
+Make sure there is a \ttt{jmol}-viewable\footnote{Available for free download or via molview.org} structure file \ttt{atoms.xyz}
+with atomic coordinates given in \AA{}ngstr\"{o}m and run
 \begin{verbatim}
 ./a43 --test geometry_analysis
 \end{verbatim}
 in order to check if your geometry looks ok.
 More details on what the \ttt{geometry\_analysis} output tells you can be found in Section \ref{sec:geometry-analysis}.
 You can search the log file for warnings using \ttt{grep} but
-if the code finalizes
+if the code finalizes regularly
 there will also be a summary of all warnings launched during execution at the end of the log file.
 % For a detailed description of the usage of \ttt{geometry\_analysis} see Section \ref{sec:geometry-analysis}.
 %
@@ -335,6 +336,7 @@ Let's say we want aluminum in our system, then run:
 See Section \ref{sec:single-atom} for more details on \ttt{single\_atom}.
 \todo[inline]{Currently, aluminum produces a critical charge deficit operator eigenvalue}
 %
+\noindent
 \codename{} will then try to access a database of initial atomic potentials
 (full spherically, spin-degenerate) which are stored in \ttt{./pot/Zeff.}$00Z$
 where $00Z$ is a 3-digit integer atomic number.
@@ -452,13 +454,13 @@ in the vicinity of the atomic nucleus
 that they feel almost exclusively the strong attractive Coulomb potential of the core. 
 This can be approximated fairly well as a spherically symmetric potential.
 with a singularity at its origin.
-The eigenstates show a clear $\ell$-character, 
-i.e.~$s$ ($\ell$ = 0), $p$ ($\ell$ = 1), $d$ ($\ell$ = 2) or even $f$ ($\ell$ = 3) states can be found.
+The eigenstates show a clear angular momentum quantum number, the $\ell$-character. 
+For usual atoms, $s$ ($\ell$ = 0), $p$ ($\ell$ = 1), $d$ ($\ell$ = 2) or even $f$ ($\ell$ = 3) states can be found.
 Technically, the solutions are found on a 1D radial grid by the \ttt{radial\_eigensolver} module.
 Relativistic effects are treated on the basis of the scalar-relativistic approximation.
 Due to the spherical symmetry of the potential
 the energies of core states are well defined and degenerate with respect to the magnetic quantum number $m$.
-See
+Try
 \begin{verbatim}
 ./a43 --test atom_core
 \end{verbatim}
@@ -477,6 +479,7 @@ It is planned to implement semicore states with a separate energy window
 and either a tight-binding like treatment derived from atomic orbitals 
 (eigenfunctions of the spherically averaged potential) 
 or with a full \ac{PAW} treatment as follows for the valence states.
+Please stay tuned for feature updates.
 
 %
 %
@@ -622,7 +625,7 @@ compare Section \ref{sec:distance-histogram}.
 A histogram for \ttt{\#\# bond distances} is generated for each atomic species.
 The histogram parameters can be controlled by 
 \ttt{+geometry\_analysis.bond.bin.width} and 
-\ttt{+geometry\_analysis.bond.num.bins}. Default is $184$ bins with about $30$ bins per \AA{}.
+\ttt{+geometry\_analysis.bond.num.bins}. Default is $184$ bins with about $30$ bins/\AA{}.
 The histogram representation is sparse, see above.
 %% An example can be found here:
 %% a43/doc/fig/Cu320Zr180_distance_hist.agr .pdf
@@ -633,16 +636,20 @@ Atom-atom bonds and distances are summarised after the potentially lengthy log o
 sections \ref{sec:distance-histogram} and \ref{sec:bond-structure-analysis}.
 % , \ref{sec:bond-angle-histogram} and \ref{sec:bond-distance-histogram}.
 
+\noindent
 A table of \ttt{coordination numbers} and their \ttt{occurrence} is given for each species.
 The \ttt{\# half bond length} displays which radius has been taken to identify a bond.
+The user may customize the half bond length, e.g.~for copper 
+by setting \ttt{+geometry\_analysis.half.bond.Cu} in Bohr units.
 The default bond length between two species is given by the sum of
 the two \ttt{half bond length}s.
 An interatomic distance below \ttt{+geometry\_analysis.elongation=1.25} 
-times the default bond length is recognized as a bond.
+times the default bond length is recognized as a bond
+if the bond distance times the \ttt{elongation} also stays below the default bond length,
+i.e.~by default bonds counted when they are within $80\%$ to $125\%$ of the default bond length.
 %
-The user may customize the half bond length, e.g.~for copper 
-by setting \ttt{+geometry\_analysis.half.bond.Cu} in Bohr units.
-%
+
+\noindent
 All \ttt{\# bond counts} are listed in an upper diagonal matrix as function of the two
 contributing species. Row/column sums show the total number of bonds for a given species.
 Further, the upper diagonal form is also used to display
@@ -661,10 +668,13 @@ is also contained in the \ttt{\# bond table}.
 Where bonds have been detected, 
 the average and root-mean-square of the bond lengths are displayed
 in addition to minimum and maximum.
-By \ttt{+geometry\_analysis.show.all.pairs} defaults to \ttt{1}.
-If the number of species in the system becomes large, setting this
-parameter to \ttt{0} will suppress all entries with a \ttt{n/a} minimal distance from the table.
-This is particularly helpful for the synthetic input case discussed in Section \ref{sec:many-species-test}.
+The option \ttt{+geometry\_analysis.show.pairs=1} controls how much of the \ttt{bond table} is shown.
+If the number of species in the system becomes large it might be helpful
+to suppress the display of this table by setting it to \ttt{0}.
+The default value \ttt{1} suppresses pairs that are unavailable (\ttt{n/a})
+Setting it to \ttt{3} will show all entries and values \ttt{2} shows only
+pairs that are near but not bonded.
+These four options are particularly helpful for the synthetic input case discussed in Section \ref{sec:many-species-test}.
 
 %
 %
@@ -682,7 +692,7 @@ different species, positioned in a chain. Running
         +geometry.file=species_test.xyz
 \end{verbatim}
 will create the file, parse it and analyze its linear geometry.
-Technically, one could increase \ttt{+geometry\_analysis.test.nspecies} up to \ttt{128},
+Technically, one could increase \ttt{+geometry\_analysis.test.nspecies} up to \ttt{127},
 however, the output is far from readable due to too many too long lines.
 The interatomic distances are chosen such that most coordination numbers
 are $2$ and all bond angles are 180\degree{}.
@@ -709,16 +719,23 @@ various modules in detail.
 The \ttt{atom\_core} module determines a self-consistent solution
 of a spherically symmetric, isolated atom with $Z$ protons in the core.
 The resulting potential $V(r)$ is stored in \ttt{pot/Zeff.}$00Z$
-in the form $-rV(r) = Z\um{eff}(r)$.
+in the form $-rV(r) = Z\um{eff}(r)$ given that the directory \ttt{./pot} has been created beforehand.
 The files can be plotted by a simple tool like e.g.~\ttt{xmgrace pot/Zeff.013}.
+
+\noindent
 $Z\um{eff}(r)$ approaches $Z$ at the origin and goes to zero for large $r$.
-To start an atomic calculation, e.g. for aluminum, run
+To start an atomic all-electron calculation, e.g. for aluminum, run
 \begin{verbatim}
 ./a43 --test atom_core +atom_core.test.Z=13
 \end{verbatim}
-If more than one element should be generated
+If the \ttt{pot/Zeff.}$00Z$-file for more than one element are needed
 the user can specify an exclusive upper end \ttt{+atom\_core.test.Z.end} 
 and a step size \ttt{+atom\_core.test.Z.inc} which defaults to \ttt{1}.
+A typical command line to generate files for all integer $Z$ is
+\begin{verbatim}
+./a43 -t atom_core +atom_core.test.Z=0 +atom_core.test.Z.end=121
+\end{verbatim}
+Beware that this might run for a minute or two.
 Also non-integer values are permitted in all three parameters \ttt{+atom\_core.test.Z*}.
 %
 
@@ -726,6 +743,38 @@ Also non-integer values are permitted in all three parameters \ttt{+atom\_core.t
 For the atomic \ac{SCF} calculation, occupation numbers of the atomic orbitals are fixed
 to predefined values. \ttt{atom\_core.occupations=auto} or \ttt{=custom} can be chosen
 where they are taken from the element configuration, see Section \ref{sec:sigma-config}.
+
+\subsubsection{Core State Diagram} \label{sec:core-state-diagram}
+\begin{verbatim}
+./a43 -t atom_core +atom_core.show.state.diagram=5 > logg
+\end{verbatim}
+will plot a diagram representing the spherical all-electron potential $V\um{eff}(r)$
+and the spherical states of copper by lines at their corresponding eigenenergies.
+The lines start and end at the radii where $5\%$ and $95\%$ of the charge density of that state are included, respectively.
+You can use \ttt{xmgrace -nxy logg} to plot the diagram.
+\todo[inline]{check if state\_diagram.template.agr is checked into the git!}
+\noindent
+Mind that the radius has been transformed as $\sqrt{r}$
+and the energies are shown as -$\log_{10}($-$E)$ to make up for the different scales involved.
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=.49\textwidth]{fig/state_diagram_Z30}
+	\includegraphics[width=.49\textwidth]{fig/state_diagram_Z80}
+	%% generated:
+	%% ./a43 --test atom_core +atom_core.show.state.diagram=5 +atom_core.test.Z=30
+	%% ./a43 --test atom_core +atom_core.show.state.diagram=5 +atom_core.test.Z=80
+	\label{fig:core-state-diagrams-Z30-and-Z80}
+	\caption{State diagrams generated by the \ttt{atom\_core} solver. 
+	         Examples are zinc and mercury.
+	         The square root radial axis and the logarithmic energy scale help to display
+	         core and bound valence states in the same plot.
+	         One can observe similarities in terms of energy and position between
+	         the Zn 4$s$ and 4$p$ states with the Hg 6$s$ and 6$p$ states
+	         (highest solid line in black and red, respectively). 
+	         }
+\end{figure}
+
 
 
 \subsection{Element Configuration} \label{sec:sigma-config-short}
@@ -756,7 +805,7 @@ An element configuration string consists of
 For the advanced user we recommend to inspect the logarithmic derivatives by
 \begin{verbatim}
 ./a43 --test single_atom +single_atom.test.Z=13 \
-        +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
+        +logder.start=-4 +logder.step=1e-4 +logder.stop=1
 \end{verbatim}
 The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy} $logfile$.
 %
@@ -776,17 +825,45 @@ To check correct functionality, run
 \begin{verbatim}
 ./a43 --test scattering_test
 \end{verbatim}
-that the deviation from pure half-integer energies (spectrum of a \ac{SHO}) is small.
+on the analytically solvable problem of the \ac{SHO}.
+You can verify that the deviation from pure half-integer energies is small.
 
 \noindent
 \ttt{./a43 --test single\_atom} produces a lot of output (more than 100 lines).
 As a first approach look out for warnings.
 In further steps, increase the verbosity level slightly (\ttt{-v}) and read the details about partial wave generation schemes that have been applied to generate the \ac{PAW} potential.
 
+\subsubsection{Exporting PAW potentials} \label{sec:single-atom-export}
+%
+The \ac{PAW} data generated by \ttt{single\_atom} can be exported into the \ttt{PAW-XML} format defined
+by CECAM's ESL\cite{CECAM_Electronic_Structure_Library} (https://esl.cecam.org/data/paw-xml/)
+to later be imported by GPAW\cite{gpaw} and ABINIT\cite{abinit}.
+To export please add \ttt{+single\_atom.export=1} and \ttt{+single\_atom.smooth.radial.grid.from=0}.
+The latter is necessary as \ttt{single\_atom} uses less grid points close to the radial center 
+to represent smooth quantities, however, it may be better to use a single radial grid in the \ttt{PAW-XML} file
+although the standard says that multiple radial grids should be supported.
+In case it is necessary to explicitly include the values of the radial grid in the file add \ttt{+pawxml\_export.show.radial.grid=1}.
+
+\noindent
+The \ttt{single\_atom} module starts the all-electron radial grid at zero.
+If that is a problem for the importing software package increase \ttt{+pawxml\_export.radial.grid.from} to \ttt{1} or higher. File names are generated as \ttt{Cu.xml} for copper.
+A path \ttt{+pawxml\_export.path="."} may be adjusted by the user. 
+
+\noindent
+Mind that the \ttt{UPF} format supported by Quantum Espresso\cite{qe} is currently not fully supported.
+Try \ttt{+pawxml\_export.type=upf} to see how much is working so far.
+
+\noindent
+\codename{} uses a radial exponential grid with equation \ttt{r=a*(exp(d*i)-1)}.
+If this cannot be imported by the other software, try \ttt{+single\_atom.radial.grid.equation=reciprocal} for GPAW's native radial grid.
+
+\noindent
+Within the development branch of \codename{}, several experimental ways to generate the smooth partial waves
+are implemented. ABINIT, however, checks very strictly that smooth and true partial wave coincide outside the augmentation sphere. Therefore, \ttt{+single\_atom.partial.wave.method=classical} is currently the only option that produces PAW-XML files that can be run by ABINIT.
 
 \subsection{Self Consistency Iterations} \label{sec:self-consistency}
 %
-The heart of every \ac{DFT} code are the \ac{SCF} iterations.
+At the heart of every \ac{DFT} code are the \ac{SCF} iterations.
 \begin{verbatim}
 ./a43 --test self_consistency
 \end{verbatim}
@@ -989,7 +1066,7 @@ on a compute system with \ac{GPU}s.
 %
 \begin{table}[h]
 \caption[Main Variables]{
-Most important variables to control self-consistency iterations in \codename{}.
+Most important variables to control the Green function calculation.
 } \label{tab:main-green-variables}
 \centering
 \begin{tabular}{|l|r|l|}
@@ -1012,17 +1089,14 @@ Table \ref{tab:main-green-variables} gives an overview of the most important con
 % grep -in 'hamiltonian\.file' ../green/*.cxx ../include/*.hxx
 The \ac{DFT} Hamiltonian is passed to \ttt{./green} via an \ttt{xml} or a \ttt{json} formatted file.
 The filename is controlled by \ttt{+green\_}*\ttt{.hamiltonian.file} where * stands for one of
-\ttt{input}, \ttt{function} or \ttt{experiements}, depending on what to run.
+\ttt{input}, \ttt{function} or \ttt{experiments}, depending on what to run.
 
 \subsection{Getting started} \label{sec:green-getting-started}
 %
 \begin{verbatim}
 ./green --test '?'
 \end{verbatim}
-will list all available module tests. About half of these modules are shared with \ttt{./a43}.
-
-%
-\noindent
+will list all available module tests. Most of these modules are shared with \ttt{./a43}.
 Start by
 \begin{verbatim}
 ./green --test green_input
@@ -1063,16 +1137,16 @@ Further, we can try to run the experimental feature for non-collinear magnetism 
 \subsection{Green experiments}
 This module is designed to verify that the \ac{DFT} Hamiltonian loaded from file is implemented equivalent to
 where the file was written.
-It works best, if we still have the log files from the generation process and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
+It works best, if we still have the logg files from the generation process and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
 The implemented two different ways to find the spectrum are
 \begin{itemize}
   \item by inversion,
   \item by diagonalization.
 \end{itemize}
 In the inversion approach, the Green function is found by \ttt{tfQMRgpu} at various $\vec{k}$-points and a dense set of energy parameters.
-The result is a heatmap on the strength of the resonance, i.e.~the integrated trace of the imaginary part of the solved Green function.
-For the diagonalization approach the \ttt{action\_t} which usually represents $\hat A = \hat H - E\cdot \hat S$ is dublicated into $\hat H = 1\cdot \hat H - 0\cdot\hat S$ and $\hat S = 0\cdot \hat H - (-1)\cdot\hat S$.
-The operators enter an iterative Davidson diagonalization procedure. For smaller grids (up to $12 \times 12 \times 12$ grid points) a dense matrix diagonalization routine can also be called to find the exact spectrum.
+The result is a heatmap on the strength of the resonance, i.e.~the integrated trace of the imaginary part of the found Green function.
+For the diagonalization approach the \ttt{action\_t} which usually represents $\hat A = \hat H - E\cdot \hat S$ is duplicated into $\hat H = 1\cdot \hat H - 0\cdot\hat S$ and $\hat S = 0\cdot \hat H - (-1)\cdot\hat S$.
+The operators enter an iterative Davidson diagonalization procedure. For small grids (up to $12 \times 12 \times 12$ grid points) a dense matrix diagonalization routine can be called to find the exact spectrum directly.
 
 \todo[inline]{describe handling}
 

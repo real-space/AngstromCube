@@ -12,8 +12,8 @@ namespace radial_grid {
   float  constexpr default_Rmax = 9.45;
 
   char constexpr equation_exponential = 'e';
-  char constexpr equation_equidistant = '=';
-  char constexpr equation_reciprocal  = '/';
+  char constexpr equation_equidistant = '-';
+  char constexpr equation_reciprocal  = 'r';
 
   radial_grid_t* create_radial_grid( // returns a pointer to a new radial grid descriptor
         int const npoints // number of grid points
@@ -28,9 +28,16 @@ namespace radial_grid {
       , int const echo=0 // log-level
   ); // declaration only
 
-  inline radial_grid_t* create_default_radial_grid(float const Z_protons=0
-      , float const rmax=default_Rmax) {
-      return create_radial_grid(250*std::sqrt(std::abs(Z_protons) + 9), rmax);
+  inline int default_points(float const Z_protons) { return 250*std::sqrt(std::abs(Z_protons) + 9); }
+
+  inline radial_grid_t* create_default_radial_grid( // deprecated, please use create_radial_grid(default_points(Z), ...)
+        float const Z_protons=0
+      , float const rmax=default_Rmax
+      , char equation='\0' // [optional] how to generate the grid
+      , double const anisotropy=default_anisotropy // [optional] anisotropy parameter
+      ) {
+      auto const npoints = default_points(Z_protons);
+      return create_radial_grid(npoints, rmax, equation, anisotropy);
   } // create_default_radial_grid
 
   void destroy_radial_grid(radial_grid_t* g, char const *name=""); // declaration only
