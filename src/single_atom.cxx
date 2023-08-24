@@ -16,7 +16,7 @@
 #include "single_atom.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_radial_grid, ::create_default_radial_grid, ::create_pseudo_radial_grid,
+#include "radial_grid.hxx" // ::create_radial_grid, ::create_pseudo_radial_grid, ::default_points
                            // ::destroy_radial_grid, ::equation_reciprocal, ::find_grid_index
 #include "radial_eigensolver.hxx" // ::shooting_method
 #include "radial_potential.hxx" // ::Hartree_potential
@@ -536,13 +536,14 @@ namespace single_atom {
         take_spherical_density[valence]  = atomic_valence_density ? 1 : 0;
 
         { // scope: setup radial grids
-            auto const rmax = control::get("single_atom.radial.grid.upto", 14.173);
-            auto const rg_equation = control::get("single_atom.radial.grid.equation", &radial_grid::equation_exponential);
+            auto const equation = control::get("single_atom.radial.grid.equation", &radial_grid::equation_exponential);
+            auto const rmax     = control::get("single_atom.radial.grid.upto", 14.173);
+            auto const from     = control::get("single_atom.smooth.radial.grid.from", 1e-3);
             // here use the preliminary Z_core, may be adjusted
-            rg[TRU] = *radial_grid::create_default_radial_grid(Z_core, rmax, *rg_equation);
+            rg[TRU] = *radial_grid::create_radial_grid(radial_grid::default_points(Z_core), rmax, *equation);
             // create a radial grid descriptor which has less points at the origin
-            rg[SMT] = *radial_grid::create_pseudo_radial_grid(rg[TRU], control::get("single_atom.smooth.radial.grid.from", 1e-3));
-            // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
+            rg[SMT] = *radial_grid::create_pseudo_radial_grid(rg[TRU], from);
+            // Warning: both *rg[TRU] and *rg[SMT] need an explicit destructor call
         } // scope
 
         int const nr[] = {int(align<2>(rg[TRU].n)), int(align<2>(rg[SMT].n))}; // optional memory access alignment

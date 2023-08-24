@@ -11,8 +11,8 @@
 
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant,
-                           // ::create_default_radial_grid, ::find_grid_index
-                           // ::destroy_radial_grid
+                           // ::create_radial_grid, ::find_grid_index
+                           // ::destroy_radial_grid, ::default_points
 #include "bessel_transform.hxx" // ::transform_s_function
 #include "finite_difference.hxx" // ::set_Laplacian_coefficients
 #include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
@@ -324,7 +324,7 @@ namespace scattering_test {
       // analyze and show a compressed summary
       if (echo > 1) { // show summary
           if (dE > 0) {
-              if (echo > 2) std::printf("\n# %s logder at %.3f %s, summary for %.3f to %.3f %s, dE= %.1f m%s\n",
+              if (echo > 2) std::printf("\n# %s logder at %.3f %s, summary for %.3f to %.3f %s, logder.step= %.1f m%s\n",
                   label, Rlog*Ang, _Ang, energy_range[0]*eV, energy_range[2]*eV, _eV, dE*1000*eV, _eV);
               int constexpr mres = 8;
               double at_energy[TRU_AND_SMT][mres];
@@ -692,7 +692,7 @@ namespace scattering_test {
   status_t test_eigenstate_analysis(int const echo=3, int const ellmax=7) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
-      auto const rg = *radial_grid::create_default_radial_grid();
+      auto const rg = *radial_grid::create_radial_grid(radial_grid::default_points());
       int const nln = sho_tools::nSHO_radial(ellmax);
       double const sigma = 1.0; // if the rmax ~= 10, ellmax = 7, sigma <= 1.5, otherwise projectors leak out
       std::vector<double> const aHm(nln*nln, 0.0); // dummy non-local matrices (constant at zero)
@@ -710,7 +710,7 @@ namespace scattering_test {
       , double const sigma=1.0
   ) {
       status_t stat(0);
-      auto const rg = *radial_grid::create_default_radial_grid();
+      auto const rg = *radial_grid::create_radial_grid(radial_grid::default_points());
       int const nr = align<2>(rg.n);
       int const nln = sho_tools::nSHO_radial(numax);
       if (echo > 4) std::printf("\n# %s: with numax= %d sigma= %g %s\n", __func__, numax, sigma*Ang, _Ang);

@@ -10,6 +10,7 @@
 #include "inline_math.hxx" // set, scale
 #include "simple_math.hxx" // ::determinant
 #include "constants.hxx" // ::pi
+#include "display_units.h" // Ang, _Ang
 #include "bessel_transform.hxx" // ::Bessel_j0
 #include "recorded_warnings.hxx" // warn
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, Mirrored_Boundary, Invalid_Boundary
@@ -20,6 +21,14 @@ namespace real_space {
 
   int constexpr debug = 0;
 
+  double inline length2(double const v[3]) { return v[0]*v[0] + v[1]*v[1] + v[2]*v[2]; }
+  double inline length(double const v[3]) { return std::sqrt(length2(v)); }
+  double inline angle(double const v[3], double const w[3]) {
+      double const ll = std::sqrt(length2(v)*length2(w));
+      double const dot = v[0]*w[0] + v[1]*w[1] + v[2]*w[2];
+      return (ll > 0) ? std::acos(std::min(std::max(-1., dot/ll), 1.)) : 0;
+  } // angle
+
   class grid_t {
   private:
       uint32_t dims[4]; // 0,1,2:real-space grid dimensions, 3:outer dim
@@ -27,8 +36,40 @@ namespace real_space {
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
       double cell[3][4]; // cell shape (only [3][3] used, only diagonal elements {cell[0][0], cell[1][1], cell[2][2]} if is_Cartesian)
+#ifdef    GENERAL_CELL
+      int32_t shift_yx, shift_zx, shift_zy;
 
-      grid_t(void) : dims{0,0,0,1}, bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} { set(cell[0], 12, 0.0); } // default constructor
+      status_t correct_shift_cell_parameters(int32_t & n_shift_yx, int const y, int const x, int const echo=0) {
+          double constexpr threshold = 1e-6;
+          double const old_cell_param = cell[y][x];
+          n_shift_yx = std::round(old_cell_param*inv_h[x]);
+          double const new_cell_param = n_shift_yx*h[x];
+          if (echo > 6) std::printf("# shift_%c%c=%d or %6.3f %%\n", 'x'+y, 'x'+x, n_shift_yx, n_shift_yx/(dims[x]*.01));
+
+          double const dev = old_cell_param - new_cell_param;
+          status_t stat(0);
+          if (std::abs(dev) > threshold*cell[x][x]) {
+              warn("inaccurate shift_%c%c: %g - %d*%g = %g %s", 'x'+y, 'x'+x, old_cell_param*Ang, n_shift_yx, h[x]*Ang, dev*Ang, _Ang);
+              ++stat;
+          } else if (echo > 8) std::printf("# shift_%c%c=%d, relative deviation is %.1e\n", 'x'+y, 'x'+x, n_shift_yx, dev/cell[x][x]);
+          if (std::abs(n_shift_yx) >= dims[x]) {
+              error("May not shift more than one cell on perpendicular translation in %c-direction!", 'x'+y); // avoid problems with periodic images
+          }
+          cell[y][x] = new_cell_param;
+          if (Periodic_Boundary != bc[x]|| Periodic_Boundary != bc[y]) {
+              warn("for shift_%c%c=%d boundary conditions must be periodic, found bc= %d and %d", 'x'+y, 'x'+x, n_shift_yx, bc[x], bc[y]);
+              ++stat;
+          } // boundary is not periodic
+          return stat;
+      } // correct_shift_cell_parameters
+#endif // GENERAL_CELL
+
+      grid_t(void) : dims{0,0,0,1}, bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {
+          set(cell[0], 12, 0.0);
+#ifdef    GENERAL_CELL
+          shift_yx = shift_zx = shift_zy = 0;
+#endif // GENERAL_CELL
+      } // default constructor
 
       grid_t(int const d0, int const d1, int const d2, int const dim_outer=1)
         : bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {
@@ -48,6 +89,9 @@ namespace real_space {
           for (int d = 0; d < 3; ++d) {
               cell[d][d] = dims[d]*h[d];
           } // d
+#ifdef    GENERAL_CELL
+          shift_yx = shift_zx = shift_zy = 0;
+#endif // GENERAL_CELL
       } // constructor
 
       template <typename int_t>
@@ -58,7 +102,49 @@ namespace real_space {
               dims[0], dims[1], dims[2], dims[3], 1e-6*dims[3]*dims[2]*dims[1]*dims[0]);
       } // destructor
 
-      status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1) {
+      status_t set_cell_shape(double const general_cell[3][4], int const echo=0, double const factor=1) {
+          if (nullptr == general_cell) return -1;
+          status_t stat(0);
+          for (int d = 0; d < 3; ++d) {
+              set(cell[d], 3, general_cell[d], factor); 
+              cell[d][3] = 0; // not used, only for memory alignment
+          } // d
+          auto const c0 = cell[0], c1 = cell[1], c2 = cell[2];
+          if (dims[0] > 0 && dims[1] > 0 && dims[2] > 0) {
+              if (is_Cartesian()) {
+                  stat += set_grid_spacing(cell[0][0]/dims[0], cell[1][1]/dims[1], cell[2][2]/dims[2], echo);
+              } else 
+#ifdef    GENERAL_CELL
+              if (is_shifted()) { // shifted
+                  if (echo > 3) std::printf("# create shifted cell with  %d %d %d  grid points\n", dims[0], dims[1], dims[2]);
+                  stat += set_grid_spacing(cell[0][0]/dims[0], cell[1][1]/dims[1], cell[2][2]/dims[2], echo);
+                  if (echo > 3) std::printf("# grid spacings  %g %g %g %s\n", h[0]*Ang, h[1]*Ang, h[2]*Ang, _Ang);
+                  stat += correct_shift_cell_parameters(shift_yx, 1, 0, echo);
+                  stat += correct_shift_cell_parameters(shift_zx, 2, 0, echo);
+                  stat += correct_shift_cell_parameters(shift_zy, 2, 1, echo);
+                  // show the lengths and angles of unit vectors
+                  if (echo > 3) std::printf("# shifted cell vector lengths  %g %g %g  %s\n",
+                                    length(c0)*Ang, length(c1)*Ang, length(c2)*Ang, _Ang);
+                  double constexpr deg = 180/constants::pi;
+                  if (echo > 3) std::printf("# cell vector angles  %g %g %g  degrees\n",
+                                    angle(c1, c2)*deg, angle(c2, c0)*deg, angle(c0, c1)*deg);
+              } else
+#endif // GENERAL_CELL
+              {
+                  stat += set_grid_spacing(length(c0)/dims[0], length(c1)/dims[1], length(c2)/dims[2], echo);
+              }
+          } else {
+              if (echo > 2) std::printf("# cannot set grid spacing as grid dims are %d %d %d\n", dims[0], dims[1], dims[2]);
+          }
+          if (echo > 4) std::printf("# cell shape %g %g %g  %g %g %g  %g %g %g %s, type=%s\n",
+                            c0[0]*Ang, c0[1]*Ang, c0[2]*Ang,
+                            c1[0]*Ang, c1[1]*Ang, c1[2]*Ang,
+                            c2[0]*Ang, c2[1]*Ang, c2[2]*Ang, _Ang,
+                            is_Cartesian()?"Cartesian":(has_upper_elements()?"general":"shifted"));
+          return stat;
+      } // set_cell_shape
+
+      status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1, int const echo=0) {
           status_t stat(0);
           double const h3[3] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hz};
           for (int i3 = 0; i3 < 3; ++i3) {
@@ -82,20 +168,33 @@ namespace real_space {
           return  (bcx == Invalid_Boundary);
       } // set
 
-      inline int is_Cartesian() const {
-            // diagonal elements must be positive, off-diagonals zero
-            return (0  < cell[0][0]) && (0 == cell[0][1]) && (0 == cell[0][2]) &&
-                   (0 == cell[1][0]) && (0  < cell[1][1]) && (0 == cell[1][2]) &&
-                   (0 == cell[2][0]) && (0 == cell[2][1]) && (0  < cell[2][2]);
+      inline int has_upper_elements() const {
+            return int(0 != cell[0][1]) + int(0 != cell[0][2]) + int(0 != cell[1][2]);
+      } // has_upper_elements
+
+      inline int has_lower_elements() const {
+            return int(0 != cell[1][0]) + int(0 != cell[2][0]) + int(0 != cell[2][1]);
+      } // has_lower_elements
+
+      inline int is_Cartesian() const { // diagonal elements must be positive, off-diagonals zero
+            return (cell[0][0] > 0) && (cell[1][1] > 0) && (cell[2][2] > 0) &&
+                (0 == has_lower_elements()) && (0 == has_upper_elements());
       } // is_Cartesian
-      inline int is_shifted() const { return 0; } // false
-      inline int volume() const { return simple_math::determinant(
+
+      inline int is_shifted(int const including_Cartesian=0) const {
+            return (cell[0][0] > 0) && (cell[1][1] > 0) && (cell[2][2] > 0) &&
+                (has_lower_elements() >= including_Cartesian) && (0 == has_upper_elements());
+      } // is_shifted
+      // is_shifted(1) --> shifted but not Cartesian
+      // is_shifted(0) --> shifted, can be Cartesian
+
+      inline double volume() const { return simple_math::determinant(
           cell[0][0], cell[0][1], cell[0][2],
           cell[1][0], cell[1][1], cell[1][2],
           cell[2][0], cell[2][1], cell[2][2]); }
       inline int operator[] (int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
       inline int operator() (char const c) const { assert('x' <= (c|32)); assert((c|32) <= 'z'); return dims[(c|32) - 120]; }
-      inline double dV() const { return is_Cartesian() ? h[0]*h[1]*h[2] : volume()/std::max(1u, dims[0]*dims[1]*dims[2]); } // volume element for integration
+      inline double dV() const { return is_shifted() ? h[0]*h[1]*h[2] : volume()/std::max(1u, dims[0]*dims[1]*dims[2]); } // volume element for integration
       inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // so far not used
       inline double const * grid_spacings() const { return h; } // so far not used
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }

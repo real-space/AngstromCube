@@ -340,8 +340,7 @@ namespace sho_hamiltonian {
       view2D<double> periodic_image;
       view2D<int8_t> periodic_shift;
       float const rcut = 9*std::max(maximum_sigma, maximum_sigma_PAW); // exp(-9^2) = 6.6e-36
-      double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
-      int const n_periodic_images = boundary_condition::periodic_images(periodic_image, cell, g.boundary_conditions(), rcut, echo, &periodic_shift);
+      int const n_periodic_images = boundary_condition::periodic_images(periodic_image, g.cell, g.boundary_conditions(), rcut, echo, &periodic_shift);
       if (echo > 1) std::printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
       if (echo > 9) {
           for (int ip = 0; ip < n_periodic_images; ++ip) {
@@ -378,7 +377,7 @@ namespace sho_hamiltonian {
                       for (int d = 0; d < 3; ++d) { // spatial directions x,y,z
                           center(ic,d) = wi*xyzZ(ia,d) + wj*(xyzZ(ja,d) + periodic_image(ip,d));
                           // cast coordinates into [-cell/2, cell/2)
-                          center(ic,d) = geometry_analysis::fold_back(center(ic,d), cell[d]); 
+                          center(ic,d) = geometry_analysis::fold_back(center(ic,d), g.cell[d][d]); 
                           if (echo > 7) std::printf("%12.6f", center(ic,d)*Ang);
                           center(ic,d) += origin[d];
                       } // d
@@ -423,8 +422,8 @@ namespace sho_hamiltonian {
               double ab[4][2]; // offset and slope
               for (int d = 0; d < 3; ++d) {
                   // map coordinates from [-cell/2, cell/2) to [0, 65535]
-                  ab[d][0] = .5*cell[d] - origin[d];
-                  ab[d][1] = std::min(1./threshold_space, 65535/cell[d]); // slope
+                  ab[d][0] = .5*g.cell[d][d] - origin[d];
+                  ab[d][1] = std::min(1./threshold_space, 65535/g.cell[d][d]); // slope
               } // d
               ab[3][0] = -(sigma_V_min - threshold_sigma);
               ab[3][1] = std::min(1./threshold_sigma, 65535/(sigma_V_max - sigma_V_min + 2*threshold_sigma));
@@ -599,17 +598,17 @@ namespace sho_hamiltonian {
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;
       int natoms{0}; // number of atoms
-      double cell[9] = {0,0,0, 0,0,0, 0,0,0}; // general cell --> take only diagonal elements
+      double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
       int8_t bc[3] = {-7, -7, -7}; // boundary conditions
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
+          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo/2);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geo_file, cell[0]*Ang, cell[4]*Ang, cell[8]*Ang, _Ang, bc[0], bc[1], bc[2]);
+                              natoms, geo_file, cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
 
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc);
-      g.set_grid_spacing(cell[0]/g[0], cell[4]/g[1], cell[8]/g[2]);
+      g.set_grid_spacing(length(cell[0])/g[0], length(cell[1])/g[1], length(cell[2])/g[2]);
       if (echo > 1) {
           std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
           std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);

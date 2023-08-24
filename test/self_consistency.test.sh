@@ -70,18 +70,18 @@ exe=../src/a43
 # echo "Al   0 0 -1." >> $base.xyz
 # echo "Al   0 0  1." >> $base.xyz
 
-# base=scf.Al-fcc
-# echo " 4" > $base.xyz
-# echo "#cell 4.0 4.0 4.0 p p p" >> $base.xyz
-# echo "Al   -1.0 -1.0 -1.0" >> $base.xyz
-# echo "Al    1.0  1.0 -1.0" >> $base.xyz
-# echo "Al    1.0 -1.0  1.0" >> $base.xyz
-# echo "Al   -1.0  1.0  1.0" >> $base.xyz
+base=scf.Al-fcc
+echo " 4" > $base.xyz
+echo "#cell 4.0 4.0 4.0 p p p" >> $base.xyz
+echo "Al   -1.0 -1.0 -1.0" >> $base.xyz
+echo "Al    1.0  1.0 -1.0" >> $base.xyz
+echo "Al    1.0 -1.0  1.0" >> $base.xyz
+echo "Al   -1.0  1.0  1.0" >> $base.xyz
 
-base=scf.Ne-fcc
-echo " 1" > $base.xyz  
-echo "%fcc_unitcell 0 2.235 2.235  2.235 0 2.235  2.235 2.235 0" >> $base.xyz
-echo "Ne  0 0 0" >> $base.xyz
+# base=scf.Ne-fcc
+# echo " 1" > $base.xyz  
+# echo "%fcc_unitcell 0 2.235 2.235  2.235 0 2.235  2.235 2.235 0" >> $base.xyz
+# echo "Ne  0 0 0" >> $base.xyz
 
 
 ### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha

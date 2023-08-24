@@ -263,11 +263,11 @@ namespace sho_potential {
       int8_t bc[3] = {-7, -7, -7};
       real_space::grid_t g(dims);
       { // scope: read atomic positions
-          double cell[9] = {0,0,0, 0,0,0, 0,0,0}; 
-          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
+          double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}}; 
+          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo/2);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geo_file, cell[0]*Ang, cell[4]*Ang, cell[8]*Ang, _Ang, bc[0], bc[1], bc[2]);
-          g.set_grid_spacing(cell[0]/g[0], cell[4]/g[1], cell[8]/g[2]);
+                              natoms, geo_file, cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+          g.set_grid_spacing(length(cell[0])/g[0], length(cell[1])/g[1], length(cell[2])/g[2]);
       } // scope
 
 //    for (int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary && "Periodic BCs not implemented!");

@@ -232,12 +232,11 @@ namespace grid_operators {
       , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
       , float const rcut=18 // sho_projection usually ends at 9*sigma
   ) {
-      double const cell[] = {gc[0]*gc.h[0], gc[1]*gc.h[1], gc[2]*gc.h[2]};
       double const grid_offset[] = {0.5*(gc[0] - 1)*gc.h[0], 0.5*(gc[1] - 1)*gc.h[1], 0.5*(gc[2] - 1)*gc.h[2]};
       view2D<double> image_positions;
       view2D<int8_t> image_indices;
       int const n_periodic_images = boundary_condition::periodic_images(
-            image_positions, cell, gc.boundary_conditions(), rcut, echo, &image_indices);
+            image_positions, gc.cell, gc.boundary_conditions(), rcut, echo, &image_indices);
       if (echo > 1) std::printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
       assert(stride >= 7);

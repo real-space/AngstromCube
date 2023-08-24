@@ -272,13 +272,13 @@ namespace finite_difference {
   ) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors, typically 16
-      typedef int16_t int_t;
-      std::vector<int_t> list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
+      typedef int16_t list_integ_t;
+      std::vector<list_integ_t> list[3]; // can be of type int16_t
       std::vector<complex_in_t> phas[3];
       for (int d = 0; d < 3; ++d) {
           int const n = g[d];
           assert(n >= 0);
-          assert(n <= std::numeric_limits<int_t>::max());
+          assert(n <= std::numeric_limits<list_integ_t>::max());
           // ToDo: check that n is smaller than the upper limit of int
           int const bc = g.boundary_condition(d);
           int const nf = fd.nearest_neighbors(d);
@@ -286,7 +286,7 @@ namespace finite_difference {
           assert(nf <= n);
           assert(nf <= n16);
           int const nh = n16 + n + n16; // number including largest halos
-          list[d] = std::vector<int_t>(nh, -1); // get memory, init as -1:non-existing
+          list[d] = std::vector<list_integ_t>(nh, -1); // get memory, init as -1:non-existing
           phas[d] = std::vector<complex_in_t>(nh, 0); // get memory, init neutral
 
           // core region
@@ -345,7 +345,6 @@ namespace finite_difference {
       for (int z = 0; z < g('z'); ++z) {
           for (int y = 0; y < g('y'); ++y) {
               for (int x = 0; x < g('x'); ++x) {
-                  int const i_zyx = (z*g('y') + y)*g('x') + x;
 
                   complex_out_t t(0); // init result
 
@@ -358,14 +357,30 @@ namespace finite_difference {
                           int const index = list[d][n16 + j];
                           if (index >= 0) {
                               zyx[d] = index;
-                              int const j_zyx = (zyx[2]*g('y') + zyx[1])*g('x') + zyx[0];
+#ifdef    GENERAL_CELL
+                              // allow shift-rectangular cells from lower triangular cell matrices
+                              if (1 == d) { // derive in y-direction
+                                  auto const jy = int(j < 0) - int(j >= g('y'));
+                                  zyx[0] = (zyx[0] + jy*g.shift_yx + 9*g('x')) % g('x');
+                              } else // 'y'
+                              if (2 == d) { // derive in z-direction
+                                  auto const jz = int(j < 0) - int(j >= g('z'));
+                                  zyx[0] = (zyx[0] + jz*g.shift_zx + 9*g('x')) % g('x');
+                                  zyx[1] = (zyx[1] + jz*g.shift_zy + 9*g('y')) % g('y');
+                              } // 'z'
+                              assert(zyx[0] >= 0); assert(zyx[0] < g('x'));
+                              assert(zyx[1] >= 0); assert(zyx[1] < g('y'));
+                              assert(zyx[2] >= 0); assert(zyx[2] < g('z'));
+#endif // GENERAL_CELL
+                              int const jzyx = (zyx[2]*g('y') + zyx[1])*g('x') + zyx[0];
                               auto const coeff = fd.c2nd[d][std::abs(jmi)];
-                              t += (phas[d][n16 + j] * in[j_zyx]) * coeff;
+                              t += (phas[d][n16 + j] * in[jzyx]) * coeff;
                           } // index exists
                       } // jmi
                   } // d direction of the derivative
 
-                  out[i_zyx] = t * scale_factor; // store
+                  int const izyx = (z*g('y') + y)*g('x') + x;
+                  out[izyx] = t * scale_factor; // store
 
               } // x
           } // y

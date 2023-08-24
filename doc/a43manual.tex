@@ -11,6 +11,8 @@
 \usepackage{transparent}
 \usepackage{pgfplots}
 \usepackage{gensymb} %% \degree
+\usepackage{pdflscape} %% or lscape
+
 
 \usepackage{acronym} %% for abbreviations
 %% physics related abbreviations
@@ -246,15 +248,22 @@ which couples to the command line interface with a leading \ttt{+}. For example 
 \begin{verbatim}
 ./a43 +verbosity=1 --test
 \end{verbatim}
-to change the \ttt{+verbosity} to minimal when running all unit tests. Table \ref{tab:verbosity-level-meaning} shows \ttt{+verbosity} ranges in detail.
+to change the \ttt{+verbosity} to minimal when running all unit tests.
+Table \ref{tab:verbosity-level-meaning} shows \ttt{+verbosity} ranges in detail.
 
 
+\noindent
 The default \ttt{+verbosity} level is $3$ and levels are adjusted occasionally during development.
 However, the ground rule says that higher \ttt{+verbosity} means more output
 and \ttt{verbosity=0} suppresses all output except for warnings and fatal errors.
 We can also use the options \ttt{--verbose} to set \ttt{+verbosity=6} (high)
 or fine tune the verbosity level by adding +$1$ for every \ttt{-v} and +$4$ for every \ttt{-V} in the command line.
-Table \ref{tab:verbosity-level-meaning} gives a rough overview on verbosity levels. 
+Table \ref{tab:verbosity-level-meaning} gives a rough overview on verbosity levels.
+\noindent
+There are many more control variables like \ttt{verbosity} in \codename{}.
+Section \ref{sec:list-of-control-variables} and Table \ref{tab:control-show-details} 
+will explain how to get an overview of their values.
+
 
 \begin{table}[ht!]
 \caption[Meaning of verbosity levels]{
@@ -312,7 +321,7 @@ Most standard functionality, however, supports unit conversion as described abov
 Some quantities are displayed in characteristic units, e.g., plane wave cutoff energies are typically shown also in \ttt{Rydberg}.
 
 
-\subsection{Try a first structure} \label{sec:first-steps}
+\subsection{First Steps} \label{sec:first-steps}
 %
 Make sure there is a \ttt{jmol}-viewable\footnote{Available for free download or via molview.org} structure file \ttt{atoms.xyz}
 with atomic coordinates given in \AA{}ngstr\"{o}m and run
@@ -401,7 +410,7 @@ A repeated $variablename$ will launch a warning about redefinition, even if the 
 ./a43 +a=5 +a=5
 \end{verbatim}
 
-\subsubsection{List of Control Variables}
+\subsubsection{List of Control Variables} \label{sec:list-of-control-variables}
 %
 Use e.g.~\ttt{+control.show=1} to display all environment variables used during execution.
 Set \ttt{+control.show=2} to show only the unused variables, \ttt{=4} to show also those variables that have their default values, \ttt{6} for both.
@@ -475,6 +484,7 @@ but the non-sphericality of the potential becomes important.
 The $m$-degeneracy of the energy (found for core states) breaks 
 and crystal field splittings or even bands with a small dispersion can be observed.
 \todo[inline]{Implement semicores}
+\noindent
 It is planned to implement semicore states with a separate energy window
 and either a tight-binding like treatment derived from atomic orbitals 
 (eigenfunctions of the spherically averaged potential) 
@@ -553,7 +563,7 @@ a reduced memory capacity consumption and lower memory bandwidth requirements.
 %
 The geometry file (\ttt{+geometry.file=atoms.xyz}) is a file
 holding three items:
-the number of atoms, 
+the number of atoms $n\um{atoms}$, 
 a comment line which specifies the rectangular cell parameters in \AA{}, 
 and the atomic coordinates in \AA{} as
 \begin{verbatim}
@@ -570,12 +580,12 @@ To check if your coordinate file is parsed correctly run
 ./a43 --test geometry_analysis
 \end{verbatim}
 providing a rich log output about interatomic distances,
-potential bonds and atomic coordination. 
-The following sections explain the analysis results in more detail.
+auto-detected bonds and atomic coordination numbers.
+The following subsections explain the analysis results in more detail.
 
 \subsection{Distance Histogram} \label{sec:distance-histogram}
 %
-At increased \ttt{+verbosity} a distance histogram is generated with
+At increased \ttt{verbosity} a distance histogram is generated with
 a bin width of \ttt{+geometry\_analysis.bin.width} which is set to \unit[0.02]{\AA} by default.
 The geometry analysis algorithm checks on every pair of atoms
 including the effect of periodic images.
@@ -594,14 +604,14 @@ with atoms of the adjacent $3^3$ boxes.
 The range $R$ defines a natural upper end for the distance histogram.
 A sparse representation of the distance histogram will be found in the log output.
 This means that sequences longer than two bins where all entries are zero are not shown.
-However, when plotted with solid lines, there is no difference.
+However, when plotted with solid lines, there is no difference, except much less zero data.
 Search the log for \ttt{\#\# distance histogram} to find the legend:
 The first column is the distance value of the bin in your chosen \ttt{+output.length.unit}.
 The following columns represent all combinations of species.
 
 \subsection{Bond Structure Analysis} \label{sec:bond-structure-analysis}
 %
-Find \ttt{\# bond structure analysis} (BSA) in the log.
+Find \ttt{\# bond structure analysis} in the log.
 For particularly large systems, even one line per atom
 can lead to very large log files which no human wants to read.
 Therefore, statistical summaries 
@@ -611,8 +621,8 @@ The per-atom output can be suppressed
 by \ttt{+geometry\_analysis.show.bond.structure=0} or a low \ttt{+verbosity}.
 
 \noindent
-If the BSA is too memory consuming you may limit it to the first\\
-\ttt{+geometry\_analysis.max.atoms.with.partners} atoms 
+If the \ttt{bond structure analysis} is too memory consuming you may limit it to the first
+\ttt{+geometry\_analysis.max.atoms.with.partners} atoms
 or disable it entirely by \ttt{+geometry\_analysis.max.bond.partners=0},
 however, summaries cannot be generated then.
 
@@ -624,11 +634,22 @@ compare Section \ref{sec:distance-histogram}.
 \subsubsection{Bond Distances Histogram} \label{sec:bond-distance-histogram}
 A histogram for \ttt{\#\# bond distances} is generated for each atomic species.
 The histogram parameters can be controlled by 
-\ttt{+geometry\_analysis.bond.bin.width} and 
-\ttt{+geometry\_analysis.bond.num.bins}. Default is $184$ bins with about $30$ bins/\AA{}.
-The histogram representation is sparse, see above.
+\ttt{+geometry\_analysis.bond.num.bins=184} and
+\ttt{+geometry\_analysis.bond.bin.width} which defaults to $30$ bins/\AA{}.
+The histogram representation is sparse, compare Section \ref{sec:distance-histogram}.
 %% An example can be found here:
 %% a43/doc/fig/Cu320Zr180_distance_hist.agr .pdf
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=.99\textwidth]{fig/Cu320Zr180_distance_hist}
+	\label{fig:Cu320Zr180-distance-histogram}
+	\caption{Atom-atom distance histogram and bond angle histogram for bulk Cu$_{320}$Zr$_{180}$. 
+	         Atom distances are classified by the type pair (Cu--Cu, Cu--Zr and Zr--Zr)
+	         and where counted as bond also as Cu bonds and Zr bonds.
+	         Bond angles are only distinguished by the type of the central atom.}
+\end{figure}
+
+
 
 \subsection{Summaries}
 %
@@ -736,13 +757,15 @@ A typical command line to generate files for all integer $Z$ is
 ./a43 -t atom_core +atom_core.test.Z=0 +atom_core.test.Z.end=121
 \end{verbatim}
 Beware that this might run for a minute or two.
-Also non-integer values are permitted in all three parameters \ttt{+atom\_core.test.Z*}.
+Also non-integer values are permitted in all three parameters 
+\ttt{+atom\_core.test.Z}, -\ttt{.Z.inc} and -\ttt{.Z.end}.
 %
 
 \noindent
 For the atomic \ac{SCF} calculation, occupation numbers of the atomic orbitals are fixed
 to predefined values. \ttt{atom\_core.occupations=auto} or \ttt{=custom} can be chosen
 where they are taken from the element configuration, see Section \ref{sec:sigma-config}.
+For an example output see the Appendix \ref{sec:example-output-for-atom-core}.
 
 \subsubsection{Core State Diagram} \label{sec:core-state-diagram}
 \begin{verbatim}
@@ -1149,6 +1172,291 @@ For the diagonalization approach the \ttt{action\_t} which usually represents $\
 The operators enter an iterative Davidson diagonalization procedure. For small grids (up to $12 \times 12 \times 12$ grid points) a dense matrix diagonalization routine can be called to find the exact spectrum directly.
 
 \todo[inline]{describe handling}
+
+\newpage
+%
+\appendix
+%
+\section{Appendix}
+%
+\subsection{Example output for atom\_core} \label{sec:example-output-for-atom-core}
+%
+\small
+\begin{verbatim}
+# ../src/a43 -t atom_core +output.energy.unit=eV
+# no control file given
+# ../src/a43 git checkout 54f7de72061aca6983604646dff204d9e497d5b2
+
+# verbosity=3
+
+# run unit tests for module 'atom_core'
+
+# test_initial_density: max. deviation of 1.67582e-05 electrons
+
+# atom_core.cxx:689  test_core_solver(echo=3) from 29 to 29 in steps of 1
+
+# atom_core solver for Z= 29
+# Warning: For Z=29 the occupation of the 4s-orbital differs: 1 vs 2 (auto)
+# Warning: For Z=29 the occupation of the 3d-orbital differs: 10 vs 9 (auto)
+
+# scf_atom  Z=29  converged in 4 iterations to residual=8.6e-12, E_tot= -44950.227271587 eV
+# scf_atom  Z=29  E_kin= 45580.040948985 E_xc= -1765.741427975 E_es= -88764.526792597 eV
+# scf_atom  Z=29  E_Coulomb= -108290.697652190 E_Hartree= 19526.170859594 eV
+# scf_atom  Z=29  1s  E=   -8830.171213 eV  f=2
+# scf_atom  Z=29  2s  E=   -1059.896506 eV  f=2
+# scf_atom  Z=29  2p  E=    -916.335599 eV  f=6
+# scf_atom  Z=29  3s  E=    -114.063277 eV  f=2
+# scf_atom  Z=29  3p  E=     -72.008914 eV  f=6
+# scf_atom  Z=29  4s  E=      -4.846013 eV  f=1
+# scf_atom  Z=29  3d  E=      -5.316783 eV  f=10
+# scf_atom  Z=29  4p  E=      -0.660459 eV  f=2e-99
+
+#    module= atom_core                status= 0
+
+#
+# recorded 1 different warnings:
+# 	in atom_core.cxx:237 scf_atom (2 times)
+# 		For Z=29 the occupation of the 3d-orbital differs: 10 vs 9 (auto)
+# 2 warnings in total
+\end{verbatim}
+\normalsize
+%
+\noindent
+There is a warning here: the \ttt{auto}-matic configuration of atomic occupation numbers
+for copper would suggest Cu $4s_{2}$ $3d_{9}$. However, the \ttt{sigma\_config} string
+says $4s_{1}$ $3d_{10}$.
+Mind that only the last warning is quoted in the warning summary at the programs end.
+Furthermore, there is a phantom occupation number \ttt{2e-99} on the $4p$ orbital.
+This number is too small to influence \ttt{atom\_core} results but becomes relevant during \ac{PAW} generation.
+
+\newpage
+
+\subsection{Example output for single\_atom} \label{sec:example-output-for-single-atom}
+%
+\small
+%%% +element_Cu="4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma 0.75" +logder.step=1e-4
+\begin{verbatim}
+# verbosity=2
+# test_LiveAtom: Z = 29
+#
+# Cu LiveAtom with 29 protons
+# Cu radial grid up to 14.173 Bohr
+# Cu radial grid numbers are 1541 and 956
+# Cu radial grid numbers are 1544 and 956 (padded to align)
+# Cu got PAW configuration data for Z=29: rcut=2 sigma=0.75 Bohr
+# Cu projectors are expanded up to numax= 4
+# Cu radial density and potentials are expanded up to lmax= 8 and 8, respectively
+# Cu compensation charges are expanded up to lmax= 4
+# Cu pseudize the core density at r[1344 or 759]= 1.996384, requested 2.000 Bohr
+# Cu number of projectors per ell  2 2 2 0 0
+# Cu valence  4s     1.0 E=       -0.178187 Ha
+# Cu valence  5s     0.0 E=        0.017707 Ha
+# Cu valence  4p     0.0 E=       -0.027887 Ha
+# Cu valence  5p     0.0 E=        0.056131 Ha
+# Cu valence  3d    10.0 E=       -0.195561 Ha
+# Cu valence  4d     0.0 E=        0.054214 Ha
+# Cu matrix size for hamiltonian and overlap: dim= 35, stride= 36
+
+# Cu update_projector_coefficients Z=29
+
+# Cu fit_function_set numerical projectors
+# Cu for the s*-partial wave integrate outwards at E= 0.821813 Ha
+# Cu for the p*-partial wave integrate outwards at E= 0.972113 Ha
+# Cu for the d*-partial wave integrate outwards at E= 0.804439 Ha
+
+# Cu check_spherical_matrix_elements: eigenstate_analysis with 384 points
+# Cu eigenstate_analysis nr=384 dr=0.036813 rmax=14.1362 Bohr
+# Cu lowest s-eigenvalues  -0.178242  0.021529  0.134882  0.311492  0.549549  Ha
+# Cu lowest p-eigenvalues  -0.027974  0.064812  0.192389  0.379556  0.624611  Ha
+# Cu lowest d-eigenvalues  -0.197324  0.059721  0.158684  0.313471  Ha
+# Cu lowest f-eigenvalues   0.108270  0.233866  0.411101  0.639451  Ha
+# Cu lowest g-eigenvalues   0.158377  0.314015  0.521262  Ha
+# Cu lowest h-eigenvalues   0.212420  0.397089  0.632673  Ha
+
+# Cu check_spherical_matrix_elements: logarithmic_derivative
+# Cu logarithmic_derivative energy range from -2 to 1 Ha in 30.001 k steps of 0.1 mHa, ellmax=5
+# Cu logarithmic_derivative check at radius 4.48769 Bohr
+# Cu absolute largest logder difference is 12.1 mHa = 121 * 0.1 mHa found in the f-channel
+
+# Cu run single_atom.init.max.scf=0 initial SCF-iterations
+
+#    module= single_atom              status= 0
+# 0 warnings have been recorded.
+\end{verbatim}
+\normalsize
+%
+
+\newpage
+
+\subsection{Example output for geometry\_analysis} \label{sec:example-output-for-geometry-analysis}
+%
+\small
+\begin{verbatim}
+# ../src/a43 -t geometry_analysis +geometry.file=geo/Cu320Zr180.xyz +output.length.unit=Ang
+# no control file given
+# ../src/a43 git checkout 54f7de72061aca6983604646dff204d9e497d5b2
+
+# verbosity=3
+
+# run unit tests for module 'geometry_analysis'
+
+# interpret "p" as periodic boundary condition in x-direction
+# interpret "p" as periodic boundary condition in y-direction
+# interpret "p" as periodic boundary condition in z-direction
+# found 500 atoms in file "geo/Cu320Zr180.xyz" with cell=[19.929 19.929 19.929] Ang and bc=[1 1 1]
+
+# geometry_analysis.cxx:analysis
+# Found 2 different elements in 500 atoms:    Cu_320  Zr_180
+# checked 6.750000 M atom-atom pairs, 35.020 k near and 6.714980 M far
+
+# bond counts        Cu      Zr
+# bond count       1886    1918  Cu sum= 3804
+# bond count               1040  Zr sum= 2958
+# bond counts      3804    2958   total= 6762
+
+#  min distances     Cu      Zr
+#  min distance   2.181   2.489  Cu in Ang
+#  min distance           2.943  Zr in Ang
+
+#  longest bonds     Cu      Zr
+#  longest bond   3.297   3.837  Cu in Ang
+#  longest bond           4.373  Zr in Ang
+
+# shortest bonds     Cu      Zr
+# shortest bond   2.181   2.489  Cu in Ang
+# shortest bond           2.943  Zr in Ang
+
+# bond table:
+# pair, min dist, bond stats in Ang
+#  Cu-Cu    2.181   2.641 +/- 0.182 in [2.181, 3.297]  1886 bonds
+#  Cu-Zr    2.489   2.963 +/- 0.288 in [2.489, 3.837]  1918 bonds
+#  Zr-Zr    2.943   3.421 +/- 0.389 in [2.943, 4.373]  1040 bonds
+# total= 6762 bonds
+
+#    module= geometry_analysis        status= 0
+
+# 0 warnings have been recorded.
+\end{verbatim}
+\normalsize
+
+\newpage
+\begin{landscape}
+\subsection{Example output for radial\_eigensolver} \label{sec:example-output-for-radial-_eigensolver}
+%
+\small
+\begin{verbatim}
+# radial_eigensolver.cxx test_hydrogen_like_potential (Z=100) non-relativistic
+\end{verbatim}
+%
+%%%% from https://tex.stackexchange.com/questions/156767/multiple-columns-with-minipage-cant-use-100-of-textwidth
+\noindent
+\begin{minipage}[t]{.7\textwidth}
+\raggedright
+%
+\begin{verbatim}
+#  1 -energy -5000.000000000000 Ha analytical
+#  1s-energy -4999.999999999996  dev 3.6e-12 Ha
+#  2 -energy -1250.000000000000 Ha analytical
+#  2s-energy -1250.000002608134  dev -2.6e-06 Ha
+#  2p-energy -1250.000000864512  dev -8.6e-07 Ha
+#  3 -energy -555.555555555556 Ha analytical
+#  3s-energy -555.555562762060  dev -7.2e-06 Ha
+#  3p-energy -555.555559359189  dev -3.8e-06 Ha
+#  3d-energy -555.555556392101  dev -8.4e-07 Ha
+#  4 -energy -312.500000000000 Ha analytical
+#  4s-energy -312.500013968428  dev -1.4e-05 Ha
+#  4p-energy -312.500009441156  dev -9.4e-06 Ha
+#  4d-energy -312.500003903630  dev -3.9e-06 Ha
+#  4f-energy -312.500000729428  dev -7.3e-07 Ha
+#  5 -energy -200.000000000000 Ha analytical
+#  5s-energy -200.000022753883  dev -2.3e-05 Ha
+#  5p-energy -200.000017592622  dev -1.8e-05 Ha
+#  5d-energy -200.000010050054  dev -1.0e-05 Ha
+#  5f-energy -200.000003687713  dev -3.7e-06 Ha
+#  5g-energy -200.000000632147  dev -6.3e-07 Ha
+#  6 -energy -138.888888888889 Ha analytical
+#  6s-energy -138.888922437307  dev -3.4e-05 Ha
+#  6p-energy -138.888916890362  dev -2.8e-05 Ha
+#  6d-energy -138.888907982484  dev -1.9e-05 Ha
+#  6f-energy -138.888898816611  dev -9.9e-06 Ha
+#  6g-energy -138.888892305181  dev -3.4e-06 Ha
+#  6h-energy -138.888889440679  dev -5.5e-07 Ha
+\end{verbatim}
+%
+\end{minipage}% <---------------- Note the use of "%"
+\begin{minipage}[t]{.7\textwidth}
+\raggedleft
+%
+\begin{verbatim}
+#  7 -energy -102.040816326531 Ha analytical
+#  7s-energy -102.040862672379  dev -4.6e-05 Ha
+#  7p-energy -102.040856904693  dev -4.1e-05 Ha
+#  7d-energy -102.040846996754  dev -3.1e-05 Ha
+#  7f-energy -102.040835734864  dev -1.9e-05 Ha
+#  7g-energy -102.040825875018  dev -9.5e-06 Ha
+#  7h-energy -102.040819471332  dev -3.1e-06 Ha
+#  7i-energy -102.040816813684  dev -4.9e-07 Ha
+#  8 -energy -78.125000000000 Ha analytical
+#  8s-energy -78.125061081898  dev -6.1e-05 Ha
+#  8p-energy -78.125055125070  dev -5.5e-05 Ha
+#  8d-energy -78.125044577429  dev -4.5e-05 Ha
+#  8f-energy -78.125031723962  dev -3.2e-05 Ha
+#  8g-energy -78.125019154014  dev -1.9e-05 Ha
+#  8h-energy -78.125009078651  dev -9.1e-06 Ha
+#  8i-energy -78.125002886225  dev -2.9e-06 Ha
+#  8j-energy -78.125000435140  dev -4.4e-07 Ha
+#  9 -energy -61.728395061728 Ha analytical
+#  9s-energy -61.728472881346  dev -7.8e-05 Ha
+#  9p-energy -61.728466782896  dev -7.2e-05 Ha
+#  9d-energy -61.728455806989  dev -6.1e-05 Ha
+#  9f-energy -61.728441693685  dev -4.7e-05 Ha
+#  9g-energy -61.728426933448  dev -3.2e-05 Ha
+#  9h-energy -61.728413640858  dev -1.9e-05 Ha
+#  9i-energy -61.728403628371  dev -8.6e-06 Ha
+#  9j-energy -61.728397729906  dev -2.7e-06 Ha
+#  9k-energy -61.728395453327  dev -3.9e-07 Ha
+\end{verbatim}
+%
+\end{minipage}
+%
+\begin{verbatim}
+# test_hydrogen_like_potential: largest energy deviation for non-relativistic solver is 7.8e-05 Ha
+\end{verbatim}
+\normalsize
+\end{landscape}
+
+\newpage
+
+The \ttt{radial\_eigensolver} has two relevant operations modes: \ttt{non}-\ttt{relativistic} and \ttt{scalar}-\ttt{relativistic}. Figure \ref{fig:radial-eigensolver-Z100-state-diagram} shows their difference for heavy atoms.
+%% \ttt{linearized}-\ttt{sqrt} is an approximation for compute speed:
+%% the relativistic mass m = m0*sqrt(1 + (v/c)^2) 
+%%    is approximated as m = m0*(1 + 0.5*(v/c)^2)
+%% The effect is tiny for atoms below Z=30
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=.99\textwidth]{fig/radial_eigensolver_Z100_state_diagram}
+	%% generated: -D PLOT_STATE_DIAGRAM
+	%% ./a43 --test radial_eigensolver +radial_eigensolver.test.Z=100
+	\label{fig:radial-eigensolver-Z100-state-diagram}
+	\caption{State diagram for a bare Coulomb potential $V(r) = -Z/r$ (no screening, dashed black line) 
+			 of a heavy core, $Z$=100.
+			 In the \ttt{non}-\ttt{relativistic} approximation (Schr\"{o}dinger equation)
+			 the hydrogen-like energy levels $E_{n\ell}$ are analytically known as $-{Z^2}/({2n^2})$,
+			 independent of $\ell$ (solid black lines).
+			 With the \ttt{scalar}-\ttt{relativistic} solver the energy levels are found below $E_{n\ell}$
+			 and the $\ell$-degeneracy is lifted (solid orange lines).
+	         }
+\end{figure}
+
+
+\newpage
+
+\subsection{Example output for } \label{sec:example-output-for-3}
+%
+\small
+\begin{verbatim}
+\end{verbatim}
+\normalsize
 
 \newpage
 

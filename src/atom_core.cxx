@@ -12,7 +12,7 @@
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid, ::default_points
 #include "display_units.h" // eV, _eV
 #include "radial_potential.hxx" // ::Hartree_potential
 #include "exchange_correlation.hxx" // ::LDA_kernel
@@ -206,7 +206,7 @@ namespace atom_core {
       , double const Z // atomic number
       , int const echo // log output level
       , double const occupations[][2] // =nullptr
-      , double *export_Zeff // =nullptr
+      , double *const export_Zeff // =nullptr
   ) {
       status_t stat(0);
       if (echo > 7) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
@@ -288,10 +288,9 @@ namespace atom_core {
           } // loading_failed
       } // start scope
 
-      double res{9e9}; // residual
+      double residual{9e9};
       bool run{true};
       while (run) {
-//           run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
 
           switch (next_task) {
               ///////////////////////////////////////////////////////
@@ -365,18 +364,18 @@ namespace atom_core {
 
                   ++icyc; // transit to the next SCF iteration
                   { // scope: determine the residual
-                      auto const E_res = E_est; // monitor the change on some energy contribution that depends on the density only
-                      res = std::abs(energies[E_res] - previous_energy);
-                      previous_energy = energies[E_res]; // store for the next iteration
+                      auto const E_monitor = energies[E_est]; // monitor the change on some energy contribution that depends on the density only
+                      residual = std::abs(E_monitor - previous_energy);
+                      previous_energy = E_monitor; // store for the next iteration
                   } // scope
                   if (echo > 3) {
                       int const display_every = 1 << std::max(0, 2*(6 - echo)); // echo=4:every 16th, 5:every 4th, 6:every cycle
                       if (0 == (icyc & (display_every - 1))) {
                           std::printf("# %s  Z=%g  icyc=%d  residual=%.1e  E_tot=%.9f %s\n",
-                                  __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+                                  __func__, Z, icyc, residual, energies[E_tot]*eV, _eV);
                       } // display?
                   } // echo
-                  run = (res > THRESHOLD || icyc <= MINCYCLES) && (icyc < MAXCYCLES);
+                  run = (residual > THRESHOLD || icyc <= MINCYCLES) && (icyc < MAXCYCLES);
 
                   next_task = Task_MixPot;
               } break; // Task_Energy
@@ -401,23 +400,24 @@ namespace atom_core {
 
       } // while run
 
-      if (res > THRESHOLD) {
-          if (echo > 0) std::printf("# %s  Z=%g  Warning! Did not converge in %d iterations, res=%.1e\n", __func__, Z, icyc, res);
+      if (residual > THRESHOLD) {
+          if (echo > 0) std::printf("# %s  Z=%g  Warning! Did not converge in %d iterations, res=%.1e\n", __func__, Z, icyc, residual);
           stat += 9;
       } else {
           if (echo > 1) {
-              std::printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n",
-                      __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+              std::printf("# %s  Z=%g  converged in %d iterations to residual=%.1e, E_tot= %.9f %s\n",
+                      __func__, Z, icyc, residual, energies[E_tot]*eV, _eV);
               std::printf("# %s  Z=%g  E_kin= %.9f E_xc= %.9f E_es= %.9f %s\n", __func__, Z, 
                       energies[E_kin]*eV, energies[E_exc]*eV, energies[E_est]*eV, _eV);
               std::printf("# %s  Z=%g  E_Coulomb= %.9f E_Hartree= %.9f %s\n", __func__, Z, 
                       energies[E_Cou]*eV, energies[E_Htr]*eV, _eV);
           } // echo
+
           if (echo > 2) {
               for (int i = 0; i <= imax; ++i) {
                   std::printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ);
               } // i
-//            std::printf("\n"); // blank line after displaying spectrum
+          //  std::printf("\n"); // blank line after displaying spectrum
           } // echo
 
           if (nullptr != export_Zeff) {
@@ -497,20 +497,20 @@ namespace atom_core {
 
           } // i, orbitals
 
-          std::printf("\n## potential for state diagram of Z=%g in sqrt(%s), log10(%s)\n", Z, _Ang, _eV);
-          for (int ir = 1; ir < g.n; ++ir) {
-              double const pot = rV_old[ir]*g.rinv[ir];
-              if (pot > -1e5 && pot < 0) std::printf("%g %g\n", std::sqrt(g.r[ir]*Ang), -std::log10(-pot*eV));
-          } // ir
           std::printf("\n## state diagram (%g%% to %g%%) for Z=%g in sqrt(%s), log10(%s)\n", percent*100, (1 - percent)*100, Z, _Ang, _eV);
           for (int inl = 0; inl < inl_max; ++inl) {
               std::printf("# %c%c\n%g %g\n%g %g\n\n", sd_enn[inl], sd_ell[inl], // energy level
                   std::sqrt(sd_r05[inl]*Ang), -std::log10(-sd_ene[inl]*eV), 
                   std::sqrt(sd_r95[inl]*Ang), -std::log10(-sd_ene[inl]*eV));
           } // inl
+          std::printf("\n## potential for state diagram of Z=%g in sqrt(%s), log10(%s)\n", Z, _Ang, _eV);
+          for (int ir = 1; ir < g.n; ++ir) {
+              double const pot = rV_old[ir]*g.rinv[ir];
+              if (pot > -1e5 && pot < 0) std::printf("%g %g\n", std::sqrt(g.r[ir]*Ang), -std::log10(-pot*eV));
+          } // ir
       } // show_state_diagram
 
-      char const *const export_as_json = control::get("atom_core.export.as.json", ""); //
+      char const *const export_as_json = control::get("atom_core.export.as.json", ""); // specify JSON file name
       if ('\0' != *export_as_json) {
 
           std::ofstream json(export_as_json, std::ios::out);
@@ -572,7 +572,7 @@ namespace atom_core {
 
       } // export_as_json
 
-      if (echo > 2) std::printf("\n"); // blank line after atoms is computed
+      if (echo > 2) std::printf("\n"); // blank line after atom is computed
 
       return stat;
   } // scf_atom
@@ -582,17 +582,18 @@ namespace atom_core {
   status_t solve(
         double const Z
       , int const echo // =0
-      , char const config // ='a'
-      , radial_grid_t const *rg // =nullptr
-      , double *export_Zeff // =nullptr
+      , char const config // ='a' for auto
+      , radial_grid_t const *const rg // =nullptr
+      , double *const export_Zeff // =nullptr
   ) {
       bool const my_radial_grid = (nullptr == rg);
-      radial_grid_t       *const m = my_radial_grid ? radial_grid::create_default_radial_grid(Z) : nullptr;
+      auto const npoints = radial_grid::default_points(Z);
+      radial_grid_t       *const m = my_radial_grid ? radial_grid::create_radial_grid(npoints) : nullptr;
       radial_grid_t const *const g = my_radial_grid ? m : rg;
       if ('a' == config) { // "auto"
           return scf_atom(*g, Z, echo, nullptr, export_Zeff);
       } else {
-          auto const element = sigma_config::get(Z, echo);
+          auto const element = sigma_config::get(Z, echo); // get occupation numbers from PAW configuration strings
           return scf_atom(*g, Z, echo, element.occ, export_Zeff);
       }
       if (my_radial_grid) radial_grid::destroy_radial_grid(m);
@@ -654,7 +655,7 @@ namespace atom_core {
       if (echo > 3) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
       double maxdev{0};
       for (double Z = 0; Z < 128; Z += 1) {
-          auto & g = *radial_grid::create_default_radial_grid(Z);
+          auto & g = *radial_grid::create_radial_grid(radial_grid::default_points(Z));
           std::vector<double> r2rho(g.n, 0.0);
           double const q = initial_density(r2rho.data(), g, Z);
           double const dev = Z - q;
@@ -687,10 +688,10 @@ namespace atom_core {
       if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d) from %g to %g in steps of %g\n\n",
                       __FILE__, __LINE__, __func__, echo, Z_begin, Z_end - Z_inc, Z_inc);
       status_t stat(0);
-      char const custom_config = 32 | *control::get("atom_core.occupations", "custom");
-      int const i_end = std::round((Z_end - Z_begin)/std::max(1e-9, Z_inc));
+      char const custom_config = *control::get("atom_core.occupations", "custom") | 32; // 32: ignore case
+      size_t const i_end = std::round(std::abs(Z_end - Z_begin)/std::max(1e-9, std::abs(Z_inc)));
       // ToDo: OpenMP loop
-      for (int i = 0; i < i_end; ++i) {
+      for (size_t i = 0; i < i_end; ++i) {
           double const Z = Z_begin + i*Z_inc;
           if (echo > 1) std::printf("\n# atom_core solver for Z= %g\n", Z);
           auto const stat_Z = solve(Z, echo, custom_config);
@@ -711,7 +712,7 @@ namespace atom_core {
     // with  output files      pot/Zeff.00Z
   {
       status_t stat(0);
-      auto & g = *radial_grid::create_default_radial_grid(Z);
+      auto & g = *radial_grid::create_radial_grid(radial_grid::default_points(Z));
       std::vector<double> y(g.n, 0.0);
       stat += read_Zeff_from_file(y.data(), g, Z, "full_pot/Zeff", -1., echo);
       // ToDo: this routine interpolates to a radial_default_grid

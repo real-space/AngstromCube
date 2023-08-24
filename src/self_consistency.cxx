@@ -35,7 +35,7 @@
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
 #include "potential_generator.hxx" // ::add_smooth_quantities
-#ifdef DEVEL
+#ifdef    DEVEL
   #include "potential_generator.hxx" // ::potential_projections
 #endif // DEVEL
 
@@ -45,8 +45,8 @@
 #include "poisson_solver.hxx" // ::solve, ::solver_method
 
 
-#define DEBUG
-#ifdef  DEBUG
+#define   DEBUG
+#ifdef    DEBUG
     #include "debug_output.hxx" // here
 #else  // DEBUG
     #define here
@@ -72,9 +72,9 @@ namespace self_consistency {
 
       natoms = 0; // number of atoms
       int8_t bc[3]; // boundary conditions
-      double cell[3][3] = {{0,0,0}, {0,0,0}, {0,0,0}}; // general cell parameters
+      double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}}; // general cell parameters
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell[0], bc, echo);
+      stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
 
       { // scope: determine grid spacings and number of grid points
 
@@ -99,10 +99,11 @@ namespace self_consistency {
           int ng[3] = {0, 0, 0};
           for (int d = 0; d < 3; ++d) { // directions x, y, z
               char keyword[32];
-              std::snprintf(keyword, 31, "%s.%c", keyword_ng, 'x'+d);
+              std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
               ng[d] = int(control::get(keyword, ng_iso)); // "grid.points.x", ".y", ".z"
               if (ng[d] < 1) {
-                  std::snprintf(keyword, 31, "%s.%c", keyword_hg, 'x'+d);
+                  // try to initialize the grid via "grid.spacing"
+                  std::snprintf(keyword, 32, "%s.%c", keyword_hg, 'x'+d);
                   double const hg_lu = control::get(keyword, hg_iso); // "grid.spacing.x", ".y", ".z"
                   bool const is_default_grid_spacing = (hg_lu == hg_iso);
                   double const hg = hg_lu*in_lu;
@@ -110,7 +111,7 @@ namespace self_consistency {
                       'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
                   default_grid_spacing_used += is_default_grid_spacing;
                   if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-                  ng[d] = n_grid_points(length(cell[d])/hg);
+                  ng[d] = n_grid_points(std::abs(cell[d][d])/hg);
                   if (ng[d] < 1) error("grid spacings too large, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
               } // ng < 1
               ng[d] = even(ng[d]); // if odd, increment to nearest higher even number
@@ -125,16 +126,17 @@ namespace self_consistency {
 
       if (echo > 1) std::printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
-      g.set_grid_spacing(length(cell[0])/g[0], length(cell[1])/g[1], length(cell[2])/g[2]);
+      g.set_cell_shape(cell, echo);
+      assert(g.is_shifted() && "self_consistency module can only treat lower triangular cell matrices!");
+
       double const max_grid_spacing = std::max(std::max(std::max(1e-9, g.h[0]), g.h[1]), g.h[2]);
       if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
             g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
       for (int d = 0; d < 3; ++d) {
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16 && "grid spacing and its inverse do not match");
-          set(g.cell[d], 3, cell[d]); // copy into g.cell
       } // d
       if (g.is_Cartesian()) {
-          if (echo > 1) std::printf("# cell is  %g %g %g  %s\n", cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang);
+          if (echo > 1) std::printf("# cell is  %.9f %.9f %.9f  %s\n", cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang);
           for (int d = 0; d < 3; ++d) {
               if (std::abs(g.h[d]*g[d] - cell[d][d]) >= 1e-6) {
                   warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s",
@@ -144,7 +146,7 @@ namespace self_consistency {
           } // d
       } else if (echo > 1) {
           for (int d = 0; d < 3; ++d) {
-              std::printf("# cell is  %g %g %g  %s\n", g.cell[d][0]*Ang, g.cell[d][1]*Ang, g.cell[d][2]*Ang, _Ang);
+              std::printf("# cell is  %15.9f %15.9f %15.9f  %s\n", g.cell[d][0]*Ang, g.cell[d][1]*Ang, g.cell[d][2]*Ang, _Ang);
           } // d
       } // is_Cartesian
 
@@ -179,7 +181,7 @@ namespace self_consistency {
 
       double constexpr Y00 = solid_harmonics::Y00;
       double constexpr Y00sq = pow2(Y00);
-#ifdef DEVEL
+#ifdef    DEVEL
       double constexpr Y00inv = solid_harmonics::Y00inv;
 #endif // DEVEL
 
@@ -194,11 +196,9 @@ namespace self_consistency {
       stat += init_geometry_and_grid(g, xyzZ, na_noconst, echo);
       int const na{na_noconst}; // total number of atoms
 
-      double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
-
       std::vector<float> ionization(na, 0.f);
       if (0 != ion) {
-#ifdef DEVEL
+#ifdef    DEVEL
           if (na > 0) {
               if (echo > 2) std::printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
               ionization[na - 1] = -ionization[0];
@@ -216,7 +216,7 @@ namespace self_consistency {
       float const rcut = 32; // radial grids usually end at 9.45 Bohr
       view2D<double> periodic_images;
       int const n_periodic_images = boundary_condition::periodic_images(periodic_images,
-                                       cell, g.boundary_conditions(), rcut, echo - 4);
+                                       g.cell, g.boundary_conditions(), rcut, echo - 4);
       if (echo > 1) std::printf("# %s consider %d periodic images\n", __func__, n_periodic_images);
 
 
@@ -234,7 +234,7 @@ namespace self_consistency {
                               xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang);
               Za[ia] = Z;
               for (int d = 0; d < 3; ++d) {
-                  center(ia,d) = geometry_analysis::fold_back(xyzZ(ia,d), cell[d]) + grid_offset[d]; // w.r.t. to the center of grid point (0,0,0)
+                  center(ia,d) = geometry_analysis::fold_back(xyzZ(ia,d), g.cell[d][d]) + grid_offset[d]; // w.r.t. to the center of grid point (0,0,0)
               } // d
               center(ia,3) = 0; // 4th component is not used
               if (echo > 4) std::printf("\n");
@@ -323,14 +323,14 @@ namespace self_consistency {
 
       // configuration
       auto const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
-      if (echo > 2) std::printf("# select electrostatic.solver=%s from list {fft, multi-grid, MultiGrid, CG, SD, none}\n", es_solver_name);
+      if (echo > 2) std::printf("# electrostatic.solver=%s from {fft, multi-grid, MultiGrid, CG, SD, none}\n", es_solver_name);
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
       auto const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32; // {'f', 'g'}
-      if (echo > 2) std::printf("# select electrostatic.compensator=%c from list {factorizable, generalizedGaussian}\n", compensator_method);
+      if (echo > 2) std::printf("# electrostatic.compensator=%c from {factorizable, generalizedGaussian}\n", compensator_method);
 
       auto const occupation_method = *control::get("fermi.level", "exact") | 32; // {'e':"exact", 'l':"linearized"}
-      if (echo > 2) std::printf("# select fermi.level=%c from list {exact, linearized}\n", occupation_method);
+      if (echo > 2) std::printf("# fermi.level=%c from {exact, linearized}\n", occupation_method);
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);
@@ -438,7 +438,7 @@ namespace self_consistency {
                   if ('f' == compensator_method) { // "factorizable"
                       coeff = std::vector<double>(sho_tools::nSHO(ellmax), 0.0);
                       stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
-#ifdef DEVEL
+#ifdef    DEVEL
 //                    if (echo > 7) std::printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);
 #endif // DEVEL
                   } // factorizable
@@ -452,7 +452,7 @@ namespace self_consistency {
 //                           stat += potential_generator::add_generalized_Gaussian(cmp.data(), g, one, 0, cnt, sigma, echo);
                       }
                   } // periodic images
-#ifdef DEVEL
+#ifdef    DEVEL
                   if (echo > 6) { // report extremal values of the density on the grid
                       std::printf("# after adding %g electrons compensator density for atom #%i:", atom_qlm[ia][00]*Y00inv, ia);
                       print_stats(cmp.data(), g.all(), g.dV());
@@ -487,7 +487,7 @@ namespace self_consistency {
                   // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
 
                   stat += sho_projection::renormalize_electrostatics(atom_vlm[ia], coeff.data(), ellmax, sigma, unitary, echo);
-#ifdef DEVEL
+#ifdef    DEVEL
                   if (echo > 3) {
                       std::printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, atom_vlm[ia][00]*Y00*eV,_eV);
                       int const ellmax_show = std::min(ellmax, 2);
@@ -540,7 +540,7 @@ namespace self_consistency {
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               SimpleTimer KS_timer(__FILE__, __LINE__, "solving KS-equation", echo);
 
-#ifdef DEVEL
+#ifdef    DEVEL
               if (echo > 0) {
                   std::printf("\n\n# %s\n# Solve Kohn-Sham equation\n# %s\n\n", h_line, h_line);
                   std::fflush(stdout);
@@ -686,7 +686,7 @@ namespace self_consistency {
 
 
           if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
-#if 1
+#if       1
               auto const x = scf_iteration/spherical_valence_decay; // progress x
               take_atomic_valence_densities = (x >= 1) ? 0 : 2*pow3(x) - 3*pow2(x) + 1; // smooth transition function
               if (echo > 0) std::printf("# set take_atomic_valence_densities = %g %%\n", take_atomic_valence_densities*100);
@@ -719,9 +719,8 @@ namespace self_consistency {
 
       KS.store(control::get("store.waves", ""), echo);
 
-#ifdef DEVEL
-      stat += potential_generator::potential_projections(g, cell,
-                  Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(),
+#ifdef    DEVEL
+      stat += potential_generator::potential_projections(g, Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(),
                   na, &center, rcut, echo);
 #endif // DEVEL
 
@@ -732,9 +731,9 @@ namespace self_consistency {
       return stat;
   } // init
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
       float const ion = control::get("self_consistency.test.ion", 0.);

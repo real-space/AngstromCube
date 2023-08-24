@@ -222,7 +222,6 @@ namespace potential_generator {
 
   inline status_t potential_projections(
         real_space::grid_t const & g // dense grid descriptor
-      , double const cell[]
       , double const Ves[] // electrostatic potential on g
       , double const Vxc[] // exchange-correlation potential on g
       , double const Vtot[] // total effective potential on g
@@ -267,8 +266,7 @@ namespace potential_generator {
 
           view2D<double> periodic_images;
           int const n_periodic_images = boundary_condition::periodic_images(periodic_images,
-                                          cell, g.boundary_conditions(), rcut, echo - 4);
-
+                                          g.cell, g.boundary_conditions(), rcut, echo - 4);
 
           std::vector<radial_grid_t const*> rg(na, nullptr); // pointers to smooth radial grid descriptors
           {   // break the interface to get the radial grid descriptors

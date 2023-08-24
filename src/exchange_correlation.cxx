@@ -146,13 +146,18 @@ namespace exchange_correlation {
 #else // NO_UNIT_TESTS
 
   status_t test_LDA_potentials(int const echo=0) {
-      if (echo > 2) std::printf("\n## density(%s^-3) energy(%s) potential(%s) for {PW91, PZ81}\n", _Ang, _eV, _eV);
-      for (double rho = .625e-20; rho < 1e9; rho *= 2) {
-          double vPZ; double const ePZ = lda_PZ81_kernel(rho, vPZ);
-          double vPW; double const ePW = lda_PW91_kernel(rho, vPW);
-          if (echo > 2) std::printf("%g %g %g %g %g\n", rho/pow3(Ang), ePW*eV, vPW*eV, ePZ*eV, vPZ*eV);
-      } // rho
-      if (echo > 2) std::printf("\n# use gnuplot or xmgrace -nxy to plot the columns above\n");
+      if (echo > 3) {
+          std::printf("\n## density(%s^-3) energy(%s) potential(%s) for {PW91, PZ81}\n", _Ang, _eV, _eV);
+          double const Ang3 = 1./pow3(Ang);
+          for (double rho = .625e-20; rho < 1e9; rho *= 2) {
+              double vPZ; double const ePZ = lda_PZ81_kernel(rho, vPZ);
+              double vPW; double const ePW = lda_PW91_kernel(rho, vPW);
+              std::printf("%g %g %g %g %g\n", rho*Ang3, ePW*eV, vPW*eV, ePZ*eV, vPZ*eV);
+          } // rho
+          std::printf("\n# use gnuplot or xmgrace -nxy to plot the columns above\n");
+      } else if (echo > 2) {
+          std::printf("# %s: increment verbosity to plot the PW91 and PZ81 functionals, echo=%d\n", __func__, echo);
+      } // echo
       return 0;
   } // test_LDA_potentials
 

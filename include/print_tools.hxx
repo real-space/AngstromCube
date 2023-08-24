@@ -57,3 +57,37 @@
       std::printf(" %s\n", _unit);
       return gsum*dV;
   } // print_stats
+
+  template <typename int_t=int32_t>
+  class SparsifyPlot {
+    // This helper class allows to loop over a histogram
+    // and plotting non-zero entries and, in addition, those entries
+    // before and after a non-zero entry.
+    // Usage:
+    //    SparsifyPlot<int> spp;
+    //    for (int_t i = 0; i < hist.size(); ++i) {
+    //        auto const j = spp.previous(i, hist[i] > 0);
+    //        if (j >= 0) printf("%d %g\n", j, hist[j]);
+    //    } // i
+    // Drawback: the last entry (nhist-1) is never plotted!
+  public:
+
+      SparsifyPlot(bool const show0=false) {
+          assert(int_t(-1) < 0 && "int_t must be a signed integer type");
+          // show the first data point always, -1: do not show
+          last[0] = show0 ? 0 : -1; last[1] = -1; last[2] = -1; last[3] = -1;
+      } // constructor
+
+      int_t previous(int_t const ih, bool const nonzero=true) {
+          last[(ih - 2) & 0x3] = -1; // clear after usage
+          if (nonzero) {
+              last[(ih - 1) & 0x3] = ih - 1;
+              last[(ih    ) & 0x3] = ih; // also plot indices left and right of ih
+              last[(ih + 1) & 0x3] = ih + 1;
+          } // nonzero
+          return last[(ih - 1) & 0x3]; // returns previous index
+      } // previous
+
+  private:
+      int_t last[4]; // state
+  }; // class SparsifyPlot

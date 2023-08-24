@@ -731,19 +731,17 @@ namespace plane_wave {
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;
       int natoms{0};
-      double cell[3][3] = {{0,0,0}, {0,0,0}, {0,0,0}};
+      double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
       int8_t bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell[0], bc, 0);
+          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
 
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc); // is assumed periodic anyway
-      g.set_grid_spacing(length(cell[0])/g[0]
-                       , length(cell[1])/g[1]
-                       , length(cell[2])/g[2]);
+      g.set_grid_spacing(length(cell[0])/g[0], length(cell[1])/g[1], length(cell[2])/g[2]);
       for (int d = 0; d < 3; ++d) {
           set(g.cell[d], 3, cell[d]);
       } // d

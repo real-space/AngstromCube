@@ -2,7 +2,7 @@
 // This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
-#include <cmath> // std::ceil, ::sqrt
+#include <cmath> // std::ceil, ::sqrt, ::abs
 #include <cstdint> // int8_t
 
 #include "inline_math.hxx"
@@ -23,19 +23,19 @@ namespace boundary_condition {
 
   inline int periodic_images( // returns the number of images found
         view2D<double> & ipos // array of periodic positions (n,4)
-      , double const cell[3]  // orthorhombic cell parameters
+      , double const cell[3][4]  // lower triangular cell matrix
       , int8_t const bc[3]       // boundary condition selectors
       , float  const rcut      // truncation radius
       , int    const echo=0      // log-level
       , view2D<int8_t> *iidx=nullptr // optional: pointer to array of indices (n,4)
   ) {
       double const cell_diagonal2 = pow2(rcut)
-                                  + pow2(cell[0]) + pow2(cell[1]) + pow2(cell[2]);
+                                  + pow2(cell[0][0]) + pow2(cell[1][1]) + pow2(cell[2][2]); // ToDo: needs adjustment?
       int ni_xyz[3], ni_max{1};
       if (rcut < 0) warn("A negative cutoff radius leads to only one image! rcut = %g a.u.", rcut);
       for (int d = 0; d < 3; ++d) {
           if (Periodic_Boundary == bc[d]) {
-              ni_xyz[d] = std::max(0, int(std::ceil(rcut/cell[d])));
+              ni_xyz[d] = std::max(0, int(std::ceil(rcut/std::abs(cell[d][d]))));
               assert( ni_xyz[d] <= 127 ); // warning: int8_t has range [-128, 127]
               ni_max *= (ni_xyz[d]*2 + 1);
           } else {
@@ -45,21 +45,41 @@ namespace boundary_condition {
       } // d
       if (echo > 5) std::printf("# %s: check %d x %d x %d = %d images max.\n",
               __func__, 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
+
+#ifndef   GENERAL_CELL
+      assert((0 == cell[0][1]) && (0 == cell[1][2]) && (0 == cell[0][2]) && "the cell is not a lower triangular matrix");
+#endif // GENERAL_CELL
+
       view2D<double> pos(ni_max, 4, 0.0); // get memory
-      view2D<int8_t> idx(ni_max, 4, 0); // get memory
+      view2D<int8_t> idx(ni_max, 4, 0);   // get memory
       int ni{1}; // at least one periodic images is always there: (0,0,0)
-      for         (int iz = -ni_xyz[2]; iz <= ni_xyz[2]; ++iz) {  auto const pz = iz*cell[2];
-          for     (int iy = -ni_xyz[1]; iy <= ni_xyz[1]; ++iy) {  auto const py = iy*cell[1];
-              for (int ix = -ni_xyz[0]; ix <= ni_xyz[0]; ++ix) {  auto const px = ix*cell[0];
-                  auto const d2 = pow2(px) + pow2(py) + pow2(pz);
+      for         (int iz = -ni_xyz[2]; iz <= ni_xyz[2]; ++iz) {
+#ifndef   GENERAL_CELL
+          double const pz[3]  = {iz*cell[2][0], iz*cell[2][1], iz*cell[2][2]}; // can deal with a lower triangular cell matrix
+#endif // GENERAL_CELL
+          for     (int iy = -ni_xyz[1]; iy <= ni_xyz[1]; ++iy) {
+#ifndef   GENERAL_CELL
+              double const pyz[3] = {iy*cell[1][0] + pz[0], iy*cell[1][1] + pz[1], pz[2]}; // can deal with a lower triangular cell matrix
+#endif // GENERAL_CELL
+              for (int ix = -ni_xyz[0]; ix <= ni_xyz[0]; ++ix) {
+#ifdef    GENERAL_CELL
+                  double p[3];
+                  for (int d = 0; d < 3; ++d) {
+                      p[d] = ix*cell[0][d] + iy*cell[1][d] + iz*cell[2][d];
+                  } // d
+#else  // GENERAL_CELL
+                  double const px = ix*cell[0][0]; // can deal with a lower triangular cell matrix
+                  double const p[3] = {pyz[0] + px, pyz[1], pyz[2]};
+#endif // GENERAL_CELL
+                  double const d2 = pow2(p[0]) + pow2(p[1]) + pow2(p[2]);
 #ifdef DEVEL
                   char mark{' '};
 #endif // DEVEL
                   if (d2 < cell_diagonal2) {
                       if (d2 > 0) { // exclude the origin (that is already index #0)
-                          pos(ni,0) = px;
-                          pos(ni,1) = py;
-                          pos(ni,2) = pz;
+                          pos(ni,0) = p[0];
+                          pos(ni,1) = p[1];
+                          pos(ni,2) = p[2];
                           pos(ni,3) = d2; // distance^2 - no use
                           // the indices are important for the Bloch-phases
                           idx(ni,0) = ix;
@@ -129,7 +149,7 @@ namespace boundary_condition {
 
   inline status_t test_periodic_images(int const echo=0) {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
-      double const cell[] = {1,2,3};
+      double const cell[3][4] = {{1,0,0,0}, {0,2,0,0}, {0,0,3,0}};
       float  const rcut = 6;
       int8_t const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
       view2D<double> ipos;

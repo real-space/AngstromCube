@@ -163,9 +163,9 @@ namespace sho_tools {
   ) {
       // construct a table of energy ordered indices
       // this is needed to address e.g. the block-diagonal SHO-transformation operator
-      if (echo > 3) std::printf("# %s for <numax=%i> order_%s\n",
+      if (echo > 4) std::printf("# %s for <numax=%i> order_%s\n",
                               __func__, numax, SHO_order2string(order).c_str());
-      if (echo > 4) std::printf("# ");
+      if (echo > 5) std::printf("# ");
       int ii{0};
       switch (order) {
 
@@ -176,7 +176,7 @@ namespace sho_tools {
                       assert( zyx_index(numax, x, y, z) == ii );
                       int const eo = Ezyx_index(x, y, z);
                       energy_ordered[ii] = eo;
-                      if (echo > 5) std::printf(" %i", eo);
+                      if (echo > 6) std::printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // x y z
@@ -190,7 +190,7 @@ namespace sho_tools {
                       assert( lmn_index(numax, l, m, n) == ii );
                       int const eo = Elnm_index(l, n, m);
                       energy_ordered[ii] = eo;
-                      if (echo > 5) std::printf(" %i", eo);
+                      if (echo > 6) std::printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // l m n
@@ -204,7 +204,7 @@ namespace sho_tools {
                       assert( lnm_index(numax, l, n, m) == ii );
                       int const eo = Elnm_index(l, n, m);
                       energy_ordered[ii] = eo;
-                      if (echo > 5) std::printf(" %i", eo);
+                      if (echo > 6) std::printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // l n m
@@ -218,7 +218,7 @@ namespace sho_tools {
                       assert( nlm_index(numax, n, l, m) == ii );
                       int const eo = Elnm_index(l, n, m);
                       energy_ordered[ii] = eo;
-                      if (echo > 5) std::printf(" %i", eo);
+                      if (echo > 6) std::printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // n l m
@@ -231,7 +231,7 @@ namespace sho_tools {
                   assert( ln_index(numax, l, n) == ii );
                   int const eo = Enl_index(n, l);
                   energy_ordered[ii] = eo;
-                  if (echo > 4) std::printf(" %i", eo);
+                  if (echo > 5) std::printf(" %i", eo);
                   if (inverse) inverse[eo] = ii;
                   ++ii;
           }} // l n
@@ -244,7 +244,7 @@ namespace sho_tools {
                   assert( nl_index(numax, n, l) == ii );
                   int const eo = Enl_index(n, l);
                   energy_ordered[ii] = eo;
-                  if (echo > 4) std::printf(" %i", eo);
+                  if (echo > 5) std::printf(" %i", eo);
                   if (inverse) inverse[eo] = ii;
                   ++ii;
           }} // n l
@@ -256,7 +256,7 @@ namespace sho_tools {
               energy_ordered[ii] = ii;
               if (inverse) inverse[ii] = ii;
           } // ii
-          if (echo > 4) std::printf(" <unity> ");
+          if (echo > 5) std::printf(" <unity> ");
         break;
 
         case order_Ezyx: // already energy-ordered
@@ -265,7 +265,7 @@ namespace sho_tools {
               energy_ordered[ii] = ii;
               if (inverse) inverse[ii] = ii;
           } // ii
-          if (echo > 4) std::printf(" <unity> ");
+          if (echo > 5) std::printf(" <unity> ");
         break;
 
         default:
@@ -273,7 +273,7 @@ namespace sho_tools {
                                     __func__, SHO_order2string(order).c_str());
             return order; // error
       } // switch order
-      if (echo > 4) std::printf("\n\n");
+      if (echo > 5) std::printf("\n\n");
       return 0; // success if 0
   } // construct_index_table
 

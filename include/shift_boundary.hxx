@@ -15,6 +15,12 @@
 #include "status.hxx" // status_t
 
 namespace shift_boundary {
+#ifdef    GENERAL_CELL
+  // shift boundary is realized for a lower triangular cell matrix
+  // in real_space.hxx and finite_difference.hxx
+  // however, non-trivial k-points still represent a problem
+#endif // GENERAL_CELL
+
   // A shift boundary condition is helpful for Cartesian methods:
   // If we force the (periodic) unit cell to be orthorhombic
   // in order to be able to use factorizable finite-difference stencils
@@ -29,7 +35,7 @@ namespace shift_boundary {
   // fixes the symmetries which should give a fast SCF convergence.
   // With shift boundary conditions, the unit cell is still rectangular
   // but not periodic in a traditional sense:
-  // We allow non-zero (and we restrict ourselfes to positive) entries
+  // We allow non-zero (and we restrict ourselfs to positive) entries
   // in the upper triangular Bravais matrix:
   //        xx  xy  xz
   //        0   yy  yz
@@ -84,7 +90,10 @@ namespace shift_boundary {
   // the x,y-directions cannot have the same grid spacing as the z-direction.
   // Furthermore, to reduce it to a 1-atomic cell, the rules for BCC apply.
 
-  // Comment: a bit more systematically would be to allow xy, yz, zx
+  // Comment: a bit more systematically would be to allow xy, yz, zx as in
+  //     xx xy  0
+  //      0 yy yz
+  //     zx  0 zz
   // to be non-zero as these form a cyclic sequence. However, this
   // opens an undescribed gap of volume xy*yz*zx, so we see that it
   // must be an upper triangular matrix and entries below the diagonal

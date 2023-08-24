@@ -103,7 +103,7 @@ namespace control {
                       bool const is_default = (default_value_tag == line);
                       if (show_default || !is_default) {
                           if (show_details) {
-                              std::printf("# used %dx, %s %d\t\t", times_used,
+                              std::printf("# used %dx, %s %3d\t", times_used,
                                   is_default?"def ":((line > 0)?"argv":(line?"line":"set ")),
                                   is_default?0:std::abs(line));
                           } // show_details

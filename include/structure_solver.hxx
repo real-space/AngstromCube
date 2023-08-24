@@ -60,7 +60,7 @@ namespace structure_solver {
         , int const echo=0 // log-level
     )
       : gc(coarse_grid)
-      , op(gc, list_of_atoms)
+      , op(gc, list_of_atoms, nullptr, 1, int(control::get("grid.kinetic.range", 8.)))
       , kmesh(kpoint_mesh)
       , nkpoints(number_of_kpoints)
       , nbands(number_of_bands)
@@ -314,8 +314,9 @@ namespace structure_solver {
             // prepare for solving the Kohn-Sham equation on the real-space grid
             // create a coarse grid descriptor (this could be done later but we want a better overview in the log file)
             gc = real_space::grid_t(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
-            gc.set_grid_spacing(2*g.h[0], 2*g.h[1], 2*g.h[2]); // alternative: cell[]/gc[]
             gc.set_boundary_conditions(g.boundary_conditions());
+            gc.set_cell_shape(g.cell, echo);
+//          gc.set_grid_spacing(2*g.h[0], 2*g.h[1], 2*g.h[2]); // alternative: cell[]/gc[]
 
             if (echo > 1) {
                 std::printf("# use  %d x %d x %d  coarse grid points\n", gc[0], gc[1], gc[2]);
