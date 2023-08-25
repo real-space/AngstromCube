@@ -61,7 +61,7 @@
 
 #ifdef    HAS_RAPIDXML
     #include "pawxml_import.hxx" // ::parse_pawxml, pawxml_t, pawxmlstate_t
-    // #include "radial_grid.hxx" // ::create_radial_grid, ::equation_reciprocal
+    #include "radial_grid.hxx" // ::create_radial_grid, ::equation_reciprocal
 #endif // HAS_RAPIDXML
 
 #include "pawxml_export.hxx" // ::write_to_file
@@ -1114,7 +1114,7 @@ namespace single_atom {
         if (echo > 3) std::printf("\n\n#\n# %s loading of \'%s\' successful, %g protons\n", label, xmlfilename, Z_core);
         if (Z_protons != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_protons, Z_core);
 
-        rg[TRU] = *radial_grid::create_radial_grid(p.n, p.n*p.radial_grid_a, radial_grid::equation_reciprocal);
+        rg[TRU] = *radial_grid::create_radial_grid(p.n, p.n*p.radial_grid_a, p.radial_grid_eq);
         rg[SMT] = rg[TRU]; rg[SMT].memory_owner = false; // same grid for true and smooth quantities, shallow copy
 
 
@@ -4667,7 +4667,7 @@ namespace single_atom {
   status_t test_pawxml_constructor(int const echo=9) {
 #ifdef    HAS_RAPIDXML
       auto const Z = control::get("single_atom.test.Z", 29.); // default copper
-      if (echo > 0) std::printf("# try to construct a LiveAtom instance from a pawxml file for Z=%g\n", Z);
+      if (echo > 0) std::printf("# try to construct a LiveAtom instance from a PAW-XML file for Z=%g\n", Z);
       LiveAtom a(Z, echo); // envoke constructor loading from pawxml
       return 0;
 #else  // HAS_RAPIDXML

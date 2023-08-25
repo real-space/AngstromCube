@@ -12,6 +12,7 @@
 \usepackage{pgfplots}
 \usepackage{gensymb} %% \degree
 \usepackage{pdflscape} %% or lscape
+%\usepackage[acronym]{glossaries}
 
 
 \usepackage{acronym} %% for abbreviations
@@ -49,6 +50,9 @@
 \newcommand{\fullcodename}{AngstromCube}
 \newcommand{\codename}{A43}
 
+%\makeglossaries
+
+
 \begin{document}
 \pagestyle{plain}
 
@@ -81,12 +85,14 @@ makes use of will need be covered in order to explain the handling.
 \end{abstract}
 % ==============================================================================
 
-\section*{How to read this document?}
-\todo[inline]{Write}
-
 \newpage
 
 \tableofcontents
+
+\section*{How to read this document?}
+\todo[inline]{Write}
+
+
 
 \newpage
 
@@ -1179,7 +1185,7 @@ The operators enter an iterative Davidson diagonalization procedure. For small g
 %
 \section{Appendix}
 %
-\subsection{Example output for atom\_core} \label{sec:example-output-for-atom-core}
+\subsection{Example output for \ttt{atom\_core}} \label{sec:example-output-for-atom-core}
 %
 \small
 \begin{verbatim}
@@ -1226,12 +1232,12 @@ There is a warning here: the \ttt{auto}-matic configuration of atomic occupation
 for copper would suggest Cu $4s_{2}$ $3d_{9}$. However, the \ttt{sigma\_config} string
 says $4s_{1}$ $3d_{10}$.
 Mind that only the last warning is quoted in the warning summary at the programs end.
-Furthermore, there is a phantom occupation number \ttt{2e-99} on the $4p$ orbital.
+Furthermore, there is a phantom occupation number \ttt{2e-99} on the shallow $4p$ orbital.
 This number is too small to influence \ttt{atom\_core} results but becomes relevant during \ac{PAW} generation.
 
 \newpage
 
-\subsection{Example output for single\_atom} \label{sec:example-output-for-single-atom}
+\subsection{Example output for \ttt{single\_atom}} \label{sec:example-output-for-single-atom}
 %
 \small
 %%% +element_Cu="4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma 0.75" +logder.step=1e-4
@@ -1288,7 +1294,7 @@ This number is too small to influence \ttt{atom\_core} results but becomes relev
 
 \newpage
 
-\subsection{Example output for geometry\_analysis} \label{sec:example-output-for-geometry-analysis}
+\subsection{Example output for \ttt{geometry\_analysis}} \label{sec:example-output-for-geometry-analysis}
 %
 \small
 \begin{verbatim}
@@ -1341,7 +1347,7 @@ This number is too small to influence \ttt{atom\_core} results but becomes relev
 
 \newpage
 \begin{landscape}
-\subsection{Example output for radial\_eigensolver} \label{sec:example-output-for-radial-_eigensolver}
+\subsection{Example output for \ttt{radial\_eigensolver}} \label{sec:example-output-for-radial-_eigensolver}
 %
 \small
 \begin{verbatim}
@@ -1434,7 +1440,7 @@ The \ttt{radial\_eigensolver} has two relevant operations modes: \ttt{non}-\ttt{
 %% The effect is tiny for atoms below Z=30
 \begin{figure}[t]
 	\centering
-	\includegraphics[width=.99\textwidth]{fig/radial_eigensolver_Z100_state_diagram}
+	\includegraphics[width=.5\textwidth]{fig/radial_eigensolver_Z100_state_diagram}
 	%% generated: -D PLOT_STATE_DIAGRAM
 	%% ./a43 --test radial_eigensolver +radial_eigensolver.test.Z=100
 	\label{fig:radial-eigensolver-Z100-state-diagram}
@@ -1448,18 +1454,34 @@ The \ttt{radial\_eigensolver} has two relevant operations modes: \ttt{non}-\ttt{
 	         }
 \end{figure}
 
+\subsection{Example output for \ttt{fermi\_distribution}} \label{sec:example-output-for-fermi-distribution}
+%
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=.5\textwidth]{fig/Fermi-Dirac-distribution}
+	\label{fig:Fermi-Dirac-distribution}
+	\caption{Fermi-Dirac distribution function and its energy derivative.
+		     The energy is given in units of the smearing temperature $k\um{B}T$.
+	         }
+\end{figure}
+%
+See Figure \ref{fig:Fermi-Dirac-distribution} for a plot of the Fermi-Dirac distribution function.
 
 \newpage
 
-\subsection{Example output for } \label{sec:example-output-for-3}
+\subsection{Example output for \ttt{MODULE\_NAME}} \label{sec:example-output-for-MODULE-NAME}
 %
 \small
 \begin{verbatim}
 \end{verbatim}
 \normalsize
 
-\newpage
+%\newpage
+%\printglossary[type=\acronymtype]
+%\printglossary
 
+
+\newpage
 % ==============================================================================
 \bibliographystyle{plain} 
 \bibliography{literature}

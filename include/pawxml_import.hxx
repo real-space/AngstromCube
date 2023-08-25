@@ -39,11 +39,12 @@ namespace pawxml_import {
   }; // struct pawxmlstate_t
 
   struct pawxml_t {
-      double Z, core, valence;
+      double Z, core, semi, valence;
       double ae_energy[4];
       double core_energy_kinetic;
       double radial_grid_a;
       double radial_grid_d;
+      char   radial_grid_eq;
       int    n; // radial_grid.n
       double shape_function_rc;
       std::vector<pawxmlstate_t> states;
@@ -98,6 +99,7 @@ namespace pawxml_import {
               filename, symbol, Z, core, valence);
           p.Z       = std::atof(Z);
           p.core    = std::atof(core);
+          p.semi    = 0; // not implemented
           p.valence = std::atof(valence);
           std::snprintf(p.Sy, 3, "%s", symbol);
       } else warn("<atom> not found in xml-file '%s'", filename);
@@ -155,8 +157,12 @@ namespace pawxml_import {
           p.n = std::atoi(n);
           p.radial_grid_a = std::atof(a);
           p.radial_grid_d = std::atof(d);
-     //   if (std::string(eq) != "r=a*i/(n-i)")      error("%s: assume a radial reciprocal grid, found %s", filename, eq);
-          if (std::string(eq) != "r=a*(exp(d*i)-1)") error("%s: assume a radial exponential grid, found %s", filename, eq);
+          p.radial_grid_eq = *eq;
+          if (std::string(eq) != "r=a*i/(n-i)") {
+              p.radial_grid_eq = radial_grid::equation_reciprocal;
+          } else if (std::string(eq) != "r=a*(exp(d*i)-1)") {
+              p.radial_grid_eq = radial_grid::equation_exponential;
+          } else warn("%s: radial grid neither exponential nor reciprocal, found %s", filename, eq);
           if (0 != std::atoi(istart))                error("%s: assume a radial grid starting at 0", filename);
           if (p.n != std::atoi(iend) + 1)            error("%s: assume a radial grid starting from 0 to n-1", filename);
       } else warn("<radial_grid> not found in xml-file '%s'", filename);
