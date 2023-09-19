@@ -73,4 +73,6 @@ namespace debug_output {
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
   } // write_array_to_file
 
+  inline status_t all_tests(int echo=0) { return 0; }
+
 } // namespace debug_output

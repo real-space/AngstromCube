@@ -11,6 +11,7 @@
 #include "radial_grid.hxx" // ::get_prefactor, ::find_grid_index, ::get_formula
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT
 #include "data_view.hxx" // view2D<T>, view3D<T>
+#include "spherical_state.hxx" // core, valence
 #include "control.hxx" // ::get
 
 namespace pawxml_export {
@@ -384,6 +385,6 @@ namespace pawxml_export {
       return 0; // 0:success
   } // write_to_file
 
-// inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; } // not a standalone module!
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 
 } // namespace pawxml_export

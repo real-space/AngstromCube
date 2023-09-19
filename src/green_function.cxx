@@ -613,11 +613,11 @@ namespace green_function {
       if (echo > 1) {
           std::printf("\n# Cell summary:\n");
           for (int d = 0; d < 3; ++d) {
-              std::printf("#%8d %c-points,%7d blocks, spacing=%9.6f, cell.%c=%9.3f %s, boundary= %d\n",
+              std::printf("# %7d %c-points, %6d blocks, spacing= %8.6f, cell.%c= %8.3f %s, boundary= %d\n",
                   ng[d], 'x' + d, n_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, boundary_condition[d]);
           } // d
           std::printf("# ================ ============== ================== ====================== ============\n"
-              "#%8.3f M points,%12.3f k, average=%9.6f, volume=%9.1f %s^3\n\n",
+              "# %7.3f M points, %11.3f k, average= %8.6f, volume= %8.1f %s^3\n\n",
               ng[X]*1e-6*ng[Y]*ng[Z], n_all_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
       } // echo
 
@@ -637,8 +637,7 @@ namespace green_function {
       int32_t max_global_source_coords[] = {-MinMaxLim, -MinMaxLim, -MinMaxLim};
       int32_t min_global_source_coords[] = { MinMaxLim,  MinMaxLim,  MinMaxLim};
       int32_t global_internal_offset[]   = {0, 0, 0};
-      double max_distance_from_comass{0};
-      double max_distance_from_center{0};
+      double max_distance_from_comass{0}, max_distance_from_center{0};
       { // scope: determine min, max, center
           double const by_nrhs = 1./std::max(1., double(nrhs));
           for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
@@ -655,22 +654,25 @@ namespace green_function {
 
           for (int d = 0; d < 3; ++d) {
               auto const middle2 = min_global_source_coords[d] + max_global_source_coords[d];
-              global_internal_offset[d] = middle2/2;
+              global_internal_offset[d] = middle2/2; // integer division by 2, "lesser half" 
               center_of_RHSs[d] = ((middle2*0.5)*4 + 1.5)*hg[d];
           } // d
 
           if (echo > 0) std::printf("# internal and global coordinates differ by %s\n", str(global_internal_offset));
 
           p.source_coords = get_memory<int16_t[4]>(nrhs, echo, "source_coords"); // internal coordinates
-          { // scope: compute also the largest distance from the center or center of mass
+          { // scope: fill p.source_coords and compute the largest distance from the center or center of mass
               double max_d2m{0}, max_d2c{0};
               for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
                   double d2m{0}, d2c{0};
                   for (int d = 0; d < 3; ++d) {
-                      int32_t const source_coord = global_source_coords(irhs,d) - global_internal_offset[d];
-                      p.source_coords[irhs][d] = source_coord; assert(source_coord == p.source_coords[irhs][d] && "safe assign");
-                      d2m += pow2((global_source_coords(irhs,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
-                      d2c += pow2((global_source_coords(irhs,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
+                      auto const source_coord = global_source_coords(irhs,d) - global_internal_offset[d];
+                      auto const src_coord_16 = int16_t(source_coord); // convert to shorter integer type
+                      assert(source_coord == src_coord_16 && "internal source_coords use int16_t, maybe too large");
+                      p.source_coords[irhs][d] = src_coord_16;
+                      auto const cube_center = (global_source_coords(irhs,d)*4 + 1.5)*hg[d];
+                      d2m += pow2(cube_center - center_of_mass_RHS[d]);
+                      d2c += pow2(cube_center - center_of_RHSs[d]);
                   } // d
                   p.source_coords[irhs][3] = 0; // not used
                   max_d2c = std::max(max_d2c, d2c);
@@ -689,7 +691,8 @@ namespace green_function {
       // truncation radius
       // double r_trunc_xyz[] = {9e8, 9e8, 9e8};
       // auto const r_trunc = control::get(r_trunc_xyz, "green_function.truncation.radius", "xyz", 10.);
-      // if (echo > 0) std::printf("# green_function.truncation.radius=%g %g %g %s, %.1f grid points\n", r_trunc_xyz[0]*Ang, r_trunc_xyz[1]*Ang, r_trunc_xyz[2]*Ang, _Ang);
+      // if (echo > 0) std::printf("# green_function.truncation.radius=%g %g %g %s, %.1f grid points\n",
+      //                                         r_trunc_xyz[0]*Ang, r_trunc_xyz[1]*Ang, r_trunc_xyz[2]*Ang, _Ang, r_trunc/average_grid_spacing);
       auto const r_trunc = control::get("green_function.truncation.radius", 10.);
       if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
       p.r_truncation  = std::max(0., r_trunc);
@@ -1391,7 +1394,7 @@ namespace green_function {
       std::vector<double> xyzZinso(0); // atom info
       std::vector<std::vector<double>> AtomMatrices(0); // non-local potential
 
-      auto const *const filename = control::get("green_function.hamiltonian.file", "Hmt.json");
+      auto const *const filename = control::get("hamiltonian.file", "Hmt.json");
       auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));

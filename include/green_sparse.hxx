@@ -16,9 +16,9 @@
 // #define DEBUG
 
 #ifdef  DEBUG
-  #define debug_printf(...) std::printf(__VA_ARGS__)
+  #define green_sparse_debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
-  #define debug_printf(...)
+  #define green_sparse_debug_printf(...)
 #endif // DEBUG
 
 namespace green_sparse {
@@ -42,7 +42,7 @@ namespace green_sparse {
       static bool constexpr col_signed = std::is_signed<ColIndex_t>::value;
 
       sparse_t() : rowStart_(nullptr), colIndex_(nullptr), rowIndex_(nullptr), nRows_(0) {
-          debug_printf("# sparse_t default constructor\n");
+          green_sparse_debug_printf("# sparse_t default constructor\n");
       } // default constructor
 
       sparse_t(
@@ -94,7 +94,7 @@ namespace green_sparse {
       } // constructor
 
       ~sparse_t() {
-          debug_printf("# sparse_t destructor\n");
+          green_sparse_debug_printf("# sparse_t destructor\n");
           if (rowStart_) free_memory(rowStart_);
           if (colIndex_) free_memory(colIndex_);
           if (rowIndex_) free_memory(rowIndex_);
@@ -107,13 +107,13 @@ namespace green_sparse {
       sparse_t & operator= (sparse_t const & rhs) = delete; // copy assignment operator
 
       sparse_t & operator= (sparse_t && rhs) {
-          debug_printf("# sparse_t move assignment sparse_t<ColIndex_t=%s,RowIndex_t=%s>\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>());
-//        debug_printf("# sparse_t.colIndex(%p)= ", (void*)rhs.colIndex()); printf_vector(" %d", rhs.colIndex(), rhs.nNonzeros());
+          green_sparse_debug_printf("# sparse_t move assignment sparse_t<ColIndex_t=%s,RowIndex_t=%s>\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>());
+//        green_sparse_debug_printf("# sparse_t.colIndex(%p)= ", (void*)rhs.colIndex()); printf_vector(" %d", rhs.colIndex(), rhs.nNonzeros());
           rowStart_ = rhs.rowStart_; rhs.rowStart_ = nullptr;
           colIndex_ = rhs.colIndex_; rhs.colIndex_ = nullptr;
           rowIndex_ = rhs.rowIndex_; rhs.rowIndex_ = nullptr;
           nRows_    = rhs.nRows_;    rhs.nRows_    = 0;
-//        debug_printf("# sparse_t.colIndex(%p)= ", (void*)colIndex()); printf_vector(" %d", colIndex(), nNonzeros());
+//        green_sparse_debug_printf("# sparse_t.colIndex(%p)= ", (void*)colIndex()); printf_vector(" %d", colIndex(), nNonzeros());
           return *this;
       } // move assignment
 
@@ -217,8 +217,4 @@ namespace green_sparse {
 
 } // namespace green_sparse
 
-#ifdef DEBUG
-  #undef DEBUG
-#endif // DEBUG
-
-#undef debug_printf
+#undef green_sparse_debug_printf

@@ -27,7 +27,7 @@
               -D HAS_NO_CUDA \
               -c test_me.cxx
 
-#               -D NO_UNIT_TESTS \
+            #   -D NO_UNIT_TESTS \
 
     ## cleanup
     rm -f test_me.cxx test_me.o

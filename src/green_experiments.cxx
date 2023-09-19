@@ -246,50 +246,48 @@ namespace green_experiments {
   size_t rotate_waves(
         real_t       Rpsi[][R1C2][Noco*4*4*4][Noco*64]
       , real_t const  psi[][R1C2][Noco*4*4*4][Noco*64]
-      , double const Rmat[][R1C2] // data layout [(nb*64)(nb*64)][R1C2]
+      , double const Rmat[][R1C2] // data layout [(nb*64)(nb*64)][R1C2], equivalent to std::complex<double> for R1C2==2
       , int const nblocks
       , int const nb
-  )
-    // Rpsi_i = sum_j Rmat[i][j] * psi_j
-  {
+  ) { // Rpsi_i = sum_j Rmat[i][j] * psi_j
       int constexpr Real = 0, Imag = R1C2 - 1;
       int const nbands = nb*64;
 
       // sum over jband
       for (int ib = 0; ib < nb; ++ib) {
-              for (int ib64 = 0; ib64 < 64; ++ib64) {
-                      int const iband = ib*64 + ib64;
-                      for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
-                              int const izyxb = kzyx4*nb + ib;
-                              for (int kzyx = 0; kzyx < 64; ++kzyx) {
+          for (int ib64 = 0; ib64 < 64; ++ib64) {
+              int const iband = ib*64 + ib64;
+              for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
+                  int const izyxb = kzyx4*nb + ib;
+                  for (int kzyx = 0; kzyx < 64; ++kzyx) {
 
-                                double re{0}, im{0};
-                                for (int jb = 0; jb < nb; ++jb) {
-                                    int const jzyxb = kzyx4*nb + jb;
-                                    for (int jb64 = 0; jb64 < 64; ++jb64) {
-                                        int const jband = jb*64 + jb64;
+                      double re{0}, im{0};
+                      for (int jb = 0; jb < nb; ++jb) {
+                          int const jzyxb = kzyx4*nb + jb;
+                          for (int jb64 = 0; jb64 < 64; ++jb64) {
+                              int const jband = jb*64 + jb64;
 
-                                        double const psi_re  = psi[jzyxb][Real][kzyx][jb64],
-                                                     psi_im  = psi[jzyxb][Imag][kzyx][jb64];
+                              double const psi_re = psi[jzyxb][Real][kzyx][jb64],
+                                           psi_im = psi[jzyxb][Imag][kzyx][jb64];
 
-                                        auto const Rmat_re = Rmat[iband*nbands + jband][Real],
-                                                   Rmat_im = Rmat[iband*nbands + jband][Imag];
+                              auto const Rmat_re = Rmat[iband*nbands + jband][Real],
+                                         Rmat_im = Rmat[iband*nbands + jband][Imag];
 
-                                    re += Rmat_re * psi_re; // 2 flop
-                                    if (Imag) {
-                                        re += Rmat_im * psi_im; // 2 flop
-                                        im += Rmat_re * psi_im  // 2 flop
-                                            - Rmat_im * psi_re; // 2 flop
-                                    } // is complex
-                                  } // jb64
-                                } // jb
-                                if (Imag)
-                                Rpsi[izyxb][Imag][kzyx][ib64] = im;
-                                Rpsi[izyxb][Real][kzyx][ib64] = re;
+                              re += Rmat_re * psi_re; // 2 flop
+                              if (Imag) {
+                                  re += Rmat_im * psi_im; // 2 flop
+                                  im += Rmat_re * psi_im  // 2 flop
+                                      - Rmat_im * psi_re; // 2 flop
+                              } // is complex
+                          } // jb64
+                      } // jb
+                      if (Imag)
+                      Rpsi[izyxb][Imag][kzyx][ib64] = im;
+                      Rpsi[izyxb][Real][kzyx][ib64] = re;
 
-                              } // k4x k4y k4z
-                      } // kx4 ky4 kz4
-              } // ib64
+                  } // k4x k4y k4z
+              } // kx4 ky4 kz4
+          } // ib64
       } // ib
 
       return nblocks*64ul * 2ul * pow2(R1C2*1ul*nbands); // returns the number of floating point operations
@@ -475,7 +473,7 @@ namespace green_experiments {
       size_t const nnzb = nblocks * nb;
 
       // create a trivial list
-      assert(nb <= (1ul << 16) && "too many bands for using uint16_t");
+      assert(nb <= (1ul << 16) && "too many bands for using uint16_t as colIndex");
       auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
       for (int iblock = 0; iblock < nblocks; ++iblock) {
           for (int ib = 0; ib < nb; ++ib) {
@@ -514,7 +512,7 @@ namespace green_experiments {
       green_function::update_energy_parameter(pH,  0.0, AtomMatrices, dVol, Noco, 1.0, echo); // prepare for H: A = (1*H - (0)*S)
       green_function::update_energy_parameter(pS, -1.0, AtomMatrices, dVol, Noco, 0.0, echo); // prepare for S: A = (0*H - (-1)*S)
 
-      auto  psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
+      auto psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
 
       int constexpr Real = 0, Imag = R1C2 - 1;
       if (nb < nblocks) { // scope: create start wave functions
@@ -601,6 +599,9 @@ namespace green_experiments {
           } // iband
       } // start waves
 
+      simple_stats::Stats<> Gflop_count;
+      simple_stats::Stats<> Wtime_count;
+
       auto Hpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "H * waves");
       auto Spsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "S * waves");
       auto tpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "temp waves");
@@ -609,12 +610,9 @@ namespace green_experiments {
       auto Smat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Overlap op");
       auto  mat = get_memory<double[R1C2]>(pow2(nbands), echo, "matrix copy");
 
+#ifdef    HAS_LAPACK
       int const maxiter = control::get("green_experiments.eigen.maxiter", (nb == nblocks) ? 1. : 9.);
 
-
-      simple_stats::Stats<> Gflop_count;
-      simple_stats::Stats<> Wtime_count;
-#ifdef    HAS_LAPACK
       for (int ik = 0; ik < nkpoints; ++ik) {
           SimpleTimer timer(__FILE__, __LINE__, __func__, 0);
           double const *const k_point = k_path[ik];
@@ -750,7 +748,7 @@ namespace green_experiments {
               std::printf("# %s needed [%g, %g +/- %g, %g] seconds per k-point, %g seconds in total\n",
                             __func__, st.min(), st.mean(), st.dev(), st.max(),     st.sum()); }
       } // echo
-      free_memory(Smat); free_memory(Hmat);
+      free_memory(Smat); free_memory(Hmat); free_memory(mat);
       free_memory(Spsi); free_memory(Hpsi);
       free_memory(psi);  free_memory(tpsi);
       free_memory(colIndex);
@@ -771,10 +769,10 @@ namespace green_experiments {
       double   hg[3] = {1, 1, 1}; // grid spacings
       std::vector<double> Veff; // local potential
       int natoms{0}; // number of atoms
-      std::vector<double> xyzZinso; // atom info
+      std::vector<double> xyzZinso; // atom info [natoms*8]
       std::vector<std::vector<double>> AtomMatrices; // non-local potential
 
-      auto const *const filename = control::get("green_experiments.hamiltonian.file", "Hmt.xml");
+      auto const *const filename = control::get("hamiltonian.file", "Hmt.json");
       auto const load_stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (load_stat) {
           warn("failed to load_Hamiltonian with status=%d", int(load_stat));
@@ -801,19 +799,20 @@ namespace green_experiments {
       } else {
           // compute a bandstructure using a wave function method
           green_action::plan_t pS; // plan for the overlap operator
-          int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.0);
+          int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.);
           auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo_pS, nullptr, Noco);
           if (plan_stat) {
               warn("failed to construct_Green_function with status=%d for the overlap operator", int(plan_stat));
               return plan_stat;
           } // plan_stat
-          int const r1c2 = control::get("green_experiments.eigen.real", 0.0);
-          if (32 == control::get("green_experiments.eigen.floating.point.bits", 64.0)) {
+          int const r1c2 = control::get("green_experiments.eigen.real", 0.);
+          if (32 == control::get("green_experiments.eigen.floating.point.bits", 64.)) {
               return (1 == r1c2) ? eigensolver<float ,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
                                    eigensolver<float ,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-          } // single precision
-          return (1 == r1c2) ?     eigensolver<double,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
+          } else {
+              return (1 == r1c2) ? eigensolver<double,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
                                    eigensolver<double,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+          } // fp32 or fp64
       } // how
 
   } // test_experiment

@@ -6,6 +6,7 @@
 #include <algorithm> // std::max
 #include <vector> // std::vector
 #include <complex> // std::real
+#include <cstdint> // uint16_t
 
 #include "angular_grid.hxx"
 
@@ -20,6 +21,7 @@
 namespace angular_grid {
 
 //#define LARGE_ANGULAR_GRIDS
+
 #ifdef    LARGE_ANGULAR_GRIDS
   int constexpr ellmax_implemented = 65; // highest Lebedev-Laikov grid implemented
 #else  // LARGE_ANGULAR_GRIDS
@@ -29,13 +31,13 @@ namespace angular_grid {
   int get_grid_size(int const ellmax, int const echo) {
       if (ellmax < -1) return 0;
 
-      int const available[34] = {0,1,6,14,26,38,50,74,86,110,146,170,194,230,266,302,350,
-      434,590,770,974,1202,1454,1730,2030,2354,2702,3074,3470,3890,4334,4802,5294,5810};
+      uint16_t const available[34] = {0,1,6,14,26,38,50,74,86,110,146,170,194,230,266,302,350,
+          434,590,770,974,1202,1454,1730,2030,2354,2702,3074,3470,3890,4334,4802,5294,5810};
       // for ellmax = 65, we reach 5808.0 which then is corrected to 5810
 
       int const npt = (4*pow2(ellmax + 1))/3; // to be corrected to next larger numbers of grid points available
       // todo: check if the suggestion npt = (ellmax+1)^2 leads to orthogonality of the spherical harmonics
-      int i{0}; while (available[i] < npt  && i < 33) { ++i; }
+      int i{0}; while ((available[i] < npt) && (i < 33)) { ++i; }
       if (i >= 32 && available[i] < npt) {
           if (echo > 0) std::printf("# %s ellmax= %i leads to %d points (too large)!\n", __func__, ellmax, npt);
           return -1; // failure
@@ -439,7 +441,7 @@ namespace angular_grid {
       m += gen_oh6(nc, .1713904507106709E-2, xyzw + m, .3791035407695563, .1720795225656878);
       m += gen_oh6(nc, .1555213603396808E-2, xyzw + m, .2778673190586244, .0821302158193251);
       m += gen_oh6(nc, .1802239128008525E-2, xyzw + m, .5033564271075117, .0899920584207488);
-#ifdef  LARGE_ANGULAR_GRIDS
+#ifdef    LARGE_ANGULAR_GRIDS
     break; case 770:
       m += gen_oh1(nc, .2192942088181184E-3, xyzw + m);
       m += gen_oh2(nc, .1436433617319080E-2, xyzw + m);
@@ -1607,13 +1609,12 @@ namespace angular_grid {
       m += gen_oh6(nc, .1899434637795751E-3, xyzw + m, .6455390026356783, .0582380915261720);
       m += gen_oh6(nc, .1904520856831751E-3, xyzw + m, .6747258588365477, .0874038489988472);
       m += gen_oh6(nc, .1905534498734563E-3, xyzw + m, .6772135750395347, .0291994613580811);
-#endif
+#endif // LARGE_ANGULAR_GRIDS
     break; default:
         if (echo > 0) std::printf("# %s: A Lebedev-Laikov grid with %i points for ellmax= %i is not available!\n", __func__, n_corrected, ellmax);
-#ifdef  LARGE_ANGULAR_GRIDS
-#else
+#ifndef   LARGE_ANGULAR_GRIDS
         if (echo > 0 && n_corrected >= 770) std::printf("# %s: Please activate -D LARGE_ANGULAR_GRIDS in %s\n", __func__, __FILE__);
-#endif
+#endif // LARGE_ANGULAR_GRIDS
         return -1;
     } // switch n
 
@@ -1831,6 +1832,12 @@ namespace angular_grid {
 
   int test_generation(int const echo=1) {
       if (echo > 3) std::printf("\n# %s: \n", __func__);
+
+      for (int ellmax = -1; ellmax < 77; ++ellmax) {
+          auto const gs = get_grid_size(ellmax);
+          if (echo > 5) std::printf("# get_grid_size(ellmax=%d)=%d \n", ellmax, gs);
+      } // ellmax
+
       status_t stat(0);
       double dev_all[] = {0, 0};
       for (int ell = -2; ell <= ellmax_implemented + 3; ell += (1 + 2*(ell > 16))) { // in steps of 3 for the larger grids, no need to test the same npt 3 times
@@ -1873,7 +1880,7 @@ namespace angular_grid {
       for (int ell = ellmax; ell >= 0; --ell) {
           int const m = pow2(1 + ell);
           if (echo > 5) std::printf("# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
-          auto const g = get_grid(ell, echo);
+          auto const *const g = get_grid(ell, echo);
           if (nullptr != g) {
               std::vector<std::complex<double>> unity(M*M, 0.0);
               for (int ipt = 0; ipt < g->npoints; ++ipt) {
@@ -1915,8 +1922,9 @@ namespace angular_grid {
       for (int ellmax = lmax; ellmax >= 0; --ellmax) {
           int const m = pow2(1 + ellmax);
           int const npt = get_grid_size(ellmax, echo);
+          assert(npt > 0);
           std::vector<double> inp(m*m, 0.0), tmp(npt*m), out(m*m);
-          for (int i = 0; i < m; ++i) inp[i*m + i] = 1; // prepare a unit matrix
+          for (int i = 0; i < m; ++i) { inp[i*m + i] = 1; } // prepare a unit matrix
           stat += transform(tmp.data(), inp.data(), m, ellmax, false, echo);
           stat += transform(out.data(), tmp.data(), m, ellmax, true,  echo);
           double dev[] = {0, 0};

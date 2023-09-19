@@ -9,6 +9,8 @@
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "data_view.hxx" // view2D<>
 #include "display_units.h" // Ang, _Ang
+#include "inline_math.hxx" // set
+#include "simple_math.hxx" // ::invert3x3
 
 namespace symmetry_group {
 

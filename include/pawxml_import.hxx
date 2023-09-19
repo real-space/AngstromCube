@@ -12,6 +12,7 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
+#include "radial_grid.hxx" // ::equation_reciprocal, ::equation_exponential
 
 #ifdef  HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml

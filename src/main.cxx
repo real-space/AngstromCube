@@ -218,7 +218,8 @@
 //           add_module_test(green_dyadic);
 //           add_module_test(green_action);
 //           add_module_test(green_experiments);
-          green_tests::add_tests(results, input_name, show, all, echo); // The 7 green_* modules above are grouped for faster development
+//  The 7 green_* modules above are grouped for faster development
+          green_tests::add_tests(results, input_name, show, all, echo);
 
           start_a_chapter("eigensolver"); // *****************************************
           add_module_test(conjugate_gradients);

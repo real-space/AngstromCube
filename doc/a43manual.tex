@@ -906,9 +906,9 @@ Most important variables to control self-consistency iterations in \codename{}.
 \centering
 \begin{tabular}{|l|r|l|}
 \hline
-  Variable Name & Default & Meaning, Alternatives \\
+  Variable Name & Default & Meaning, \ttt{Alternatives} \\
 \hline
-  \ttt{geometry.file} & \ttt{atoms.xyz}   & Atomic coordinates and cell \\
+  \ttt{geometry.file} & \ttt{atoms.xyz}   & Atomic coordinates and cell file \\
   \ttt{basis}         & \ttt{grid}        & Basis set, \ttt{plane\_wave}, \ttt{sho} \\ 
   \ttt{grid.spacing}  & \unit[0.125]{\AA} & Coarse real-space grid spacing \\
   \ttt{grid.eigensolver} & \ttt{CG}       & \ttt{Davidson}, \ttt{explicit}, \ttt{none} \\
@@ -924,8 +924,8 @@ Most important variables to control self-consistency iterations in \codename{}.
   \ttt{fermi.level}   & \ttt{exact}       & Fermi level method, \ttt{linearized} \\
   \ttt{self\_consistency.mix.density} & $0.25$ & Simple density mixing parameter \\
   \ttt{self\_consistency.max.scf} & $1$   & Max.~number of \ac{SCF} iterations \\
-  \ttt{start.waves}   & -                 & Load wave functions from this file \\
-  \ttt{store.waves}   & -                 & Store wave functions to this file \\
+  \ttt{start.waves}   &                   & Load wave functions from this file \\
+  \ttt{store.waves}   &                   & Store wave functions to this file \\
 \hline
 \end{tabular}
 \end{table}
@@ -964,7 +964,7 @@ specified in each input file to make sure the results are the same. Run
 \end{verbatim}
 to check that all default configuration strings can be parsed without errors.
 \\
-To check only e.g.~stronium and show its configuration run
+To check only e.g.~strontium and show its configuration run
 \begin{verbatim}
 ./a43 --test sigma_config +sigma_config.test.Z=38
 \end{verbatim}
@@ -1000,12 +1000,12 @@ This is not supported any longer and aborts in an error.
 
 \noindent
 A second valence orbitals with the same angular momentum $\ell$ as in \ttt{+element\_Sr=4s 2 5s 2} [...] 
-effects that two partial waves are used for this $\ell$.
+effects that two partial waves are used for this $\ell$. In this particular case, both valence states are occupied.
 Additional partial waves can be added by asterisks as e.g.~in \ttt{+element\_Os=6s* 2} [...].
 Note that \ttt{+element\_Sr=4s 2 5s*} [...] or \ttt{+element\_Sr=4s* 2 5s} [...] %% ToDo: check this
 would activate a third set of partial waves and projectors which is not recommended for reasons of stability.
 The example of Osmium shows how the \ac{PAW} augmentation radius is specified after the vertical bar \ttt{|}.
-Furthermore, the spread of \ac{SHO}-projectors can be specified using the keyword \ttt{sigma}.
+Furthermore, the $\sigma$-spread of \ac{SHO}-projectors can be specified using the keyword \ttt{sigma}.
 The radius and spread are always given in \ttt{Bohr} atomic units!
 \todo[inline]{Work on magnetism}
 \noindent
@@ -1014,9 +1014,9 @@ please make sure that the first number is the majority spin as e.g.~\ttt{5d* 5 1
 Mind that currently only spin-paired atomic all-electron calculation can be performed by \ttt{atom\_core}.
 %
 To control the potential pseudization in the \ac{PAW} method we can insert 
-\ttt{V=sinc} or \ttt{V=parabola} anywhere into the configuration string, no blank after \ttt{=}.
-The advanced user can specify \ttt{numax} $\nu\um{max}$ to manipulate the size of the \ac{SHO}-projector basis
-and adjust the number of protons \ttt{Zcore} $Z$, even non-integer.
+\ttt{V=sinc} or \ttt{V=parabola} at the end of the configuration string, no blank after \ttt{=}.
+The advanced user can specify \ttt{numax} ($\nu\um{max}$) to manipulate the size of the \ac{SHO}-projector basis
+and adjust the number of protons \ttt{Zcore} ($Z$), even to non-integer values.
 %
 %
 %
@@ -1058,14 +1058,7 @@ Control variables for \ttt{element\_config}
 \end{table}
 %
 If \ttt{+single\_atom.core.state.localization} is not a positive number
-the energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{valence} states.
-
-
-
-
-
-
-
+an energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{valence} states, see l), m) and n) in Table \ref{tab:element-config-variables}.
 
 
 
@@ -1103,22 +1096,21 @@ Most important variables to control the Green function calculation.
   Variable Name & Default & Meaning \\
 \hline
   \ttt{green\_function.truncation.radius} & $10\,$Bohr   & Green function truncation \\
-  \ttt{green\_function.projection.radius} & $6\,\sigma$  & Radius of non-local potential \\
-  \ttt{tfqmrgpu.max.iterations}           & $99$         & Iterative solver limit \\
+  \ttt{green\_function.projection.radius} & $6$          & Radius of non-local potential, in units of $\sigma$ \\
   \ttt{green\_function.sources}			  & 1            & Number of \ac{RHS} blocks, \ttt{-1}: all \\
+  \ttt{tfqmrgpu.max.iterations}           & $99$         & Iterative solver limit \\
 \hline
 \end{tabular}
 \end{table}
 %
-
+\noindent
 Table \ref{tab:main-green-variables} gives an overview of the most important control variables.
 \todo[inline]{Augment the table}
 
 \noindent
 % grep -in 'hamiltonian\.file' ../green/*.cxx ../include/*.hxx
 The \ac{DFT} Hamiltonian is passed to \ttt{./green} via an \ttt{xml} or a \ttt{json} formatted file.
-The filename is controlled by \ttt{+green\_}*\ttt{.hamiltonian.file} where * stands for one of
-\ttt{input}, \ttt{function} or \ttt{experiments}, depending on what to run.
+The filename is controlled by \ttt{+hamiltonian.file} with default \ttt{Hmt.json}.
 
 \subsection{Getting started} \label{sec:green-getting-started}
 %
@@ -1130,7 +1122,7 @@ Start by
 \begin{verbatim}
 ./green --test green_input
 \end{verbatim}
-to see if the input file \ttt{+green\_input.hamiltonian.file=Hmt.json} is parsed without errors or warnings.
+to see if the input file \ttt{+hamiltonian.file=Hmt.json} is found and parsed without errors or warnings.
 
 %
 \noindent
@@ -1146,7 +1138,9 @@ Then, we can control
 to first see if the \ttt{action\_t} can be constructed properly.
 Next, we run a single iteration of the action alone by \ttt{+green\_function.benchmark.iterations=-1}.
 If that works, we can run many (e.g.~$10$) iterations and check performance numbers and their variance.
-Finally, if that works, we can start the solver setup with 
+Set \ttt{+green\_function.benchmark.iterations=-10} for that.
+\noindent
+Finally, if that works we can start the solver setup with 
 \begin{verbatim}
 ./green --test green_function +green_function.benchmark.iterations=1 \
 			   +tfqmrgpu.max.iterations=0
@@ -1156,12 +1150,12 @@ and on success increase \ttt{iterations} to \ttt{1}, \ttt{10}, and more.
 %
 \noindent
 The default precision type is \ttt{+green\_function.benchmark.floating.point.bits=32}, i.e.~\ttt{float}.
-If the memory capacity of the \ac{GPU} allows, we can increase to \ttt{=64} for \ttt{double}.
+If the memory capacity of the \ac{GPU} allows, we can increase to \ttt{64} for \ttt{double}.
 Further, we can try to run the experimental feature for non-collinear magnetism by \ttt{+green\_function.benchmark.noco=2}.
 
 %
 \noindent
-\emph{Real/Complex} If \ttt{./green} has been built without the \ttt{tfQMRgpu} library, we can also check the performance of the pure action for real numbers by \ttt{+green\_function.benchmark.complex=0} while the default is \ttt{=1}.
+\emph{Real/Complex} If \ttt{./green} has been built without the \ttt{tfQMRgpu} library, we can also check the performance of the pure action for real numbers by \ttt{+green\_function.benchmark.complex=0} while the default is \ttt{1}.
 
 \subsection{Green experiments}
 This module is designed to verify that the \ac{DFT} Hamiltonian loaded from file is implemented equivalent to
