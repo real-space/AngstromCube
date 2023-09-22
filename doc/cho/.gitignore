@@ -1,3 +1,19 @@
-*.bmp
-*.png
+### This directory is used for generating figures for the documentation
+### of the Circular Harmonic Oscillator
+### Use make -f ../fig/Makefile to generate .pdf files from .agr files (xmGrace plot)
 
+*.pdf
+*.svg
+*.png
+*.backup
+*.dat
+*.template.agr
+
+
+*.out
+
+### visualization as pictures and movies
+pics/*
+
+### Power Point presentation
+*.pptx

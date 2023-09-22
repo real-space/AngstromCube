@@ -7,7 +7,7 @@
         factorizable local orbitals.
     Furthermore, the Green functions formalism, near-sightedness
     for linear-scaling and the projector augmented wave method (PAW), 
-    in particular the revised PAW methd (see Paul F. Baumeister and Shigeru Tsukamoto,
+    in particular the revised PAW method (see Paul F. Baumeister and Shigeru Tsukamoto,
       proceedings of PASC'19, https://dl.acm.org/doi/10.1145/3324989.3325717)
 
 ![A4cube logo](doc/fig/a43_logo_bold.png)

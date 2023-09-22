@@ -1,0 +1,2993 @@
+# Grace project file
+#
+@version 50125
+@page size 792, 612
+@page scroll 5%
+@page inout 5%
+@link page off
+@map font 4 to "Times-Roman", "Times-Roman"
+@map font 1 to "Times-Italic", "Times-Italic"
+@map font 2 to "Times-Bold", "Times-Bold"
+@map font 3 to "Times-BoldItalic", "Times-BoldItalic"
+@map font 0 to "Helvetica", "Helvetica"
+@map font 5 to "Helvetica-Oblique", "Helvetica-Oblique"
+@map font 6 to "Helvetica-Bold", "Helvetica-Bold"
+@map font 7 to "Helvetica-BoldOblique", "Helvetica-BoldOblique"
+@map font 8 to "Courier", "Courier"
+@map font 9 to "Courier-Oblique", "Courier-Oblique"
+@map font 10 to "Courier-Bold", "Courier-Bold"
+@map font 11 to "Courier-BoldOblique", "Courier-BoldOblique"
+@map font 12 to "Symbol", "Symbol"
+@map font 13 to "ZapfDingbats", "ZapfDingbats"
+@map color 0 to (255, 255, 255), "white"
+@map color 1 to (0, 0, 0), "black"
+@map color 2 to (255, 0, 0), "red"
+@map color 3 to (0, 139, 0), "green"
+@map color 4 to (0, 0, 255), "blue"
+@map color 5 to (255, 255, 0), "yellow"
+@map color 6 to (188, 143, 143), "brown"
+@map color 7 to (220, 220, 220), "grey"
+@map color 8 to (148, 0, 211), "violet"
+@map color 9 to (0, 255, 255), "cyan"
+@map color 10 to (255, 0, 255), "magenta"
+@map color 11 to (255, 165, 0), "orange"
+@map color 12 to (114, 33, 188), "indigo"
+@map color 13 to (103, 7, 72), "maroon"
+@map color 14 to (64, 224, 208), "turquoise"
+@map color 15 to (0, 139, 0), "green4"
+@reference date 0
+@date wrap off
+@date wrap year 1950
+@default linewidth 2.0
+@default linestyle 1
+@default color 1
+@default pattern 1
+@default font 0
+@default char size 1.500000
+@default symbol size 1.000000
+@default sformat "%.8g"
+@background color 0
+@page background fill on
+@timestamp off
+@timestamp 0.03, 0.03
+@timestamp color 1
+@timestamp rot 0
+@timestamp font 0
+@timestamp char size 1.500000
+@timestamp def "Wed Aug 23 09:16:37 2023"
+@r0 off
+@link r0 to g0
+@r0 type above
+@r0 linestyle 1
+@r0 linewidth 2.0
+@r0 color 1
+@r0 line 0, 0, 0, 0
+@r1 off
+@link r1 to g0
+@r1 type above
+@r1 linestyle 1
+@r1 linewidth 2.0
+@r1 color 1
+@r1 line 0, 0, 0, 0
+@r2 off
+@link r2 to g0
+@r2 type above
+@r2 linestyle 1
+@r2 linewidth 2.0
+@r2 color 1
+@r2 line 0, 0, 0, 0
+@r3 off
+@link r3 to g0
+@r3 type above
+@r3 linestyle 1
+@r3 linewidth 2.0
+@r3 color 1
+@r3 line 0, 0, 0, 0
+@r4 off
+@link r4 to g0
+@r4 type above
+@r4 linestyle 1
+@r4 linewidth 2.0
+@r4 color 1
+@r4 line 0, 0, 0, 0
+@g0 on
+@g0 hidden false
+@g0 type XY
+@g0 stacked false
+@g0 bar hgap 0.000000
+@g0 fixedpoint off
+@g0 fixedpoint type 0
+@g0 fixedpoint xy 0.000000, 0.000000
+@g0 fixedpoint format general general
+@g0 fixedpoint prec 6, 6
+@with g0
+@    world 0, -5, 3.25, 1.999
+@    stack world 0, 0, 0, 0
+@    znorm 1
+@    view 0.150000, 0.150000, 1.150000, 0.850000
+@    title ""
+@    title font 0
+@    title size 1.500000
+@    title color 1
+@    subtitle "\qZ\Q=30, Zn"
+@    subtitle font 0
+@    subtitle size 1.480000
+@    subtitle color 1
+@    xaxes scale Normal
+@    yaxes scale Normal
+@    xaxes invert off
+@    yaxes invert off
+@    xaxis  on
+@    xaxis  type zero false
+@    xaxis  offset 0.000000 , 0.000000
+@    xaxis  bar on
+@    xaxis  bar color 1
+@    xaxis  bar linestyle 1
+@    xaxis  bar linewidth 2.0
+@    xaxis  label "Radius (Bohr)"
+@    xaxis  label layout para
+@    xaxis  label place auto
+@    xaxis  label char size 1.500000
+@    xaxis  label font 0
+@    xaxis  label color 1
+@    xaxis  label place normal
+@    xaxis  tick on
+@    xaxis  tick major 1
+@    xaxis  tick minor ticks 1
+@    xaxis  tick default 6
+@    xaxis  tick place rounded true
+@    xaxis  tick in
+@    xaxis  tick major size 1.000000
+@    xaxis  tick major color 1
+@    xaxis  tick major linewidth 2.0
+@    xaxis  tick major linestyle 1
+@    xaxis  tick major grid off
+@    xaxis  tick minor color 1
+@    xaxis  tick minor linewidth 2.0
+@    xaxis  tick minor linestyle 1
+@    xaxis  tick minor grid off
+@    xaxis  tick minor size 0.500000
+@    xaxis  ticklabel on
+@    xaxis  ticklabel format general
+@    xaxis  ticklabel prec 5
+@    xaxis  ticklabel formula ""
+@    xaxis  ticklabel append ""
+@    xaxis  ticklabel prepend ""
+@    xaxis  ticklabel angle 0
+@    xaxis  ticklabel skip 0
+@    xaxis  ticklabel stagger 0
+@    xaxis  ticklabel place normal
+@    xaxis  ticklabel offset auto
+@    xaxis  ticklabel offset 0.000000 , 0.010000
+@    xaxis  ticklabel start type auto
+@    xaxis  ticklabel start 0.000000
+@    xaxis  ticklabel stop type auto
+@    xaxis  ticklabel stop 0.000000
+@    xaxis  ticklabel char size 1.500000
+@    xaxis  ticklabel font 0
+@    xaxis  ticklabel color 1
+@    xaxis  tick place both
+@    xaxis  tick spec type both
+@    xaxis  tick spec 9
+@    xaxis  tick major 0, 0
+@    xaxis  ticklabel 0, "0"
+@    xaxis  tick minor 1, 0.5
+@    xaxis  tick major 2, 1
+@    xaxis  ticklabel 2, "1"
+@    xaxis  tick minor 3, 1.5
+@    xaxis  tick major 4, 2
+@    xaxis  ticklabel 4, "4"
+@    xaxis  tick minor 5, 2.5
+@    xaxis  tick major 6, 3
+@    xaxis  ticklabel 6, "9"
+@    xaxis  tick minor 7, 3.5
+@    xaxis  tick major 8, 4
+@    xaxis  ticklabel 8, "16"
+@    yaxis  on
+@    yaxis  type zero false
+@    yaxis  offset 0.000000 , 0.000000
+@    yaxis  bar on
+@    yaxis  bar color 1
+@    yaxis  bar linestyle 1
+@    yaxis  bar linewidth 2.0
+@    yaxis  label "Energy (Hartree)"
+@    yaxis  label layout para
+@    yaxis  label place auto
+@    yaxis  label char size 1.500000
+@    yaxis  label font 0
+@    yaxis  label color 1
+@    yaxis  label place normal
+@    yaxis  tick on
+@    yaxis  tick major 2
+@    yaxis  tick minor ticks 1
+@    yaxis  tick default 6
+@    yaxis  tick place rounded true
+@    yaxis  tick in
+@    yaxis  tick major size 1.000000
+@    yaxis  tick major color 1
+@    yaxis  tick major linewidth 2.0
+@    yaxis  tick major linestyle 1
+@    yaxis  tick major grid off
+@    yaxis  tick minor color 1
+@    yaxis  tick minor linewidth 2.0
+@    yaxis  tick minor linestyle 1
+@    yaxis  tick minor grid off
+@    yaxis  tick minor size 0.500000
+@    yaxis  ticklabel on
+@    yaxis  ticklabel format general
+@    yaxis  ticklabel prec 5
+@    yaxis  ticklabel formula ""
+@    yaxis  ticklabel append ""
+@    yaxis  ticklabel prepend ""
+@    yaxis  ticklabel angle 0
+@    yaxis  ticklabel skip 0
+@    yaxis  ticklabel stagger 0
+@    yaxis  ticklabel place normal
+@    yaxis  ticklabel offset auto
+@    yaxis  ticklabel offset 0.000000 , 0.010000
+@    yaxis  ticklabel start type auto
+@    yaxis  ticklabel start 0.000000
+@    yaxis  ticklabel stop type auto
+@    yaxis  ticklabel stop 0.000000
+@    yaxis  ticklabel char size 1.500000
+@    yaxis  ticklabel font 0
+@    yaxis  ticklabel color 1
+@    yaxis  tick place both
+@    yaxis  tick spec type both
+@    yaxis  tick spec 15
+@    yaxis  tick major 0, -4
+@    yaxis  ticklabel 0, "-10\S4\N"
+@    yaxis  tick minor 1, -3.5
+@    yaxis  tick major 2, -3
+@    yaxis  ticklabel 2, "-10\S3\N"
+@    yaxis  tick minor 3, -2.5
+@    yaxis  tick major 4, -2
+@    yaxis  ticklabel 4, "-10\S2\N"
+@    yaxis  tick minor 5, -1.5
+@    yaxis  tick major 6, -1
+@    yaxis  ticklabel 6, "-10"
+@    yaxis  tick minor 7, -0.5
+@    yaxis  tick major 8, 0
+@    yaxis  ticklabel 8, "-1"
+@    yaxis  tick minor 9, 0.5
+@    yaxis  tick major 10, 1
+@    yaxis  ticklabel 10, "-0.1"
+@    yaxis  tick minor 11, 1.5
+@    yaxis  tick major 12, 2
+@    yaxis  ticklabel 12, "-0.01"
+@    yaxis  tick minor 13, 2.5
+@    yaxis  tick major 14, 3
+@    yaxis  ticklabel 14, "-0.001"
+@    altxaxis  off
+@    altyaxis  off
+@    legend on
+@    legend loctype view
+@    legend 0.85, 0.4
+@    legend box color 1
+@    legend box pattern 1
+@    legend box linewidth 2.0
+@    legend box linestyle 0
+@    legend box fill color 0
+@    legend box fill pattern 0
+@    legend font 0
+@    legend char size 1.500000
+@    legend color 1
+@    legend length 4
+@    legend vgap 1
+@    legend hgap 1
+@    legend invert false
+@    frame type 0
+@    frame linestyle 1
+@    frame linewidth 2.0
+@    frame color 1
+@    frame pattern 1
+@    frame background color 0
+@    frame background pattern 0
+@    s0 hidden false
+@    s0 type xy
+@    s0 symbol 0
+@    s0 symbol size 1.000000
+@    s0 symbol color 1
+@    s0 symbol pattern 1
+@    s0 symbol fill color 0
+@    s0 symbol fill pattern 1
+@    s0 symbol linewidth 2.0
+@    s0 symbol linestyle 1
+@    s0 symbol char 65
+@    s0 symbol char font 0
+@    s0 symbol skip 0
+@    s0 line type 1
+@    s0 line linestyle 1
+@    s0 line linewidth 2.0
+@    s0 line color 1
+@    s0 line pattern 1
+@    s0 baseline type 0
+@    s0 baseline off
+@    s0 dropline off
+@    s0 fill type 0
+@    s0 fill rule 0
+@    s0 fill color 1
+@    s0 fill pattern 1
+@    s0 avalue off
+@    s0 avalue type 2
+@    s0 avalue char size 1.500000
+@    s0 avalue font 0
+@    s0 avalue color 1
+@    s0 avalue rot 0
+@    s0 avalue format general
+@    s0 avalue prec 3
+@    s0 avalue prepend ""
+@    s0 avalue append ""
+@    s0 avalue offset 0.000000 , 0.000000
+@    s0 errorbar on
+@    s0 errorbar place both
+@    s0 errorbar color 1
+@    s0 errorbar pattern 1
+@    s0 errorbar size 1.000000
+@    s0 errorbar linewidth 2.0
+@    s0 errorbar linestyle 1
+@    s0 errorbar riser linewidth 2.0
+@    s0 errorbar riser linestyle 1
+@    s0 errorbar riser clip off
+@    s0 errorbar riser clip length 0.100000
+@    s0 comment "atom_core.plot.Z30.dat"
+@    s0 legend  "\qs\Q"
+@    s1 hidden false
+@    s1 type xy
+@    s1 symbol 0
+@    s1 symbol size 1.000000
+@    s1 symbol color 1
+@    s1 symbol pattern 1
+@    s1 symbol fill color 1
+@    s1 symbol fill pattern 1
+@    s1 symbol linewidth 2.0
+@    s1 symbol linestyle 1
+@    s1 symbol char 65
+@    s1 symbol char font 0
+@    s1 symbol skip 0
+@    s1 line type 1
+@    s1 line linestyle 1
+@    s1 line linewidth 2.0
+@    s1 line color 1
+@    s1 line pattern 1
+@    s1 baseline type 0
+@    s1 baseline off
+@    s1 dropline off
+@    s1 fill type 0
+@    s1 fill rule 0
+@    s1 fill color 1
+@    s1 fill pattern 1
+@    s1 avalue off
+@    s1 avalue type 2
+@    s1 avalue char size 1.500000
+@    s1 avalue font 0
+@    s1 avalue color 1
+@    s1 avalue rot 0
+@    s1 avalue format general
+@    s1 avalue prec 3
+@    s1 avalue prepend ""
+@    s1 avalue append ""
+@    s1 avalue offset 0.000000 , 0.000000
+@    s1 errorbar on
+@    s1 errorbar place both
+@    s1 errorbar color 1
+@    s1 errorbar pattern 1
+@    s1 errorbar size 1.000000
+@    s1 errorbar linewidth 2.0
+@    s1 errorbar linestyle 1
+@    s1 errorbar riser linewidth 2.0
+@    s1 errorbar riser linestyle 1
+@    s1 errorbar riser clip off
+@    s1 errorbar riser clip length 0.100000
+@    s1 comment "atom_core.plot.Z30.dat"
+@    s1 legend  ""
+@    s2 hidden false
+@    s2 type xy
+@    s2 symbol 0
+@    s2 symbol size 1.000000
+@    s2 symbol color 2
+@    s2 symbol pattern 1
+@    s2 symbol fill color 2
+@    s2 symbol fill pattern 1
+@    s2 symbol linewidth 2.0
+@    s2 symbol linestyle 1
+@    s2 symbol char 65
+@    s2 symbol char font 0
+@    s2 symbol skip 0
+@    s2 line type 1
+@    s2 line linestyle 1
+@    s2 line linewidth 2.0
+@    s2 line color 2
+@    s2 line pattern 1
+@    s2 baseline type 0
+@    s2 baseline off
+@    s2 dropline off
+@    s2 fill type 0
+@    s2 fill rule 0
+@    s2 fill color 1
+@    s2 fill pattern 1
+@    s2 avalue off
+@    s2 avalue type 2
+@    s2 avalue char size 1.500000
+@    s2 avalue font 0
+@    s2 avalue color 1
+@    s2 avalue rot 0
+@    s2 avalue format general
+@    s2 avalue prec 3
+@    s2 avalue prepend ""
+@    s2 avalue append ""
+@    s2 avalue offset 0.000000 , 0.000000
+@    s2 errorbar on
+@    s2 errorbar place both
+@    s2 errorbar color 2
+@    s2 errorbar pattern 1
+@    s2 errorbar size 1.000000
+@    s2 errorbar linewidth 2.0
+@    s2 errorbar linestyle 1
+@    s2 errorbar riser linewidth 2.0
+@    s2 errorbar riser linestyle 1
+@    s2 errorbar riser clip off
+@    s2 errorbar riser clip length 0.100000
+@    s2 comment "atom_core.plot.Z30.dat"
+@    s2 legend  "\qp\Q"
+@    s3 hidden false
+@    s3 type xy
+@    s3 symbol 0
+@    s3 symbol size 1.000000
+@    s3 symbol color 1
+@    s3 symbol pattern 1
+@    s3 symbol fill color 1
+@    s3 symbol fill pattern 1
+@    s3 symbol linewidth 2.0
+@    s3 symbol linestyle 1
+@    s3 symbol char 65
+@    s3 symbol char font 0
+@    s3 symbol skip 0
+@    s3 line type 1
+@    s3 line linestyle 1
+@    s3 line linewidth 2.0
+@    s3 line color 1
+@    s3 line pattern 1
+@    s3 baseline type 0
+@    s3 baseline off
+@    s3 dropline off
+@    s3 fill type 0
+@    s3 fill rule 0
+@    s3 fill color 1
+@    s3 fill pattern 1
+@    s3 avalue off
+@    s3 avalue type 2
+@    s3 avalue char size 1.500000
+@    s3 avalue font 0
+@    s3 avalue color 1
+@    s3 avalue rot 0
+@    s3 avalue format general
+@    s3 avalue prec 3
+@    s3 avalue prepend ""
+@    s3 avalue append ""
+@    s3 avalue offset 0.000000 , 0.000000
+@    s3 errorbar on
+@    s3 errorbar place both
+@    s3 errorbar color 1
+@    s3 errorbar pattern 1
+@    s3 errorbar size 1.000000
+@    s3 errorbar linewidth 2.0
+@    s3 errorbar linestyle 1
+@    s3 errorbar riser linewidth 2.0
+@    s3 errorbar riser linestyle 1
+@    s3 errorbar riser clip off
+@    s3 errorbar riser clip length 0.100000
+@    s3 comment "atom_core.plot.Z30.dat"
+@    s3 legend  ""
+@    s4 hidden false
+@    s4 type xy
+@    s4 symbol 0
+@    s4 symbol size 1.000000
+@    s4 symbol color 2
+@    s4 symbol pattern 1
+@    s4 symbol fill color 2
+@    s4 symbol fill pattern 1
+@    s4 symbol linewidth 2.0
+@    s4 symbol linestyle 1
+@    s4 symbol char 65
+@    s4 symbol char font 0
+@    s4 symbol skip 0
+@    s4 line type 1
+@    s4 line linestyle 1
+@    s4 line linewidth 2.0
+@    s4 line color 2
+@    s4 line pattern 1
+@    s4 baseline type 0
+@    s4 baseline off
+@    s4 dropline off
+@    s4 fill type 0
+@    s4 fill rule 0
+@    s4 fill color 1
+@    s4 fill pattern 1
+@    s4 avalue off
+@    s4 avalue type 2
+@    s4 avalue char size 1.500000
+@    s4 avalue font 0
+@    s4 avalue color 1
+@    s4 avalue rot 0
+@    s4 avalue format general
+@    s4 avalue prec 3
+@    s4 avalue prepend ""
+@    s4 avalue append ""
+@    s4 avalue offset 0.000000 , 0.000000
+@    s4 errorbar on
+@    s4 errorbar place both
+@    s4 errorbar color 2
+@    s4 errorbar pattern 1
+@    s4 errorbar size 1.000000
+@    s4 errorbar linewidth 2.0
+@    s4 errorbar linestyle 1
+@    s4 errorbar riser linewidth 2.0
+@    s4 errorbar riser linestyle 1
+@    s4 errorbar riser clip off
+@    s4 errorbar riser clip length 0.100000
+@    s4 comment "atom_core.plot.Z30.dat"
+@    s4 legend  ""
+@    s5 hidden false
+@    s5 type xy
+@    s5 symbol 0
+@    s5 symbol size 1.000000
+@    s5 symbol color 15
+@    s5 symbol pattern 1
+@    s5 symbol fill color 15
+@    s5 symbol fill pattern 1
+@    s5 symbol linewidth 2.0
+@    s5 symbol linestyle 1
+@    s5 symbol char 65
+@    s5 symbol char font 0
+@    s5 symbol skip 0
+@    s5 line type 1
+@    s5 line linestyle 1
+@    s5 line linewidth 2.0
+@    s5 line color 15
+@    s5 line pattern 1
+@    s5 baseline type 0
+@    s5 baseline off
+@    s5 dropline off
+@    s5 fill type 0
+@    s5 fill rule 0
+@    s5 fill color 1
+@    s5 fill pattern 1
+@    s5 avalue off
+@    s5 avalue type 2
+@    s5 avalue char size 1.500000
+@    s5 avalue font 0
+@    s5 avalue color 1
+@    s5 avalue rot 0
+@    s5 avalue format general
+@    s5 avalue prec 3
+@    s5 avalue prepend ""
+@    s5 avalue append ""
+@    s5 avalue offset 0.000000 , 0.000000
+@    s5 errorbar on
+@    s5 errorbar place both
+@    s5 errorbar color 15
+@    s5 errorbar pattern 1
+@    s5 errorbar size 1.000000
+@    s5 errorbar linewidth 2.0
+@    s5 errorbar linestyle 1
+@    s5 errorbar riser linewidth 2.0
+@    s5 errorbar riser linestyle 1
+@    s5 errorbar riser clip off
+@    s5 errorbar riser clip length 0.100000
+@    s5 comment "atom_core.plot.Z30.dat"
+@    s5 legend  "\qd\Q"
+@    s6 hidden false
+@    s6 type xy
+@    s6 symbol 0
+@    s6 symbol size 1.000000
+@    s6 symbol color 1
+@    s6 symbol pattern 1
+@    s6 symbol fill color 1
+@    s6 symbol fill pattern 1
+@    s6 symbol linewidth 2.0
+@    s6 symbol linestyle 1
+@    s6 symbol char 65
+@    s6 symbol char font 0
+@    s6 symbol skip 0
+@    s6 line type 1
+@    s6 line linestyle 1
+@    s6 line linewidth 2.0
+@    s6 line color 1
+@    s6 line pattern 1
+@    s6 baseline type 0
+@    s6 baseline off
+@    s6 dropline off
+@    s6 fill type 0
+@    s6 fill rule 0
+@    s6 fill color 1
+@    s6 fill pattern 1
+@    s6 avalue off
+@    s6 avalue type 2
+@    s6 avalue char size 1.500000
+@    s6 avalue font 0
+@    s6 avalue color 1
+@    s6 avalue rot 0
+@    s6 avalue format general
+@    s6 avalue prec 3
+@    s6 avalue prepend ""
+@    s6 avalue append ""
+@    s6 avalue offset 0.000000 , 0.000000
+@    s6 errorbar on
+@    s6 errorbar place both
+@    s6 errorbar color 1
+@    s6 errorbar pattern 1
+@    s6 errorbar size 1.000000
+@    s6 errorbar linewidth 2.0
+@    s6 errorbar linestyle 1
+@    s6 errorbar riser linewidth 2.0
+@    s6 errorbar riser linestyle 1
+@    s6 errorbar riser clip off
+@    s6 errorbar riser clip length 0.100000
+@    s6 comment "atom_core.plot.Z30.dat"
+@    s6 legend  ""
+@    s7 hidden false
+@    s7 type xy
+@    s7 symbol 0
+@    s7 symbol size 1.000000
+@    s7 symbol color 2
+@    s7 symbol pattern 1
+@    s7 symbol fill color 2
+@    s7 symbol fill pattern 1
+@    s7 symbol linewidth 2.0
+@    s7 symbol linestyle 1
+@    s7 symbol char 65
+@    s7 symbol char font 0
+@    s7 symbol skip 0
+@    s7 line type 1
+@    s7 line linestyle 1
+@    s7 line linewidth 2.0
+@    s7 line color 2
+@    s7 line pattern 1
+@    s7 baseline type 0
+@    s7 baseline off
+@    s7 dropline off
+@    s7 fill type 0
+@    s7 fill rule 0
+@    s7 fill color 1
+@    s7 fill pattern 1
+@    s7 avalue off
+@    s7 avalue type 2
+@    s7 avalue char size 1.500000
+@    s7 avalue font 0
+@    s7 avalue color 1
+@    s7 avalue rot 0
+@    s7 avalue format general
+@    s7 avalue prec 3
+@    s7 avalue prepend ""
+@    s7 avalue append ""
+@    s7 avalue offset 0.000000 , 0.000000
+@    s7 errorbar on
+@    s7 errorbar place both
+@    s7 errorbar color 2
+@    s7 errorbar pattern 1
+@    s7 errorbar size 1.000000
+@    s7 errorbar linewidth 2.0
+@    s7 errorbar linestyle 1
+@    s7 errorbar riser linewidth 2.0
+@    s7 errorbar riser linestyle 1
+@    s7 errorbar riser clip off
+@    s7 errorbar riser clip length 0.100000
+@    s7 comment "atom_core.plot.Z30.dat"
+@    s7 legend  ""
+@    s8 hidden false
+@    s8 type xy
+@    s8 symbol 0
+@    s8 symbol size 1.000000
+@    s8 symbol color 15
+@    s8 symbol pattern 1
+@    s8 symbol fill color 15
+@    s8 symbol fill pattern 1
+@    s8 symbol linewidth 2.0
+@    s8 symbol linestyle 1
+@    s8 symbol char 65
+@    s8 symbol char font 0
+@    s8 symbol skip 0
+@    s8 line type 1
+@    s8 line linestyle 1
+@    s8 line linewidth 2.0
+@    s8 line color 15
+@    s8 line pattern 1
+@    s8 baseline type 0
+@    s8 baseline off
+@    s8 dropline off
+@    s8 fill type 0
+@    s8 fill rule 0
+@    s8 fill color 1
+@    s8 fill pattern 1
+@    s8 avalue off
+@    s8 avalue type 2
+@    s8 avalue char size 1.500000
+@    s8 avalue font 0
+@    s8 avalue color 1
+@    s8 avalue rot 0
+@    s8 avalue format general
+@    s8 avalue prec 3
+@    s8 avalue prepend ""
+@    s8 avalue append ""
+@    s8 avalue offset 0.000000 , 0.000000
+@    s8 errorbar on
+@    s8 errorbar place both
+@    s8 errorbar color 15
+@    s8 errorbar pattern 1
+@    s8 errorbar size 1.000000
+@    s8 errorbar linewidth 2.0
+@    s8 errorbar linestyle 1
+@    s8 errorbar riser linewidth 2.0
+@    s8 errorbar riser linestyle 1
+@    s8 errorbar riser clip off
+@    s8 errorbar riser clip length 0.100000
+@    s8 comment "atom_core.plot.Z30.dat"
+@    s8 legend  ""
+@    s9 hidden false
+@    s9 type xy
+@    s9 symbol 0
+@    s9 symbol size 1.000000
+@    s9 symbol color 4
+@    s9 symbol pattern 1
+@    s9 symbol fill color 4
+@    s9 symbol fill pattern 1
+@    s9 symbol linewidth 2.0
+@    s9 symbol linestyle 1
+@    s9 symbol char 65
+@    s9 symbol char font 0
+@    s9 symbol skip 0
+@    s9 line type 1
+@    s9 line linestyle 1
+@    s9 line linewidth 2.0
+@    s9 line color 4
+@    s9 line pattern 1
+@    s9 baseline type 0
+@    s9 baseline off
+@    s9 dropline off
+@    s9 fill type 0
+@    s9 fill rule 0
+@    s9 fill color 1
+@    s9 fill pattern 1
+@    s9 avalue off
+@    s9 avalue type 2
+@    s9 avalue char size 1.500000
+@    s9 avalue font 0
+@    s9 avalue color 1
+@    s9 avalue rot 0
+@    s9 avalue format general
+@    s9 avalue prec 3
+@    s9 avalue prepend ""
+@    s9 avalue append ""
+@    s9 avalue offset 0.000000 , 0.000000
+@    s9 errorbar on
+@    s9 errorbar place both
+@    s9 errorbar color 4
+@    s9 errorbar pattern 1
+@    s9 errorbar size 1.000000
+@    s9 errorbar linewidth 2.0
+@    s9 errorbar linestyle 1
+@    s9 errorbar riser linewidth 2.0
+@    s9 errorbar riser linestyle 1
+@    s9 errorbar riser clip off
+@    s9 errorbar riser clip length 0.100000
+@    s9 comment "atom_core.plot.Z30.dat"
+@    s9 legend  "\qf\Q"
+@    s10 hidden false
+@    s10 type xy
+@    s10 symbol 0
+@    s10 symbol size 1.000000
+@    s10 symbol color 1
+@    s10 symbol pattern 1
+@    s10 symbol fill color 1
+@    s10 symbol fill pattern 1
+@    s10 symbol linewidth 2.0
+@    s10 symbol linestyle 1
+@    s10 symbol char 65
+@    s10 symbol char font 0
+@    s10 symbol skip 0
+@    s10 line type 1
+@    s10 line linestyle 1
+@    s10 line linewidth 2.0
+@    s10 line color 1
+@    s10 line pattern 1
+@    s10 baseline type 0
+@    s10 baseline off
+@    s10 dropline off
+@    s10 fill type 0
+@    s10 fill rule 0
+@    s10 fill color 1
+@    s10 fill pattern 1
+@    s10 avalue off
+@    s10 avalue type 2
+@    s10 avalue char size 1.500000
+@    s10 avalue font 0
+@    s10 avalue color 1
+@    s10 avalue rot 0
+@    s10 avalue format general
+@    s10 avalue prec 3
+@    s10 avalue prepend ""
+@    s10 avalue append ""
+@    s10 avalue offset 0.000000 , 0.000000
+@    s10 errorbar on
+@    s10 errorbar place both
+@    s10 errorbar color 1
+@    s10 errorbar pattern 1
+@    s10 errorbar size 1.000000
+@    s10 errorbar linewidth 2.0
+@    s10 errorbar linestyle 1
+@    s10 errorbar riser linewidth 2.0
+@    s10 errorbar riser linestyle 1
+@    s10 errorbar riser clip off
+@    s10 errorbar riser clip length 0.100000
+@    s10 comment "atom_core.plot.Z30.dat"
+@    s10 legend  ""
+@    s11 hidden false
+@    s11 type xy
+@    s11 symbol 0
+@    s11 symbol size 1.000000
+@    s11 symbol color 2
+@    s11 symbol pattern 1
+@    s11 symbol fill color 2
+@    s11 symbol fill pattern 1
+@    s11 symbol linewidth 2.0
+@    s11 symbol linestyle 1
+@    s11 symbol char 65
+@    s11 symbol char font 0
+@    s11 symbol skip 0
+@    s11 line type 1
+@    s11 line linestyle 1
+@    s11 line linewidth 2.0
+@    s11 line color 2
+@    s11 line pattern 1
+@    s11 baseline type 0
+@    s11 baseline off
+@    s11 dropline off
+@    s11 fill type 0
+@    s11 fill rule 0
+@    s11 fill color 1
+@    s11 fill pattern 1
+@    s11 avalue off
+@    s11 avalue type 2
+@    s11 avalue char size 1.500000
+@    s11 avalue font 0
+@    s11 avalue color 1
+@    s11 avalue rot 0
+@    s11 avalue format general
+@    s11 avalue prec 3
+@    s11 avalue prepend ""
+@    s11 avalue append ""
+@    s11 avalue offset 0.000000 , 0.000000
+@    s11 errorbar on
+@    s11 errorbar place both
+@    s11 errorbar color 2
+@    s11 errorbar pattern 1
+@    s11 errorbar size 1.000000
+@    s11 errorbar linewidth 2.0
+@    s11 errorbar linestyle 1
+@    s11 errorbar riser linewidth 2.0
+@    s11 errorbar riser linestyle 1
+@    s11 errorbar riser clip off
+@    s11 errorbar riser clip length 0.100000
+@    s11 comment "atom_core.plot.Z30.dat"
+@    s11 legend  ""
+@    s12 hidden false
+@    s12 type xy
+@    s12 symbol 0
+@    s12 symbol size 1.000000
+@    s12 symbol color 15
+@    s12 symbol pattern 1
+@    s12 symbol fill color 15
+@    s12 symbol fill pattern 1
+@    s12 symbol linewidth 2.0
+@    s12 symbol linestyle 1
+@    s12 symbol char 65
+@    s12 symbol char font 0
+@    s12 symbol skip 0
+@    s12 line type 1
+@    s12 line linestyle 1
+@    s12 line linewidth 2.0
+@    s12 line color 15
+@    s12 line pattern 1
+@    s12 baseline type 0
+@    s12 baseline off
+@    s12 dropline off
+@    s12 fill type 0
+@    s12 fill rule 0
+@    s12 fill color 1
+@    s12 fill pattern 1
+@    s12 avalue off
+@    s12 avalue type 2
+@    s12 avalue char size 1.500000
+@    s12 avalue font 0
+@    s12 avalue color 1
+@    s12 avalue rot 0
+@    s12 avalue format general
+@    s12 avalue prec 3
+@    s12 avalue prepend ""
+@    s12 avalue append ""
+@    s12 avalue offset 0.000000 , 0.000000
+@    s12 errorbar on
+@    s12 errorbar place both
+@    s12 errorbar color 15
+@    s12 errorbar pattern 1
+@    s12 errorbar size 1.000000
+@    s12 errorbar linewidth 2.0
+@    s12 errorbar linestyle 1
+@    s12 errorbar riser linewidth 2.0
+@    s12 errorbar riser linestyle 1
+@    s12 errorbar riser clip off
+@    s12 errorbar riser clip length 0.100000
+@    s12 comment "atom_core.plot.Z30.dat"
+@    s12 legend  ""
+@    s13 hidden false
+@    s13 type xy
+@    s13 symbol 0
+@    s13 symbol size 1.000000
+@    s13 symbol color 4
+@    s13 symbol pattern 1
+@    s13 symbol fill color 4
+@    s13 symbol fill pattern 1
+@    s13 symbol linewidth 2.0
+@    s13 symbol linestyle 1
+@    s13 symbol char 65
+@    s13 symbol char font 0
+@    s13 symbol skip 0
+@    s13 line type 1
+@    s13 line linestyle 1
+@    s13 line linewidth 2.0
+@    s13 line color 4
+@    s13 line pattern 1
+@    s13 baseline type 0
+@    s13 baseline off
+@    s13 dropline off
+@    s13 fill type 0
+@    s13 fill rule 0
+@    s13 fill color 1
+@    s13 fill pattern 1
+@    s13 avalue off
+@    s13 avalue type 2
+@    s13 avalue char size 1.500000
+@    s13 avalue font 0
+@    s13 avalue color 1
+@    s13 avalue rot 0
+@    s13 avalue format general
+@    s13 avalue prec 3
+@    s13 avalue prepend ""
+@    s13 avalue append ""
+@    s13 avalue offset 0.000000 , 0.000000
+@    s13 errorbar on
+@    s13 errorbar place both
+@    s13 errorbar color 4
+@    s13 errorbar pattern 1
+@    s13 errorbar size 1.000000
+@    s13 errorbar linewidth 2.0
+@    s13 errorbar linestyle 1
+@    s13 errorbar riser linewidth 2.0
+@    s13 errorbar riser linestyle 1
+@    s13 errorbar riser clip off
+@    s13 errorbar riser clip length 0.100000
+@    s13 comment "atom_core.plot.Z30.dat"
+@    s13 legend  ""
+@    s14 hidden false
+@    s14 type xy
+@    s14 symbol 0
+@    s14 symbol size 1.000000
+@    s14 symbol color 11
+@    s14 symbol pattern 1
+@    s14 symbol fill color 11
+@    s14 symbol fill pattern 1
+@    s14 symbol linewidth 2.0
+@    s14 symbol linestyle 1
+@    s14 symbol char 65
+@    s14 symbol char font 0
+@    s14 symbol skip 0
+@    s14 line type 1
+@    s14 line linestyle 1
+@    s14 line linewidth 2.0
+@    s14 line color 11
+@    s14 line pattern 1
+@    s14 baseline type 0
+@    s14 baseline off
+@    s14 dropline off
+@    s14 fill type 0
+@    s14 fill rule 0
+@    s14 fill color 1
+@    s14 fill pattern 1
+@    s14 avalue off
+@    s14 avalue type 2
+@    s14 avalue char size 1.500000
+@    s14 avalue font 0
+@    s14 avalue color 1
+@    s14 avalue rot 0
+@    s14 avalue format general
+@    s14 avalue prec 3
+@    s14 avalue prepend ""
+@    s14 avalue append ""
+@    s14 avalue offset 0.000000 , 0.000000
+@    s14 errorbar on
+@    s14 errorbar place both
+@    s14 errorbar color 11
+@    s14 errorbar pattern 1
+@    s14 errorbar size 1.000000
+@    s14 errorbar linewidth 2.0
+@    s14 errorbar linestyle 1
+@    s14 errorbar riser linewidth 2.0
+@    s14 errorbar riser linestyle 1
+@    s14 errorbar riser clip off
+@    s14 errorbar riser clip length 0.100000
+@    s14 comment "atom_core.plot.Z30.dat"
+@    s14 legend  ""
+@    s15 hidden false
+@    s15 type xy
+@    s15 symbol 0
+@    s15 symbol size 1.000000
+@    s15 symbol color 1
+@    s15 symbol pattern 1
+@    s15 symbol fill color 1
+@    s15 symbol fill pattern 1
+@    s15 symbol linewidth 2.0
+@    s15 symbol linestyle 1
+@    s15 symbol char 65
+@    s15 symbol char font 0
+@    s15 symbol skip 0
+@    s15 line type 1
+@    s15 line linestyle 1
+@    s15 line linewidth 2.0
+@    s15 line color 1
+@    s15 line pattern 1
+@    s15 baseline type 0
+@    s15 baseline off
+@    s15 dropline off
+@    s15 fill type 0
+@    s15 fill rule 0
+@    s15 fill color 1
+@    s15 fill pattern 1
+@    s15 avalue off
+@    s15 avalue type 2
+@    s15 avalue char size 1.500000
+@    s15 avalue font 0
+@    s15 avalue color 1
+@    s15 avalue rot 0
+@    s15 avalue format general
+@    s15 avalue prec 3
+@    s15 avalue prepend ""
+@    s15 avalue append ""
+@    s15 avalue offset 0.000000 , 0.000000
+@    s15 errorbar on
+@    s15 errorbar place both
+@    s15 errorbar color 1
+@    s15 errorbar pattern 1
+@    s15 errorbar size 1.000000
+@    s15 errorbar linewidth 2.0
+@    s15 errorbar linestyle 1
+@    s15 errorbar riser linewidth 2.0
+@    s15 errorbar riser linestyle 1
+@    s15 errorbar riser clip off
+@    s15 errorbar riser clip length 0.100000
+@    s15 comment "atom_core.plot.Z30.dat"
+@    s15 legend  ""
+@    s16 hidden false
+@    s16 type xy
+@    s16 symbol 0
+@    s16 symbol size 1.000000
+@    s16 symbol color 2
+@    s16 symbol pattern 1
+@    s16 symbol fill color 2
+@    s16 symbol fill pattern 1
+@    s16 symbol linewidth 2.0
+@    s16 symbol linestyle 1
+@    s16 symbol char 65
+@    s16 symbol char font 0
+@    s16 symbol skip 0
+@    s16 line type 1
+@    s16 line linestyle 1
+@    s16 line linewidth 2.0
+@    s16 line color 2
+@    s16 line pattern 1
+@    s16 baseline type 0
+@    s16 baseline off
+@    s16 dropline off
+@    s16 fill type 0
+@    s16 fill rule 0
+@    s16 fill color 1
+@    s16 fill pattern 1
+@    s16 avalue off
+@    s16 avalue type 2
+@    s16 avalue char size 1.500000
+@    s16 avalue font 0
+@    s16 avalue color 1
+@    s16 avalue rot 0
+@    s16 avalue format general
+@    s16 avalue prec 3
+@    s16 avalue prepend ""
+@    s16 avalue append ""
+@    s16 avalue offset 0.000000 , 0.000000
+@    s16 errorbar on
+@    s16 errorbar place both
+@    s16 errorbar color 2
+@    s16 errorbar pattern 1
+@    s16 errorbar size 1.000000
+@    s16 errorbar linewidth 2.0
+@    s16 errorbar linestyle 1
+@    s16 errorbar riser linewidth 2.0
+@    s16 errorbar riser linestyle 1
+@    s16 errorbar riser clip off
+@    s16 errorbar riser clip length 0.100000
+@    s16 comment "atom_core.plot.Z30.dat"
+@    s16 legend  ""
+@    s17 hidden false
+@    s17 type xy
+@    s17 symbol 0
+@    s17 symbol size 1.000000
+@    s17 symbol color 15
+@    s17 symbol pattern 1
+@    s17 symbol fill color 15
+@    s17 symbol fill pattern 1
+@    s17 symbol linewidth 2.0
+@    s17 symbol linestyle 1
+@    s17 symbol char 65
+@    s17 symbol char font 0
+@    s17 symbol skip 0
+@    s17 line type 1
+@    s17 line linestyle 1
+@    s17 line linewidth 2.0
+@    s17 line color 15
+@    s17 line pattern 1
+@    s17 baseline type 0
+@    s17 baseline off
+@    s17 dropline off
+@    s17 fill type 0
+@    s17 fill rule 0
+@    s17 fill color 1
+@    s17 fill pattern 1
+@    s17 avalue off
+@    s17 avalue type 2
+@    s17 avalue char size 1.500000
+@    s17 avalue font 0
+@    s17 avalue color 1
+@    s17 avalue rot 0
+@    s17 avalue format general
+@    s17 avalue prec 3
+@    s17 avalue prepend ""
+@    s17 avalue append ""
+@    s17 avalue offset 0.000000 , 0.000000
+@    s17 errorbar on
+@    s17 errorbar place both
+@    s17 errorbar color 15
+@    s17 errorbar pattern 1
+@    s17 errorbar size 1.000000
+@    s17 errorbar linewidth 2.0
+@    s17 errorbar linestyle 1
+@    s17 errorbar riser linewidth 2.0
+@    s17 errorbar riser linestyle 1
+@    s17 errorbar riser clip off
+@    s17 errorbar riser clip length 0.100000
+@    s17 comment "atom_core.plot.Z30.dat"
+@    s17 legend  ""
+@    s18 hidden false
+@    s18 type xy
+@    s18 symbol 0
+@    s18 symbol size 1.000000
+@    s18 symbol color 4
+@    s18 symbol pattern 1
+@    s18 symbol fill color 4
+@    s18 symbol fill pattern 1
+@    s18 symbol linewidth 2.0
+@    s18 symbol linestyle 1
+@    s18 symbol char 65
+@    s18 symbol char font 0
+@    s18 symbol skip 0
+@    s18 line type 1
+@    s18 line linestyle 1
+@    s18 line linewidth 2.0
+@    s18 line color 4
+@    s18 line pattern 1
+@    s18 baseline type 0
+@    s18 baseline off
+@    s18 dropline off
+@    s18 fill type 0
+@    s18 fill rule 0
+@    s18 fill color 1
+@    s18 fill pattern 1
+@    s18 avalue off
+@    s18 avalue type 2
+@    s18 avalue char size 1.500000
+@    s18 avalue font 0
+@    s18 avalue color 1
+@    s18 avalue rot 0
+@    s18 avalue format general
+@    s18 avalue prec 3
+@    s18 avalue prepend ""
+@    s18 avalue append ""
+@    s18 avalue offset 0.000000 , 0.000000
+@    s18 errorbar on
+@    s18 errorbar place both
+@    s18 errorbar color 4
+@    s18 errorbar pattern 1
+@    s18 errorbar size 1.000000
+@    s18 errorbar linewidth 2.0
+@    s18 errorbar linestyle 1
+@    s18 errorbar riser linewidth 2.0
+@    s18 errorbar riser linestyle 1
+@    s18 errorbar riser clip off
+@    s18 errorbar riser clip length 0.100000
+@    s18 comment "atom_core.plot.Z30.dat"
+@    s18 legend  ""
+@    s19 hidden false
+@    s19 type xy
+@    s19 symbol 0
+@    s19 symbol size 1.000000
+@    s19 symbol color 11
+@    s19 symbol pattern 1
+@    s19 symbol fill color 11
+@    s19 symbol fill pattern 1
+@    s19 symbol linewidth 2.0
+@    s19 symbol linestyle 1
+@    s19 symbol char 65
+@    s19 symbol char font 0
+@    s19 symbol skip 0
+@    s19 line type 1
+@    s19 line linestyle 1
+@    s19 line linewidth 2.0
+@    s19 line color 11
+@    s19 line pattern 1
+@    s19 baseline type 0
+@    s19 baseline off
+@    s19 dropline off
+@    s19 fill type 0
+@    s19 fill rule 0
+@    s19 fill color 1
+@    s19 fill pattern 1
+@    s19 avalue off
+@    s19 avalue type 2
+@    s19 avalue char size 1.500000
+@    s19 avalue font 0
+@    s19 avalue color 1
+@    s19 avalue rot 0
+@    s19 avalue format general
+@    s19 avalue prec 3
+@    s19 avalue prepend ""
+@    s19 avalue append ""
+@    s19 avalue offset 0.000000 , 0.000000
+@    s19 errorbar on
+@    s19 errorbar place both
+@    s19 errorbar color 11
+@    s19 errorbar pattern 1
+@    s19 errorbar size 1.000000
+@    s19 errorbar linewidth 2.0
+@    s19 errorbar linestyle 1
+@    s19 errorbar riser linewidth 2.0
+@    s19 errorbar riser linestyle 1
+@    s19 errorbar riser clip off
+@    s19 errorbar riser clip length 0.100000
+@    s19 comment "atom_core.plot.Z30.dat"
+@    s19 legend  ""
+@    s20 hidden false
+@    s20 type xy
+@    s20 symbol 0
+@    s20 symbol size 1.000000
+@    s20 symbol color 5
+@    s20 symbol pattern 1
+@    s20 symbol fill color 5
+@    s20 symbol fill pattern 1
+@    s20 symbol linewidth 2.0
+@    s20 symbol linestyle 1
+@    s20 symbol char 65
+@    s20 symbol char font 0
+@    s20 symbol skip 0
+@    s20 line type 1
+@    s20 line linestyle 1
+@    s20 line linewidth 2.0
+@    s20 line color 5
+@    s20 line pattern 1
+@    s20 baseline type 0
+@    s20 baseline off
+@    s20 dropline off
+@    s20 fill type 0
+@    s20 fill rule 0
+@    s20 fill color 1
+@    s20 fill pattern 1
+@    s20 avalue off
+@    s20 avalue type 2
+@    s20 avalue char size 1.500000
+@    s20 avalue font 0
+@    s20 avalue color 1
+@    s20 avalue rot 0
+@    s20 avalue format general
+@    s20 avalue prec 3
+@    s20 avalue prepend ""
+@    s20 avalue append ""
+@    s20 avalue offset 0.000000 , 0.000000
+@    s20 errorbar on
+@    s20 errorbar place both
+@    s20 errorbar color 5
+@    s20 errorbar pattern 1
+@    s20 errorbar size 1.000000
+@    s20 errorbar linewidth 2.0
+@    s20 errorbar linestyle 1
+@    s20 errorbar riser linewidth 2.0
+@    s20 errorbar riser linestyle 1
+@    s20 errorbar riser clip off
+@    s20 errorbar riser clip length 0.100000
+@    s20 comment "atom_core.plot.Z30.dat"
+@    s20 legend  ""
+@    s21 hidden false
+@    s21 type xy
+@    s21 symbol 0
+@    s21 symbol size 1.000000
+@    s21 symbol color 1
+@    s21 symbol pattern 1
+@    s21 symbol fill color 1
+@    s21 symbol fill pattern 1
+@    s21 symbol linewidth 2.0
+@    s21 symbol linestyle 1
+@    s21 symbol char 65
+@    s21 symbol char font 0
+@    s21 symbol skip 0
+@    s21 line type 1
+@    s21 line linestyle 1
+@    s21 line linewidth 2.0
+@    s21 line color 1
+@    s21 line pattern 1
+@    s21 baseline type 0
+@    s21 baseline off
+@    s21 dropline off
+@    s21 fill type 0
+@    s21 fill rule 0
+@    s21 fill color 1
+@    s21 fill pattern 1
+@    s21 avalue off
+@    s21 avalue type 2
+@    s21 avalue char size 1.500000
+@    s21 avalue font 0
+@    s21 avalue color 1
+@    s21 avalue rot 0
+@    s21 avalue format general
+@    s21 avalue prec 3
+@    s21 avalue prepend ""
+@    s21 avalue append ""
+@    s21 avalue offset 0.000000 , 0.000000
+@    s21 errorbar on
+@    s21 errorbar place both
+@    s21 errorbar color 1
+@    s21 errorbar pattern 1
+@    s21 errorbar size 1.000000
+@    s21 errorbar linewidth 2.0
+@    s21 errorbar linestyle 1
+@    s21 errorbar riser linewidth 2.0
+@    s21 errorbar riser linestyle 1
+@    s21 errorbar riser clip off
+@    s21 errorbar riser clip length 0.100000
+@    s21 comment "atom_core.plot.Z30.dat"
+@    s21 legend  ""
+@    s22 hidden false
+@    s22 type xy
+@    s22 symbol 0
+@    s22 symbol size 1.000000
+@    s22 symbol color 2
+@    s22 symbol pattern 1
+@    s22 symbol fill color 2
+@    s22 symbol fill pattern 1
+@    s22 symbol linewidth 2.0
+@    s22 symbol linestyle 1
+@    s22 symbol char 65
+@    s22 symbol char font 0
+@    s22 symbol skip 0
+@    s22 line type 1
+@    s22 line linestyle 1
+@    s22 line linewidth 2.0
+@    s22 line color 2
+@    s22 line pattern 1
+@    s22 baseline type 0
+@    s22 baseline off
+@    s22 dropline off
+@    s22 fill type 0
+@    s22 fill rule 0
+@    s22 fill color 1
+@    s22 fill pattern 1
+@    s22 avalue off
+@    s22 avalue type 2
+@    s22 avalue char size 1.500000
+@    s22 avalue font 0
+@    s22 avalue color 1
+@    s22 avalue rot 0
+@    s22 avalue format general
+@    s22 avalue prec 3
+@    s22 avalue prepend ""
+@    s22 avalue append ""
+@    s22 avalue offset 0.000000 , 0.000000
+@    s22 errorbar on
+@    s22 errorbar place both
+@    s22 errorbar color 2
+@    s22 errorbar pattern 1
+@    s22 errorbar size 1.000000
+@    s22 errorbar linewidth 2.0
+@    s22 errorbar linestyle 1
+@    s22 errorbar riser linewidth 2.0
+@    s22 errorbar riser linestyle 1
+@    s22 errorbar riser clip off
+@    s22 errorbar riser clip length 0.100000
+@    s22 comment "atom_core.plot.Z30.dat"
+@    s22 legend  ""
+@    s23 hidden false
+@    s23 type xy
+@    s23 symbol 0
+@    s23 symbol size 1.000000
+@    s23 symbol color 15
+@    s23 symbol pattern 1
+@    s23 symbol fill color 15
+@    s23 symbol fill pattern 1
+@    s23 symbol linewidth 2.0
+@    s23 symbol linestyle 1
+@    s23 symbol char 65
+@    s23 symbol char font 0
+@    s23 symbol skip 0
+@    s23 line type 1
+@    s23 line linestyle 1
+@    s23 line linewidth 2.0
+@    s23 line color 15
+@    s23 line pattern 1
+@    s23 baseline type 0
+@    s23 baseline off
+@    s23 dropline off
+@    s23 fill type 0
+@    s23 fill rule 0
+@    s23 fill color 1
+@    s23 fill pattern 1
+@    s23 avalue off
+@    s23 avalue type 2
+@    s23 avalue char size 1.500000
+@    s23 avalue font 0
+@    s23 avalue color 1
+@    s23 avalue rot 0
+@    s23 avalue format general
+@    s23 avalue prec 3
+@    s23 avalue prepend ""
+@    s23 avalue append ""
+@    s23 avalue offset 0.000000 , 0.000000
+@    s23 errorbar on
+@    s23 errorbar place both
+@    s23 errorbar color 15
+@    s23 errorbar pattern 1
+@    s23 errorbar size 1.000000
+@    s23 errorbar linewidth 2.0
+@    s23 errorbar linestyle 1
+@    s23 errorbar riser linewidth 2.0
+@    s23 errorbar riser linestyle 1
+@    s23 errorbar riser clip off
+@    s23 errorbar riser clip length 0.100000
+@    s23 comment "atom_core.plot.Z30.dat"
+@    s23 legend  ""
+@    s24 hidden false
+@    s24 type xy
+@    s24 symbol 0
+@    s24 symbol size 1.000000
+@    s24 symbol color 4
+@    s24 symbol pattern 1
+@    s24 symbol fill color 4
+@    s24 symbol fill pattern 1
+@    s24 symbol linewidth 2.0
+@    s24 symbol linestyle 1
+@    s24 symbol char 65
+@    s24 symbol char font 0
+@    s24 symbol skip 0
+@    s24 line type 1
+@    s24 line linestyle 1
+@    s24 line linewidth 2.0
+@    s24 line color 4
+@    s24 line pattern 1
+@    s24 baseline type 0
+@    s24 baseline off
+@    s24 dropline off
+@    s24 fill type 0
+@    s24 fill rule 0
+@    s24 fill color 1
+@    s24 fill pattern 1
+@    s24 avalue off
+@    s24 avalue type 2
+@    s24 avalue char size 1.500000
+@    s24 avalue font 0
+@    s24 avalue color 1
+@    s24 avalue rot 0
+@    s24 avalue format general
+@    s24 avalue prec 3
+@    s24 avalue prepend ""
+@    s24 avalue append ""
+@    s24 avalue offset 0.000000 , 0.000000
+@    s24 errorbar on
+@    s24 errorbar place both
+@    s24 errorbar color 4
+@    s24 errorbar pattern 1
+@    s24 errorbar size 1.000000
+@    s24 errorbar linewidth 2.0
+@    s24 errorbar linestyle 1
+@    s24 errorbar riser linewidth 2.0
+@    s24 errorbar riser linestyle 1
+@    s24 errorbar riser clip off
+@    s24 errorbar riser clip length 0.100000
+@    s24 comment "atom_core.plot.Z30.dat"
+@    s24 legend  ""
+@    s25 hidden false
+@    s25 type xy
+@    s25 symbol 0
+@    s25 symbol size 1.000000
+@    s25 symbol color 11
+@    s25 symbol pattern 1
+@    s25 symbol fill color 11
+@    s25 symbol fill pattern 1
+@    s25 symbol linewidth 2.0
+@    s25 symbol linestyle 1
+@    s25 symbol char 65
+@    s25 symbol char font 0
+@    s25 symbol skip 0
+@    s25 line type 1
+@    s25 line linestyle 1
+@    s25 line linewidth 2.0
+@    s25 line color 11
+@    s25 line pattern 1
+@    s25 baseline type 0
+@    s25 baseline off
+@    s25 dropline off
+@    s25 fill type 0
+@    s25 fill rule 0
+@    s25 fill color 1
+@    s25 fill pattern 1
+@    s25 avalue off
+@    s25 avalue type 2
+@    s25 avalue char size 1.500000
+@    s25 avalue font 0
+@    s25 avalue color 1
+@    s25 avalue rot 0
+@    s25 avalue format general
+@    s25 avalue prec 3
+@    s25 avalue prepend ""
+@    s25 avalue append ""
+@    s25 avalue offset 0.000000 , 0.000000
+@    s25 errorbar on
+@    s25 errorbar place both
+@    s25 errorbar color 11
+@    s25 errorbar pattern 1
+@    s25 errorbar size 1.000000
+@    s25 errorbar linewidth 2.0
+@    s25 errorbar linestyle 1
+@    s25 errorbar riser linewidth 2.0
+@    s25 errorbar riser linestyle 1
+@    s25 errorbar riser clip off
+@    s25 errorbar riser clip length 0.100000
+@    s25 comment "atom_core.plot.Z30.dat"
+@    s25 legend  ""
+@    s26 hidden false
+@    s26 type xy
+@    s26 symbol 0
+@    s26 symbol size 1.000000
+@    s26 symbol color 5
+@    s26 symbol pattern 1
+@    s26 symbol fill color 5
+@    s26 symbol fill pattern 1
+@    s26 symbol linewidth 2.0
+@    s26 symbol linestyle 1
+@    s26 symbol char 65
+@    s26 symbol char font 0
+@    s26 symbol skip 0
+@    s26 line type 1
+@    s26 line linestyle 1
+@    s26 line linewidth 2.0
+@    s26 line color 5
+@    s26 line pattern 1
+@    s26 baseline type 0
+@    s26 baseline off
+@    s26 dropline off
+@    s26 fill type 0
+@    s26 fill rule 0
+@    s26 fill color 1
+@    s26 fill pattern 1
+@    s26 avalue off
+@    s26 avalue type 2
+@    s26 avalue char size 1.500000
+@    s26 avalue font 0
+@    s26 avalue color 1
+@    s26 avalue rot 0
+@    s26 avalue format general
+@    s26 avalue prec 3
+@    s26 avalue prepend ""
+@    s26 avalue append ""
+@    s26 avalue offset 0.000000 , 0.000000
+@    s26 errorbar on
+@    s26 errorbar place both
+@    s26 errorbar color 5
+@    s26 errorbar pattern 1
+@    s26 errorbar size 1.000000
+@    s26 errorbar linewidth 2.0
+@    s26 errorbar linestyle 1
+@    s26 errorbar riser linewidth 2.0
+@    s26 errorbar riser linestyle 1
+@    s26 errorbar riser clip off
+@    s26 errorbar riser clip length 0.100000
+@    s26 comment "atom_core.plot.Z30.dat"
+@    s26 legend  ""
+@    s27 hidden false
+@    s27 type xy
+@    s27 symbol 0
+@    s27 symbol size 1.000000
+@    s27 symbol color 6
+@    s27 symbol pattern 1
+@    s27 symbol fill color 6
+@    s27 symbol fill pattern 1
+@    s27 symbol linewidth 2.0
+@    s27 symbol linestyle 1
+@    s27 symbol char 65
+@    s27 symbol char font 0
+@    s27 symbol skip 0
+@    s27 line type 1
+@    s27 line linestyle 1
+@    s27 line linewidth 2.0
+@    s27 line color 6
+@    s27 line pattern 1
+@    s27 baseline type 0
+@    s27 baseline off
+@    s27 dropline off
+@    s27 fill type 0
+@    s27 fill rule 0
+@    s27 fill color 1
+@    s27 fill pattern 1
+@    s27 avalue off
+@    s27 avalue type 2
+@    s27 avalue char size 1.500000
+@    s27 avalue font 0
+@    s27 avalue color 1
+@    s27 avalue rot 0
+@    s27 avalue format general
+@    s27 avalue prec 3
+@    s27 avalue prepend ""
+@    s27 avalue append ""
+@    s27 avalue offset 0.000000 , 0.000000
+@    s27 errorbar on
+@    s27 errorbar place both
+@    s27 errorbar color 6
+@    s27 errorbar pattern 1
+@    s27 errorbar size 1.000000
+@    s27 errorbar linewidth 2.0
+@    s27 errorbar linestyle 1
+@    s27 errorbar riser linewidth 2.0
+@    s27 errorbar riser linestyle 1
+@    s27 errorbar riser clip off
+@    s27 errorbar riser clip length 0.100000
+@    s27 comment "atom_core.plot.Z30.dat"
+@    s27 legend  ""
+@    s28 hidden false
+@    s28 type xy
+@    s28 symbol 0
+@    s28 symbol size 1.000000
+@    s28 symbol color 1
+@    s28 symbol pattern 1
+@    s28 symbol fill color 1
+@    s28 symbol fill pattern 1
+@    s28 symbol linewidth 2.0
+@    s28 symbol linestyle 1
+@    s28 symbol char 65
+@    s28 symbol char font 0
+@    s28 symbol skip 0
+@    s28 line type 1
+@    s28 line linestyle 1
+@    s28 line linewidth 2.0
+@    s28 line color 1
+@    s28 line pattern 1
+@    s28 baseline type 0
+@    s28 baseline off
+@    s28 dropline off
+@    s28 fill type 0
+@    s28 fill rule 0
+@    s28 fill color 1
+@    s28 fill pattern 1
+@    s28 avalue off
+@    s28 avalue type 2
+@    s28 avalue char size 1.500000
+@    s28 avalue font 0
+@    s28 avalue color 1
+@    s28 avalue rot 0
+@    s28 avalue format general
+@    s28 avalue prec 3
+@    s28 avalue prepend ""
+@    s28 avalue append ""
+@    s28 avalue offset 0.000000 , 0.000000
+@    s28 errorbar on
+@    s28 errorbar place both
+@    s28 errorbar color 1
+@    s28 errorbar pattern 1
+@    s28 errorbar size 1.000000
+@    s28 errorbar linewidth 2.0
+@    s28 errorbar linestyle 1
+@    s28 errorbar riser linewidth 2.0
+@    s28 errorbar riser linestyle 1
+@    s28 errorbar riser clip off
+@    s28 errorbar riser clip length 0.100000
+@    s28 comment "atom_core.plot.Z30.dat"
+@    s28 legend  ""
+@    s29 hidden false
+@    s29 type xy
+@    s29 symbol 0
+@    s29 symbol size 1.000000
+@    s29 symbol color 2
+@    s29 symbol pattern 1
+@    s29 symbol fill color 2
+@    s29 symbol fill pattern 1
+@    s29 symbol linewidth 2.0
+@    s29 symbol linestyle 1
+@    s29 symbol char 65
+@    s29 symbol char font 0
+@    s29 symbol skip 0
+@    s29 line type 1
+@    s29 line linestyle 1
+@    s29 line linewidth 2.0
+@    s29 line color 2
+@    s29 line pattern 1
+@    s29 baseline type 0
+@    s29 baseline off
+@    s29 dropline off
+@    s29 fill type 0
+@    s29 fill rule 0
+@    s29 fill color 1
+@    s29 fill pattern 1
+@    s29 avalue off
+@    s29 avalue type 2
+@    s29 avalue char size 1.500000
+@    s29 avalue font 0
+@    s29 avalue color 1
+@    s29 avalue rot 0
+@    s29 avalue format general
+@    s29 avalue prec 3
+@    s29 avalue prepend ""
+@    s29 avalue append ""
+@    s29 avalue offset 0.000000 , 0.000000
+@    s29 errorbar on
+@    s29 errorbar place both
+@    s29 errorbar color 2
+@    s29 errorbar pattern 1
+@    s29 errorbar size 1.000000
+@    s29 errorbar linewidth 2.0
+@    s29 errorbar linestyle 1
+@    s29 errorbar riser linewidth 2.0
+@    s29 errorbar riser linestyle 1
+@    s29 errorbar riser clip off
+@    s29 errorbar riser clip length 0.100000
+@    s29 comment "atom_core.plot.Z30.dat"
+@    s29 legend  ""
+@    s30 hidden false
+@    s30 type xy
+@    s30 symbol 0
+@    s30 symbol size 1.000000
+@    s30 symbol color 1
+@    s30 symbol pattern 1
+@    s30 symbol fill color 1
+@    s30 symbol fill pattern 1
+@    s30 symbol linewidth 2.0
+@    s30 symbol linestyle 1
+@    s30 symbol char 65
+@    s30 symbol char font 0
+@    s30 symbol skip 0
+@    s30 line type 1
+@    s30 line linestyle 4
+@    s30 line linewidth 2.0
+@    s30 line color 1
+@    s30 line pattern 1
+@    s30 baseline type 0
+@    s30 baseline off
+@    s30 dropline off
+@    s30 fill type 0
+@    s30 fill rule 0
+@    s30 fill color 1
+@    s30 fill pattern 1
+@    s30 avalue off
+@    s30 avalue type 2
+@    s30 avalue char size 1.500000
+@    s30 avalue font 0
+@    s30 avalue color 1
+@    s30 avalue rot 0
+@    s30 avalue format general
+@    s30 avalue prec 3
+@    s30 avalue prepend ""
+@    s30 avalue append ""
+@    s30 avalue offset 0.000000 , 0.000000
+@    s30 errorbar on
+@    s30 errorbar place both
+@    s30 errorbar color 1
+@    s30 errorbar pattern 1
+@    s30 errorbar size 1.000000
+@    s30 errorbar linewidth 2.0
+@    s30 errorbar linestyle 1
+@    s30 errorbar riser linewidth 2.0
+@    s30 errorbar riser linestyle 1
+@    s30 errorbar riser clip off
+@    s30 errorbar riser clip length 0.100000
+@    s30 comment "atom_core.plot.Z30.dat"
+@    s30 legend  "Potential"
+@target G0.S0
+@type xy
+0.116245 -2.54314
+0.32726 -2.54314
+&
+@target G0.S1
+@type xy
+0.311299 -1.62806
+0.633184 -1.62806
+&
+@target G0.S2
+@type xy
+0.27335 -1.56672
+0.611406 -1.56672
+&
+@target G0.S3
+@type xy
+0.443971 -0.674267
+1.07574 -0.674267
+&
+@target G0.S4
+@type xy
+0.441756 -0.485625
+1.12525 -0.485625
+&
+@target G0.S5
+@type xy
+0.555995 0.416631
+1.40215 0.416631
+&
+@target G0.S6
+@type xy
+1.11964 0.641511
+2.15547 0.641511
+&
+@target G0.S7
+@type xy
+1.30736 1.36597
+2.61956 1.36597
+&
+@target G0.S8
+@type xy
+0 -5
+0 -5
+&
+@target G0.S9
+@type xy
+0 -5
+0 -5
+&
+@target G0.S10
+@type xy
+0 -5
+0 -5
+&
+@target G0.S11
+@type xy
+0 -5
+0 -5
+&
+@target G0.S12
+@type xy
+0 -5
+0 -5
+&
+@target G0.S13
+@type xy
+0 -5
+0 -5
+&
+@target G0.S14
+@type xy
+0 -5
+0 -5
+&
+@target G0.S15
+@type xy
+0 -5
+0 -5
+&
+@target G0.S16
+@type xy
+0 -5
+0 -5
+&
+@target G0.S17
+@type xy
+0 -5
+0 -5
+&
+@target G0.S18
+@type xy
+0 -5
+0 -5
+&
+@target G0.S19
+@type xy
+0 -5
+0 -5
+&
+@target G0.S20
+@type xy
+0 -5
+0 -5
+&
+@target G0.S21
+@type xy
+0 -5
+0 -5
+&
+@target G0.S22
+@type xy
+0 -5
+0 -5
+&
+@target G0.S23
+@type xy
+0 -5
+0 -5
+&
+@target G0.S24
+@type xy
+0 -5
+0 -5
+&
+@target G0.S25
+@type xy
+0 -5
+0 -5
+&
+@target G0.S26
+@type xy
+0 -5
+0 -5
+&
+@target G0.S27
+@type xy
+0 -5
+0 -5
+&
+@target G0.S28
+@type xy
+0 -5
+0 -5
+&
+@target G0.S29
+@type xy
+0 -5
+0 -5
+&
+@target G0.S30
+@type xy
+0.017342 -4.99842
+0.0174294 -4.99405
+0.0175172 -4.98967
+0.0176055 -4.9853
+0.0176942 -4.98093
+0.0177833 -4.97656
+0.0178729 -4.97219
+0.0179629 -4.96782
+0.0180534 -4.96345
+0.0181443 -4.95908
+0.0182357 -4.95471
+0.0183276 -4.95035
+0.0184199 -4.94598
+0.0185126 -4.94161
+0.0186059 -4.93724
+0.0186995 -4.93287
+0.0187937 -4.9285
+0.0188883 -4.92413
+0.0189834 -4.91976
+0.019079 -4.9154
+0.019175 -4.91103
+0.0192716 -4.90666
+0.0193686 -4.90229
+0.0194661 -4.89793
+0.0195641 -4.89356
+0.0196625 -4.88919
+0.0197615 -4.88482
+0.019861 -4.88046
+0.0199609 -4.87609
+0.0200614 -4.87172
+0.0201623 -4.86736
+0.0202638 -4.86299
+0.0203657 -4.85862
+0.0204682 -4.85426
+0.0205712 -4.84989
+0.0206747 -4.84552
+0.0207787 -4.84116
+0.0208832 -4.83679
+0.0209883 -4.83242
+0.0210939 -4.82806
+0.0212 -4.82369
+0.0213066 -4.81933
+0.0214138 -4.81496
+0.0215215 -4.81059
+0.0216298 -4.80623
+0.0217385 -4.80186
+0.0218479 -4.7975
+0.0219578 -4.79313
+0.0220682 -4.78877
+0.0221792 -4.7844
+0.0222907 -4.78004
+0.0224028 -4.77567
+0.0225154 -4.77131
+0.0226286 -4.76694
+0.0227424 -4.76258
+0.0228568 -4.75821
+0.0229717 -4.75385
+0.0230872 -4.74948
+0.0232032 -4.74512
+0.0233199 -4.74075
+0.0234371 -4.73639
+0.0235549 -4.73202
+0.0236733 -4.72766
+0.0237923 -4.72329
+0.0239119 -4.71893
+0.0240321 -4.71456
+0.0241529 -4.7102
+0.0242743 -4.70583
+0.0243963 -4.70147
+0.0245189 -4.6971
+0.0246421 -4.69274
+0.024766 -4.68837
+0.0248904 -4.68401
+0.0250155 -4.67964
+0.0251412 -4.67528
+0.0252676 -4.67092
+0.0253945 -4.66655
+0.0255221 -4.66219
+0.0256504 -4.65782
+0.0257793 -4.65346
+0.0259088 -4.64909
+0.026039 -4.64473
+0.0261698 -4.64036
+0.0263013 -4.636
+0.0264334 -4.63163
+0.0265662 -4.62727
+0.0266997 -4.6229
+0.0268338 -4.61854
+0.0269686 -4.61417
+0.0271041 -4.60981
+0.0272402 -4.60544
+0.0273771 -4.60108
+0.0275146 -4.59671
+0.0276528 -4.59235
+0.0277917 -4.58798
+0.0279313 -4.58362
+0.0280716 -4.57925
+0.0282126 -4.57489
+0.0283543 -4.57052
+0.0284967 -4.56616
+0.0286398 -4.56179
+0.0287836 -4.55743
+0.0289282 -4.55306
+0.0290734 -4.5487
+0.0292194 -4.54433
+0.0293662 -4.53997
+0.0295137 -4.5356
+0.0296619 -4.53123
+0.0298108 -4.52687
+0.0299605 -4.5225
+0.0301109 -4.51814
+0.0302621 -4.51377
+0.0304141 -4.5094
+0.0305668 -4.50504
+0.0307203 -4.50067
+0.0308745 -4.4963
+0.0310295 -4.49194
+0.0311853 -4.48757
+0.0313419 -4.48321
+0.0314993 -4.47884
+0.0316574 -4.47447
+0.0318163 -4.4701
+0.0319761 -4.46574
+0.0321366 -4.46137
+0.0322979 -4.457
+0.0324601 -4.45263
+0.032623 -4.44827
+0.0327868 -4.4439
+0.0329514 -4.43953
+0.0331168 -4.43516
+0.033283 -4.4308
+0.0334501 -4.42643
+0.033618 -4.42206
+0.0337867 -4.41769
+0.0339563 -4.41332
+0.0341268 -4.40895
+0.0342981 -4.40458
+0.0344702 -4.40022
+0.0346432 -4.39585
+0.0348171 -4.39148
+0.0349919 -4.38711
+0.0351675 -4.38274
+0.035344 -4.37837
+0.0355214 -4.374
+0.0356996 -4.36963
+0.0358788 -4.36526
+0.0360589 -4.36089
+0.0362398 -4.35652
+0.0364217 -4.35214
+0.0366045 -4.34777
+0.0367882 -4.3434
+0.0369728 -4.33903
+0.0371584 -4.33466
+0.0373448 -4.33029
+0.0375322 -4.32592
+0.0377206 -4.32154
+0.0379099 -4.31717
+0.0381001 -4.3128
+0.0382913 -4.30843
+0.0384834 -4.30405
+0.0386765 -4.29968
+0.0388706 -4.29531
+0.0390656 -4.29093
+0.0392617 -4.28656
+0.0394587 -4.28218
+0.0396566 -4.27781
+0.0398556 -4.27344
+0.0400556 -4.26906
+0.0402566 -4.26469
+0.0404586 -4.26031
+0.0406616 -4.25593
+0.0408656 -4.25156
+0.0410706 -4.24718
+0.0412767 -4.24281
+0.0414838 -4.23843
+0.0416919 -4.23405
+0.0419011 -4.22968
+0.0421113 -4.2253
+0.0423226 -4.22092
+0.0425349 -4.21654
+0.0427483 -4.21217
+0.0429627 -4.20779
+0.0431783 -4.20341
+0.0433949 -4.19903
+0.0436126 -4.19465
+0.0438314 -4.19027
+0.0440513 -4.18589
+0.0442723 -4.18151
+0.0444943 -4.17713
+0.0447176 -4.17275
+0.0449419 -4.16837
+0.0451673 -4.16399
+0.0453939 -4.1596
+0.0456216 -4.15522
+0.0458505 -4.15084
+0.0460805 -4.14646
+0.0463116 -4.14207
+0.0465439 -4.13769
+0.0467774 -4.13331
+0.047012 -4.12892
+0.0472479 -4.12454
+0.0474849 -4.12015
+0.0477231 -4.11577
+0.0479624 -4.11138
+0.048203 -4.10699
+0.0484448 -4.10261
+0.0486878 -4.09822
+0.048932 -4.09383
+0.0491774 -4.08945
+0.0494241 -4.08506
+0.049672 -4.08067
+0.0499211 -4.07628
+0.0501715 -4.07189
+0.0504232 -4.0675
+0.0506761 -4.06311
+0.0509302 -4.05872
+0.0511857 -4.05433
+0.0514424 -4.04994
+0.0517004 -4.04555
+0.0519597 -4.04115
+0.0522203 -4.03676
+0.0524822 -4.03237
+0.0527455 -4.02797
+0.05301 -4.02358
+0.0532759 -4.01919
+0.0535431 -4.01479
+0.0538116 -4.0104
+0.0540815 -4.006
+0.0543527 -4.0016
+0.0546253 -3.99721
+0.0548992 -3.99281
+0.0551746 -3.98841
+0.0554513 -3.98401
+0.0557294 -3.97961
+0.0560089 -3.97521
+0.0562897 -3.97081
+0.056572 -3.96641
+0.0568558 -3.96201
+0.0571409 -3.95761
+0.0574274 -3.9532
+0.0577154 -3.9488
+0.0580049 -3.9444
+0.0582958 -3.93999
+0.0585881 -3.93559
+0.0588819 -3.93118
+0.0591772 -3.92678
+0.059474 -3.92237
+0.0597722 -3.91796
+0.0600719 -3.91356
+0.0603732 -3.90915
+0.0606759 -3.90474
+0.0609802 -3.90033
+0.061286 -3.89592
+0.0615933 -3.89151
+0.0619022 -3.8871
+0.0622126 -3.88268
+0.0625246 -3.87827
+0.0628381 -3.87386
+0.0631532 -3.86944
+0.0634699 -3.86503
+0.0637882 -3.86061
+0.064108 -3.85619
+0.0644295 -3.85178
+0.0647526 -3.84736
+0.0650773 -3.84294
+0.0654036 -3.83852
+0.0657316 -3.8341
+0.0660612 -3.82968
+0.0663924 -3.82526
+0.0667253 -3.82083
+0.0670599 -3.81641
+0.0673962 -3.81199
+0.0677341 -3.80756
+0.0680737 -3.80314
+0.0684151 -3.79871
+0.0687581 -3.79428
+0.0691029 -3.78985
+0.0694494 -3.78542
+0.0697976 -3.78099
+0.0701476 -3.77656
+0.0704993 -3.77213
+0.0708528 -3.7677
+0.0712081 -3.76326
+0.0715651 -3.75883
+0.071924 -3.7544
+0.0722846 -3.74996
+0.072647 -3.74552
+0.0730113 -3.74108
+0.0733774 -3.73664
+0.0737453 -3.7322
+0.074115 -3.72776
+0.0744866 -3.72332
+0.0748601 -3.71888
+0.0752355 -3.71443
+0.0756127 -3.70999
+0.0759918 -3.70554
+0.0763728 -3.7011
+0.0767557 -3.69665
+0.0771406 -3.6922
+0.0775273 -3.68775
+0.0779161 -3.6833
+0.0783067 -3.67884
+0.0786993 -3.67439
+0.0790939 -3.66994
+0.0794905 -3.66548
+0.079889 -3.66102
+0.0802896 -3.65657
+0.0806921 -3.65211
+0.0810967 -3.64765
+0.0815033 -3.64319
+0.0819119 -3.63872
+0.0823226 -3.63426
+0.0827353 -3.62979
+0.0831501 -3.62533
+0.083567 -3.62086
+0.083986 -3.61639
+0.0844071 -3.61192
+0.0848303 -3.60745
+0.0852556 -3.60298
+0.085683 -3.5985
+0.0861126 -3.59403
+0.0865443 -3.58955
+0.0869782 -3.58507
+0.0874143 -3.58059
+0.0878526 -3.57611
+0.088293 -3.57163
+0.0887357 -3.56715
+0.0891806 -3.56266
+0.0896277 -3.55818
+0.090077 -3.55369
+0.0905286 -3.5492
+0.0909825 -3.54471
+0.0914386 -3.54022
+0.091897 -3.53572
+0.0923578 -3.53123
+0.0928208 -3.52673
+0.0932861 -3.52223
+0.0937538 -3.51773
+0.0942239 -3.51323
+0.0946962 -3.50873
+0.095171 -3.50423
+0.0956481 -3.49972
+0.0961276 -3.49521
+0.0966096 -3.4907
+0.0970939 -3.48619
+0.0975807 -3.48168
+0.0980699 -3.47717
+0.0985615 -3.47265
+0.0990557 -3.46813
+0.0995523 -3.46361
+0.100051 -3.45909
+0.100553 -3.45457
+0.101057 -3.45004
+0.101564 -3.44552
+0.102073 -3.44099
+0.102585 -3.43646
+0.103099 -3.43193
+0.103616 -3.42739
+0.104135 -3.42286
+0.104657 -3.41832
+0.105182 -3.41378
+0.105709 -3.40924
+0.106239 -3.4047
+0.106772 -3.40015
+0.107307 -3.3956
+0.107845 -3.39105
+0.108386 -3.3865
+0.108929 -3.38195
+0.109475 -3.37739
+0.110024 -3.37284
+0.110575 -3.36828
+0.11113 -3.36371
+0.111687 -3.35915
+0.112247 -3.35458
+0.112809 -3.35002
+0.113375 -3.34544
+0.113943 -3.34087
+0.114515 -3.3363
+0.115089 -3.33172
+0.115666 -3.32714
+0.116245 -3.32256
+0.116828 -3.31797
+0.117414 -3.31339
+0.118002 -3.3088
+0.118594 -3.30421
+0.119189 -3.29962
+0.119786 -3.29502
+0.120387 -3.29042
+0.12099 -3.28582
+0.121597 -3.28122
+0.122206 -3.27661
+0.122819 -3.272
+0.123435 -3.26739
+0.124053 -3.26278
+0.124675 -3.25816
+0.1253 -3.25355
+0.125928 -3.24892
+0.12656 -3.2443
+0.127194 -3.23967
+0.127832 -3.23505
+0.128472 -3.23041
+0.129117 -3.22578
+0.129764 -3.22114
+0.130414 -3.2165
+0.131068 -3.21186
+0.131725 -3.20721
+0.132385 -3.20257
+0.133049 -3.19791
+0.133716 -3.19326
+0.134386 -3.1886
+0.13506 -3.18394
+0.135737 -3.17928
+0.136418 -3.17461
+0.137101 -3.16995
+0.137789 -3.16527
+0.138479 -3.1606
+0.139174 -3.15592
+0.139871 -3.15124
+0.140572 -3.14656
+0.141277 -3.14187
+0.141985 -3.13718
+0.142697 -3.13248
+0.143412 -3.12779
+0.144131 -3.12309
+0.144854 -3.11838
+0.14558 -3.11368
+0.14631 -3.10897
+0.147043 -3.10425
+0.14778 -3.09954
+0.148521 -3.09482
+0.149266 -3.09009
+0.150014 -3.08537
+0.150766 -3.08064
+0.151522 -3.0759
+0.152281 -3.07117
+0.153045 -3.06643
+0.153812 -3.06168
+0.154583 -3.05693
+0.155358 -3.05218
+0.156136 -3.04743
+0.156919 -3.04267
+0.157706 -3.0379
+0.158496 -3.03314
+0.159291 -3.02837
+0.160089 -3.02359
+0.160892 -3.01882
+0.161698 -3.01403
+0.162509 -3.00925
+0.163324 -3.00446
+0.164142 -2.99967
+0.164965 -2.99487
+0.165792 -2.99007
+0.166623 -2.98526
+0.167458 -2.98045
+0.168298 -2.97564
+0.169141 -2.97082
+0.169989 -2.966
+0.170841 -2.96117
+0.171698 -2.95634
+0.172558 -2.95151
+0.173423 -2.94667
+0.174293 -2.94183
+0.175166 -2.93698
+0.176045 -2.93213
+0.176927 -2.92727
+0.177814 -2.92241
+0.178705 -2.91755
+0.179601 -2.91268
+0.180501 -2.90781
+0.181406 -2.90293
+0.182316 -2.89804
+0.183229 -2.89316
+0.184148 -2.88826
+0.185071 -2.88337
+0.185999 -2.87846
+0.186931 -2.87356
+0.187868 -2.86865
+0.18881 -2.86373
+0.189756 -2.85881
+0.190708 -2.85388
+0.191663 -2.84895
+0.192624 -2.84402
+0.19359 -2.83907
+0.19456 -2.83413
+0.195536 -2.82918
+0.196516 -2.82422
+0.197501 -2.81926
+0.198491 -2.81429
+0.199486 -2.80932
+0.200486 -2.80434
+0.201491 -2.79936
+0.202501 -2.79437
+0.203516 -2.78937
+0.204536 -2.78437
+0.205561 -2.77937
+0.206592 -2.77436
+0.207627 -2.76934
+0.208668 -2.76432
+0.209714 -2.75929
+0.210765 -2.75426
+0.211822 -2.74922
+0.212884 -2.74417
+0.213951 -2.73912
+0.215023 -2.73406
+0.216101 -2.729
+0.217184 -2.72393
+0.218273 -2.71886
+0.219367 -2.71377
+0.220467 -2.70869
+0.221572 -2.70359
+0.222682 -2.69849
+0.223799 -2.69339
+0.224921 -2.68827
+0.226048 -2.68315
+0.227181 -2.67803
+0.22832 -2.6729
+0.229464 -2.66776
+0.230615 -2.66261
+0.231771 -2.65746
+0.232932 -2.6523
+0.2341 -2.64713
+0.235273 -2.64196
+0.236453 -2.63678
+0.237638 -2.63159
+0.238829 -2.6264
+0.240026 -2.6212
+0.24123 -2.61599
+0.242439 -2.61078
+0.243654 -2.60556
+0.244875 -2.60033
+0.246103 -2.59509
+0.247336 -2.58985
+0.248576 -2.5846
+0.249822 -2.57934
+0.251075 -2.57408
+0.252333 -2.5688
+0.253598 -2.56352
+0.254869 -2.55823
+0.256147 -2.55294
+0.257431 -2.54764
+0.258721 -2.54233
+0.260018 -2.53701
+0.261321 -2.53168
+0.262631 -2.52635
+0.263948 -2.521
+0.265271 -2.51565
+0.266601 -2.5103
+0.267937 -2.50493
+0.26928 -2.49956
+0.27063 -2.49418
+0.271986 -2.48878
+0.27335 -2.48339
+0.27472 -2.47798
+0.276097 -2.47256
+0.277481 -2.46714
+0.278872 -2.46171
+0.28027 -2.45627
+0.281675 -2.45082
+0.283087 -2.44536
+0.284506 -2.4399
+0.285932 -2.43442
+0.287365 -2.42894
+0.288805 -2.42344
+0.290253 -2.41794
+0.291708 -2.41243
+0.29317 -2.40691
+0.29464 -2.40138
+0.296117 -2.39585
+0.297601 -2.3903
+0.299093 -2.38474
+0.300592 -2.37917
+0.302099 -2.3736
+0.303613 -2.36801
+0.305135 -2.36242
+0.306664 -2.35681
+0.308202 -2.3512
+0.309747 -2.34557
+0.311299 -2.33994
+0.31286 -2.33429
+0.314428 -2.32864
+0.316004 -2.32297
+0.317588 -2.3173
+0.31918 -2.31161
+0.32078 -2.30591
+0.322388 -2.30021
+0.324004 -2.29449
+0.325628 -2.28876
+0.32726 -2.28302
+0.328901 -2.27727
+0.330549 -2.27151
+0.332206 -2.26574
+0.333871 -2.25995
+0.335545 -2.25416
+0.337227 -2.24835
+0.338917 -2.24253
+0.340616 -2.2367
+0.342323 -2.23086
+0.344039 -2.22501
+0.345764 -2.21914
+0.347497 -2.21327
+0.349239 -2.20738
+0.350989 -2.20148
+0.352749 -2.19557
+0.354517 -2.18964
+0.356294 -2.18371
+0.35808 -2.17776
+0.359875 -2.1718
+0.361679 -2.16583
+0.363492 -2.15984
+0.365314 -2.15384
+0.367145 -2.14783
+0.368985 -2.14181
+0.370835 -2.13577
+0.372694 -2.12973
+0.374562 -2.12366
+0.376439 -2.11759
+0.378326 -2.1115
+0.380223 -2.1054
+0.382129 -2.09929
+0.384044 -2.09317
+0.385969 -2.08703
+0.387904 -2.08088
+0.389848 -2.07471
+0.391802 -2.06853
+0.393766 -2.06234
+0.39574 -2.05614
+0.397724 -2.04992
+0.399717 -2.04369
+0.401721 -2.03744
+0.403735 -2.03119
+0.405758 -2.02491
+0.407792 -2.01863
+0.409836 -2.01233
+0.411891 -2.00602
+0.413955 -1.99969
+0.41603 -1.99335
+0.418116 -1.98699
+0.420212 -1.98062
+0.422318 -1.97424
+0.424435 -1.96784
+0.426562 -1.96143
+0.4287 -1.955
+0.430849 -1.94856
+0.433009 -1.9421
+0.435179 -1.93563
+0.437361 -1.92914
+0.439553 -1.92264
+0.441756 -1.91612
+0.443971 -1.90959
+0.446196 -1.90304
+0.448433 -1.89648
+0.450681 -1.8899
+0.45294 -1.8833
+0.45521 -1.87669
+0.457492 -1.87006
+0.459785 -1.86341
+0.46209 -1.85675
+0.464406 -1.85007
+0.466734 -1.84337
+0.469073 -1.83666
+0.471425 -1.82993
+0.473788 -1.82318
+0.476163 -1.81641
+0.478549 -1.80962
+0.480948 -1.80282
+0.483359 -1.796
+0.485782 -1.78916
+0.488217 -1.78229
+0.490664 -1.77541
+0.493123 -1.76851
+0.495595 -1.76159
+0.498079 -1.75465
+0.500576 -1.74769
+0.503085 -1.74071
+0.505607 -1.73371
+0.508141 -1.72669
+0.510688 -1.71965
+0.513248 -1.71258
+0.515821 -1.7055
+0.518407 -1.69839
+0.521005 -1.69126
+0.523617 -1.68411
+0.526241 -1.67694
+0.528879 -1.66974
+0.53153 -1.66252
+0.534194 -1.65528
+0.536872 -1.64802
+0.539563 -1.64073
+0.542268 -1.63342
+0.544986 -1.62608
+0.547718 -1.61872
+0.550463 -1.61134
+0.553222 -1.60394
+0.555995 -1.59651
+0.558782 -1.58906
+0.561583 -1.58158
+0.564398 -1.57408
+0.567227 -1.56655
+0.570071 -1.559
+0.572928 -1.55142
+0.5758 -1.54382
+0.578686 -1.53619
+0.581587 -1.52854
+0.584502 -1.52086
+0.587432 -1.51315
+0.590376 -1.50542
+0.593336 -1.49766
+0.59631 -1.48988
+0.599299 -1.48206
+0.602303 -1.47422
+0.605322 -1.46635
+0.608356 -1.45845
+0.611406 -1.45053
+0.61447 -1.44257
+0.61755 -1.43458
+0.620646 -1.42656
+0.623757 -1.41851
+0.626883 -1.41043
+0.630026 -1.40232
+0.633184 -1.39418
+0.636358 -1.386
+0.639547 -1.37779
+0.642753 -1.36955
+0.645975 -1.36127
+0.649213 -1.35296
+0.652467 -1.34461
+0.655738 -1.33623
+0.659025 -1.32781
+0.662328 -1.31935
+0.665648 -1.31086
+0.668985 -1.30233
+0.672338 -1.29377
+0.675708 -1.28516
+0.679095 -1.27652
+0.682499 -1.26784
+0.68592 -1.25912
+0.689358 -1.25037
+0.692814 -1.24157
+0.696286 -1.23274
+0.699777 -1.22386
+0.703284 -1.21495
+0.706809 -1.206
+0.710352 -1.19701
+0.713913 -1.18798
+0.717492 -1.17891
+0.721088 -1.16981
+0.724702 -1.16066
+0.728335 -1.15148
+0.731986 -1.14225
+0.735655 -1.13299
+0.739342 -1.12369
+0.743048 -1.11436
+0.746773 -1.10498
+0.750516 -1.09557
+0.754278 -1.08613
+0.758059 -1.07664
+0.761859 -1.06713
+0.765678 -1.05757
+0.769516 -1.04798
+0.773373 -1.03836
+0.77725 -1.0287
+0.781145 -1.01901
+0.785061 -1.00929
+0.788996 -0.999534
+0.792951 -0.989748
+0.796926 -0.97993
+0.80092 -0.970083
+0.804935 -0.960206
+0.80897 -0.9503
+0.813025 -0.940366
+0.8171 -0.930404
+0.821196 -0.920416
+0.825312 -0.910401
+0.829449 -0.900362
+0.833607 -0.890298
+0.837785 -0.88021
+0.841984 -0.870099
+0.846205 -0.859966
+0.850447 -0.849811
+0.854709 -0.839636
+0.858994 -0.82944
+0.863299 -0.819225
+0.867627 -0.808992
+0.871976 -0.798741
+0.876347 -0.788473
+0.880739 -0.778189
+0.885154 -0.767889
+0.889591 -0.757574
+0.89405 -0.747246
+0.898531 -0.736903
+0.903035 -0.726548
+0.907562 -0.716181
+0.912111 -0.705803
+0.916683 -0.695413
+0.921278 -0.685014
+0.925896 -0.674605
+0.930537 -0.664187
+0.935201 -0.653761
+0.939889 -0.643327
+0.9446 -0.632886
+0.949335 -0.622438
+0.954094 -0.611985
+0.958876 -0.601525
+0.963682 -0.59106
+0.968513 -0.580591
+0.973368 -0.570117
+0.978247 -0.55964
+0.98315 -0.549159
+0.988078 -0.538675
+0.993031 -0.528189
+0.998009 -0.517701
+1.00301 -0.507211
+1.00804 -0.496719
+1.01309 -0.486227
+1.01817 -0.475734
+1.02327 -0.46524
+1.0284 -0.454747
+1.03356 -0.444254
+1.03874 -0.433761
+1.04394 -0.42327
+1.04918 -0.41278
+1.05444 -0.402292
+1.05972 -0.391806
+1.06503 -0.381322
+1.07037 -0.370841
+1.07574 -0.360362
+1.08113 -0.349888
+1.08655 -0.339417
+1.092 -0.32895
+1.09747 -0.318488
+1.10297 -0.30803
+1.1085 -0.297578
+1.11406 -0.287132
+1.11964 -0.276692
+1.12525 -0.266258
+1.13089 -0.255832
+1.13656 -0.245413
+1.14226 -0.235002
+1.14798 -0.224599
+1.15374 -0.214206
+1.15952 -0.203822
+1.16533 -0.193447
+1.17117 -0.183084
+1.17704 -0.172731
+1.18294 -0.16239
+1.18887 -0.152061
+1.19483 -0.141745
+1.20082 -0.131441
+1.20684 -0.121152
+1.21289 -0.110877
+1.21897 -0.100617
+1.22508 -0.0903721
+1.23122 -0.0801432
+1.23739 -0.0699308
+1.2436 -0.0597354
+1.24983 -0.0495575
+1.25609 -0.0393975
+1.26239 -0.029256
+1.26872 -0.0191335
+1.27508 -0.00903029
+1.28147 0.00105311
+1.28789 0.0111163
+1.29435 0.0211589
+1.30084 0.0311806
+1.30736 0.041181
+1.31391 0.0511598
+1.3205 0.0611167
+1.32711 0.0710515
+1.33377 0.0809639
+1.34045 0.0908537
+1.34717 0.100721
+1.35392 0.110565
+1.36071 0.120386
+1.36753 0.130184
+1.37439 0.139958
+1.38128 0.149709
+1.3882 0.159437
+1.39516 0.169141
+1.40215 0.178822
+1.40918 0.18848
+1.41624 0.198114
+1.42334 0.207725
+1.43048 0.217312
+1.43765 0.226877
+1.44485 0.236419
+1.45209 0.245937
+1.45937 0.255433
+1.46669 0.264907
+1.47404 0.274358
+1.48143 0.283788
+1.48885 0.293195
+1.49632 0.302581
+1.50382 0.311945
+1.51136 0.321288
+1.51893 0.330611
+1.52655 0.339913
+1.5342 0.349195
+1.54189 0.358457
+1.54962 0.3677
+1.55738 0.376923
+1.56519 0.386128
+1.57304 0.395315
+1.58092 0.404484
+1.58884 0.413636
+1.59681 0.422771
+1.60481 0.43189
+1.61286 0.440993
+1.62094 0.450081
+1.62907 0.459154
+1.63723 0.468214
+1.64544 0.47726
+1.65369 0.486293
+1.66198 0.495315
+1.67031 0.504325
+1.67868 0.513325
+1.68709 0.522315
+1.69555 0.531297
+1.70405 0.54027
+1.71259 0.549237
+1.72117 0.558197
+1.7298 0.567152
+1.73847 0.576102
+1.74719 0.58505
+1.75595 0.593995
+1.76475 0.60294
+1.77359 0.611884
+1.78248 0.62083
+1.79142 0.629778
+1.8004 0.638729
+1.80942 0.647686
+1.81849 0.656648
+1.82761 0.665618
+1.83677 0.674597
+1.84597 0.683587
+1.85523 0.692588
+1.86453 0.701602
+1.87387 0.71063
+1.88327 0.719675
+1.89271 0.728737
+1.90219 0.737819
+1.91173 0.746921
+1.92131 0.756046
+1.93094 0.765195
+1.94062 0.774369
+1.95035 0.783571
+1.96012 0.792803
+1.96995 0.802065
+1.97982 0.81136
+1.98975 0.820689
+1.99972 0.830055
+2.00974 0.839459
+2.01982 0.848902
+2.02994 0.858388
+2.04012 0.867917
+2.05034 0.877492
+2.06062 0.887114
+2.07095 0.896786
+2.08133 0.906509
+2.09176 0.916285
+2.10225 0.926117
+2.11279 0.936005
+2.12338 0.945953
+2.13402 0.955962
+2.14472 0.966034
+2.15547 0.976171
+2.16627 0.986376
+2.17713 0.996649
+2.18804 1.00699
+2.19901 1.01741
+2.21003 1.0279
+2.22111 1.03847
+2.23224 1.04912
+2.24343 1.05985
+2.25468 1.07067
+2.26598 1.08157
+2.27734 1.09255
+2.28875 1.10363
+2.30023 1.1148
+2.31176 1.12606
+2.32334 1.13741
+2.33499 1.14887
+2.34669 1.16042
+2.35846 1.17208
+2.37028 1.18384
+2.38216 1.1957
+2.3941 1.20768
+2.4061 1.21976
+2.41816 1.23196
+2.43028 1.24427
+2.44246 1.2567
+2.45471 1.26925
+2.46701 1.28193
+2.47938 1.29472
+2.4918 1.30764
+2.5043 1.32069
+2.51685 1.33387
+2.52946 1.34719
+2.54214 1.36064
+2.55489 1.37424
+2.56769 1.38797
+2.58056 1.40185
+2.5935 1.41588
+2.6065 1.43006
+2.61956 1.44439
+2.63269 1.45888
+2.64589 1.47354
+2.65915 1.48836
+2.67248 1.50335
+2.68588 1.51852
+2.69934 1.53387
+2.71287 1.5494
+2.72647 1.56513
+2.74014 1.58106
+2.75387 1.59719
+2.76767 1.61353
+2.78155 1.6301
+2.79549 1.6469
+2.8095 1.66394
+2.82358 1.68124
+2.83774 1.69881
+2.85196 1.71666
+2.86626 1.73482
+2.88063 1.7533
+2.89506 1.77214
+2.90958 1.79135
+2.92416 1.81097
+2.93882 1.83103
+2.95355 1.85159
+2.96835 1.87269
+2.98323 1.8944
+2.99819 1.91679
+3.01321 1.93995
+3.02832 1.96398
+3.0435 1.98879
+3.05875 2.0149
+3.07409 2.04254
+&

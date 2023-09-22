@@ -1,8 +1,26 @@
+### ignore compiled binaries
 bin/*
+
+### mark files for deletion
 del/*
+
+### compiled libraries
 lib/
+
+### dump stuff you don't want to delete in here
 not/*
+
+### create release source code versions here
 release/*
+
+### a build directory as used e.g. by CMake
 build/*
+
+### work in progress
+example/*
+
+### Mac OSX macros
 .DS_Store
+
+### any folder name that start from test*
 [tT][eE][sS][tT]*

@@ -24,3 +24,6 @@ potx
 
 ### logarithmic derivatives for all integer species
 logder-plot
+
+### Visual Studio Code config
+.vscode/*

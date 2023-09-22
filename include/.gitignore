@@ -1,2 +1,8 @@
+### work directory
 restructure/*
+
+### Jupyter-HPC config
 .ipynb_checkpoints/*
+
+### Visual Studio Code config
+.vscode/*
