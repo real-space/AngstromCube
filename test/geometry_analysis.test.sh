@@ -3,6 +3,17 @@
 (cd ../src/ && make -j)
 exe=../src/a43
 
+
+for nspecies in {0..128}; do
+    echo $nspecies
+    $exe -t geometry_analysis \
+           +geometry_analysis.select.test=3 \
+           +geometry_analysis.test.nspecies=$nspecies \
+           +geometry.file=species_test.xyz \
+        -v
+done # nspecies
+exit
+
 geometries="AlP_dimer.xyz Al_spherical_atom.xyz Cu40Zr22.xyz Cu_fcc_inversion.xyz Fe_bcc.xyz Sc2O3.xyz dna.xyz new_GST_set2.xyz tpa_on_gold.xyz
 Al_single.xyz Cu320Zr180.xyz Cu_fcc.xyz Cu_fcc_shifted.xyz Po_sc.xyz graphene.xyz silicene.xyz Au_fcc.xyz Au_hcp.xyz"
 

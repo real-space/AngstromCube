@@ -616,36 +616,39 @@ namespace geometry_analysis {
       index_t const natoms_BP = std::min(natoms, max_natoms_BP); // limit the number of atoms for which the bonds are analyzed
       std::vector<std::vector<atom_image_index_t>> bond_partner((MaxBP > 0)*natoms_BP);
 
-      std::vector<int8_t> ispecies(natoms, 0);
-      std::vector<int> occurrence(128, 0);
-      int8_t Z_of_species[128]; Z_of_species[0] = -1;
-      int8_t species_of_Z[128];
+      std::vector<int8_t> ispecies(natoms, int8_t(-1));
+      std::vector<uint32_t> occurrence(0);
+      std::vector<int8_t> Z_of_species(0);
 
-      int nspecies{0}; // number of different species
-      { // scope: count differen species, fill ispecies and species_of_Z
+      int nspecies_{0}; // number of different species, non-const
+      { // scope: count different species, fill ispecies
+          std::vector<uint32_t> occ(128, 0);
           for (index_t ia = 0; ia < natoms; ++ia) {
-              int const Z_ia = std::round(xyzZ[ia][3]), Z_ia_mod = Z_ia & 127;
-              ++occurrence[Z_ia_mod];
+              int const intZ_ia = std::round(xyzZ[ia][3]), Z_ia_mod = intZ_ia & 127;
+              ++occ[Z_ia_mod];
           } // ia
 
           // evaluate the histogram
+          std::vector<int8_t> species_of_Z(128, int8_t(-1)); // translation table
           int is{0};
           for (int Z = 0; Z < 128; ++Z) {
-              if (occurrence[Z] > 0) {
+              if (occ[Z] > 0) {
                   species_of_Z[Z] = is;
-                  Z_of_species[is] = Z;
+                  Z_of_species.push_back(Z);
+                  occurrence.push_back(occ[Z]);
                   ++is; // create a new species
-              } else {
-                  assert(0 == occurrence[Z]); // occurrence may not be negative
-              } // non-zero count
+              } else assert(0 == occ[Z]);
           } // Z
-          nspecies = is;
-          for (index_t ia = 0; ia < natoms; ++ia) {
-              int const Z_ia = std::round(xyzZ[ia][3]), Z_ia_mod = Z_ia & 127;
-              ispecies[ia] = species_of_Z[Z_ia_mod];
-          } // ia
+          nspecies_ = is;
 
+          // translate Z[ia] into ispecies[ia]
+          for (index_t ia = 0; ia < natoms; ++ia) {
+              int const intZ_ia = std::round(xyzZ[ia][3]), Z_ia_mod = intZ_ia & 127;
+              ispecies[ia] = species_of_Z[Z_ia_mod];
+              assert(ispecies[ia] >= 0);
+          } // ia
       } // scope
+      auto const nspecies = nspecies_; // convert to const
 
 
       // the following 3 arrays could use less than 128 entries if we limit the max. number of species in sample
@@ -661,13 +664,13 @@ namespace geometry_analysis {
           } // swap
           Sy_of_species_right[is][2] = '\0'; Sy_of_species_right[is][3] = '\0';
       } // is
-      Sy_of_species_null[127][0] = '?'; Sy_of_species_null[127][1] = '\0'; // the is the entry #-1
+      // Sy_of_species_null[127][0] = '?'; Sy_of_species_null[127][1] = '\0'; // the is the entry #-1
 
 
       if (echo > 2) {
           std::printf("# Found %d different elements in %d atoms:  ", nspecies, natoms);
           for (int is = 0; is < nspecies; ++is) {
-              std::printf("  %s_%d", Sy_of_species_null[is], occurrence[Z_of_species[is]]);
+              std::printf("  %s_%d", Sy_of_species_null[is], occurrence[is]);
           } // is
           std::printf("\n");
       } // echo
@@ -796,7 +799,7 @@ namespace geometry_analysis {
 //                    if (echo > 8) std::printf("# [%d,%d,%d %d %d] %g\n", ia, ja, shift[0], shift[1], shift[2], d2); // very verbose!!
                       auto const dist = std::sqrt(d2);
                       {
-                          int const ibin = int(dist*inv_bin_width);
+                          auto const ibin = int(dist*inv_bin_width);
                           if (ibin < num_bins) ++dist_hist(ibin,is,js);
                       }
                       if (Z_of_species[js] > 0) { // only create bonds towards real atoms, not towards vaccuum atoms
@@ -906,6 +909,7 @@ namespace geometry_analysis {
 
       if (num_bins > 1) {
           bool const echoh = (echo > 5);
+          int constexpr warn_asymmetries = 1; // 0:never, 1:summary, >1:details
           if (echoh) {
               std::printf("\n## distance histogram (in %s):", _Ang);
               for (int is = 0; is < nspecies; ++is) {
@@ -915,7 +919,7 @@ namespace geometry_analysis {
                   std::printf((is < nspecies - 1) ? " " : "\n");
               } // is
           } // echoh
-          size_t ij_dev{0}; // count asymmetries
+          size_t ij_dev{0}; // count asymmetries in dist_hist(ibin,:,:)
           SparsifyPlot<int> spp(true); // true: always show the 0th entry
           for (int ibin = 0; ibin < num_bins; ++ibin) {
 #ifdef    PLOT_ALL_HISTOGRAM_POINTS
@@ -939,22 +943,21 @@ namespace geometry_analysis {
                       for (int js = is + 1; js < nspecies; ++js) { // triangular loop excluding i
                           if (echoh) std::printf(" %d", hist(is,js) + hist(js,is)); // h(i,j) + h(j,i)
                           ij_dev += (hist(is,js) != hist(js,is));
-                        //   if (hist(is,js) != hist(js,is)) {
-                        //       // the output from this warning interferes with the output to echoh and makes that it is not plotable
-                        //       warn("histogram asymmetry at %.3f %s %s-%s: %d and %d", dist*Ang, _Ang,
-                        //           Sy_of_species_null[is], Sy_of_species_null[js], hist(is,js), hist(js,is));
-                        //   } // asymmetric
+                          if (warn_asymmetries > 1 && hist(is,js) != hist(js,is)) {
+                              // the output from this warning interferes with the output to echoh and makes that it is not plotable
+                              warn("histogram asymmetry at %.3f %s %s-%s: %d and %d", dist*Ang, _Ang,
+                                  Sy_of_species_null[is], Sy_of_species_null[js], hist(is,js), hist(js,is));
+                          } // asymmetric
                       } // js
                   } // is
                   if (echoh) std::printf("\n");
-              } // non-zero or before non-zero or after non-zero
+              } // jbin non-zero or before non-zero or after non-zero
           } // ibin
-          if (ij_dev > 0) {
+          if (warn_asymmetries == 1 && ij_dev > 0) {
               warn("histogram has %.3f k asymmetries", ij_dev*.001);
-              ++stat;
           } // asymmetries detected
           dist_hist = view3D<uint16_t>(0,0,0, 0); // free
-      } // num_bins > 0
+      } // num_bins > 1
 
 
 
@@ -1043,7 +1046,7 @@ namespace geometry_analysis {
           // after the lengthy output and before the summary, repeat the stoichiometry
           std::printf("\n# Found %d different elements for %d atoms:  ", nspecies, natoms);
           for (int is = 0; is < nspecies; ++is) {
-              std::printf("  %s_%d", Sy_of_species_null[is], occurrence[Z_of_species[is]]);
+              std::printf("  %s_%d", Sy_of_species_null[is], occurrence[is]);
           } // is
           std::printf("\n");
 
@@ -1204,7 +1207,7 @@ namespace geometry_analysis {
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
       int8_t bc[3] = {-7, -7, -7};
-      stat += read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo/2);
+      stat = read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo/2);
       if (0 != stat) {
           warn("read_xyz_file failed with status= %i", int(stat));
           return stat;
@@ -1216,7 +1219,7 @@ namespace geometry_analysis {
     //       return -1;
     //   } else
       { // SimpleTimer timer(__FILE__, __LINE__, "analysis");
-          stat += analysis(xyzZ, natoms, cell, bc, echo);
+          stat = analysis(xyzZ, natoms, cell, bc, echo);
       } // timer
       return stat;
   } // test_analysis
@@ -1231,7 +1234,6 @@ namespace geometry_analysis {
           xi[iZ] = x;
           x += default_half_bond_length(iZ) + default_half_bond_length((iZ + 1)%nspecies);
       } // iZ
-
       auto const filename = control::get("geometry_analysis.test.file", "species_test.xyz");
       if (echo > 0) {
           std::printf("\n# generate example file \'%s\' with %d different species, length= %g %s\n\n",
