@@ -1094,7 +1094,7 @@ namespace geometry_analysis {
 
 
       if (echo > 2) {
-          char const *const not_available = "     n/a";
+          char const *const not_available = "   n/a  ";
           char const *const no_entry      = "        ";
 
           std::printf("\n# bond counts  ");
@@ -1128,21 +1128,25 @@ namespace geometry_analysis {
           if (check_nbonds != nbonds) error("Checksum for bonds does not agree: %d vs %d", check_nbonds, nbonds);
 
           char const label[3][16] = {" min distance", " longest bond", "shortest bond"};
-          for (int i3 = 0; i3 < 3; ++i3) {
+          for (int i3 = 0; i3 < 3; ++i3) { // show three different tables
 
-              std::printf("\n# %ss", label[i3]);
-              for (int js = 0; js < nspecies; ++js) {
+              std::printf("\n# %ss ", label[i3]);
+            //   for (int js = 0; js < nspecies; ++js) {
+              for (int js = nspecies - 1; js >= 0; --js) {
                   std::printf("     %s ", Sy_of_species_right[js]); // create legend
               } // js
               std::printf("\n");
               for (int is = 0; is < nspecies; ++is) {
                   std::printf("# %s", label[i3]);
-                  for (int js = 0; js < nspecies; ++js) {
+                  std::printf(" %s", Sy_of_species[is]);
+                //   for (int js = 0; js < nspecies; ++js) {
+                  for (int js = nspecies - 1; js >= 0; --js) {
                       if (js >= is) {
                           double value = smallest_distance(is,js);
                           if (i3 > 0) {
                                 if (bond_stat(is,js).tim() > 0) {
-                                    value = (1 == i3) ? bond_stat(is,js).max(): bond_stat(is,js).min();
+                                    value = (1 == i3) ? bond_stat(is,js).max() 
+                                                      : bond_stat(is,js).min();
                                 } else {
                                     value = too_large; // display as not_available "n/a"
                                 }
@@ -1152,11 +1156,12 @@ namespace geometry_analysis {
                           } else {
                               std::printf(not_available); // no distance below rcut found
                           }
-                      } else {
-                          std::printf(no_entry); // do not show elements below the diagonal
+                    //   } else {
+                    //       std::printf(no_entry); // do not show elements below the diagonal
                       }
                   } // js
-                  std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
+//                std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
+                  std::printf("\n");
               } // is
 
           } // i3
