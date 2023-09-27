@@ -36,7 +36,7 @@ namespace brillouin_zone {
 
       int constexpr COUNT=0, WRITE=1;
 
-      size_t const nfull = n[2]*n[1]*n[0];
+      auto const nfull = size_t(n[2])*size_t(n[1])*size_t(n[0]);
       view4D<double> full(n[2], n[1], n[0], 4); // get temporary memory
       double const denom[] = {.5/n[0], .5/n[1], .5/n[2]};
       double xyzw[] = {0, 0, 0, 1};
@@ -51,17 +51,55 @@ namespace brillouin_zone {
 //       view3D<int8_t> symmetry(nsymmetries, 4, 4, 0); // use only the 3x3 sub matrices of the 4x4 memory chunks
 //       for (int d = 0; d < 3; ++d) symmetry(0,d,d) = -1; // time reversal
 
+      int8_t const rot_mat[24*3*3] = {
+         1,  0,  0,  0,  1,  0,  0,  0,  1,
+        -1,  0,  0,  0, -1,  0,  0,  0,  1,
+        -1,  0,  0,  0,  1,  0,  0,  0, -1,
+         1,  0,  0,  0, -1,  0,  0,  0, -1,
+         0,  1,  0,  1,  0,  0,  0,  0, -1,
+         0, -1,  0, -1,  0,  0,  0,  0, -1,
+         0, -1,  0,  1,  0,  0,  0,  0,  1,
+         0,  1,  0, -1,  0,  0,  0,  0,  1,
+         0,  0,  1,  0, -1,  0,  1,  0,  0,
+         0,  0, -1,  0, -1,  0, -1,  0,  0,
+         0,  0, -1,  0,  1,  0,  1,  0,  0,
+         0,  0,  1,  0,  1,  0, -1,  0,  0,
+        -1,  0,  0,  0,  0,  1,  0,  1,  0,
+        -1,  0,  0,  0,  0, -1,  0, -1,  0,
+         1,  0,  0,  0,  0, -1,  0,  1,  0,
+         1,  0,  0,  0,  0,  1,  0, -1,  0,
+         0,  0,  1,  1,  0,  0,  0,  1,  0,
+         0,  0, -1, -1,  0,  0,  0,  1,  0,
+         0,  0, -1,  1,  0,  0,  0, -1,  0,
+         0,  0,  1, -1,  0,  0,  0, -1,  0,
+         0,  1,  0,  0,  0,  1,  1,  0,  0,
+         0, -1,  0,  0,  0, -1,  1,  0,  0,
+         0, -1,  0,  0,  0,  1, -1,  0,  0,
+         0,  1,  0,  0,  0, -1, -1,  0,  0};
+
+      int constexpr has_inv = 2;
+
       for (int iz = 0; iz < n[2]; ++iz) {
       for (int iy = 0; iy < n[1]; ++iy) {
       for (int ix = 0; ix < n[0]; ++ix) {
           // apply time reversal symmetry (k and -k produce the same density)
-          double xyz[3];
-          set(xyz, 3, full(iz,iy,ix), -1.0); // go from k --> -k, ToDo: implement symmetry operation
-          // convert to nearest integers
+    //    set(xyz, 3, full(iz,iy,ix), -1.); // go from k --> -k, ToDo: implement symmetry operation
+          double const *const vec = full(iz,iy,ix);
+          for (int inv = 0; inv < has_inv; ++inv) { // inversion symmetry
+              double const f_inv = 1. - inv*2.;
+          for (int s = 0; s < 24; ++s) {
+              double xyz[] = {0, 0, 0};
+              for (int i = 0; i < 3; ++i) {
+                  for (int j = 0; j < 3; ++j) {
+                      xyz[i] += f_inv*rot_mat[s*3*3 + i*3 + j] * vec[j];
+                  } // j
+              } // i
+          // convert xyz to nearest integers
           int jxyz[3];
           for (int d = 0; d < 3; ++d) {
               jxyz[d] = int(std::round(n[d]*xyz[d] + 0.5*shift[d]));
               if (jxyz[d] < 0) jxyz[d] += n[d];
+              assert(jxyz[d] < n[d]);
           } // d
           int const jx = jxyz[0], jy = jxyz[1], jz = jxyz[2];
           if (echo > 16) {
@@ -87,6 +125,9 @@ namespace brillouin_zone {
                   } // echo
               } // d2 is zero
           } // w8 > 0
+
+          } // s
+          } // inv
       }}} // iz iy iz
 
       // copy kpoints with positive weight into result list
@@ -116,7 +157,9 @@ namespace brillouin_zone {
           } // COUNT or WRITE
       } // twice
 
-      if (echo > 3) std::printf("# k-point mesh with %d x %d x %d has %d points\n", n[0],n[1],n[2], nmesh);
+      auto const fraction = nmesh*wfull; // == nmesh/(n[X]*n[Y]*n[Z])
+      if (echo > 3) std::printf("# k-point mesh with %d x %d x %d has %d points, %g %%, %g of %d\n",
+                                 n[0],n[1],n[2], nmesh, fraction*100, 1/fraction, has_inv*24);
       return nmesh;
   } // get_kpoint_mesh
 
@@ -224,14 +267,14 @@ namespace brillouin_zone {
 
   inline status_t test_mesh(int const echo=0, unsigned const n=8) {
       view2D<double> mesh;
-      auto const nm = get_kpoint_mesh(mesh, n, echo);
+      auto const nm = get_kpoint_mesh(mesh, n, true, echo);
       if (echo > 5) std::printf("# %s(n= %d) returns %d points\n", __func__, n, nm);
       return (nm < 1); // error if less than 1 (the Gamma points) is in the mesh
   } // test_mesh
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      for (int n = 0; n < 9; ++n) {
+      for (int n = 0; n <= 49; ++n) {
           stat += test_mesh(echo, n);
       } // n
       return stat;

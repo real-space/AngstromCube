@@ -817,11 +817,83 @@ namespace green_experiments {
 
   } // test_experiment
 
+  inline uint8_t transfer(view3D<uint8_t> & rhs, int ix, int iy, int iz, int jx, int jy, int jz) {
+      auto const t = rhs(jz,jy,jx);
+      if (t > 0) {
+          rhs(ix,iy,iz) += t;
+          rhs(jz,jy,jx) = 0;        
+      } // t
+      return t;
+  } // transfer
+
+  status_t test_symmetric_cube(int echo=0) {
+      // input like methane with 24 symmetry operations: reduce the number of right-hand-sides
+      int const n = control::get("green_experiments.cube.n", 3.);
+      assert(n > 0);
+      size_t const n_all = n*size_t(n)*size_t(n);
+      if (echo > 0) std::printf("# %s: all= %ld\n", __func__, n_all);
+      view3D<uint8_t> rhs(n, n, n, uint8_t(0));
+      for (int z = 0; z < n; ++z) {
+          for (int y = 0; y < n; ++y) {
+              for (int x = 0; x < n; ++x) {
+                  rhs(z,y,x) = 1;
+      }   }   } // x y z
+
+    //   int8_t const rot_mat[24*3*3] = {
+    //      1,  0,  0,  0,  1,  0,  0,  0,  1,
+    //     -1,  0,  0,  0, -1,  0,  0,  0,  1,
+    //     -1,  0,  0,  0,  1,  0,  0,  0, -1,
+    //      1,  0,  0,  0, -1,  0,  0,  0, -1,
+    //      0,  1,  0,  1,  0,  0,  0,  0, -1,
+    //      0, -1,  0, -1,  0,  0,  0,  0, -1,
+    //      0, -1,  0,  1,  0,  0,  0,  0,  1,
+    //      0,  1,  0, -1,  0,  0,  0,  0,  1,
+    //      0,  0,  1,  0, -1,  0,  1,  0,  0,
+    //      0,  0, -1,  0, -1,  0, -1,  0,  0,
+    //      0,  0, -1,  0,  1,  0,  1,  0,  0,
+    //      0,  0,  1,  0,  1,  0, -1,  0,  0,
+    //     -1,  0,  0,  0,  0,  1,  0,  1,  0,
+    //     -1,  0,  0,  0,  0, -1,  0, -1,  0,
+    //      1,  0,  0,  0,  0, -1,  0,  1,  0,
+    //      1,  0,  0,  0,  0,  1,  0, -1,  0,
+    //      0,  0,  1,  1,  0,  0,  0,  1,  0,
+    //      0,  0, -1, -1,  0,  0,  0,  1,  0,
+    //      0,  0, -1,  1,  0,  0,  0, -1,  0,
+    //      0,  0,  1, -1,  0,  0,  0, -1,  0,
+    //      0,  1,  0,  0,  0,  1,  1,  0,  0,
+    //      0, -1,  0,  0,  0, -1,  1,  0,  0,
+    //      0, -1,  0,  0,  0,  1, -1,  0,  0,
+    //      0,  1,  0,  0,  0, -1, -1,  0,  0};
+
+      // 24 symmetry operations: no inversion symmetry, but C2 and C3 symmetries
+      for (int iz = 0; iz < n; ++iz) {
+          int const jz = n - 1 - iz;
+          for (int iy = 0; iy < n; ++iy) {
+              int const jy = n - 1 - iy;
+              for (int ix = 0; ix < n; ++ix) {
+                  int const jx = n - 1 - ix;
+                  transfer(rhs, ix,iy,iz, jx,jy,iz);
+                  transfer(rhs, ix,iy,iz, jx,iy,jz);
+                  transfer(rhs, ix,iy,iz, ix,jy,jz);
+      }   }   } // x y z
+
+      size_t all{0};
+      for (int z = 0; z < n; ++z) {
+          for (int y = 0; y < n; ++y) {
+              for (int x = 0; x < n; ++x) {
+                  all += rhs(z,y,x);
+      }   }   } // x y z
+      std::printf("# %s: weights= %ld\n", __func__, all);
+
+      return 0;
+  } // test_symmetric_cube
+
   status_t all_tests(int const echo) {
       int const which = control::get("green_experiments.select.test", -1.);
       status_t stat(0);
       if (which & 0x1) stat += test_experiment(echo, 'g'); // Green function spectrum
       if (which & 0x2) stat += test_experiment(echo, 'e'); // eigensolver spectrum
+      if (which & 0x4) stat += test_symmetric_cube(echo);
       return stat;
   } // all_tests
 

@@ -452,6 +452,139 @@ namespace geometry_analysis {
   } // analyze_bond_structure
 
 
+
+  status_t plot_structure_ascii(
+        view2D<double> const & xyzZ // coordinates[natoms][4+]
+      , int8_t const *ispecies // ispecies[natoms]
+      , index_t const natoms // number of atoms
+      , char const Sy_of_species[][4] // Sy_of_species[nspecies][4]
+      , double const general_cell[3][4] // cell extent, assume Cartesian
+      , bool const frame=true
+      , int const echo=0
+  ) {
+      if (echo < 1) return 0; // nothing to do
+      double const cell[] = {general_cell[0][0], general_cell[1][1], general_cell[2][2]};
+      auto constexpr use_ratio = 0.85;
+      double constexpr yx_ratio = 0.3; // perspective aspect ratio of ASCII characters (width/height)
+      int constexpr WIDTH = 79; // width of the screen for ASCII display
+      double constexpr width_height = 0.48;
+
+      char constexpr xLine = '-', yLine = '/', zLine = '|', Origin = '+';
+
+      auto const xrat = use_ratio*0.5*cell[0]/(cell[0] + cell[1]*yx_ratio);
+      int const nx = std::round(xrat*WIDTH);
+      int const ny = std::round(nx*yx_ratio*cell[1]/cell[0]);
+      int const nz = std::round(nx*width_height*cell[2]/cell[0]);
+
+      int const nwbord = std::round(0.5*(WIDTH - ( 2*nx + 1 + 2*ny )));
+      int const nhbord = std::round(nwbord*width_height);
+      int const nh = ( 2*nz+1 + 2*ny ) + 2*nhbord;
+
+      if (echo > 8) std::printf("# %s: horizontal border %d, vertical border %d, %d lines, nx= %d, ny= %d, nz= %d\n",
+                                    __func__, nwbord, nhbord, nh, nx, ny, nz);
+
+      double camera[] = {1, nx*cell[1]/(ny*cell[0]), -1};
+      { // scope: normalize camera vector
+          auto const c2 = pow2(camera[0]) + pow2(camera[1]) + pow2(camera[2]);
+          scale(camera, 3, 1./std::sqrt(c2));
+      } // scope
+
+      // order atoms by their distance towards the camera
+      std::vector<std::pair<float,int>> dist(natoms);
+      for (int ia = 0; ia < natoms; ++ia) {
+          double const *const xyz = xyzZ[ia];
+          dist[ia].first = xyz[0]*camera[0] + xyz[1]*camera[1] + xyz[2]*camera[2];
+          dist[ia].second = ia;
+      } // ia
+
+      auto compare = [] (std::pair<float,int> &left, std::pair<float,int> &right)
+                        { return left.first < right.first; };
+      std::sort(dist.begin(), dist.end(), compare);
+
+      int const iorig[] = {nwbord + nx + ny, nhbord + nz + ny};
+
+      // allocate a canvas
+      view2D<char> canvas(nh, WIDTH + 1, ' ');
+
+      // plot back frame
+      for (int i = 1-nx; i <= nx-1; ++i) {
+          canvas(iorig[1]-nz-ny,iorig[0]+i+ny) = xLine; // upper back
+          canvas(iorig[1]+nz-ny,iorig[0]+i+ny) = xLine; // lower back
+      //  canvas(iorig[1]-nz+ny,iorig[0]+i-ny) = xLine; // upper front
+          canvas(iorig[1]+nz+ny,iorig[0]+i-ny) = xLine; // lower front
+      } // i
+
+      for (int i = 1 - nx; i < nx; ++i) {
+          canvas(iorig[1],iorig[0] + i) = xLine; // centercross
+      } // i
+
+      for (int i = 1 - ny; i < ny; ++i) {
+          canvas(iorig[1]+nz+i,iorig[0]+nx-i) = yLine; // lower right
+          canvas(iorig[1]+nz+i,iorig[0]-nx-i) = yLine; // lower left
+          canvas(iorig[1]-nz+i,iorig[0]+nx-i) = yLine; // upper right
+          canvas(iorig[1]-nz+i,iorig[0]-nx-i) = yLine; // upper left
+      } // i
+
+      for (int i = 1 - ny; i < ny; ++i) {
+          canvas(iorig[1]+i,iorig[0]-i) = yLine; // center
+      } // i
+
+      for (int i = 1 - nz; i < nz; ++i) {
+        canvas(iorig[1]+i-ny,iorig[0]-nx+ny) = zLine; // back left
+        canvas(iorig[1]+i-ny,iorig[0]+nx+ny) = zLine; // back right
+        canvas(iorig[1]+i+ny,iorig[0]-nx-ny) = zLine; // front left
+        canvas(iorig[1]+i+ny,iorig[0]+nx-ny) = zLine; // front right
+      } // i
+
+      for (int i = 1 - nz; i < nz; ++i) {
+          canvas(iorig[1]+i,iorig[0]) = zLine; // center
+      } // i
+
+      for (int i = 1 - nx; i < nx; ++i) {
+          canvas(iorig[1]-nz+ny,iorig[0]+i-ny) = xLine; // upper front
+      } // i
+      canvas(iorig[1],iorig[0]) = Origin;
+
+
+      char constexpr capital = 32; // 0:upper case, 32:lower case
+      canvas(iorig[1]+nz+ny+1,iorig[0]+nx-ny+1) = 'x' | capital;
+      canvas(iorig[1]+nz-ny+0,iorig[0]+nx+ny+1) = 'y' | capital;
+      canvas(iorig[1]-nz-ny-1,iorig[0]+nx+ny+1) = 'z' | capital;
+
+      auto const suppress = -9; // control::get("display.suppress", -9.); // helps to suppress light elements, e.g. hydrogen
+      for (int ja = 0; ja < natoms; ++ja) {
+          auto const ia = dist[ja].second;
+          double const *const xyz = xyzZ[ia];
+        if (xyz[3] > suppress) { // check Z
+          double coords[3];
+          for (int d = 0; d < 3; ++d) {
+              coords[d] = xyz[d]/cell[d];
+              coords[d] = std::fmod(coords[d] + 0.5, 1.0) - 0.5; // fold back into [0.5, 0.5)
+          } // d
+          // projection onto 2dim coordinates
+          int const iw = iorig[0] + std::round( (coords[0] + 0.5)*2*nx ) - nx
+                                  + std::round( (coords[1] + 0.5)*2*ny ) - ny;
+          int const ih = iorig[1] - std::round( (coords[2] + 0.5)*2*nz ) + nz
+                                  - std::round( (coords[1] + 0.5)*2*ny ) + ny;
+          int const is = ispecies[ia];
+          char const S = Sy_of_species[is][0], y = Sy_of_species[is][1];
+          canvas((ih + 999*nh) % nh,(iw + 999*WIDTH) % WIDTH) = S;
+          if (' ' != y) 
+          canvas((ih + 999*nh) % nh,(iw+1+999*WIDTH) % WIDTH) = y;
+        } // suppress
+      } // ja
+
+      for (int ih = 0; ih < nh; ++ih) {
+          canvas(ih,WIDTH) = '\0'; // null-termination
+          std::printf("# %s\n", canvas[ih]);
+      } // ih
+
+      return 0;
+  } // plot_structure_ascii
+
+
+
+
   status_t analysis(
         view2D<double> const & xyzZ // coordinates[natoms][4+]
       , index_t const natoms // number of atoms
@@ -490,32 +623,27 @@ namespace geometry_analysis {
 
       int nspecies{0}; // number of different species
       { // scope: count differen species, fill ispecies and species_of_Z
+          for (index_t ia = 0; ia < natoms; ++ia) {
+              int const Z_ia = std::round(xyzZ[ia][3]), Z_ia_mod = Z_ia & 127;
+              ++occurrence[Z_ia_mod];
+          } // ia
 
-          for (int first = 1; first >= 0; --first) {
-              for (index_t ia = 0; ia < natoms; ++ia) {
-                  int const Z_ia = std::round(xyzZ[ia][3]);
-                  int const Z_ia_mod = Z_ia & 127; // modulo 128
-                  if (first) {
-                      ++occurrence[Z_ia_mod];
-                  } else {
-                      ispecies[ia] = species_of_Z[Z_ia_mod];
-                  } // first
-              } // ia
-              if (first) {
-                  // evaluate the histogram only in the first iteration
-                  int is{0};
-                  for (int Z = 0; Z < 128; ++Z) {
-                      if (occurrence[Z] > 0) {
-                          species_of_Z[Z] = is;
-                          Z_of_species[is] = Z;
-                          ++is; // create a new species
-                      } else {
-                          assert(0 == occurrence[Z]); // occurrence may not be negative
-                      } // non-zero count
-                  } // Z
-                  nspecies = is;
-              } // first
-          } // run twice
+          // evaluate the histogram
+          int is{0};
+          for (int Z = 0; Z < 128; ++Z) {
+              if (occurrence[Z] > 0) {
+                  species_of_Z[Z] = is;
+                  Z_of_species[is] = Z;
+                  ++is; // create a new species
+              } else {
+                  assert(0 == occurrence[Z]); // occurrence may not be negative
+              } // non-zero count
+          } // Z
+          nspecies = is;
+          for (index_t ia = 0; ia < natoms; ++ia) {
+              int const Z_ia = std::round(xyzZ[ia][3]), Z_ia_mod = Z_ia & 127;
+              ispecies[ia] = species_of_Z[Z_ia_mod];
+          } // ia
 
       } // scope
 
@@ -577,6 +705,9 @@ namespace geometry_analysis {
               std::printf("# Hint: geometry_analysis.max.range=%g Bohr would be sufficient\n", hypothetical_bond);
           } // warn
       } // scope
+
+      // display atomic positions
+      plot_structure_ascii(xyzZ, ispecies.data(), natoms, Sy_of_species, cell, true, echo);
 
 
       view3D<uint16_t> dist_hist(num_bins, nspecies, nspecies, 0);

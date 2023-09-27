@@ -1,5 +1,7 @@
 **AngstromCube**
 
+[![DOI](https://img.shields.io/badge/GitHub-MIT-informational)](https://github.com/real-space/tfQMRgpu)
+
     AngstromCube is an experimental all-electron DFT application.
     It is based on a various representations:
         real-space grids,
