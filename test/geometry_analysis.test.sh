@@ -7,7 +7,7 @@ exe=../src/a43
 for nspecies in {0..128}; do
     echo $nspecies
     $exe -t geometry_analysis \
-           +geometry_analysis.select.test=3 \
+           +geometry_analysis.select.test=5 \
            +geometry_analysis.test.nspecies=$nspecies \
            +geometry.file=species_test.xyz \
         -v

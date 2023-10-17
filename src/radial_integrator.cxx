@@ -597,7 +597,7 @@ namespace radial_integrator {
           } // ir
           if (echo > 6) {
               auto const f = std::sqrt(norm2j/norm2f); // adjust scaling
-              std::printf("\n## %s: x, x*j_%i(x), f(x):\n", __func__, ell, ell);
+              std::printf("\n## %s: x, x*j_%i(x), f(x):\n", __func__, ell);
               for (int ir = 1; ir < g.n; ++ir) {
                   std::printf("%g %g %g\n", k*g.r[ir], ff[ir], f*gg[ir]);
               } // ir

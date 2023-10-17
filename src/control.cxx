@@ -315,7 +315,7 @@ namespace control {
       status_t stat(0);
       double d{0.2}; // choose 1/5 which cannot be represented exactly in binary
       for (int i = 0; i < nmax; ++i) {
-          set("d", d, echo); // warning about redefining "d" in the second iteration
+          set("d", d, echo/2); // warning about redefining "d" in the second iteration
           double const g = get("d", 1.);
           stat += (g != d);
           d *= std::sqrt(33/32.); // some irrational number close to 1
@@ -327,7 +327,7 @@ namespace control {
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_control(echo);
-      stat += test_precision(echo*0);
+      stat += test_precision(echo);
       return stat;
   } // all_tests
 

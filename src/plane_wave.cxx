@@ -62,7 +62,7 @@ namespace plane_wave {
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for (int d = 0; d < 3; ++d) {
             double const x = gv[d]*sigma; // the Fourier transform of HG_n(x) is (-i)^n HG_n(k) [for sigma=1]
-            Gauss_Hermite_polynomials(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
+            Gauss_Hermite_polynomials(Hermite_Gauss[d], x, numax); // unnormalized 1D Hermite-Gauss functions
         } // d
 
         { // scope: normalize Hermite_Gauss functions
@@ -106,20 +106,19 @@ namespace plane_wave {
 
   template <typename complex_t>
   status_t iterative_solve(
-        double eigenenergies[]
-      , view3D<complex_t> const & HSm
+        double eigenenergies[] // [nbands]
+      , view3D<complex_t> const & HSm // [2,nPW,nPW_aligned]
       , char const *x_axis=""
       , int const echo=0
       , int const nbands=10
       , float const direct_ratio=2
   ) {
       // An iterative solver using the Davidson method
-      //
       status_t stat(0);
       int constexpr H=0, S=1;
 
-      int const nPW  = HSm.dim1();
-      int const nPWa = HSm.stride();
+      int const nPW = HSm.dim1(), nPWa = HSm.stride();
+      assert(nPWa >= nPW && "The input matrices must be square");
 
       if (echo > 6) {
           std::printf("# %s for the lowest %d bands of a %d x %d Hamiltonian (stride %d)\n",
@@ -164,8 +163,8 @@ namespace plane_wave {
 
       } // scope
 
-      // construct a preconditioner
-      std::vector<complex_t> precond(nPWa, complex_t(0));
+      // construct a diagonal preconditioner
+      std::vector<complex_t> precond(nPW, complex_t(0));
       {
           double diag_min{9e99}; int imin{-1};
           for (int iB = 0; iB < nPW; ++iB) {
@@ -195,7 +194,7 @@ namespace plane_wave {
           int const nit = control::get("plane_wave.max.cg.iterations", 3.);
           if (echo > 6) { std::printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for (int it = 0; it < nit && (0 == stat_slv); ++it) {
-              if (echo > 6) { std::printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
+              if (echo > 7) { std::printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
               stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10);
               stat += stat_slv;
               davidson_solver::rotate(waves.data(), eigvals.data(), nbands, op, echo - 10);
@@ -204,6 +203,7 @@ namespace plane_wave {
           int const nit = control::get("davidson_solver.max.iterations", 1.);
           if (echo > 6) { std::printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for (int it = 0; it < nit && (0 == stat_slv); ++it) {
+              if (echo > 7) { std::printf("# %s envoke Davidson solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
               stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.0f, 2);
               stat += stat_slv;
           } // it
@@ -213,14 +213,14 @@ namespace plane_wave {
           if (echo > 2) {
               dense_solver::display_spectrum(eigvals.data(), nbands, x_axis, eV, _eV);
               if (echo > 4) std::printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n",
-                                      eigvals[0]*eV, eigvals[nbands - 1]*eV, _eV);
+                                        eigvals[0]*eV, eigvals[nbands - 1]*eV, _eV);
               std::fflush(stdout);
           } // echo
       } else {
           warn("Davidson solver for the plane wave Hamiltonian failed with status= %i", int(stat_slv));
       } // stat_slv
 
-      set(eigenenergies, nbands, eigvals.data()); // copy
+      set(eigenenergies, nbands, eigvals.data()); // export
 
       return stat;
   } // iterative_solve
@@ -369,7 +369,6 @@ namespace plane_wave {
           double const gv[3] = {kv[0]*reci[0][0] + kv[1]*reci[0][1] + kv[2]*reci[0][2]
                               , kv[0]*reci[1][0] + kv[1]*reci[1][1] + kv[2]*reci[1][2]
                               , kv[0]*reci[2][0] + kv[1]*reci[2][1] + kv[2]*reci[2][2]};
-
 
           for (int ka = 0; ka < natoms_PAW; ++ka) {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
@@ -754,13 +753,13 @@ namespace plane_wave {
   } // test_Hamiltonian
 
   status_t test_Hermite_Gauss_normalization(int const echo=5, int const numax=3) {
-      // we check if the Hermite_Gauss_projectors are L2-normalized
+      // check if the Hermite_Gauss_projectors are L2-normalized
       // when evaluated on a dense Cartesian mesh (in reciprocal space).
       // this is useful information as due to the Plancherel theorem,
       // this implies the right scaling of the projectors in both spaces.
       auto const nSHO = sho_tools::nSHO(numax);
       std::vector<std::complex<double>> pzyx(nSHO);
-      view2D<std::complex<double>> pp(nSHO, nSHO, 0.0); // orthogonality
+      view2D<std::complex<double>> pp(nSHO, nSHO, 0.0); // orthogonality matrix
       double constexpr dg = 0.125, d3g = pow3(dg);
       int constexpr ng = 40;
       for (int iz = -ng; iz <= ng; ++iz) {

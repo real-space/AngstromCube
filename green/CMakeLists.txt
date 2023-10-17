@@ -12,6 +12,7 @@ set(green_headers
         ../include/display_units.h
         ../include/mpi_parallel.hxx
         ../include/green_parallel.hxx
+        ../include/green_kinetic.hxx
         ../include/green_input.hxx
         ../include/load_balancer.hxx
         ../include/green_function.hxx
@@ -35,6 +36,7 @@ if(HAS_CUDA)
     set(green_sources ${green_sources}
             green_function.cu
             green_experiments.cu
+            green_kinetic.cu
             green_tests.cu
        )
 
@@ -47,6 +49,7 @@ else(HAS_CUDA)
     set(green_sources ${green_sources}
             green_function.cxx
             green_experiments.cxx
+            green_kinetic.cxx
             green_tests.cxx
        )
 

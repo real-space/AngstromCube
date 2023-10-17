@@ -1131,36 +1131,28 @@ namespace geometry_analysis {
           for (int i3 = 0; i3 < 3; ++i3) { // show three different tables
 
               std::printf("\n# %ss ", label[i3]);
-            //   for (int js = 0; js < nspecies; ++js) {
-              for (int js = nspecies - 1; js >= 0; --js) {
+              for (int js = nspecies - 1; js >= 0; --js) { // reversed
                   std::printf("     %s ", Sy_of_species_right[js]); // create legend
               } // js
               std::printf("\n");
               for (int is = 0; is < nspecies; ++is) {
-                  std::printf("# %s", label[i3]);
-                  std::printf(" %s", Sy_of_species[is]);
-                //   for (int js = 0; js < nspecies; ++js) {
-                  for (int js = nspecies - 1; js >= 0; --js) {
-                      if (js >= is) {
-                          double value = smallest_distance(is,js);
-                          if (i3 > 0) {
-                                if (bond_stat(is,js).tim() > 0) {
-                                    value = (1 == i3) ? bond_stat(is,js).max() 
-                                                      : bond_stat(is,js).min();
-                                } else {
-                                    value = too_large; // display as not_available "n/a"
-                                }
-                          }
-                          if ((0 <= value) && (std::abs(value) < too_large)) {
-                              std::printf("%8.3f", value*Ang);
+                  std::printf("# %s %s", label[i3], Sy_of_species[is]);
+                  for (int js = nspecies - 1; js >= is; --js) { // reversed
+                      double value = smallest_distance(is,js);
+                      if (i3 > 0) {
+                          if (bond_stat(is,js).tim() > 0) {
+                              value = (1 == i3) ? bond_stat(is,js).max() 
+                                                  : bond_stat(is,js).min();
                           } else {
-                              std::printf(not_available); // no distance below rcut found
+                              value = too_large; // display as not_available "n/a"
                           }
-                    //   } else {
-                    //       std::printf(no_entry); // do not show elements below the diagonal
+                      }
+                      if ((0 <= value) && (std::abs(value) < too_large)) {
+                          std::printf("%8.3f", value*Ang);
+                      } else {
+                          std::printf(not_available); // no distance below rcut found
                       }
                   } // js
-//                std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
                   std::printf("\n");
               } // is
 
@@ -1232,6 +1224,7 @@ namespace geometry_analysis {
 
   status_t test_example_file(int const echo=9) {
       // to test the cornercases of the algorithm this creates an input file with all species included once
+      // the distances are chosen to create bonds between nearest neighbors
       int const nspecies = std::min(std::max(2, int(control::get("geometry_analysis.test.nspecies", 128.))), 128);
       float xi[128];
       double x{0};
@@ -1239,17 +1232,18 @@ namespace geometry_analysis {
           xi[iZ] = x;
           x += default_half_bond_length(iZ) + default_half_bond_length((iZ + 1)%nspecies);
       } // iZ
+      auto const cell_x = x;
       auto const filename = control::get("geometry_analysis.test.file", "species_test.xyz");
       if (echo > 0) {
           std::printf("\n# generate example file \'%s\' with %d different species, length= %g %s\n\n",
-                        filename, nspecies, x*Ang, _Ang);
+                        filename, nspecies, cell_x*Ang, _Ang);
       } // echo
       std::ofstream outfile(filename, std::ofstream::out);
       if (outfile.fail()) {
           warn("Unable to open file '%s' for writing coordinates", filename);
           return 1;
       }
-      outfile << nspecies << "\n#cell " << x*Bohr2Angstrom << " 8 8 periodic isolated isolated\n";
+      outfile << nspecies << "\n#cell " << cell_x*Bohr2Angstrom << " 8 8 periodic isolated isolated\n";
       for (int iZ = 0; iZ < nspecies; ++iZ) {
           char Sy[4]; chemical_symbol::get(Sy, iZ, ' ');
           outfile << Sy << " " << xi[iZ]*Bohr2Angstrom << " 0 0\n";
@@ -1303,13 +1297,19 @@ namespace geometry_analysis {
       return 0;
   } // test_fcc_hcp_files
 
+  status_t test_conversion_factors(int const echo=0) {
+      auto const dev = Bohr2Angstrom*Angstrom2Bohr - 1.0;
+      if (echo > 5) std::printf("#\n# Bohr2Angstrom*Angstrom2Bohr deviates %.1e from unity\n#\n", dev);
+      return int(std::abs(dev) > 3e-16);
+  } // test_conversion_factors
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      int const t = control::get("geometry_analysis.select.test", 2.); // -1:all
+      stat += test_conversion_factors(echo);
+      int const t = control::get("geometry_analysis.select.test", 4.); // -1:all
       if (t & 0x1) stat += test_example_file(echo);
-      if (t & 0x2) stat += test_analysis(echo);
-      if (t & 0x4) stat += test_fcc_hcp_files(echo);
+      if (t & 0x2) stat += test_fcc_hcp_files(echo);
+      if (t & 0x4) stat += test_analysis(echo);
       return stat;
   } // all_tests
 

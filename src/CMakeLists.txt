@@ -72,6 +72,7 @@ set(a43_headers ${a43_atom_headers}
         ../include/sho_potential.hxx
         ../include/structure_solver.hxx
         ../include/green_parallel.hxx
+        ../include/green_kinetic.hxx
         ../include/green_function.hxx
         ../include/green_experiments.hxx
         ../include/green_input.hxx
@@ -97,6 +98,7 @@ set(a43_sources ${a43_atom_sources}
         sho_potential.cxx
         structure_solver.cxx
         green_parallel.cxx
+        green_kinetic.cxx
         green_function.cxx
         green_experiments.cxx
         green_input.cxx

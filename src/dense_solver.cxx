@@ -310,7 +310,7 @@ namespace dense_solver {
       return stat;
   } // solve
 
-  template // explicit template instantiation for doublecomplex
+  template // explicit template instantiation for double complex
   status_t solve(view3D<std::complex<double>> &, char const*, int, int, double*);
 
   template // explicit template instantiation for complex
@@ -328,9 +328,10 @@ namespace dense_solver {
 
   template <typename complex_t>
   status_t test_inverse(int const echo=0, int const N=9) {
+      // test the inverter with random matrices. Mind that they can fail when singular by accident
       status_t status(0);
       double dev{0};
-      view2D<complex_t> mat(N, N, 0), inv(N, N);
+      view2D<complex_t> mat(N, N, complex_t(0)), inv(N, N);
       for (int n = 1; n <= N; ++n) { // dimension
           
           for (int i = 0; i < n; ++i) {
@@ -338,7 +339,7 @@ namespace dense_solver {
                   auto const re = simple_math::random<float>(-1, 1),
                              im = simple_math::random<float>(-1, 1);
                   mat(i,j) = to_complex_t<complex_t,float>(std::complex<float>(re, im)); // fill with random values
-                  inv(i,j) = mat(i,j); // copy
+                  inv(i,j) = mat(i,j); // create a mutable copy
               } // j
           } // i
 
@@ -366,7 +367,7 @@ namespace dense_solver {
                                       __func__, n, devN, devT);
           dev = std::max(dev, std::max(devN, devT));
       } // n
-      if (echo > 0) std::printf("# %s<%s>(N=%d) deviations from unity are %.1e\n\n",
+      if (echo > 0) std::printf("# %s<%s>(N=%d) max. deviations from unity are %.1e\n\n",
                                   __func__, complex_name<complex_t>(), N, dev);
       return status + (dev > 1e-5);
   } // test_inverse
