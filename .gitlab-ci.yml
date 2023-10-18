@@ -26,10 +26,10 @@ build-job:       # This job runs in the build stage, which runs first.
   script:
     - echo "Compiling the code..."
     - echo "Compile complete."
-  tags:
+  tags:         # Set tags such that we can use the shared runners on the JSC gitlab
     - jacamar
     - jusuf 
-    - login 
+    - login     # Compile on login node
     - shell
 
 unit-test-job:   # This job runs in the test stage.
@@ -41,7 +41,7 @@ unit-test-job:   # This job runs in the test stage.
   tags:
     - jacamar
     - jusuf 
-    - login 
+    - login   # Run unit tests on login node
     - shell
 
 lint-test-job:   # This job also runs in the test stage.
@@ -53,8 +53,8 @@ lint-test-job:   # This job also runs in the test stage.
   tags:
     - jacamar
     - jusuf 
-    - login 
-    - shell
+    - login    # ToDo Run other tests on backend --> change to compute
+    - shell    # ToDo Run other tests on backend --> change to slurm
 
 deploy-job:      # This job runs in the deploy stage.
   stage: deploy  # It only runs when *both* jobs in the test stage complete successfully.
