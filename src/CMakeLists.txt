@@ -123,32 +123,30 @@ else(HAS_MPI)
     add_definitions(-DHAS_NO_MPI)
 endif(HAS_MPI)
 
-if(HAS_CUDA)
-    # not tested!
-    find_package(CUDA REQUIRED)
-    # find_package(CUDAToolkit REQUIRED) ### for cuRAND
-    target_link_libraries(a43 PUBLIC cuda)
-    # CUDA architectures 70=Volta, 75=Turing, 80=Ampere
-    set_property(TARGET a43 PROPERTY CUDA_ARCHITECTURES 70)
-else(HAS_CUDA)
-    add_definitions(-DHAS_NO_CUDA)
-endif(HAS_CUDA)
+add_definitions(-DHAS_NO_CUDA)
 
-if(HAS_MKL)
-    # not tested!
-    find_package(MKL REQUIRED)
-    target_link_libraries(libliveatom PUBLIC mkl)
-    target_link_libraries(a43 PUBLIC mkl)
-else(HAS_MKL)
+
+if(MKL_FOUND)
+    # add MKL (Intel Math Kernel Library)
+    target_link_libraries(a43 PUBLIC openmp mkl)
+    # target_link_libraries(libliveatom PUBLIC openmp mkl)
+else(MKL_FOUND)
     add_definitions(-DHAS_NO_MKL)
-    target_link_libraries(libliveatom PUBLIC blas lapack)
-    target_link_libraries(a43 PUBLIC blas lapack)
+    # add BLAS
+    find_package(BLAS REQUIRED)
+    target_link_libraries(a43 PUBLIC blas)
+    target_link_libraries(libliveatom PUBLIC blas)
+    # add LAPACK
+    find_package(LAPACK REQUIRED)
+    target_link_libraries(a43 PUBLIC lapack)
+    target_link_libraries(libliveatom PUBLIC lapack)
+    # add FFTW
     if(HAS_FFTW)
         add_definitions(-DHAS_FFTW)
         find_package(fftw REQUIRED)
         target_link_libraries(a43 PUBLIC fftw)
     endif(HAS_FFTW)
-endif(HAS_MKL)
+endif(MKL_FOUND)
 
 if(HAS_UNIT_TESTS)
     # not tested!
@@ -175,8 +173,7 @@ if(HAS_RAPIDJSON)
     )
 endif(HAS_RAPIDJSON)
 
-target_include_directories(libliveatom
-        PUBLIC
+target_include_directories(libliveatom PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
    )

@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24)
 project(AngstromCube VERSION 0.9)
 
 # Options
-option(HAS_MKL          "Using the Intel Math Kernel Library MKL"       OFF)
+option(HAS_MKL          "Using the Intel Math Kernel Library MKL"       ON )
 option(HAS_UNIT_TESTS   "All modules offer self-tests (recommended)"    ON )
 option(HAS_MPI          "Using the Message Passing Interface MPI"       OFF)
 option(HAS_DEVEL        "Include experimental features"                 OFF)
@@ -27,14 +27,21 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(APPLE)
-  set(CMAKE_INSTALL_RPATH "@executable_path/../lib")
+    set(CMAKE_INSTALL_RPATH "@executable_path/../lib")
 elseif(UNIX)
-  set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
 endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# serial executable ./a43 and ./libliveatom.dylib
+if(HAS_MKL)
+    unset(DPCPP_COMPILER) ## do I need this?
+    # add MKL (Intel Math Kernel Library)
+    find_package(MKL REQUIRED)
+    find_library(OpenMP REQUIRED)
+endif(HAS_MKL)
+
+# serial executable ./a43 and ./libliveatom.so
 add_subdirectory(src)
 
 # parallel executable ./green

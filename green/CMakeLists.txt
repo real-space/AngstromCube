@@ -28,36 +28,40 @@ set(green_sources
         green_parallel.cxx
         green_input.cxx
         load_balancer.cxx
-        green.cxx
    )
 
 if(HAS_CUDA)
-    # not tested!
     set(green_sources ${green_sources}
+            green_kinetic.cu
             green_function.cu
             green_experiments.cu
-            green_kinetic.cu
             green_tests.cu
        )
-
-    find_package(CUDA REQUIRED)
-    # find_package(CUDAToolkit REQUIRED) ### for cuRAND
-    target_link_libraries(green PUBLIC cuda)
-    # CUDA architectures 70=Volta, 75=Turing, 80=Ampere
-    set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80)
 else(HAS_CUDA)
     set(green_sources ${green_sources}
+            green_kinetic.cxx
             green_function.cxx
             green_experiments.cxx
-            green_kinetic.cxx
             green_tests.cxx
        )
-
     add_definitions(-DHAS_NO_CUDA)
 endif(HAS_CUDA)
 
+set(green_sources ${green_sources}
+        green.cxx
+    )
+
 
 add_executable(green ${green_sources} ${green_headers})
+
+if(HAS_CUDA)
+    find_package(CUDA REQUIRED)
+    find_package(CUDAToolkit REQUIRED) ### for cuRAND
+    target_link_libraries(green PUBLIC cuda)
+    # CUDA architectures 70=Volta, 75=Turing, 80=Ampere
+    set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80)
+endif(HAS_CUDA)
+
 
 
 if(HAS_DEVEL)
@@ -73,14 +77,20 @@ else(HAS_MPI)
     add_definitions(-DHAS_NO_MPI)
 endif(HAS_MPI)
 
-if(HAS_MKL)
-    # not tested!
-    find_package(MKL REQUIRED)
+if(MKL_FOUND)
+    if(OpenMP_FOUND)
+        target_link_libraries(green PUBLIC openmp)
+    endif()
     target_link_libraries(green PUBLIC mkl)
-else(HAS_MKL)
+else(MKL_FOUND)
     add_definitions(-DHAS_NO_MKL)
-    target_link_libraries(green PUBLIC blas lapack)
-endif(HAS_MKL)
+    # add BLAS
+    find_package(BLAS REQUIRED)
+    target_link_libraries(green PUBLIC blas)
+    # add LAPACK
+    find_package(LAPACK REQUIRED)
+    target_link_libraries(green PUBLIC lapack)
+endif(MKL_FOUND)
 
 if(HAS_UNIT_TESTS)
     # not tested!
@@ -102,8 +112,7 @@ if(HAS_RAPIDJSON)
     add_definitions(-DHAS_RAPIDJSON)
 endif(HAS_RAPIDJSON)
 
-target_include_directories(green
-        PUBLIC
+target_include_directories(green PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
    )
