@@ -111,8 +111,8 @@ add_executable(a43 ${a43_sources} ${a43_headers})
 
 
 if(HAS_DEVEL)
-else(HAS_DEVEL)
     add_definitions(-DDEVEL)
+else(HAS_DEVEL)
 endif(HAS_DEVEL)
 
 if(HAS_MPI)
@@ -159,22 +159,27 @@ target_include_directories(a43 PUBLIC
 
 if(HAS_RAPIDXML)
     add_definitions(-DHAS_RAPIDXML)
-    target_include_directories(a43 PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../external/rapidxml>
-    )
+    message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
+    target_include_directories(a43         PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src>)
+    target_include_directories(libliveatom PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src>)
 endif(HAS_RAPIDXML)
 
 if(HAS_RAPIDJSON)
     add_definitions(-DHAS_RAPIDJSON)
-    target_include_directories(a43 PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../external/rapidjson>
-    )
+    target_include_directories(a43 PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidjson-src>)
 endif(HAS_RAPIDJSON)
 
 target_include_directories(libliveatom PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+# info
+get_target_property(dirs a43 INCLUDE_DIRECTORIES)
+foreach(dir ${dirs})
+    message(STATUS " directory included for a43 ='${dir}'")
+endforeach()
+
 
 set(a43_targets
     a43

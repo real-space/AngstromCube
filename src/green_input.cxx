@@ -12,9 +12,9 @@
 #include "status.hxx" // status_t
 
 #ifdef  HAS_RAPIDXML
-  // git clone https://github.com/dwd/rapidxml
-  #include "rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "rapidxml/rapidxml_utils.hpp" // rapidxml::file<>
+  // git clone https://github.com/dwd/rapidxml or https://github.com/discord/rapidxml
+  #include "rapidxml.hpp" // ::xml_document<>
+  #include "rapidxml_utils.hpp" // rapidxml::file<>
 
   #include "xml_reading.hxx" // ::find_attribute, ::find_child
 #endif // HAS_RAPIDXML

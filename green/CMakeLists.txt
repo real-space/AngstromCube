@@ -110,10 +110,13 @@ endif(HAS_TFQMRGPU)
 
 if(HAS_RAPIDXML)
     add_definitions(-DHAS_RAPIDXML)
+    message(STATUS "CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
+    target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src>)
 endif(HAS_RAPIDXML)
 
 if(HAS_RAPIDJSON)
     add_definitions(-DHAS_RAPIDJSON)
+    target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidjson-src>)
 endif(HAS_RAPIDJSON)
 
 target_include_directories(green PUBLIC

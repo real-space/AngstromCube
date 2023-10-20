@@ -13,8 +13,8 @@
   #include <cstdlib> // std::atof, ::strtod
   #include <cstring> // std::strcmp
   // git clone https://github.com/dwd/rapidxml
-  #include "rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "rapidxml/rapidxml_utils.hpp" // ::file<>
+  #include "rapidxml.hpp" // ::xml_document<>
+  #include "rapidxml_utils.hpp" // ::file<>
 #endif // HAS_RAPIDXML
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
