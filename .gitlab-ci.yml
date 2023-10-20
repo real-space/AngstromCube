@@ -32,14 +32,15 @@ test_on_JUSUF:
     - module --force purge && module load Stages/2023  GCC/11.3.0  ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 CMake 
     - pwd
     - ls ~/a43/lib64 ~/a43/bin
-    - ln -s ~/a43/data/sho_unitary.dat . # matrix values for the SHO transform spherical <--> Cartesian
+    - cd test
     - mkdir -p pot # directory for the Zeff.00Z files
     - rm -f                                    atoms.xyz
-    - echo "2"                               > atoms.xyz
+    - echo "1"                               > atoms.xyz
     - echo "#cell 2.277 2.277 2.277 p p p"  >> atoms.xyz
     - echo "Cu 0 0 0"                       >> atoms.xyz
     - echo "# 16 x 16 x 16" > vtot.dat
     - ~/a43/bin/a43 --test
+    - cd ..
     - echo "A43 unit tests done."
   tags:
     - jacamar
