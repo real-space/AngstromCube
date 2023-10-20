@@ -7,58 +7,58 @@ set(green_version 0.0.1)
 set(green_targets green)
 
 set(green_headers
-        ../include/control.hxx
-        ../include/recorded_warnings.hxx
-        ../include/display_units.h
-        ../include/mpi_parallel.hxx
-        ../include/green_parallel.hxx
-        ../include/green_input.hxx
-        ../include/load_balancer.hxx
-        ../include/green_kinetic.hxx
-        ../include/green_function.hxx
-        ../include/green_experiments.hxx
-        ../include/green_tests.hxx
-   )
+    ../include/control.hxx
+    ../include/recorded_warnings.hxx
+    ../include/display_units.h
+    ../include/mpi_parallel.hxx
+    ../include/green_parallel.hxx
+    ../include/green_input.hxx
+    ../include/load_balancer.hxx
+    ../include/green_kinetic.hxx
+    ../include/green_function.hxx
+    ../include/green_experiments.hxx
+    ../include/green_tests.hxx
+)
 
 set(green_sources
-        control.cxx
-        recorded_warnings.cxx
-        display_units.cxx
-        mpi_parallel.cxx
-        green_parallel.cxx
-        green_input.cxx
-        load_balancer.cxx
-   )
+    control.cxx
+    recorded_warnings.cxx
+    display_units.cxx
+    mpi_parallel.cxx
+    green_parallel.cxx
+    green_input.cxx
+    load_balancer.cxx
+)
 
 if(HAS_CUDA)
     enable_language(CUDA)
     set(green_sources ${green_sources}
-            green_kinetic.cu
-            green_function.cu
-            green_experiments.cu
-            green_tests.cu
-       )
+        green_kinetic.cu
+        green_function.cu
+        green_experiments.cu
+        green_tests.cu
+    )
 else(HAS_CUDA)
     add_definitions(-DHAS_NO_CUDA)
     set(green_sources ${green_sources}
-            green_kinetic.cxx
-            green_function.cxx
-            green_experiments.cxx
-            green_tests.cxx
-       )
+        green_kinetic.cxx
+        green_function.cxx
+        green_experiments.cxx
+        green_tests.cxx
+    )
 endif(HAS_CUDA)
 
 set(green_sources ${green_sources}
-        green.cxx
-    )
+    green.cxx
+)
 
 
 add_executable(green ${green_sources} ${green_headers})
 
 if(HAS_CUDA)
     target_compile_options(green
-          PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
-        )
+        PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
+    )
     find_package(CUDA REQUIRED)
     find_package(CUDAToolkit REQUIRED) ### for cuRAND
     target_link_libraries(green PUBLIC cuda)
@@ -117,6 +117,16 @@ if(HAS_RAPIDJSON)
 endif(HAS_RAPIDJSON)
 
 target_include_directories(green PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-   )
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+
+# install green
+set(green_targets
+    green
+)
+
+install(TARGETS ${green_targets}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

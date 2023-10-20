@@ -42,8 +42,12 @@ if(HAS_MKL)
     find_dependency(OpenMP 3.0 REQUIRED)
 endif(HAS_MKL)
 
+# default installation paths
+include(GNUInstallDirs)
+
 # serial executable ./a43 and ./libliveatom.so
 add_subdirectory(src)
 
 # parallel executable ./green
 add_subdirectory(green)
+
