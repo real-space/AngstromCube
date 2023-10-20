@@ -38,6 +38,7 @@ test_on_JUSUF:
     - echo "2"                               > atoms.xyz
     - echo "#cell 2.277 2.277 2.277 p p p"  >> atoms.xyz
     - echo "Cu 0 0 0"                       >> atoms.xyz
+    - echo "# 16 x 16 x 16" > vtot.dat
     - ~/a43/bin/a43 --test
     - echo "A43 unit tests done."
   tags:
