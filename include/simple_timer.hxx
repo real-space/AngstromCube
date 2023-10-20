@@ -76,7 +76,7 @@ namespace simple_timer {
       return fibonacci(n - 1) + fibonacci(n - 2);
   } // fibonacci
 
-  inline int64_t fibonacci_nonrecursive(int64_t const n) {
+  inline int64_t fibonacci_nonrecursive(int const n) {
       if (n < 3) return (n > 0);
       std::vector<int64_t> fib(n + 1);
       fib[0] = 0;
@@ -89,13 +89,14 @@ namespace simple_timer {
 
   inline status_t test_basic_usage(int const echo=3) {
       int64_t result;
-      int64_t const inp = 40, reference = fibonacci_nonrecursive(inp);
+      auto const inp = 40;
+      auto const reference = fibonacci_nonrecursive(inp);
       { // scope: create a timer, do some work, destroy the timer
           SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
           result = fibonacci(inp);
           // timer destructor is envoked at the end of this scope, timing printed to log
       } // scope
-      if (echo > 0) std::printf("# fibonacci(%lld) = %lld\n", inp, result);
+      if (echo > 0) std::printf("# fibonacci(%d) = %lld\n", inp, result);
       return (reference != result);
   } // test_basic_usage
 
@@ -108,7 +109,7 @@ namespace simple_timer {
           SimpleTimer timer(__FILE__, __LINE__, "", 0);
           result = fibonacci(inp);
           stat += (reference != result);
-          if (echo > 7) std::printf("# fibonacci(%lld) = %lld\n", inp, result);
+          if (echo > 7) std::printf("# fibonacci(%d) = %lld\n", inp, result);
           s.add(timer.stop());
       } // scope
       auto const average_time = s.mean();

@@ -170,19 +170,18 @@ namespace pawxml_import {
           if (p.n != std::atoi(iend) + 1)            error("%s: assume a radial grid starting from 0 to n-1", filename);
       } else warn("<radial_grid> not found in xml-file '%s'", filename);
 
-      int istate{0};
       p.states.resize(0);
       int nwarn[] = {0, 0, 0};
       auto const valence_states = xml_reading::find_child(paw_setup, "valence_states", echo);
       if (valence_states) {
           if (echo > 5) std::printf("# %s:  <valence_states>\n", filename);
           for (auto state = valence_states->first_node(); state; state = state->next_sibling()) {
-              auto const n  = xml_reading::find_attribute(state, "n",  "0");
-              auto const l  = xml_reading::find_attribute(state, "l", "-1");
-              auto const f  = xml_reading::find_attribute(state, "f",  "0");
-              auto const rc = xml_reading::find_attribute(state, "rc", "0");
-              auto const e  = xml_reading::find_attribute(state, "e",  "0");
-              auto const id = xml_reading::find_attribute(state, "id", "?");
+              auto const n  = xml_reading::find_attribute(state, "n",  "0", echo);
+              auto const l  = xml_reading::find_attribute(state, "l", "-1", echo);
+              auto const f  = xml_reading::find_attribute(state, "f",  "0", echo);
+              auto const rc = xml_reading::find_attribute(state, "rc", "0", echo);
+              auto const e  = xml_reading::find_attribute(state, "e",  "0", echo);
+              auto const id = xml_reading::find_attribute(state, "id", "?", echo);
               if (echo > 5) std::printf("# %s:    <state n=\"%s\" l=\"%s\" f=\"%s\" rc=\"%s\" e=\"%s\" id=\"%s\"/>\n",
                                            filename, n, l, f, rc, e, id);
 
@@ -216,13 +215,11 @@ namespace pawxml_import {
                   } // radial_data_found more or less than one times
               } // iq
               p.states.push_back(s);
-              ++istate;
 
           } // state
           if (echo > 5) std::printf("# %s:  </valence_states>\n", filename);
-      } else warn("<valence_states> not found in xml-file '%s'", filename);
-      int const nstates = istate;
-      assert(nstates == p.states.size());
+      } else warn("<valence_states> not found in pawxml-file '%s'", filename);
+      int const nstates = p.states.size();
 
       for (int iq = 0; iq < 3; ++iq) {
           if (nwarn[iq]) {
