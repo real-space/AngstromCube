@@ -184,7 +184,7 @@ namespace pawxml_import {
               auto const e  = xml_reading::find_attribute(state, "e",  "0");
               auto const id = xml_reading::find_attribute(state, "id", "?");
               if (echo > 5) std::printf("# %s:    <state n=\"%s\" l=\"%s\" f=\"%s\" rc=\"%s\" e=\"%s\" id=\"%s\"/>\n",
-                  filename, n, l, f, rc, e, id);
+                                           filename, n, l, f, rc, e, id);
 
               pawxmlstate_t s;
               s.n  = std::atoi(n);
@@ -211,8 +211,8 @@ namespace pawxml_import {
                       } // found
                   } // attr
                   if (1 != radial_data_found) {
-                        error("radial state quantity %s in pawxml file %s is defined %d times, needs once exactly!",
-                                                      q_name, filename, radial_data_found);
+                        error("radial state quantity %s in pawxml file %s is defined %d times for state_id=\"%s\", needs once exactly!",
+                                                      q_name, filename, radial_data_found, id);
                   } // radial_data_found more or less than one times
               } // iq
               p.states.push_back(s);
