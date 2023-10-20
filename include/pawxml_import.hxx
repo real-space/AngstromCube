@@ -210,7 +210,10 @@ namespace pawxml_import {
                           } // state_id matches
                       } // found
                   } // attr
-                  if (1 != radial_data_found) error("%s: radial state quantities in pawxml files must be defined exactly once!", filename);
+                  if (1 != radial_data_found) {
+                        error("radial state quantity %s in pawxml file %s is defined %d times, needs once exactly!",
+                                                      q_name, filename, radial_data_found);
+                  } // radial_data_found more or less than one times
               } // iq
               p.states.push_back(s);
               ++istate;
