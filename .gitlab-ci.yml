@@ -33,7 +33,6 @@ test_on_JUSUF:
     - pwd
     - ls ~/a43/lib64 ~/a43/bin
     - cd test
-    - ln -s ~/a43/data/sho_unitary.dat . # matrix values for the SHO transform spherical <--> Cartesian
     - mkdir -p pot # directory for the Zeff.00Z files
     - rm -f                                    atoms.xyz
     - echo "1"                               > atoms.xyz
