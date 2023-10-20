@@ -35,6 +35,8 @@ namespace xml_reading {
         if (nullptr == node) return empty_string;
         for (auto attr = node->first_attribute(); attr; attr = attr->next_attribute()) {
             if (0 == std::strcmp(name, attr->name())) {
+                if (echo > 5) std::printf("# find_attribute(node[\"%s\"], name=\"%s\", def=\"%s\") = \"%s\"\n",
+                                                            node->name(), name, default_value, attr->value());
                 return attr->value();
             } // found
         } // attr

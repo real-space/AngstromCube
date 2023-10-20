@@ -92,10 +92,10 @@ namespace pawxml_import {
 
       auto const atom = xml_reading::find_child(paw_setup, "atom", echo);
       if (atom) {
-          auto const symbol  = xml_reading::find_attribute(atom, "symbol", "?_", echo);
-          auto const Z       = xml_reading::find_attribute(atom, "Z",      "-9", echo);
-          auto const core    = xml_reading::find_attribute(atom, "core",    "0", echo);
-          auto const valence = xml_reading::find_attribute(atom, "valence", "0", echo);
+          auto const symbol  = xml_reading::find_attribute(atom, "symbol", "?_", echo/2);
+          auto const Z       = xml_reading::find_attribute(atom, "Z",      "-9", echo/2);
+          auto const core    = xml_reading::find_attribute(atom, "core",    "0", echo/2);
+          auto const valence = xml_reading::find_attribute(atom, "valence", "0", echo/2);
           if (echo > 5) std::printf("# %s:  <atom symbol=\"%s\" Z=\"%s\" core=\"%s\" valence=\"%s\"/>\n",
               filename, symbol, Z, core, valence);
           p.Z       = std::atof(Z);
@@ -151,7 +151,7 @@ namespace pawxml_import {
           auto const n      = xml_reading::find_attribute(radial_grid, "n", "0");
           auto const istart = xml_reading::find_attribute(radial_grid, "istart", "0");
           auto const iend   = xml_reading::find_attribute(radial_grid, "iend", "-1");
-          auto const id     = xml_reading::find_attribute(radial_grid, "id", "?");
+          auto const id     = xml_reading::find_attribute(radial_grid, "id", "?", echo);
           auto const d      = xml_reading::find_attribute(radial_grid, "d", "1");
           if (echo > 5) std::printf("# %s:  <radial_grid eq=\"%s\" a=\"%s\" n=\"%s\" istart=\"%s\" iend=\"%s\" id=\"%s\"/>\n",
               filename, eq, a, n, istart, iend, id);
