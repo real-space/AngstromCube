@@ -8,6 +8,7 @@
 #include "status.hxx" // status_t
 #ifndef NO_UNIT_TESTS
   #include <vector> // std::vector<>
+  #include <cstring> // std::strcmp
   #include "simple_stats.hxx" // ::Stats<T>
 #endif // NO_UNIT_TESTS
 
