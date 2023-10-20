@@ -29,7 +29,9 @@ test_on_JUSUF:
   stage: test
   script:
     - echo "Run A43 unit tests..."
+    - module --force purge && module load Stages/2023  GCC/11.3.0  ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 CMake 
     - pwd
+    - ls ~/a43/lib64 ~/a43/bin
     - ~/a43/bin/a43 --test
     - echo "A43 unit tests done."
   tags:
@@ -42,7 +44,9 @@ run_on_JUSUF:
   stage: run
   script:
     - echo "Run green unit tests..."
+    - module --force purge && module load Stages/2023  GCC/11.3.0  ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 CMake 
     - pwd
+    - ls ~/a43/lib64 ~/a43/bin
     - ~/a43/bin/green --test
     - echo "green unit tests done."
   tags:
