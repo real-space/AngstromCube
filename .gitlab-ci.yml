@@ -12,13 +12,13 @@ build_on_JUSUF:       # This job runs in the build stage, which runs first.
     - export MKL_ROOT=/p/software/jusuf/stages/2023/software/imkl/2022.1.0/mkl/latest/
     - echo "Start build system..."
     - rm -rf build && mkdir build && cd build
-    - cmake ..
+    - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43
     - echo "Compiling the code..."
-    - make -j
-    # make install
+    - make -j install
     - cd ..
     - echo "Compile complete."
-  tags:         # Set tags such that we can use the shared runners on the JSC gitlab
+    - ls ~/a43/lib64 ~/a43/bin
+  tags:         # Set tags such that we can use the shared runners of the JSC gitlab
     - jacamar
     - jusuf 
     - login     # Compile on login node
