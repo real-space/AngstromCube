@@ -18,8 +18,8 @@
 
 #ifdef    HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
-  #include "rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "rapidxml/rapidxml_utils.hpp" // ::file<>
+  #include "rapidxml.hpp" // ::xml_document<>
+  #include "rapidxml_utils.hpp" // ::file<>
 
   #include "xml_reading.hxx" // ::find_attribute
 #endif // HAS_RAPIDXML

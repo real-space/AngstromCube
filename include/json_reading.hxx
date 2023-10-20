@@ -10,7 +10,7 @@
   #include <fstream> // std::ifstream
   #include <sstream> // std::ostringstream
   // git clone https://github.com/Tencent/rapidjson.git
-  #include "rapidjson/include/rapidjson/document.h" // rapidjson::Document
+  #include "include/rapidjson/document.h" // rapidjson::Document
 #endif // HAS_RAPIDJSON
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED

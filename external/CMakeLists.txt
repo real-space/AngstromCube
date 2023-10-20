@@ -1,26 +1,26 @@
-# CMake file for RapidXML
-add_library(RapidXML INTERFACE)
-target_include_directories(RapidXML INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../external/rapidxml>
-	$<INSTALL_INTERFACE:include/external/rapidxml>
-	)
+if(HAS_RAPIDXML)
+    include(FetchContent)
 
-include(GNUInstallDirs)
+    FetchContent_Declare(
+        rapidxml
+        GIT_REPOSITORY https://github.com/discord/rapidxml.git
+        GIT_TAG        2ae4b2888165a393dfb6382168825fddf00c27b9 # version 1.13
+    )
+    FetchContent_MakeAvailable(rapidxml)
+    # after configuring headers for rapidXML are found in _deps/rapidxml-src
+endif(HAS_RAPIDXML)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../external/rapidxml/
-	DESTINATION include/external/rapidxml)
 
-# install library
-install(TARGETS RapidXML
-	EXPORT RapidXMLTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-# install CMake files so the library can be used by other cmake projects
-install(EXPORT RapidXMLTargets
-	FILE RapidXMLTargets.cmake
-	NAMESPACE RapidXML::
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/RapidXML
-	)
+if(HAS_RAPIDJSON)
+    include(FetchContent)
+
+    FetchContent_Declare(
+        rapidjson
+        GIT_REPOSITORY https://github.com/Tencent/rapidjson.git
+        GIT_TAG        v1.1.0
+    )
+    FetchContent_MakeAvailable(rapidjson)
+    # after configuring headers for rapidJSON are found in _deps/rapidjson-src
+endif(HAS_RAPIDJSON)
+
+
