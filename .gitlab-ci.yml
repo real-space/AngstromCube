@@ -24,7 +24,7 @@ build_on_JUSUF:       # This job runs in the build stage, which runs first.
     - login     # Compile on login node
     - shell
 
-unit_tests_on_JUSUF:   # This job also runs in the test stage.
+test_on_JUSUF:   # This job also runs in the test stage.
   stage: run    # It can run at the same time as run_on_JUSUF
   script:
     - echo "Run A43 unit tests..."
@@ -37,7 +37,7 @@ unit_tests_on_JUSUF:   # This job also runs in the test stage.
     - shell
 
 run_on_JUSUF:   # This job also runs in the test stage.
-  stage: run    # It can run at the same time as unit_tests_on_JUSUF
+  stage: run    # It can run at the same time as test_on_JUSUF
   script:
     - echo "Run green unit tests..."
     - ./green --test
