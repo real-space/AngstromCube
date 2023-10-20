@@ -68,7 +68,8 @@ CXX   ?= g++
 
 INC ?=
 INC += -I../include
-INC += -I../external
+INC += -I../external/rapidxml
+INC += -I../external/rapidjson
 
 ERRFLAGS =
 FEAFLAGS =

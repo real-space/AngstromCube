@@ -63,7 +63,8 @@ endif
 
 
 INC += -I../include
-INC += -I../external
+INC += -I../external/rapidxml
+INC += -I../external/rapidjson
 
 
 # FEAFLAGS += -D_Output_Units_Fixed
