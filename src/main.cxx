@@ -190,9 +190,9 @@
           add_module_test(element_config);
           add_module_test(pseudo_tools);
           add_module_test(bessel_transform);
+          add_module_test(pawxml_import);
           add_module_test(scattering_test);
           add_module_test(single_atom);
-          add_module_test(pawxml_import);
 
           start_a_chapter("SHO-specific"); // *****************************************
           add_module_test(sho_tools);
@@ -236,6 +236,7 @@
           add_module_test(density_generator);
           add_module_test(self_consistency);
 
+          start_a_chapter("============================="); // last separator
 #undef    start_a_chapter
 #undef    add_module_test
 

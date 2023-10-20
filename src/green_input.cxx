@@ -11,7 +11,7 @@
 
 #include "status.hxx" // status_t
 
-#ifdef  HAS_RAPIDXML
+#ifdef    HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "rapidxml/rapidxml_utils.hpp" // rapidxml::file<>
@@ -51,7 +51,7 @@ namespace green_input {
           if (echo > 0) std::printf("# filename \"%s\" looks like .xml formatted\n", filename);
       } // filename contains ".json"
 
-#ifndef HAS_RAPIDXML
+#ifndef   HAS_RAPIDXML
       warn("Unable to load_Hamiltonian when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #else  // HAS_RAPIDXML

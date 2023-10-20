@@ -16,7 +16,7 @@
 #include "scattering_test.hxx" // ::expand_sho_projectors
 #include "radial_grid.hxx" // radial_grid_t, ::create_radial_grid, ::destroy_radial_grid
 
-#ifdef  HAS_RAPIDXML
+#ifdef    HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "rapidxml/rapidxml_utils.hpp" // ::file<>
@@ -36,7 +36,7 @@ namespace sho_basis {
       , int const echo // =0 log-level
   ) {
       auto const filename = control::get("sho_basis.file", "pseudo_basis.xml");
-#ifndef HAS_RAPIDXML
+#ifndef   HAS_RAPIDXML
       warn("Unable load sho_basis from \'%s\' when compiled without -D HAS_RAPIDXML", filename);
       return STATUS_TEST_NOT_INCLUDED;
 #else  // HAS_RAPIDXML
@@ -148,9 +148,9 @@ namespace sho_basis {
 #endif // HAS_RAPIDXML
   }
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_load(int const echo=5) {
       status_t stat(0);

@@ -407,9 +407,9 @@ namespace atom_core {
           if (echo > 1) {
               std::printf("# %s  Z=%g  converged in %d iterations to residual=%.1e, E_tot= %.9f %s\n",
                       __func__, Z, icyc, residual, energies[E_tot]*eV, _eV);
-              std::printf("# %s  Z=%g  E_kin= %.9f E_xc= %.9f E_es= %.9f %s\n", __func__, Z, 
+              std::printf("# %s  Z=%g  E_kin= %.9f E_xc= %.9f E_es= %.9f %s\n", __func__, Z,
                       energies[E_kin]*eV, energies[E_exc]*eV, energies[E_est]*eV, _eV);
-              std::printf("# %s  Z=%g  E_Coulomb= %.9f E_Hartree= %.9f %s\n", __func__, Z, 
+              std::printf("# %s  Z=%g  E_Coulomb= %.9f E_Hartree= %.9f %s\n", __func__, Z,
                       energies[E_Cou]*eV, energies[E_Htr]*eV, _eV);
           } // echo
 
@@ -427,7 +427,7 @@ namespace atom_core {
 
           auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1.);
           if (0 != store_stat && nullptr != export_Zeff) {
-              warn("Z=%g failed to store self-consistent atom potential (status= %i) but passed in memory", Z, int(store_stat));
+              warn("Z=%g failed to store self-consistent atom potential (status=%i) but passed in memory", Z, int(store_stat));
               // ignore the store_stat
           } else {
               stat += store_stat;

@@ -256,6 +256,7 @@ namespace sho_potential {
       int dims[] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
       stat += load_local_potential(vtot, dims, vtotfile, echo);
+      if (0 != stat) { return stat; }
 
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;
@@ -371,6 +372,7 @@ namespace sho_potential {
                   stat += sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ja], center[ja], sigmas[ja], 0);
 
                   // multiply Vtot to the basis function
+                  if (vtot.size() == basis.size())
                   product(Vbasis.data(), basis.size(), basis.data(), vtot.data());
 
                   for (int ia = 0; ia < natoms; ++ia) {
@@ -456,6 +458,7 @@ namespace sho_potential {
                   } // d
 
                   std::vector<double> Vcoeff(sho_tools::nSHO(numax_V), 0.0);
+                  if (vtot.size() == g.all())
                   stat += sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0); // 0:mute
                   // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
 
@@ -547,6 +550,7 @@ namespace sho_potential {
               std::vector<double> Vcoeff(nbV, 0.0);
 
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
+              if (vtot.size() == g.all())
               sho_projection::sho_project(Vcoeff.data(), numax_V, center[ia], sigma_V, vtot.data(), g, 0);
               // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
 
