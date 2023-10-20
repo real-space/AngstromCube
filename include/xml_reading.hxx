@@ -40,6 +40,8 @@ namespace xml_reading {
                 return attr->value();
             } // found
         } // attr
+        if (echo > 5) std::printf("# find_attribute(node[\"%s\"], name=\"%s\", def) defaults to \"%s\"\n",
+                                                    node->name(), name, default_value);
         return default_value;
     } // find_attribute
 
