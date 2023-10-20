@@ -14,7 +14,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "radial_grid.hxx" // ::equation_reciprocal, ::equation_exponential
 
-#ifdef  HAS_RAPIDXML
+#ifdef    HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
   #include "rapidxml.hpp" // ::xml_document<>
   #include "rapidxml_utils.hpp" // ::file<>
@@ -63,7 +63,7 @@ namespace pawxml_import {
           "zero_potential", "pseudo_valence_density"};
 
   inline pawxml_t parse_pawxml(char const *const filename, int const echo=0) {
-#ifndef HAS_RAPIDXML
+#ifndef   HAS_RAPIDXML
       warn("Unable to test GPAW loading when compiled without -D HAS_RAPIDXML", 0);
       return pawxml_t();
 #else  // HAS_RAPIDXML
@@ -159,11 +159,13 @@ namespace pawxml_import {
           p.radial_grid_a = std::atof(a);
           p.radial_grid_d = std::atof(d);
           p.radial_grid_eq = *eq;
-          if (std::string(eq) != "r=a*i/(n-i)") {
+          if (std::string(eq) == "r=a*i/(n-i)") {
               p.radial_grid_eq = radial_grid::equation_reciprocal;
-          } else if (std::string(eq) != "r=a*(exp(d*i)-1)") {
+          } else if (std::string(eq) == "r=a*(exp(d*i)-1)") {
               p.radial_grid_eq = radial_grid::equation_exponential;
-          } else warn("%s: radial grid neither exponential nor reciprocal, found %s", filename, eq);
+          } else {
+              warn("%s: radial grid neither exponential nor reciprocal, found %s", filename, eq);
+          }
           if (0 != std::atoi(istart))                error("%s: assume a radial grid starting at 0", filename);
           if (p.n != std::atoi(iend) + 1)            error("%s: assume a radial grid starting from 0 to n-1", filename);
       } else warn("<radial_grid> not found in xml-file '%s'", filename);
@@ -268,9 +270,9 @@ namespace pawxml_import {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_loading(int const echo=0) {
       SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
@@ -284,7 +286,7 @@ namespace pawxml_import {
       if (echo > 5) std::printf("# pawxml_import.test.repeat=%d\n", repeat_file);
       if (repeat_file) {
           // create an XML file that should reproduce this
-          char outfile[992]; std::snprintf(outfile, 991, "%s.repeat.xml", filename);
+          char outfile[992]; std::snprintf(outfile, 992, "%s.repeat.xml", filename);
           auto const f = std::fopen(outfile, "w");
           std::fprintf(f, "<?xml version=\"1.0\"?>\n"
               "<paw_setup version=\"0.6\">\n"
@@ -356,7 +358,8 @@ namespace pawxml_import {
               } // i
               std::printf("\n");
               for (int ir = 1; ir < p.n; ++ir) {
-                  double const r = p.radial_grid_a*(std::exp(p.radial_grid_d*ir) - 1);
+                  double const r = p.radial_grid_a*
+                    ((radial_grid::equation_exponential == p.radial_grid_eq) ? (std::exp(p.radial_grid_d*ir) - 1) : (ir/double(p.n - ir)));
                   std::printf("%.6f", r);
                   for (int i = 0; i < n; ++i) {
                       std::printf(" %g", p.states[i].tsp[iq][ir]); // the state's radial function
