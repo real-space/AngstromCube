@@ -38,7 +38,8 @@ if(HAS_MKL)
     unset(DPCPP_COMPILER) ## do I need this?
     # add MKL (Intel Math Kernel Library)
     find_package(MKL REQUIRED)
-    find_library(OpenMP REQUIRED)
+    include(CMakeFindDependencyMacro)
+    find_dependency(OpenMP 3.0 REQUIRED)
 endif(HAS_MKL)
 
 # serial executable ./a43 and ./libliveatom.so

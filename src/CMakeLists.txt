@@ -123,23 +123,21 @@ else(HAS_MPI)
     add_definitions(-DHAS_NO_MPI)
 endif(HAS_MPI)
 
+# a43 and libliveatom.so never require CUDA
 add_definitions(-DHAS_NO_CUDA)
 
 
 if(MKL_FOUND)
     # add MKL (Intel Math Kernel Library)
-    target_link_libraries(a43 PUBLIC openmp mkl)
-    # target_link_libraries(libliveatom PUBLIC openmp mkl)
+    target_link_libraries(a43 PUBLIC iomp5 mkl)
 else(MKL_FOUND)
     add_definitions(-DHAS_NO_MKL)
     # add BLAS
     find_package(BLAS REQUIRED)
     target_link_libraries(a43 PUBLIC blas)
-    target_link_libraries(libliveatom PUBLIC blas)
     # add LAPACK
     find_package(LAPACK REQUIRED)
     target_link_libraries(a43 PUBLIC lapack)
-    target_link_libraries(libliveatom PUBLIC lapack)
     # add FFTW
     if(HAS_FFTW)
         add_definitions(-DHAS_FFTW)

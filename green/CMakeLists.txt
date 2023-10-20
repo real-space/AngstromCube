@@ -12,9 +12,9 @@ set(green_headers
         ../include/display_units.h
         ../include/mpi_parallel.hxx
         ../include/green_parallel.hxx
-        ../include/green_kinetic.hxx
         ../include/green_input.hxx
         ../include/load_balancer.hxx
+        ../include/green_kinetic.hxx
         ../include/green_function.hxx
         ../include/green_experiments.hxx
         ../include/green_tests.hxx
@@ -31,6 +31,7 @@ set(green_sources
    )
 
 if(HAS_CUDA)
+    enable_language(CUDA)
     set(green_sources ${green_sources}
             green_kinetic.cu
             green_function.cu
@@ -38,13 +39,13 @@ if(HAS_CUDA)
             green_tests.cu
        )
 else(HAS_CUDA)
+    add_definitions(-DHAS_NO_CUDA)
     set(green_sources ${green_sources}
             green_kinetic.cxx
             green_function.cxx
             green_experiments.cxx
             green_tests.cxx
        )
-    add_definitions(-DHAS_NO_CUDA)
 endif(HAS_CUDA)
 
 set(green_sources ${green_sources}
@@ -55,6 +56,9 @@ set(green_sources ${green_sources}
 add_executable(green ${green_sources} ${green_headers})
 
 if(HAS_CUDA)
+    target_compile_options(green
+          PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
+        )
     find_package(CUDA REQUIRED)
     find_package(CUDAToolkit REQUIRED) ### for cuRAND
     target_link_libraries(green PUBLIC cuda)
@@ -79,9 +83,9 @@ endif(HAS_MPI)
 
 if(MKL_FOUND)
     if(OpenMP_FOUND)
-        target_link_libraries(green PUBLIC openmp)
+        # target_link_libraries(green PUBLIC openmp)
     endif()
-    target_link_libraries(green PUBLIC mkl)
+    target_link_libraries(green PUBLIC iomp5 mkl)
 else(MKL_FOUND)
     add_definitions(-DHAS_NO_MKL)
     # add BLAS
