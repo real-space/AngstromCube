@@ -22,6 +22,7 @@
   #include "bessel_transform.hxx" // ::all_tests
   #include "parallel_domains.hxx" // ::all_tests
   #include "structure_solver.hxx" // ::all_tests
+  #include "green_projection.hxx" // ::all_tests
   #include "scattering_test.hxx" // ::all_tests
   #include "davidson_solver.hxx" // ::all_tests
   #include "progress_report.hxx" // ::all_tests
@@ -76,7 +77,6 @@
 
   // "green_*.hxx" headers requiring CUDA are included in green_tests.cu/green_tests.cxx
   #include "green_tests.hxx" // ::add_tests
-  #include "green_projection.hxx" // ::all_tests
 //   #include "green_experiments.hxx" // ::all_tests
 //   #include "green_potential.hxx" // ::all_tests
 //   #include "green_function.hxx" // ::all_tests
@@ -211,6 +211,7 @@
           add_module_test(green_input);
           add_module_test(green_parallel);
           add_module_test(green_projection);
+//  The 7 green_* modules below are grouped for faster development
 //           add_module_test(green_sparse);
 //           add_module_test(green_function);
 //           add_module_test(green_kinetic);

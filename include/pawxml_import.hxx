@@ -176,6 +176,7 @@ namespace pawxml_import {
       if (valence_states) {
           if (echo > 5) std::printf("# %s:  <valence_states>\n", filename);
           for (auto state = valence_states->first_node(); state; state = state->next_sibling()) {
+              if (echo > 9) std::printf("# %s: state=%p\n", filename, (void*)state);
               auto const n  = xml_reading::find_attribute(state, "n",  "0", echo);
               auto const l  = xml_reading::find_attribute(state, "l", "-1", echo);
               auto const f  = xml_reading::find_attribute(state, "f",  "0", echo);

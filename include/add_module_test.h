@@ -2,7 +2,7 @@
 
 // This header serves to #define add_module_test needed in main.cxx, green.cxx and green_tests.cu
 
-// requirements: (the following include statements and varaiable definitions must
+// requirements: (the following include statements and variable definitions must
 //                appear earlier in the file where 'add_module_test.h' is included)
 //    #include <cstdio> // std::printf
 //    #include "simple_timer.hxx" // SimpleTimer
