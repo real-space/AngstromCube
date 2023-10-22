@@ -27,9 +27,9 @@ namespace xml_reading {
     char const empty_string[] = "";
 
     inline char const * find_attribute(
-          rapidxml::xml_node<> const *node
+          rapidxml::xml_node<> const *const node
         , char const *const name
-        , char const *const default_value=""
+        , char const *const default_value=empty_string
         , int const echo=0
     ) {
         if (nullptr == node) return empty_string;
@@ -40,13 +40,13 @@ namespace xml_reading {
                 return attr->value();
             } // found
         } // attr
-        if (echo > 5) std::printf("# find_attribute(node[\"%s\"], name=\"%s\", def) defaults to \"%s\"\n",
+        if (echo > 5) std::printf("# find_attribute(node[\"%s\"], name=\"%s\", default) = \"%s\"\n",
                                                     node->name(), name, default_value);
         return default_value;
     } // find_attribute
 
     inline rapidxml::xml_node<> const * find_child(
-          rapidxml::xml_node<> const *node
+          rapidxml::xml_node<> const *const node
         , char const *const name
         , int const echo=0
     ) {
