@@ -34,7 +34,7 @@ namespace pawxml_import {
 
   struct pawxmlstate_t {
       std::vector<double> tsp[3]; // 0:true,1:smooth,2:projector function
-      char id[16]; // identifiyer
+      std::string id; // identifiyer
       double e;    // energy eigenvalue
       float f, rc; // occupation, cutoff radius
       int8_t n, l; // principal quantum number, angular momentum quantum number
@@ -194,7 +194,7 @@ namespace pawxml_import {
               s.f  = std::atof(f);
               s.rc = std::atof(rc);
               s.e  = std::atof(e);
-              std::snprintf(s.id, 16, "%s", id);
+              s.id = id;
 
               p.states.push_back(s);
               ++istate;
@@ -244,7 +244,7 @@ namespace pawxml_import {
                   int state_found{0};
                   for (int istate = 0; istate < nstates; ++istate) {
                       auto & state = p.states[istate];
-                      if (0 == std::strcmp(state_id, state.id)) {
+                      if (state.id == state_id) {
                           auto const grid = xml_reading::find_attribute(child, "grid", "?grid", echo/2);
                           auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
                           if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
@@ -274,7 +274,7 @@ namespace pawxml_import {
           for (int iq = 0; iq < 3; ++iq) {
               if (state.tsp[iq].size() < 1) {
                   error("radial state quantity %s in pawxml file %s is not defined for state_id=\"%s\"",
-                         radial_state_quantities[iq], filename, state.id);
+                         radial_state_quantities[iq], filename, state.id.c_str());
               } // radial_data_found more or less than one times
           } // iq
       } // istate
