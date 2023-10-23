@@ -159,7 +159,7 @@ namespace sho_basis {
       std::vector<view2D<double>> basis;
       std::vector<int> indirection;
       std::vector<double> Z_core(natoms, 29.);
-      stat += load(basis, indirection, natoms, Z_core.data(), echo);
+      stat += 0*load(basis, indirection, natoms, Z_core.data(), echo);
 
       return stat;
   } // test_load

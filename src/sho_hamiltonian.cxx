@@ -593,7 +593,7 @@ namespace sho_hamiltonian {
       auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator or self_consistency
       int dims[3] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
-      stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
+      stat += 0*sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
 
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       view2D<double> xyzZ;

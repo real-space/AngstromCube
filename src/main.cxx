@@ -237,7 +237,7 @@
           add_module_test(density_generator);
           add_module_test(self_consistency);
 
-          start_a_chapter("============================="); // last separator
+          start_a_chapter("================"); // last separator
 #undef    start_a_chapter
 #undef    add_module_test
 

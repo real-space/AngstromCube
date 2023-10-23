@@ -224,7 +224,7 @@ namespace json_reading {
       return 0;
 #else  // HAS_RAPIDJSON
       warn("Unable to check usage of rapidjson when compiled without -D HAS_RAPIDJSON", 0);
-      return -1;
+      return 0; // other than XML, the JSON library is optional, no error
 #endif // HAS_RAPIDJSON
   } // load_Hamiltonian
 
