@@ -5,7 +5,7 @@
 #include <cstdint>    // int8_t
 #include <cassert>    // assert
 #include <cstring>    // std::strcmp
-#include <cmath>      // std::sqrt
+#include <cmath>      // std::sqrt, ::exp
 #include <algorithm>  // std::max
 #include <vector>     // std::vector<T>
 #include <cstdlib>    // std::atoi, ::atof
@@ -193,6 +193,7 @@ namespace pawxml_import {
               s.rc = std::atof(rc);
               s.e  = std::atof(e);
 
+#if 0
               for (int iq = 0; iq < 3; ++iq) {
                   auto const q_name = radial_state_quantities[iq];
                   int radial_data_found{0};
@@ -215,6 +216,32 @@ namespace pawxml_import {
                                                       q_name, filename, radial_data_found, id);
                   } // radial_data_found more or less than one times
               } // iq
+#else
+              int radial_data_found[] = {0, 0, 0};
+              for (auto child = paw_setup->first_node(); child; child = child->next_sibling()) {
+                  for (int iq = 0; iq < 3; ++iq) {
+                      auto const q_name = radial_state_quantities[iq];
+                      if (0 == std::strcmp(q_name, child->name())) {
+                          auto const state_id = xml_reading::find_attribute(child, "state", "?state");
+                          if (0 == std::strcmp(state_id, id)) {
+                              auto const grid = xml_reading::find_attribute(child, "grid", "?grid");
+                              auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
+                              if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
+                                  filename, q_name, state_id, grid, vals.size(), q_name);
+                              nwarn[iq] += (vals.size() != p.n);
+                              s.tsp[iq] = vals;
+                              ++radial_data_found[iq];
+                          } // state_id matches
+                      } // found
+                  } // iq
+              } // child
+              for (int iq = 0; iq < 3; ++iq) {
+                  if (1 != radial_data_found[iq]) {
+                      error("radial state quantity %s in pawxml file %s is defined %d times for state_id=\"%s\", needs once exactly!",
+                                                  radial_state_quantities[iq], filename, radial_data_found[iq], id);
+                  } // radial_data_found more or less than one times
+              } // iq
+#endif
               p.states.push_back(s);
 
           } // state
