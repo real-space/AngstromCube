@@ -16,6 +16,7 @@
 
 namespace green_projection {
 
+    // same as in green_dyadic?
     inline float Hermite_polynomials_1D( // compare green_dyadic::Hermite_polynomials_1D
           double (*const __restrict__ H1D)[3][4] // result H1D[nu][dir][i4]
         , float  (*const __restrict__ xi_squared)[4] // distance^2 xi_squared[dir][i4]

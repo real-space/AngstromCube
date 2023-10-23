@@ -4,12 +4,12 @@
 #include <cstdio> // std::printf, ::snprintf, ::fprintf, ::fopen, ::fclose, ::remove
 #include <vector> // std::vector<T>
 #include <cerrno> // errno, ERANGE
-#ifndef  NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include <ctime> // std::strftime, ::time, ::gmtime
   #include <cmath> // std::cos
-#endif // UNIT_TESTS
+#endif // NO_UNIT_TESTS
 
-#ifdef HAS_RAPIDXML
+#ifdef    HAS_RAPIDXML
   #include <cstdlib> // std::atof, ::strtod
   #include <cstring> // std::strcmp
   // git clone https://github.com/dwd/rapidxml
@@ -23,26 +23,30 @@
 
 namespace xml_reading {
 
-#ifdef HAS_RAPIDXML
+#ifdef    HAS_RAPIDXML
     char const empty_string[] = "";
 
     inline char const * find_attribute(
-          rapidxml::xml_node<> const *node
+          rapidxml::xml_node<> const *const node
         , char const *const name
-        , char const *const default_value=""
+        , char const *const default_value=empty_string
         , int const echo=0
     ) {
         if (nullptr == node) return empty_string;
         for (auto attr = node->first_attribute(); attr; attr = attr->next_attribute()) {
             if (0 == std::strcmp(name, attr->name())) {
+                if (echo > 5) std::printf("# find_attribute(node[\"%s\"], name=\"%s\", def=\"%s\") = \"%s\"\n",
+                                                            node->name(), name, default_value, attr->value());
                 return attr->value();
             } // found
         } // attr
+        if (echo > 5) std::printf("# find_attribute(node[\"%s\"], name=\"%s\", default) = \"%s\"\n",
+                                                    node->name(), name, default_value);
         return default_value;
     } // find_attribute
 
     inline rapidxml::xml_node<> const * find_child(
-          rapidxml::xml_node<> const *node
+          rapidxml::xml_node<> const *const node
         , char const *const name
         , int const echo=0
     ) {
@@ -54,7 +58,7 @@ namespace xml_reading {
         } // attr
         return nullptr;
     } // find_child
-#endif
+#endif // HAS_RAPIDXML
 
     template <typename real_t>
     std::vector<real_t> read_sequence(
@@ -88,12 +92,12 @@ namespace xml_reading {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
-// #define USE_TEMPORARY_FILE
-#ifdef  USE_TEMPORARY_FILE
+//#define USE_TEMPORARY_FILE
+#ifdef    USE_TEMPORARY_FILE
 
     inline status_t temporary_file_extension(char str[], size_t const count) {
         auto const now = std::time(nullptr);
@@ -106,10 +110,10 @@ namespace xml_reading {
   inline double model_potential_function(int const izyx, int const nzyx) { return std::cos(izyx*1./nzyx); }
 
   inline status_t test_xml_reader(int const echo=0) {
-#ifdef HAS_RAPIDXML
+#ifdef    HAS_RAPIDXML
       status_t stat(0);
 
-#ifdef  USE_TEMPORARY_FILE
+#ifdef    USE_TEMPORARY_FILE
 
       // create a temporary xml file before trying to read it
       char filename[96], temporary[96];
@@ -124,7 +128,7 @@ namespace xml_reading {
       } // failed to open
 
       #define print2file(...) std::fprintf(f, __VA_ARGS__)
-#else
+#else  // USE_TEMPORARY_FILE
 
       char const *filename = "<interal buffer>";
       size_t const buffer = 2048;
@@ -308,10 +312,10 @@ namespace xml_reading {
       } else warn("no grid_Hamiltonian found in file %s", filename);
 
       return stat;
-#else
+#else  // HAS_RAPIDXML
       warn("Unable to check usage of rapidxml when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
-#endif
+#endif // HAS_RAPIDXML
   } // test_xml_reader
 
   inline status_t all_tests(int const echo=0) {

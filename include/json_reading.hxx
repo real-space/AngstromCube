@@ -4,7 +4,7 @@
 #include <cstdio> // std::printf
 #include <vector> // std::vector<T>
 
-#ifdef  HAS_RAPIDJSON
+#ifdef    HAS_RAPIDJSON
   #include <cassert> // assert
   #include <algorithm> // std::min
   #include <fstream> // std::ifstream
@@ -69,7 +69,7 @@ namespace json_reading {
       , char const *const filename="Hmt.xml" // input
       , int const echo=0 // log-level
   ) {
-#ifdef  HAS_RAPIDJSON
+#ifdef    HAS_RAPIDJSON
       std::ifstream const file_stream(filename); // taking file as inputstream
       if (file_stream) {
           if (echo > 7) std::printf("# %s: opening \"%s\"\n", __func__, filename);

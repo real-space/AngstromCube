@@ -22,6 +22,7 @@
   #include "bessel_transform.hxx" // ::all_tests
   #include "parallel_domains.hxx" // ::all_tests
   #include "structure_solver.hxx" // ::all_tests
+  #include "green_projection.hxx" // ::all_tests
   #include "scattering_test.hxx" // ::all_tests
   #include "davidson_solver.hxx" // ::all_tests
   #include "progress_report.hxx" // ::all_tests
@@ -76,7 +77,6 @@
 
   // "green_*.hxx" headers requiring CUDA are included in green_tests.cu/green_tests.cxx
   #include "green_tests.hxx" // ::add_tests
-  #include "green_projection.hxx" // ::all_tests
 //   #include "green_experiments.hxx" // ::all_tests
 //   #include "green_potential.hxx" // ::all_tests
 //   #include "green_function.hxx" // ::all_tests
@@ -190,9 +190,9 @@
           add_module_test(element_config);
           add_module_test(pseudo_tools);
           add_module_test(bessel_transform);
+          add_module_test(pawxml_import);
           add_module_test(scattering_test);
           add_module_test(single_atom);
-          add_module_test(pawxml_import);
 
           start_a_chapter("SHO-specific"); // *****************************************
           add_module_test(sho_tools);
@@ -211,6 +211,7 @@
           add_module_test(green_input);
           add_module_test(green_parallel);
           add_module_test(green_projection);
+//  The 7 green_* modules below are grouped for faster development
 //           add_module_test(green_sparse);
 //           add_module_test(green_function);
 //           add_module_test(green_kinetic);
@@ -236,6 +237,7 @@
           add_module_test(density_generator);
           add_module_test(self_consistency);
 
+          start_a_chapter("============================="); // last separator
 #undef    start_a_chapter
 #undef    add_module_test
 

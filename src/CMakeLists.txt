@@ -71,6 +71,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/sho_projection.hxx
     ../include/sho_potential.hxx
     ../include/structure_solver.hxx
+    ../include/green_projection.hxx
     ../include/green_parallel.hxx
     ../include/green_kinetic.hxx
     ../include/green_function.hxx

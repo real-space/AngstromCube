@@ -11,6 +11,7 @@ set(green_headers
     ../include/recorded_warnings.hxx
     ../include/display_units.h
     ../include/mpi_parallel.hxx
+    ../include/green_projection.hxx
     ../include/green_parallel.hxx
     ../include/green_input.hxx
     ../include/load_balancer.hxx

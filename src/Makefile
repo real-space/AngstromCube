@@ -68,7 +68,8 @@ CXX   ?= g++
 
 INC ?=
 INC += -I../include
-INC += -I../external
+INC += -I../external/rapidxml
+INC += -I../external/rapidjson
 
 ERRFLAGS =
 FEAFLAGS =
@@ -114,7 +115,7 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-ifeq ($(HOSTNAME),MacBook-Pro-2.local)
+ifeq ($(HOSTNAME),MacBook-Pro-4)
 	EXTFLAGS += -D HAS_NO_MKL
 	LDFLAGS += -lm
 	LDFLAGS += -lblas
