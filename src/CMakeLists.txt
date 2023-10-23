@@ -79,6 +79,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/green_input.hxx
     ../include/load_balancer.hxx
     ../include/green_tests.hxx
+    ../include/add_module_test.h
 )
 
 set(a43_sources ${a43_atom_sources}
@@ -161,8 +162,8 @@ target_include_directories(a43 PUBLIC
 if(HAS_RAPIDXML)
     add_definitions(-DHAS_RAPIDXML)
     message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
-    target_include_directories(a43         PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src>)
-    target_include_directories(libliveatom PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src>)
+    target_include_directories(a43         PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
+    target_include_directories(libliveatom PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
 endif(HAS_RAPIDXML)
 
 if(HAS_RAPIDJSON)
