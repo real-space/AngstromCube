@@ -34,6 +34,7 @@ namespace pawxml_import {
 
   struct pawxmlstate_t {
       std::vector<double> tsp[3]; // 0:true,1:smooth,2:projector function
+      char id[16]; // identifiyer
       double e;    // energy eigenvalue
       float f, rc; // occupation, cutoff radius
       int8_t n, l; // principal quantum number, angular momentum quantum number
@@ -151,7 +152,7 @@ namespace pawxml_import {
           auto const n      = xml_reading::find_attribute(radial_grid, "n", "0");
           auto const istart = xml_reading::find_attribute(radial_grid, "istart", "0");
           auto const iend   = xml_reading::find_attribute(radial_grid, "iend", "-1");
-          auto const id     = xml_reading::find_attribute(radial_grid, "id", "?", echo);
+          auto const id     = xml_reading::find_attribute(radial_grid, "id", "?", echo/2);
           auto const d      = xml_reading::find_attribute(radial_grid, "d", "1");
           if (echo > 5) std::printf("# %s:  <radial_grid eq=\"%s\" a=\"%s\" n=\"%s\" istart=\"%s\" iend=\"%s\" id=\"%s\"/>\n",
               filename, eq, a, n, istart, iend, id);
@@ -172,17 +173,18 @@ namespace pawxml_import {
 
       p.states.resize(0);
       int nwarn[] = {0, 0, 0};
+      int istate{0};
       auto const valence_states = xml_reading::find_child(paw_setup, "valence_states", echo);
       if (valence_states) {
           if (echo > 5) std::printf("# %s:  <valence_states>\n", filename);
           for (auto state = valence_states->first_node(); state; state = state->next_sibling()) {
               if (echo > 9) std::printf("# %s: state=%p state_name=\"%s\"\n", filename, (void*)state, state->name());
-              auto const n  = xml_reading::find_attribute(state, "n",  "0", echo);
-              auto const l  = xml_reading::find_attribute(state, "l", "-1", echo);
-              auto const f  = xml_reading::find_attribute(state, "f",  "0", echo);
-              auto const rc = xml_reading::find_attribute(state, "rc", "0", echo);
-              auto const e  = xml_reading::find_attribute(state, "e",  "0", echo);
-              auto const id = xml_reading::find_attribute(state, "id", "?", echo);
+              auto const n  = xml_reading::find_attribute(state, "n",  "0", echo/4);
+              auto const l  = xml_reading::find_attribute(state, "l", "-1", echo/4);
+              auto const f  = xml_reading::find_attribute(state, "f",  "0", echo/4);
+              auto const rc = xml_reading::find_attribute(state, "rc", "0", echo/4);
+              auto const e  = xml_reading::find_attribute(state, "e",  "0", echo/4);
+              auto const id = xml_reading::find_attribute(state, "id", "?", echo/4);
               if (echo > 5) std::printf("# %s:    <state n=\"%s\" l=\"%s\" f=\"%s\" rc=\"%s\" e=\"%s\" id=\"%s\"/>\n",
                                            filename, n, l, f, rc, e, id);
 
@@ -192,69 +194,16 @@ namespace pawxml_import {
               s.f  = std::atof(f);
               s.rc = std::atof(rc);
               s.e  = std::atof(e);
+              std::snprintf(s.id, 16, "%s", id);
 
-#if 0
-              for (int iq = 0; iq < 3; ++iq) {
-                  auto const q_name = radial_state_quantities[iq];
-                  int radial_data_found{0};
-                  for (auto child = paw_setup->first_node(); child; child = child->next_sibling()) {
-                      if (0 == std::strcmp(q_name, child->name())) {
-                          auto const state_id = xml_reading::find_attribute(child, "state", "?state", echo/4);
-                          if (0 == std::strcmp(state_id, id)) {
-                              auto const grid = xml_reading::find_attribute(child, "grid", "?grid", echo/2);
-                              auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
-                              if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
-                                  filename, q_name, state_id, grid, vals.size(), q_name);
-                              nwarn[iq] += (vals.size() != p.n);
-                              s.tsp[iq] = vals;
-                              ++radial_data_found;
-                          } // state_id matches
-                      } // found
-                  } // attr
-                  if (1 != radial_data_found) {
-                        error("radial state quantity %s in pawxml file %s is defined %d times for state_id=\"%s\", needs once exactly!",
-                                                      q_name, filename, radial_data_found, id);
-                  } // radial_data_found more or less than one times
-              } // iq
-#else
-              int radial_data_found[] = {0, 0, 0};
-              for (auto child = paw_setup->first_node(); child; child = child->next_sibling()) {
-                  for (int iq = 0; iq < 3; ++iq) {
-                      auto const q_name = radial_state_quantities[iq];
-                      if (0 == std::strcmp(q_name, child->name())) {
-                          auto const state_id = xml_reading::find_attribute(child, "state", "?state", echo/4);
-                          if (0 == std::strcmp(state_id, id)) {
-                              auto const grid = xml_reading::find_attribute(child, "grid", "?grid", echo/2);
-                              auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
-                              if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
-                                  filename, q_name, state_id, grid, vals.size(), q_name);
-                              nwarn[iq] += (vals.size() != p.n);
-                              s.tsp[iq] = vals;
-                              ++radial_data_found[iq];
-                          } // state_id matches
-                      } // found
-                  } // iq
-              } // child
-              for (int iq = 0; iq < 3; ++iq) {
-                  if (1 != radial_data_found[iq]) {
-                      error("radial state quantity %s in pawxml file %s is defined %d times for state_id=\"%s\", needs once exactly!",
-                                                  radial_state_quantities[iq], filename, radial_data_found[iq], id);
-                  } // radial_data_found more or less than one times
-              } // iq
-#endif
               p.states.push_back(s);
-
+              ++istate;
+              
           } // state
           if (echo > 5) std::printf("# %s:  </valence_states>\n", filename);
-      } else warn("<valence_states> not found in pawxml-file '%s'", filename);
-      int const nstates = p.states.size();
-
-      for (int iq = 0; iq < 3; ++iq) {
-          if (nwarn[iq]) {
-              warn("%s: %d %s deviate from the expected number of %d grid points",
-                   filename, nwarn[iq], radial_state_quantities[iq], p.n);
-          } // nwarn
-      } // iq
+      } else warn("<valence_states> not found in xml-file '%s'", filename);
+      int const nstates = istate;
+      assert(nstates == p.states.size());
 
       auto const shape_function = xml_reading::find_child(paw_setup, "shape_function", echo);
       if (shape_function) {
@@ -287,6 +236,49 @@ namespace pawxml_import {
           p.dkin = vals;
       } else warn("<kinetic_energy_differences> not found in xml-file '%s'", filename);
 
+      for (auto child = paw_setup->first_node(); child; child = child->next_sibling()) {
+          for (int iq = 0; iq < 3; ++iq) {
+              auto const q_name = radial_state_quantities[iq];
+              if (0 == std::strcmp(q_name, child->name())) {
+                  auto const state_id = xml_reading::find_attribute(child, "state", "?state", echo/2);
+                  int state_found{0};
+                  for (int istate = 0; istate < nstates; ++istate) {
+                      auto & state = p.states[istate];
+                      if (0 == std::strcmp(state_id, state.id)) {
+                          auto const grid = xml_reading::find_attribute(child, "grid", "?grid", echo/2);
+                          auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
+                          if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
+                                                       filename, q_name, state_id, grid, vals.size(), q_name);
+                          nwarn[iq] += (vals.size() != p.n);
+                          state.tsp[iq] = vals;
+                          ++state_found;
+                      } // match
+                  } // istate
+                  if (1 != state_found) {
+                      error("radial state quantity %s in pawxml file %s must match exactly one state with state_id=\"%s\", found %s matches",
+                             radial_state_quantities[iq], filename, state_id, state_found);
+                  } // state is matched once
+              } // match
+          } // ieq
+      } // child
+
+      for (int iq = 0; iq < 3; ++iq) {
+          if (nwarn[iq]) {
+              warn("%s: %d %s deviate from the expected number of %d grid points",
+                    filename, nwarn[iq], radial_state_quantities[iq], p.n);
+          } // nwarn
+      } // iq
+      
+      for (int istate = 0; istate < nstates; ++istate) {
+          auto const & state = p.states[istate];
+          for (int iq = 0; iq < 3; ++iq) {
+              if (state.tsp[iq].size() < 1) {
+                  error("radial state quantity %s in pawxml file %s is not defined for state_id=\"%s\"",
+                         radial_state_quantities[iq], filename, state.id);
+              } // radial_data_found more or less than one times
+          } // iq
+      } // istate
+      
 // not covered:
 //   <exact_exchange_X_matrix>  </exact_exchange_X_matrix>
 //   <exact_exchange core-core="-3.462071"/>
