@@ -199,9 +199,9 @@ namespace pawxml_import {
                   int radial_data_found{0};
                   for (auto child = paw_setup->first_node(); child; child = child->next_sibling()) {
                       if (0 == std::strcmp(q_name, child->name())) {
-                          auto const state_id = xml_reading::find_attribute(child, "state", "?state");
+                          auto const state_id = xml_reading::find_attribute(child, "state", "?state", echo);
                           if (0 == std::strcmp(state_id, id)) {
-                              auto const grid = xml_reading::find_attribute(child, "grid", "?grid");
+                              auto const grid = xml_reading::find_attribute(child, "grid", "?grid", echo);
                               auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
                               if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
                                   filename, q_name, state_id, grid, vals.size(), q_name);
@@ -222,9 +222,9 @@ namespace pawxml_import {
                   for (int iq = 0; iq < 3; ++iq) {
                       auto const q_name = radial_state_quantities[iq];
                       if (0 == std::strcmp(q_name, child->name())) {
-                          auto const state_id = xml_reading::find_attribute(child, "state", "?state");
+                          auto const state_id = xml_reading::find_attribute(child, "state", "?state", echo);
                           if (0 == std::strcmp(state_id, id)) {
-                              auto const grid = xml_reading::find_attribute(child, "grid", "?grid");
+                              auto const grid = xml_reading::find_attribute(child, "grid", "?grid", echo);
                               auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
                               if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
                                   filename, q_name, state_id, grid, vals.size(), q_name);
