@@ -3,8 +3,10 @@ if(HAS_RAPIDXML)
 
     FetchContent_Declare(
         rapidxml
-        GIT_REPOSITORY https://github.com/discord/rapidxml.git
-        GIT_TAG        2ae4b2888165a393dfb6382168825fddf00c27b9 # version 1.13
+  #     GIT_REPOSITORY https://github.com/discord/rapidxml.git
+  #     GIT_TAG        2ae4b2888165a393dfb6382168825fddf00c27b9 # version 1.13
+        GIT_REPOSITORY https://github.com/Fe-Bell/RapidXML.git
+        GIT_TAG        v116  # version 1.16
     )
     FetchContent_MakeAvailable(rapidxml)
     # after configuring headers for rapidXML are found in _deps/rapidxml-src
