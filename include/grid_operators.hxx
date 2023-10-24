@@ -440,7 +440,7 @@ namespace grid_operators {
 #ifdef  DEVEL
           char file_name_buffer[512];
           if (nullptr == filename) {
-              std::snprintf(file_name_buffer, 511, "%s/%s.%s", pathname, "Hmt", fileformat);
+              std::snprintf(file_name_buffer, 512, "%s/%s.%s", pathname, "Hmt", fileformat);
               filename = file_name_buffer;
           } // generate a default file name
           if (echo > 0) std::printf("# %s filename=%s\n", __func__, filename);

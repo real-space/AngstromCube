@@ -772,7 +772,7 @@ namespace green_experiments {
       std::vector<double> xyzZinso; // atom info [natoms*8]
       std::vector<std::vector<double>> AtomMatrices; // non-local potential
 
-      auto const *const filename = control::get("hamiltonian.file", "Hmt.json");
+      auto const *const filename = control::get("hamiltonian.file", "Hmt.xml");
       auto const load_stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (load_stat) {
           warn("failed to load_Hamiltonian with status=%d", int(load_stat));

@@ -222,7 +222,7 @@ namespace green_input {
       int natoms;
       std::vector<double> xyzZinso;
       std::vector<std::vector<double>> atom_mat;
-      auto const filename = control::get("hamiltonian.file", "Hmt.json");
+      auto const filename = control::get("hamiltonian.file", "Hmt.xml");
       return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, filename, echo);
   } // test_loading
 
