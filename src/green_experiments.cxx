@@ -817,11 +817,12 @@ namespace green_experiments {
 
   } // test_experiment
 
-  inline uint8_t transfer(view3D<uint8_t> & rhs, int ix, int iy, int iz, int jx, int jy, int jz) {
+  template <typename T>
+  inline uint8_t transfer(view3D<T> & rhs, int ix, int iy, int iz, int jx, int jy, int jz) {
       auto const t = rhs(jz,jy,jx);
       if (t > 0) {
-          rhs(ix,iy,iz) += t;
-          rhs(jz,jy,jx) = 0;        
+          rhs(jz,jy,jx) = 0;
+          rhs(iz,iy,ix) += t;
       } // t
       return t;
   } // transfer
@@ -832,58 +833,104 @@ namespace green_experiments {
       assert(n > 0);
       size_t const n_all = n*size_t(n)*size_t(n);
       if (echo > 0) std::printf("# %s: all= %ld\n", __func__, n_all);
-      view3D<uint8_t> rhs(n, n, n, uint8_t(0));
+      uint8_t constexpr unity = 1, t49 = 49;
+      view3D<uint8_t> rhs(n, n, n, unity);
+
+#ifdef CODE_GENERATION
+      int8_t const rot_mat[24*3*3] = {
+         1,  0,  0,  0,  1,  0,  0,  0,  1,
+        -1,  0,  0,  0, -1,  0,  0,  0,  1,
+        -1,  0,  0,  0,  1,  0,  0,  0, -1,
+         1,  0,  0,  0, -1,  0,  0,  0, -1,
+         0,  1,  0,  1,  0,  0,  0,  0, -1,
+         0, -1,  0, -1,  0,  0,  0,  0, -1,
+         0, -1,  0,  1,  0,  0,  0,  0,  1,
+         0,  1,  0, -1,  0,  0,  0,  0,  1,
+         0,  0,  1,  0, -1,  0,  1,  0,  0,
+         0,  0, -1,  0, -1,  0, -1,  0,  0,
+         0,  0, -1,  0,  1,  0,  1,  0,  0,
+         0,  0,  1,  0,  1,  0, -1,  0,  0,
+        -1,  0,  0,  0,  0,  1,  0,  1,  0,
+        -1,  0,  0,  0,  0, -1,  0, -1,  0,
+         1,  0,  0,  0,  0, -1,  0,  1,  0,
+         1,  0,  0,  0,  0,  1,  0, -1,  0,
+         0,  0,  1,  1,  0,  0,  0,  1,  0,
+         0,  0, -1, -1,  0,  0,  0,  1,  0,
+         0,  0, -1,  1,  0,  0,  0, -1,  0,
+         0,  0,  1, -1,  0,  0,  0, -1,  0,
+         0,  1,  0,  0,  0,  1,  1,  0,  0,
+         0, -1,  0,  0,  0, -1,  1,  0,  0,
+         0, -1,  0,  0,  0,  1, -1,  0,  0,
+         0,  1,  0,  0,  0, -1, -1,  0,  0};
+
+      for (int i24 = 1; i24 < 24; ++i24) { // skip unity operation
+          char ccc[6] = "x,y,z";
+          for (int i = 0; i < 3; ++i) {
+              char c{'?'};
+              for (int j = 0; j < 3; ++j) {
+                  auto const rm = rot_mat[(i24*3 + i)*3 + j];
+                  if (0 != rm) {
+                      assert('?' == c);
+                      c = j + ((rm > 0) ? 'x' : 'X');
+                  }
+              } // j
+              assert('?' != c);
+              ccc[2*i] = c;
+          } // i
+          std::printf("                  transfer(rhs, x,y,z, %s);\n", ccc);
+      } // i24
+#endif // CODE_GENERATION
+
+      // 23 symmetry operations: no inversion symmetry, but C2 and C3 symmetries
+      //                                            jx,jy,jz are negative coords
+      for         (int z = 0; z < n; ++z) {  int const Z = n - 1 - z;
+          for     (int y = 0; y < n; ++y) {  int const Y = n - 1 - y;
+              for (int x = 0; x < n; ++x) {  int const X = n - 1 - x;
+               // transfer(rhs, x,y,z, x,y,z); // unity operation can be skipped
+                  transfer(rhs, x,y,z, X,Y,z);
+                  transfer(rhs, x,y,z, X,y,Z);
+                  transfer(rhs, x,y,z, x,Y,Z);
+                  transfer(rhs, x,y,z, y,x,Z);
+                  transfer(rhs, x,y,z, Y,X,Z);
+                  transfer(rhs, x,y,z, Y,x,z);
+                  transfer(rhs, x,y,z, y,X,z);
+                  transfer(rhs, x,y,z, z,Y,x);
+                  transfer(rhs, x,y,z, Z,Y,X);
+                  transfer(rhs, x,y,z, Z,y,x);
+                  transfer(rhs, x,y,z, z,y,X);
+                  transfer(rhs, x,y,z, X,z,y);
+                  transfer(rhs, x,y,z, X,Z,Y);
+                  transfer(rhs, x,y,z, x,Z,y);
+                  transfer(rhs, x,y,z, x,z,Y);
+                  transfer(rhs, x,y,z, z,x,y);
+                  transfer(rhs, x,y,z, Z,X,y);
+                  transfer(rhs, x,y,z, Z,x,Y);
+                  transfer(rhs, x,y,z, z,X,Y);
+                  transfer(rhs, x,y,z, y,z,x);
+                  transfer(rhs, x,y,z, Y,Z,x);
+                  transfer(rhs, x,y,z, Y,z,X);
+                  transfer(rhs, x,y,z, y,Z,X);
+      }   }   } // x y z
+      // Beware: Compute time scales as n^3: for n={128 256 512 1024 2048}, a single core needs {1.5 6.2 70 772 >6200} seconds
+      
+
+      size_t all{0}, nonzero{0}; // for n={1..16}, nonzeros go as {1 1 4 4 10 11 21 24 39 45 66 76 104 119 155 176}
+      std::vector<size_t> hist(50, 0u);
       for (int z = 0; z < n; ++z) {
           for (int y = 0; y < n; ++y) {
               for (int x = 0; x < n; ++x) {
-                  rhs(z,y,x) = 1;
+                  auto const t = rhs(z,y,x);
+                  all += t;
+                  ++hist[std::min(t, t49)];
+                  nonzero += (t > 0);
       }   }   } // x y z
-
-    //   int8_t const rot_mat[24*3*3] = {
-    //      1,  0,  0,  0,  1,  0,  0,  0,  1,
-    //     -1,  0,  0,  0, -1,  0,  0,  0,  1,
-    //     -1,  0,  0,  0,  1,  0,  0,  0, -1,
-    //      1,  0,  0,  0, -1,  0,  0,  0, -1,
-    //      0,  1,  0,  1,  0,  0,  0,  0, -1,
-    //      0, -1,  0, -1,  0,  0,  0,  0, -1,
-    //      0, -1,  0,  1,  0,  0,  0,  0,  1,
-    //      0,  1,  0, -1,  0,  0,  0,  0,  1,
-    //      0,  0,  1,  0, -1,  0,  1,  0,  0,
-    //      0,  0, -1,  0, -1,  0, -1,  0,  0,
-    //      0,  0, -1,  0,  1,  0,  1,  0,  0,
-    //      0,  0,  1,  0,  1,  0, -1,  0,  0,
-    //     -1,  0,  0,  0,  0,  1,  0,  1,  0,
-    //     -1,  0,  0,  0,  0, -1,  0, -1,  0,
-    //      1,  0,  0,  0,  0, -1,  0,  1,  0,
-    //      1,  0,  0,  0,  0,  1,  0, -1,  0,
-    //      0,  0,  1,  1,  0,  0,  0,  1,  0,
-    //      0,  0, -1, -1,  0,  0,  0,  1,  0,
-    //      0,  0, -1,  1,  0,  0,  0, -1,  0,
-    //      0,  0,  1, -1,  0,  0,  0, -1,  0,
-    //      0,  1,  0,  0,  0,  1,  1,  0,  0,
-    //      0, -1,  0,  0,  0, -1,  1,  0,  0,
-    //      0, -1,  0,  0,  0,  1, -1,  0,  0,
-    //      0,  1,  0,  0,  0, -1, -1,  0,  0};
-
-      // 24 symmetry operations: no inversion symmetry, but C2 and C3 symmetries
-      for (int iz = 0; iz < n; ++iz) {
-          int const jz = n - 1 - iz;
-          for (int iy = 0; iy < n; ++iy) {
-              int const jy = n - 1 - iy;
-              for (int ix = 0; ix < n; ++ix) {
-                  int const jx = n - 1 - ix;
-                  transfer(rhs, ix,iy,iz, jx,jy,iz);
-                  transfer(rhs, ix,iy,iz, jx,iy,jz);
-                  transfer(rhs, ix,iy,iz, ix,jy,jz);
-      }   }   } // x y z
-
-      size_t all{0};
-      for (int z = 0; z < n; ++z) {
-          for (int y = 0; y < n; ++y) {
-              for (int x = 0; x < n; ++x) {
-                  all += rhs(z,y,x);
-      }   }   } // x y z
-      std::printf("# %s: weights= %ld\n", __func__, all);
+      assert(all == n*n*n && "The weights are not conserved!");
+      for (int i50 = 0; i50 < 50; ++i50) {
+          if (hist[i50] > 0) std::printf("# %9ld fields have weight %d\n", hist[i50], i50);
+      } // i50
+      std::printf("# %9ld fields have weight nonzero\n", nonzero);
+      assert(0 == hist[t49] && "There cannot be more than 48 symmetry operations");
+      std::printf("# %s: reduction factor %g\n", __func__, (n*n*n)/double(nonzero));
 
       return 0;
   } // test_symmetric_cube
