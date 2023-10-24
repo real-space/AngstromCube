@@ -458,24 +458,25 @@ namespace grid_operators {
               std::fprintf(f, "<grid_Hamiltonian version=\"%.1f\">\n", 0.);
               std::fprintf(f, "  <!-- Units: Hartree and Bohr radii. -->\n");
               if (nullptr != energy_min_max_Fermi) {
-                  std::fprintf(f, "  <spectrum min=\"%.6f\" max=\"%.6f\" Fermi=\"%.6f\"/>\n",
+                  std::fprintf(f, "  <spectrum min=\"%.6f\" max=\"%.6f\" Fermi=\"%.6f\" unit=\"Hartree\"/>\n",
                       energy_min_max_Fermi[0], energy_min_max_Fermi[1], energy_min_max_Fermi[2]);
               } // energy_min_max_Fermi
 
               std::fprintf(f, "  <sho_atoms number=\"%ld\">\n", atoms.size());
               for (int ia = 0; ia < atoms.size(); ++ia) {
-                  std::fprintf(f, "    <atom gid=\"%i\">\n", atoms[ia].atom_id());
-                  auto const pos = atoms[ia].pos();
-                  std::fprintf(f, "      <position x=\"%.12f\" y=\"%.12f\" z=\"%.12f\"/>\n", pos[0], pos[1], pos[2]);
-                  int const numax = atoms[ia].numax();
-                  std::fprintf(f, "      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.12f\"/>\n",
-                                                                  numax, atoms[ia].sigma());
+                  auto const & atom = atoms[ia];
+                  std::fprintf(f, "    <atom global_id=\"%i\">\n", atom.atom_id());
+                  auto const pos = atom.pos();
+                  std::fprintf(f, "      <position x=\"%.12f\" y=\"%.12f\" z=\"%.12f\" unit=\"Bohr\"/>\n", pos[0], pos[1], pos[2]);
+                  int const numax = atom.numax();
+                  std::fprintf(f, "      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.12f\" sigma_unit=\"Bohr\"/>\n",
+                                                                  numax, atom.sigma());
                   int const nSHO = sho_tools::nSHO(numax);
-                  auto const stride = atoms[ia].stride();
-                  for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
-                      auto const mat = atoms[ia].template get_matrix<double>(h0s1);
+                  auto const stride = atom.stride();
+                  for (int h0s1 = 0; h0s1 <= 1; ++h0s1) {
+                      auto const mat = atom.template get_matrix<double>(h0s1);
                       auto const tag = h0s1 ? "overlap" : "hamiltonian";
-                      std::fprintf(f, "      <%s>\n", tag);
+                      std::fprintf(f, "      <%s unit=\"%s\">\n", tag, h0s1?"1":"Hartree");
                       for (int i = 0; i < nSHO; ++i) {
                           std::fprintf(f, "        ");
                           for (int j = 0; j < nSHO; ++j) {
@@ -493,13 +494,13 @@ namespace grid_operators {
               } // ia
               std::fprintf(f, "  </sho_atoms>\n");
 
-              std::fprintf(f, "  <spacing x=\"%.17f\" y=\"%.17f\" z=\"%.17f\"/>\n", grid.h[0], grid.h[1], grid.h[2]);
+              std::fprintf(f, "  <spacing x=\"%.17f\" y=\"%.17f\" z=\"%.17f\" unit=\"Bohr\"/>\n", grid.h[0], grid.h[1], grid.h[2]);
               std::fprintf(f, "  <boundary x=\"%d\" y=\"%d\" z=\"%d\"/>\n", grid.boundary_condition(0), grid.boundary_condition(1), grid.boundary_condition(2));
               simple_stats::Stats<> pot;
               for (int izyx = 0; izyx < grid.all(); ++izyx) {
                   pot.add(potential[izyx]);
               } // ia
-              std::fprintf(f, "  <potential nx=\"%d\" ny=\"%d\" nz=\"%d\" minimum=\"%g\" maximum=\"%g\" average=\"%g\">",
+              std::fprintf(f, "  <potential nx=\"%d\" ny=\"%d\" nz=\"%d\" minimum=\"%g\" maximum=\"%g\" average=\"%g\" unit=\"Hartree\">",
                                             grid[0], grid[1], grid[2], pot.min(), pot.max(), pot.mean());
               for (int izyx = 0; izyx < grid.all(); ++izyx) {
                   if (0 == (izyx & 3)) std::fprintf(f, "\n    ");

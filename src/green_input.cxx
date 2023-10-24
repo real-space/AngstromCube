@@ -34,10 +34,13 @@ namespace green_input {
       , int & natoms
       , std::vector<double> & xyzZinso
       , std::vector<std::vector<double>> & atom_mat
-      , char const *const filename // ="Hmt.json", input
+      , char const *filename // =nullptr
       , int const echo // =0, log-level
   ) {
-      assert(nullptr != filename);
+      if (nullptr == filename) {
+          filename = control::get("green_input.filename", "Hmt.xml");
+          if (echo > 0) std::printf("# use +green_input.filename \"%s\"\n", filename);
+      } // use a default file name
       if (std::string::npos != std::string(filename).find(".json")) {
           if (echo > 0) std::printf("# filename \"%s\" looks like .json formatted\n", filename);
           auto const json_stat = json_reading::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, filename, echo);
@@ -87,8 +90,8 @@ namespace green_input {
               atom_mat.resize(natoms);
               int ia{0};
               for (auto atom = sho_atoms->first_node(); atom; atom = atom->next_sibling()) {
-                  auto const gid = xml_reading::find_attribute(atom, "gid", "-1");
-                  if (echo > 5) std::printf("# <%s gid=%s>\n", atom->name(), gid);
+                  auto const gid = xml_reading::find_attribute(atom, "global_id", "-1");
+                  if (echo > 5) std::printf("# <%s global_id=%s>\n", atom->name(), gid);
                   xyzZinso[ia*8 + 4] = std::atoi(gid);
 
                   double pos[3] = {0, 0, 0};

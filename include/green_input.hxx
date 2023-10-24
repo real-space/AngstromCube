@@ -15,7 +15,7 @@ namespace green_input {
       , int & natoms
       , std::vector<double> & xyzZinso
       , std::vector<std::vector<double>> & atom_mat
-      , char const *const filename="Hmt.json" // input
+      , char const *const filename=nullptr // default
       , int const echo=0 // log-level
   ); // declaration only
 
