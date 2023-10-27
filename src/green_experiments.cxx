@@ -828,6 +828,7 @@ namespace green_experiments {
   } // transfer
 
   status_t test_symmetric_cube(int echo=0) {
+      // a43 -t green_experiments -V -V +green_experiments.select.test=4 +green_experiments.cube.n=8
       // input like methane with 24 symmetry operations: reduce the number of right-hand-sides
       int const n = control::get("green_experiments.cube.n", 3.);
       assert(n > 0);
@@ -835,6 +836,17 @@ namespace green_experiments {
       if (echo > 0) std::printf("# %s: all= %ld\n", __func__, n_all);
       uint8_t constexpr unity = 1, t49 = 49;
       view3D<uint8_t> rhs(n, n, n, unity);
+
+      // We generate the symmetry weights by folding like folding an origami paper
+      // Start here              Get here
+      //    1  1  1  1  1           1  0  0  0  0       
+      //    1  1  1  1  1           2  1  0  0  0
+      //    1  1  1  1  1           2  2  1  0  0
+      //    1  1  1  1  1           2  2  2  1  0
+      //    1  1  1  1  1           2  2  2  2  1
+      // There are 1s staying on the folding line
+      // This leads to up to 3 different weights for n even: {0, 8, 24}
+      //  and up to 6 different weights for n odd: {0, 1, 6, 8, 12, 24}
 
 #ifdef CODE_GENERATION
       int8_t const rot_mat[24*3*3] = {
