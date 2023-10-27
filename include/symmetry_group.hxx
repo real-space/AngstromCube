@@ -2,17 +2,25 @@
 // This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf, std::snprintf
-#include <cstdint> // uint32_t
+#include <cstdint> // uint32_t, int32_t
 #include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t
 #include "geometry_analysis.hxx" // ::read_xyz_file
-#include "data_view.hxx" // view2D<>
+#include "data_view.hxx" // view2D<>, view3D<>
 #include "display_units.h" // Ang, _Ang
 #include "inline_math.hxx" // set
-#include "simple_math.hxx" // ::invert3x3
+#include "print_tools.hxx" // printf_vector(format, vec, n, final, scale, add)
+#include "simple_math.hxx" // ::invert3x3, ::determinant
+#include "recorded_warnings.hxx" // warn, error
 
 namespace symmetry_group {
+
+  template <typename T>
+  inline T determinant(T const mat[3][3]) {
+      return simple_math::determinant(3, mat[0], 3);
+  } // determinant
+
 
   double constexpr s30 = 0.866025403784438597;
 
@@ -142,10 +150,11 @@ namespace symmetry_group {
 
       switch (nrot) {
           case 1: case 2: case 4: case 6: case 8: case 12: case 24: break; // ok
-          default:
-            warn("Bravais lattice has wrong number of symmetries: ", nrot);
-            if (echo > 1) std::printf("# cannot have %d symmetries in a Bravais lattice, symmetries are disabled\n", nrot);
-            nrot = 1;
+          default: {
+              warn("Bravais lattice has wrong number of symmetries: ", nrot);
+              if (echo > 1) std::printf("# cannot have %d symmetries in a Bravais lattice, symmetries are disabled\n", nrot);
+              nrot = 1;
+          }
       } // switch nrot
 
       // Set the inversion symmetry (Bravais lattices always have inversion symmetry)
@@ -157,6 +166,41 @@ namespace symmetry_group {
 
       return 0;
   } // find_symm_bravais_latt
+
+  template <typename T>
+  void get_string(char str[3], T const mat[3][3]) {
+      for (int i = 0; i < 3; ++i) {
+          char c{'?'};
+          for (int j = 0; j < 3; ++j) {
+              auto const rm = mat[i][j];
+              if (0 != rm) {
+                //   assert('?' == c);
+                  c = j + ((rm > 0) ? 'x' : 'X');
+              }
+          } // j
+        //   assert('?' != c);
+          str[i] = c;
+      } // i
+  } // get_string
+
+  template <typename real_t, int Stride=3>
+  status_t generate_cubic_symmetry_matrix(real_t mat[][Stride], int const i48) {
+      if (i48 <   0) return -1;
+      if (i48 >= 48) return  1;
+      int8_t constexpr permutation[6][3] = {{0,1,2},{1,2,0},{2,0,1},{2,1,0},{0,2,1},{1,0,2}};
+      int const i8 = i48 & 0x7; // in [0,7]
+      int const i6 = i48 >> 3;  // in [0,5]
+      assert(i6*8 + i8 == i48);
+      for (int i = 0; i < 3; ++i) {
+          for (int j = 0; j < 3; ++j) {
+              mat[i][j] = 0; // clear
+          } // j
+          int const sign = (i8 >> i) & 0x1;
+          int const j3 = permutation[i6][i];
+          mat[i][j3] = real_t(1 - 2*sign);
+      } // i
+      return 0; // success
+  } // generate_cubic_symmetry_matrix
 
 
 #ifdef NO_UNIT_TESTS
@@ -189,9 +233,203 @@ namespace symmetry_group {
       return stat;
   } // test_symmetry_group
 
+  inline status_t test_generate_group(int const echo=0) {
+      status_t stat(0);
+      // generate all operations of 3x3 matrices with only {-1,0,1} entries:
+      int n_det_1{0};
+      for (int i19683 = 0; i19683 < 19683; ++i19683) {
+          int mat[3][3];
+          {
+              int j{i19683};
+              for (int ij = 0; ij < 3*3; ++ij) {
+                  mat[0][ij] = (j % 3) - 1;
+                  j /= 3;
+              } // ij
+          }
+          auto const det = determinant(mat);
+          if (1 == det*det) {
+              char str[4] = "???";
+              get_string(str, mat);
+              auto const *const m = mat[0]; // flat array int[9] for display
+              if (echo > 11) std::printf("# i19683=%6i string=%s mat= %d %d %d  %d %d %d  %d %d %d\n",
+                                            i19683, str, m[0],m[1],m[2], m[3],m[4],m[5], m[6],m[7],m[8]);
+              ++n_det_1;
+          } // |det| == 1
+      } // i19683
+      if (echo > 3) std::printf("# %s: %d of 19683 have |det| == 1\n", __func__, n_det_1);
+      return stat;
+  } // test_generate_group
+
+
+  typedef int32_t hast18_t; // 18 bits needed
+
+  template <typename T>
+  inline hast18_t mat_hash18(T const mat[3][3]) {
+      hast18_t hash{0};
+      for (int ij = 0; ij < 3*3; ++ij) {
+          auto const rm = int(mat[0][ij]);
+          assert(std::abs(rm) < 2); // allowed matrix entries are {-1, 0, 1}
+          hash <<= 2; // *= 4
+          hash |= (rm & 0x3); // use bits 00(0.0), 01(1.0) or 11(-1.0), never 10
+      } // ij
+      return hash;
+  } // mat_hash18
+
+  template <typename T>
+  inline int hash2mat(T mat[3][3], hast18_t const hash) {
+      if (hash < 0)       return -1;
+      if (hash >= 262144) return  1;
+      int8_t constexpr translate[4] = {0, 1, 99, -1};
+      auto h{hash};
+      for (int ij = 8; ij >= 0; --ij) {
+          int const i3 = h & 0x3;
+          mat[0][ij] = translate[i3 & 0x3];
+          assert(99 != mat[0][ij] && "invalid hash?");
+          h >>= 2; // divide by 4
+      } // ij
+      return 0; // success
+  } // hash2mat
+
+  // a more compact hash would be int16_t which would require that we encode into 19683 = 3^9
+  typedef int16_t hash15_t; // 15 bits needed
+
+  template <typename T>
+  inline hash15_t mat_hash15(T const mat[3][3]) {
+      hash15_t hash{0}; // 15bit needed
+      for (int ij = 0; ij < 3*3; ++ij) {
+          auto const rm = int(mat[0][ij]);
+          assert(std::abs(rm) < 2); // allowed matrix entries are {-1, 0, 1}
+          hash = hash*3 + rm + 3*(rm < 0); // translated tokens   { 2, 0, 1}
+      } // ij
+      return hash;
+  } // mat_hash15
+
+  template <typename T>
+  inline int hash2mat(T mat[3][3], hash15_t const hash) {
+      if (hash < 0)      return -1;
+      if (hash >= 19683) return  1;
+      int8_t constexpr translate[4] = {0, 1, -1, 99};
+      auto h{hash};
+      for (int ij = 8; ij >= 0; --ij) {
+          int const i3 = h % 3;
+          mat[0][ij] = translate[i3 & 0x3];
+          assert(99 != mat[0][ij] && "invalid hash?");
+          h /= 3; // divide by 3
+      } // ij
+      return 0; // success
+  } // hash2mat
+
+
+  template <typename T, int N=3>
+  inline void matmul(T axb[N][N], T const a[N][N], T const b[N][N]) {
+      for (int i = 0; i < N; ++i) {
+          for (int j = 0; j < N; ++j) {
+              T t(0);
+              for (int k = 0; k < N; ++k) {
+                  t += a[i][k] * b[k][j];
+              } // k
+              axb[i][j] = t;
+          } // j
+      } // i
+  } // matmul
+
+  inline status_t test_check_group24(int const echo=0) {
+      status_t stat(0);
+      int mat[24][3][3];
+      hash15_t hash15s[24];
+      hast18_t hash18s[24];
+      for (int i24 = 0; i24 < 24; ++i24) {
+          for (int ij = 0; ij < 3*3; ++ij) {
+              int const rm = std::round(_rotation_matrices[i24*3*3 + ij]);
+              assert(std::abs(rm) <= 1); // rm may only be in {-1, 0, 1}
+              mat[i24][0][ij] = rm;
+          } // ij
+          hash15s[i24] = mat_hash15(mat[i24]);
+          hash18s[i24] = mat_hash18(mat[i24]);
+      } // i24
+      // multiplication table
+      int not_found{0};
+      int multab[24][24];
+      for (int i24 = 0; i24 < 24; ++i24) {
+          for (int j24 = 0; j24 < 24; ++j24) {
+              int prod[3][3];
+              matmul(prod, mat[i24], mat[j24]);
+              auto const hash = mat_hash15(prod);
+              // now search hash in hashes
+              int k24{-1}; // -1:not_found
+              for (int k = 0; k < 24; ++k) {
+                  if (hash == hash15s[k]) { k24 = k; };
+              } // k
+              multab[i24][j24] = k24;
+              not_found += (-1 == k24); // count how many times it has not been found in hashes
+          } // j24
+          if (echo > 5) { std::printf("# multiplication[%2d]:  ", i24); printf_vector(" %d", multab[i24], 24); }
+      } // i24
+      if (not_found > 0) {
+          warn("%d symmetry matrix products are not part of the group", not_found);
+          ++stat;
+      } // not_found
+      return stat;
+  } // test_check_group24
+
+  inline status_t test_check_group48(int const echo=0) {
+      status_t stat(0);
+      int mat[48][3][3]; // generate all 48 cubic symmetry matrices
+      hash15_t hash15s[48]; // and their hash codes
+      hast18_t hash18s[48]; // and their hash codes
+      for (int i48 = 0; i48 < 48; ++i48) {
+          generate_cubic_symmetry_matrix(mat[i48], i48);
+          hash15s[i48] = mat_hash15(mat[i48]);
+          hash18s[i48] = mat_hash18(mat[i48]);
+          { // scope: check the hash2mat functions
+              int m[3][3];
+              for (int ibits = 15; ibits <= 18; ibits += 3) {
+                auto const works = (15 == ibits) ? hash2mat(m, hash15s[i48])
+                                                 : hash2mat(m, hash18s[i48]);
+                assert(0 == works);
+                for (int ij = 0; ij < 3*3; ++ij) {
+                    if (m[0][ij] != mat[i48][0][ij]) error("i48=%i ij=%i m=%i /= %i =mat", i48, ij, m[0][ij], mat[i48][0][ij]);
+                } // ij
+              } // ibits in {15, 18}
+          } // scope
+      } // i48
+      int8_t multab[48][48]; // multiplication table
+      int not_found{0};
+      for (int i48 = 0; i48 < 48; ++i48) {
+          for (int j48 = 0; j48 < 48; ++j48) {
+              // make sure that symmetries are unique
+              assert((hash15s[i48] == hash15s[j48]) == (i48 == j48));
+              // check product
+              int prod[3][3];
+              matmul(prod, mat[i48], mat[j48]);
+              auto const prod_mat_hash15 = mat_hash15(prod);
+              auto const prod_mat_hash18 = mat_hash18(prod);
+              // now search hash in hashes
+              int k48{-1}; // -1:not_found
+              for (int k = 0; k < 48; ++k) {
+                  if (prod_mat_hash15 == hash15s[k]) {
+                      k48 = k; // found
+                      assert(prod_mat_hash18 == hash18s[k]);
+                  }
+              } // k
+              multab[i48][j48] = k48;
+              not_found += (-1 == k48); // count how many times it has not been found in hashes
+          } // j48
+          if (echo > 5) { std::printf("# multiplication[%2d]:  ", i48); printf_vector(" %d", multab[i48], 48); }
+      } // i48
+      if (not_found > 0) {
+          warn("%d symmetry matrix products are not part of the group", not_found);
+          ++stat;
+      } // not_found
+      return stat;
+  } // test_check_group48
+
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_symmetry_group(echo);
+      stat += test_generate_group(echo);
+      stat += test_check_group24(echo);
+      stat += test_check_group48(echo);
       return stat;
   } // all_tests
 
