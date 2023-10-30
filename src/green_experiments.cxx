@@ -672,7 +672,7 @@ namespace green_experiments {
                     // ToDo: rotate 1st half of bands and generate the 2nd half from gradients
                     //        gradient: phi_i = (H - E_i*S) psi_i
                     if (echo > 5) std::printf("# rotate_waves in Davidson iteration #%i\n", it);
-                    nops += rotate_waves(tpsi, psi, Hmat, nblocks, nb); // Spsi is a dummy here for a new version of psi
+                    nops += rotate_waves<real_t,R1C2,Noco>(tpsi, psi, Hmat, nblocks, nb); // Spsi is a dummy here for a new version of psi
                     std::swap(psi, tpsi); // pointer swap
 
                     if (Sval[0] > .01) {
@@ -682,7 +682,7 @@ namespace green_experiments {
 
                           nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
                           nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
-                          nops += gradient_waves(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, min_max_res, echo);
+                          nops += gradient_waves<real_t,R1C2,Noco>(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, min_max_res, echo);
                           if (echo > 5) std::printf("# gradient_waves in iteration #%i has residual norms in [%.1e, %.1e]\n",
                                                     it, min_max_res[0], min_max_res[1]);
                         }
@@ -785,7 +785,7 @@ namespace green_experiments {
           control::set("green_function.truncation.radius", string);
       } // how
 
-      int constexpr Noco=1;
+      int const Noco = 1 + (control::get("green_experiments.eigen.noco", 0.) > 0);
       green_action::plan_t p;
       auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo, nullptr, Noco);
       if (plan_stat) {
@@ -795,7 +795,8 @@ namespace green_experiments {
 
       if ('g' == how) {
           // compute the bandstructure using the Green function method
-          return bandstructure<double,Noco>(p, AtomMatrices, ng, hg, echo);
+          return (1 == Noco) ? bandstructure<double,1>(p, AtomMatrices, ng, hg, echo):
+                               bandstructure<double,2>(p, AtomMatrices, ng, hg, echo);
       } else {
           // compute a bandstructure using a wave function method
           green_action::plan_t pS; // plan for the overlap operator
@@ -805,13 +806,17 @@ namespace green_experiments {
               warn("failed to construct_Green_function with status=%d for the overlap operator", int(plan_stat));
               return plan_stat;
           } // plan_stat
-          int const r1c2 = control::get("green_experiments.eigen.real", 0.);
-          if (32 == control::get("green_experiments.eigen.floating.point.bits", 64.)) {
-              return (1 == r1c2) ? eigensolver<float ,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
-                                   eigensolver<float ,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-          } else {
-              return (1 == r1c2) ? eigensolver<double,1,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo):
-                                   eigensolver<double,2,Noco>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+          int const r1c2 = (2 == Noco) ? 2 : (2 - (control::get("green_experiments.eigen.real", 0.) > 0));
+          int const bits = control::get("green_experiments.eigen.floating.point.bits", 64.);
+          int const bits_r1c2_noco = bits*100 + r1c2*10 + Noco;
+          switch (bits_r1c2_noco) {
+              case 3211: return eigensolver<float ,1,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 3221: return eigensolver<float ,2,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 3222: return eigensolver<float ,2,2>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 6411: return eigensolver<double,1,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 6421: return eigensolver<double,2,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 6422: return eigensolver<double,2,2>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              default: error("no such case %s%d with Noco=%d", (1 == r1c2)?"real":"complex", bits, Noco);
           } // fp32 or fp64
       } // how
 

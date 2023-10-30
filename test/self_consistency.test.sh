@@ -70,13 +70,13 @@ exe=../src/a43
 # echo "Al   0 0 -1." >> $base.xyz
 # echo "Al   0 0  1." >> $base.xyz
 
-base=scf.Al-fcc
-echo " 4" > $base.xyz
-echo "#cell 4.0 4.0 4.0 p p p" >> $base.xyz
-echo "Al   -1.0 -1.0 -1.0" >> $base.xyz
-echo "Al    1.0  1.0 -1.0" >> $base.xyz
-echo "Al    1.0 -1.0  1.0" >> $base.xyz
-echo "Al   -1.0  1.0  1.0" >> $base.xyz
+# base=scf.Al-fcc
+# echo " 4" > $base.xyz
+# echo "#cell 4.0 4.0 4.0 p p p" >> $base.xyz
+# echo "Al   -1.0 -1.0 -1.0" >> $base.xyz
+# echo "Al    1.0  1.0 -1.0" >> $base.xyz
+# echo "Al    1.0 -1.0  1.0" >> $base.xyz
+# echo "Al   -1.0  1.0  1.0" >> $base.xyz
 
 # base=scf.Ne-fcc
 # echo " 1" > $base.xyz  
@@ -103,18 +103,18 @@ echo "Al   -1.0  1.0  1.0" >> $base.xyz
 # echo "Au   -1.016  1.016  1.016" >> $base.xyz
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 (2009), al. et Blaha
-# base=scf.C-diamond
-# echo " 8" > $base.xyz
-# echo "#cell 3.536 3.536 3.536 p p p" >> $base.xyz
-## 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
-# echo "C  -1.326 -1.326 -1.326" >> $base.xyz
-# echo "C   0.442  0.442 -1.326" >> $base.xyz
-# echo "C  -0.442 -0.442 -0.442" >> $base.xyz
-# echo "C   1.326  1.326 -0.442" >> $base.xyz
-# echo "C  -1.326  0.442  0.442" >> $base.xyz
-# echo "C   0.442 -1.326  0.442" >> $base.xyz
-# echo "C  -0.442  1.326  1.326" >> $base.xyz
-# echo "C   1.326 -0.442  1.326" >> $base.xyz
+base=scf.C-diamond
+echo " 8" > $base.xyz
+echo "#cell 3.536 3.536 3.536 p p p" >> $base.xyz
+# 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
+echo "C  -1.326 -1.326 -1.326" >> $base.xyz
+echo "C   0.442  0.442 -1.326" >> $base.xyz
+echo "C  -0.442 -0.442 -0.442" >> $base.xyz
+echo "C   1.326  1.326 -0.442" >> $base.xyz
+echo "C  -1.326  0.442  0.442" >> $base.xyz
+echo "C   0.442 -1.326  0.442" >> $base.xyz
+echo "C  -0.442  1.326  1.326" >> $base.xyz
+echo "C   1.326 -0.442  1.326" >> $base.xyz
 
 # base=scf.C_chain.sho
 # echo " 1" > $base.xyz
@@ -292,7 +292,7 @@ EOF
 ## end of control file
 
 
-for spacing in `seq 2 1 1`; do
+for spacing in `seq 2 1 2`; do
   ## real-space grid spacing in Bohr
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
@@ -300,7 +300,7 @@ for spacing in `seq 2 1 1`; do
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=grid \
-        +grid.spacing=`echo 0.25 / $spacing | bc -l` \
+        +grid.spacing=`echo 0.222 / $spacing | bc -l` \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
@@ -319,7 +319,7 @@ for numax in `seq 4 2 2`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 11 3 11`; do
+for ecut in `seq 11 3 1`; do
   ## plane-wave cutoff energy in Hartree
   project=$base.pw$ecut
   (cd ../src/ && make -j) && \

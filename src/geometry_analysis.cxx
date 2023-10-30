@@ -975,10 +975,11 @@ namespace geometry_analysis {
               if (show) {
                   std::printf("\n# bond structure analysis: bond lengths are in %s | angles in degree\n", _Ang);
                   std::printf("# example coordinations:\n"
-                              "# sc:   _6 |  90_12 180_3\n"
-                              "# bcc:  _8 |  70_12 110_12 180_4\n"
-                              "# fcc: _12 |  60_24 90_12 120_24 180_6\n"
-                              "# hcp: _12 |  60_24 90_12 110_3 120_18 146_6 180_3\n"
+                              "# dia:  _4 |  110_6\n"                                   // diamond structure
+                              "# sc:   _6 |  90_12 180_3\n"                             // simple cubic
+                              "# bcc:  _8 |  70_12 110_12 180_4\n"                      // body-centered cubic
+                              "# fcc: _12 |  60_24 90_12 120_24 180_6\n"                // face-centered cubic
+                              "# hcp: _12 |  60_24 90_12 110_3 120_18 146_6 180_3\n"    // hexagonal close packed
                               "#\n");
               } // show
 // #pragma omp parallel for
