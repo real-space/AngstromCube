@@ -38,8 +38,11 @@ test_on_JUSUF:
     - echo "1"                               > atoms.xyz
     - echo "#cell 2.277 2.277 2.277 p p p"  >> atoms.xyz
     - echo "Cu 0 0 0"                       >> atoms.xyz
+    - ls -lrt atoms.xyz
     - echo "# 16 x 16 x 16" > vtot.dat
+    - ls -lrt vtot.dat
     - cp Hmt_vacuum_8x8x8.xml Hmt.xml
+    - ls -lrt Hmt.xml
     - ~/a43/bin/a43 --test
     - cd ..
     - echo "A43 unit tests done."
