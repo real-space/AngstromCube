@@ -95,6 +95,7 @@ namespace conjugate_gradients {
     , double eigenvalues[] // export results
     , int const nbands // number of bands
     , operator_t const & op // grid operator descriptor
+    , grid_operators::kpoint_t<typename operator_t::complex_t> const & kp // k-point
     , int const echo=0 // log output level
     , float const threshold=1e-8f // convergence criterion
   ) {
@@ -155,9 +156,9 @@ namespace conjugate_gradients {
               if (echo > 8) std::printf("\n# start CG for band #%i\n", ib);
 
               // apply Hamiltonian and Overlap operator
-//            stat += op.Hamiltonian(Hs, s[ib], echo);
+//            stat += op.Hamiltonian(Hs, s[ib], kp, echo);
               if (use_overlap) {
-                  stat += op.Overlapping(Ss[ib], s[ib], echo);
+                  stat += op.Overlapping(Ss[ib], s[ib], kp, echo);
               } else assert(Ss[ib] == s[ib]);
 
               for (int iortho = 0; iortho < northo[0]; ++iortho) {
@@ -195,9 +196,9 @@ namespace conjugate_gradients {
                   if (0 == (iiter - 1) % restart_every_n_iterations) restart = true;
                   if (restart) {
                       // apply Hamiltonian and Overlap operator
-                      stat += op.Hamiltonian(Hs, s[ib], echo);
+                      stat += op.Hamiltonian(Hs, s[ib], kp, echo);
                       if (use_overlap) {
-                          stat += op.Overlapping(Ss[ib], s[ib], echo);
+                          stat += op.Overlapping(Ss[ib], s[ib], kp, echo);
                       } else assert(Ss[ib] == s[ib]);
 
                       set( dir, nv, complex_t(0)); // clear search direction
@@ -217,7 +218,7 @@ namespace conjugate_gradients {
                   if (echo > 7) std::printf("# norm^2 (no S) of gradient %.e\n", std::real(inner_product(nv, grd, grd, dV)));
 
                   if (use_precond) {
-                      op.Conditioner(Pgrd, grd, echo);
+                      op.Conditioner(Pgrd, grd, kp, echo);
                   } else assert(Pgrd == grd);
 
                   for (int iortho = 0; iortho < northo[1]; ++iortho) {
@@ -231,7 +232,7 @@ namespace conjugate_gradients {
 
                   // apply Overlap operator
                   if (use_overlap) {
-                      stat += op.Overlapping(SPgrd, Pgrd, echo);
+                      stat += op.Overlapping(SPgrd, Pgrd, kp, echo);
                   } else assert(SPgrd == Pgrd);
 
                   double const res_new = std::real(inner_product(nv, Pgrd, SPgrd, dV));
@@ -289,12 +290,12 @@ namespace conjugate_gradients {
                           if (1) {
                               scale(Scon, nv, cf); 
                           } else { // alternatively we can recompute it from S*con?
-                              stat += op.Overlapping(Scon, con, echo);
+                              stat += op.Overlapping(Scon, con, kp, echo);
                           }
                       } else assert(Scon == con);
 
                       // apply Hamiltonian
-                      stat += op.Hamiltonian(Hcon, con, echo);
+                      stat += op.Hamiltonian(Hcon, con, kp, echo);
 
                       double const sHs = energy[ib];
                       auto   const sHc = inner_product(nv, s[ib], Hcon, dV); // must be complex_t

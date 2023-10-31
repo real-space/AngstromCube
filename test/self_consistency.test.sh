@@ -258,7 +258,7 @@ start.waves.scale.sigma=6
 
 ## load start waves from file (basis=grid), store wave functions to file
 start.waves=$base.waves.dat
-#store.waves=$base.waves.dat
+store.waves=$base.waves.dat
 
 ## configuration for basis=pw
 # plane_wave.solver {auto, both, direct, iterative}
@@ -279,8 +279,8 @@ start.waves=$base.waves.dat
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
 hamiltonian.export=1
-hamiltonian.export.format=json
-# hamiltonian.export.format=xml
+# hamiltonian.export.format=json
+hamiltonian.export.format=xml
 
 # Make structure_solver produce the same as potential_generator
 # structure_solver.complex=1

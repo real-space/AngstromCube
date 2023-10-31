@@ -184,6 +184,7 @@ namespace plane_wave {
                               __func__, nPW, nPW, nPWa); std::fflush(stdout); }
       // construct a dense-matrix operator op
       dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, HSm(H,0), HSm(S,0));
+      grid_operators::kpoint_t<complex_t> const kp;
 
       char const method = *control::get("plane_wave.iterative.solver", "Davidson") | 32;
 
@@ -195,16 +196,16 @@ namespace plane_wave {
           if (echo > 6) { std::printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for (int it = 0; it < nit && (0 == stat_slv); ++it) {
               if (echo > 7) { std::printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
-              stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10);
+              stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, kp, echo - 10);
               stat += stat_slv;
-              davidson_solver::rotate(waves.data(), eigvals.data(), nbands, op, echo - 10);
+              davidson_solver::rotate(waves.data(), eigvals.data(), nbands, op, kp, echo - 10);
           } // it
       } else { // method
           int const nit = control::get("davidson_solver.max.iterations", 1.);
           if (echo > 6) { std::printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for (int it = 0; it < nit && (0 == stat_slv); ++it) {
               if (echo > 7) { std::printf("# %s envoke Davidson solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
-              stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.0f, 2);
+              stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, kp, echo - 10, 2.0f, 2);
               stat += stat_slv;
           } // it
       } // method
@@ -555,7 +556,6 @@ namespace plane_wave {
       , int const echo // =0 // log-level
       , std::vector<DensityIngredients> *export_rho // =nullptr
   ) {
-
       status_t stat(0);
 
       for (int ia = 0; ia < natoms_PAW; ++ia) {
@@ -668,7 +668,7 @@ namespace plane_wave {
       // all preparations done, start k-point loop
 
       simple_stats::Stats<double> nPW_stats, tPW_stats;
-#pragma omp parallel for
+      #pragma omp parallel for
       for (int ikp = 0; ikp < nkpoints; ++ikp) {
           auto const *kpoint = kmesh[ikp];
           char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kpoint[0], kpoint[1], kpoint[2]);
@@ -698,7 +698,10 @@ namespace plane_wave {
               nPW_stats.add(nPWs);
           } // !can_be_real
           if (echo > 0) std::fflush(stdout);
-          tPW_stats.add(timer.stop());
+          #pragma omp critical
+          {
+              tPW_stats.add(timer.stop());
+          }
       } // ikp
 
       if (echo > 3) std::printf("\n# number of plane waves is [%g, %.3f +/- %.3f, %g]\n",

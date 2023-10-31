@@ -69,11 +69,12 @@
       // create a real-space grid Hamiltonian without atoms and with a flat local potential (at zero)
       using real_t = decltype(std::real(complex_t(1)));
       auto const loa = grid_operators::empty_list_of_atoms();
-      grid_operators::grid_operator_t<complex_t,real_t> const op(g, loa); 
+      grid_operators::grid_operator_t<complex_t,real_t> const op(g, loa);
+      auto const kp = op.set_kpoint(0); // Gamma
 
       int const nit = control::get("particle_in_box.test.max.iterations", 1.);
       for (int it = 0; it < nit; ++it) {
-          stat += eigensolve(psi.data(), energies.data(), nbands, op, echo);
+          stat += eigensolve(psi.data(), energies.data(), nbands, op, kp, echo);
       } // it
       return stat;
   } // test_eigensolve

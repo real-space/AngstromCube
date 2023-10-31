@@ -85,6 +85,7 @@ namespace density_generator {
         std::vector<uint32_t> & coeff_starts
       , typename grid_operator_t::complex_t const eigenfunctions[]
       , grid_operator_t const & op
+      , grid_operators::kpoint_t<typename grid_operator_t::complex_t> const & kp
       , int const nbands=1
       , int const echo=0 // log-level
       , int const ikpoint=-1 // log-info
@@ -131,7 +132,7 @@ namespace density_generator {
           for (int iband = 0; iband < nbands; ++iband) {
 
               // project grid-represented eigenstates onto atomic projector functions
-              stat += op.get_atom_coeffs(atom_coeff.data(), psi_k[iband], echo/2); // project
+              stat += op.get_atom_coeffs(atom_coeff.data(), psi_k[iband], kp, echo/2); // project
 
               // scale the coefficients (real-space grid only)
               for (int ia = 0; ia < natoms; ++ia) {

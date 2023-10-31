@@ -22,7 +22,7 @@
 //  #include <complex> // std::complex
 //  #include "complex_tools.hxx" // complex_name
     #include "simple_math.hxx" // ::random
-    #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
+    #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms, ::kpoint_t
 #endif
 
 namespace davidson_solver {
@@ -112,6 +112,7 @@ namespace davidson_solver {
     , double energies[] // export eigenenergies
     , int const nbands // number of bands
     , operator_t const & op
+    , grid_operators::kpoint_t<typename operator_t::complex_t> const & kp
     , int const echo=0 // log output level
     , float const mbasis=2
     , int const niterations=2
@@ -156,8 +157,8 @@ namespace davidson_solver {
           do {
               // apply Hamiltonian and Overlap operator
               for (int istate = 0; istate < sub_space; ++istate) {
-                  stat += op.Hamiltonian(hpsi[istate], psi[istate], op_echo);
-                  stat += op.Overlapping(spsi[istate], psi[istate], op_echo);
+                  stat += op.Hamiltonian(hpsi[istate], psi[istate], kp, op_echo);
+                  stat += op.Overlapping(spsi[istate], psi[istate], kp, op_echo);
               } // istate
 
               // compute matrix representation in the sub_space
@@ -242,12 +243,12 @@ namespace davidson_solver {
                   // apply Hamiltonian and Overlap operator again
                   bool const with_overlap = true;
                   for (int i = 0; i < sub_space; ++i) {
-                      stat += op.Hamiltonian(hpsi[i], psi[i], op_echo);
+                      stat += op.Hamiltonian(hpsi[i], psi[i], kp, op_echo);
                       set(epsi[i], ndof, hpsi[i]);
-                      stat += op.Overlapping(spsi[i], psi[i], op_echo);
+                      stat += op.Overlapping(spsi[i], psi[i], kp, op_echo);
                       add_product(epsi[i], ndof, spsi[i], complex_t(-eigval[i]));
 
-                      if (with_overlap) stat += op.Overlapping(spsi[i], epsi[i], op_echo);
+                      if (with_overlap) stat += op.Overlapping(spsi[i], epsi[i], kp, op_echo);
                   } // i
                   vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space, 
                                                with_overlap ? spsi.data() : nullptr, dV);
@@ -336,9 +337,10 @@ namespace davidson_solver {
     , double energies[] // export eigenenergies
     , int const nbands // number of bands
     , operator_t const & op // Hamiltonian and overlap operators
+    , grid_operators::kpoint_t<typename operator_t::complex_t> const & kp
     , int const echo=0 // log-level
   ) {
-      return eigensolve(waves, energies, nbands, op, echo, 1, 1, 0.f, __func__);
+      return eigensolve(waves, energies, nbands, op, kp, echo, 1, 1, 0.f, __func__);
   } // rotate
 
 #ifdef NO_UNIT_TESTS
