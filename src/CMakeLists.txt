@@ -123,6 +123,13 @@ if(HAS_DEVEL)
 else(HAS_DEVEL)
 endif(HAS_DEVEL)
 
+if(HAS_OPENMP)
+    find_package(OpenMP)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(a43 PUBLIC OpenMP::OpenMP_CXX)
+    endif()
+endif(HAS_OPENMP)
+
 if(HAS_MPI)
     # not tested!
     find_package(MPI REQUIRED)
