@@ -279,8 +279,8 @@ store.waves=$base.waves.dat
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
 hamiltonian.export=1
-hamiltonian.export.format=json
-# hamiltonian.export.format=xml
+# hamiltonian.export.format=json
+hamiltonian.export.format=xml
 
 # Make structure_solver produce the same as potential_generator
 # structure_solver.complex=1

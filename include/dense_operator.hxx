@@ -8,6 +8,7 @@
 #include "linear_algebra.hxx" // ::gemm
 #include "inline_math.hxx" // product
 #include "complex_tools.hxx" // complex_name
+#include "grid_operators.hxx" // ::kpoint_t<>
 
 // #define DEBUG
 
@@ -22,6 +23,7 @@ namespace dense_operator {
 
     public:
       typedef wave_function_t complex_t;
+      typedef grid_operators::kpoint_t<complex_t> kpt_t; // dummy arguments
 
     private:
       complex_t const *Hmt, *Smt; // Hamiltonian matrix, Overlap matrix
@@ -51,15 +53,15 @@ namespace dense_operator {
           assert( nB <= nBa );
       } // constructor
 
-      status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
+      status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], kpt_t const & kp, int const echo=0) const {
           return matrix_vector_multiplication(Hpsi, Hmt, psi, echo); // multiply Hpsi = Hmt*psi
       } // Hamiltonian
 
-      status_t Overlapping(complex_t Spsi[], complex_t const psi[], int const echo=0) const {
+      status_t Overlapping(complex_t Spsi[], complex_t const psi[], kpt_t const & kp, int const echo=0) const {
           return use_overlap() ? matrix_vector_multiplication(Spsi, Smt, psi, echo) : 0;
       } // Overlapping
 
-      status_t Conditioner(complex_t Cpsi[], complex_t const psi[], int const echo=0) const {
+      status_t Conditioner(complex_t Cpsi[], complex_t const psi[], kpt_t const & kp, int const echo=0) const {
           if (use_precond()) product(Cpsi, nB, Cnd, psi); // diagonal preconditioner
           return 0;
       } // Pre-Conditioner

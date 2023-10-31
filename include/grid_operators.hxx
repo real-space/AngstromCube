@@ -31,16 +31,16 @@
 
 namespace grid_operators {
 
+
   template <typename complex_t>
-  complex_t Bloch_phase(complex_t const boundary_phase[3][2], int8_t const idx[3], int const inv=0) {
+  complex_t Bloch_phase(complex_t const boundary_phase[3][2], int8_t const idx[3], int const inverse=0) {
       complex_t Bloch_factor(1);
       for (int d = 0; d < 3; ++d) {
-          int const i01 = ((idx[d] < 0) + inv) & 0x1;
+          int const i01 = ((idx[d] < 0) + inverse) & 0x1;
           Bloch_factor *= intpow(boundary_phase[d][i01], std::abs(idx[d]));
       } // d
       return Bloch_factor;
   } // Bloch_phase
-
 
   template <typename complex_t, typename real_fd_t=double>
   status_t _grid_operation(
@@ -279,12 +279,66 @@ namespace grid_operators {
   inline std::vector<atom_image::sho_atom_t> empty_list_of_atoms()
       {  std::vector<atom_image::sho_atom_t> a(0); return a; }
 
+
+
+
+
+
+            template <typename complex_t>
+            class kpoint_t {
+            public:
+                double vector[3];
+                int16_t coords[4];
+                complex_t phase[3][2];
+
+            public: // constructors
+
+                kpoint_t(double const kpoint[3]=nullptr, int16_t const coordinates[4]=nullptr, int const echo=0) { // constructor
+                    if (nullptr != kpoint) {
+                        std::complex<double> const minus1(-1);
+                        if (echo > 5) std::printf("# grid_operator.%s", __func__);
+                        for (int d = 0; d < 3; ++d) {
+                            vector[d] = kpoint[d];
+                            if (is_complex<complex_t>()) {
+                                std::complex<double> ph = std::pow(minus1, 2*vector[d]);
+                                phase[d][1] = to_complex_t<complex_t, double>(ph);
+                            } else {
+                                int const kk = std::round(2*vector[d]);
+                                assert(2*vector[d] == kk);
+                                phase[d][1] = kk ? -1 : 1;
+                            } // real phase factor
+                            phase[d][0] = conjugate(phase[d][1]);
+                            if (echo > 5) std::printf("   %c: %g ph(%g, %g)", 'x'+d, vector[d],
+                                std::real(phase[d][1]), std::imag(phase[d][1]));
+                        } // d
+                        if (echo > 5) std::printf("\n");
+                        if (nullptr != coordinates) {
+                            set(coords, 4, coordinates);
+                        }
+                    } else {
+                        if (echo > 6) std::printf("# grid_operator.%s resets kpoint to Gamma\n", __func__);
+                        set(vector, 3, 0.0);
+                        set(coords, 4, int16_t(0));
+                        set(phase[0], 3*2, complex_t(1));
+                    } // nullptr
+                } // constructor
+
+            }; // class kpoint_t
+
+
+
+
+
+
+
+
   template <typename wave_function_t, typename real_FiniDiff_t=wave_function_t>
   class grid_operator_t
   {
     public:
       typedef wave_function_t complex_t;
       typedef real_FiniDiff_t real_fd_t;
+      typedef kpoint_t<complex_t> kpt_t;
 
     public:
 
@@ -296,6 +350,8 @@ namespace grid_operators {
           , int const nn_kinetic=8
           , int const echo=0
       ) : grid(g), atoms(a), has_precond(nn_precond > 0), has_overlap(true) {
+
+          set_kpoint(); // set current_kpoint to Gamma
 
 //        int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
@@ -314,8 +370,6 @@ namespace grid_operators {
 #endif // DEVEL
           set_potential(local_potential, g.all(), nullptr, echo);
 
-          set_kpoint<double>(); // set Gamma point, silent
-
 //        std::printf("\n# here: %s %s:%d\n\n", __func__, __FILE__, __LINE__);
 
           // this simple grid-based preconditioner is a diffusion stencil
@@ -327,55 +381,32 @@ namespace grid_operators {
 
       } // constructor with atoms
 
-      status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
-          return _grid_operation(Hpsi, psi, grid, atoms, 0, boundary_phase, &kinetic, potential.data(), echo);
+
+    public:
+
+      status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], kpt_t const & kp, int const echo=0) const {
+          return _grid_operation(Hpsi, psi, grid, atoms, 0, kp.phase, &kinetic, potential.data(), echo);
       } // Hamiltonian
 
-      status_t Overlapping(complex_t Spsi[], complex_t const psi[], int const echo=0) const {
-          return _grid_operation<complex_t, real_fd_t>(Spsi, psi, grid, atoms, 1, boundary_phase, nullptr, nullptr, echo);
+      status_t Overlapping(complex_t Spsi[], complex_t const psi[], kpt_t const & kp, int const echo=0) const {
+          return _grid_operation<complex_t, real_fd_t>(Spsi, psi, grid, atoms, 1, kp.phase, nullptr, nullptr, echo);
       } // Overlapping
 
-      status_t Conditioner(complex_t Cpsi[], complex_t const psi[], int const echo=0) const {
-          return _grid_operation(Cpsi, psi, grid, atoms, -1, boundary_phase, &preconditioner, nullptr, echo);
+      status_t Conditioner(complex_t Cpsi[], complex_t const psi[], kpt_t const & kp, int const echo=0) const {
+          return _grid_operation(Cpsi, psi, grid, atoms, -1, kp.phase, &preconditioner, nullptr, echo);
       } // Pre-Conditioner
 
-      status_t get_atom_coeffs(complex_t *const *const atom_coeffs, complex_t const psi[], int const echo=0) const {
-          return _grid_operation<complex_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase, nullptr, nullptr, echo, atom_coeffs);
+      status_t get_atom_coeffs(complex_t *const *const atom_coeffs, complex_t const psi[], kpt_t const & kp, int const echo=0) const {
+          return _grid_operation<complex_t, real_fd_t>(nullptr, psi, grid, atoms, 0, kp.phase, nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
-      status_t get_start_waves(complex_t psi0[], complex_t const *const *const atom_coeffs, float const scale_sigmas=1, int const echo=0) const {
-          return _grid_operation<complex_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase, nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
+      status_t get_start_waves(complex_t psi0[], complex_t const *const *const atom_coeffs, kpt_t const & kp, float const scale_sigmas=1, int const echo=0) const {
+          return _grid_operation<complex_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, kp.phase, nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
       } // get_start_waves
 
       double get_volume_element() const { return grid.dV(); }
       size_t get_degrees_of_freedom() const { return size_t(grid[2]) * size_t(grid[1]) * size_t(grid[0]); }
 
-      template <typename real_t=double>
-      void set_kpoint(real_t const kpoint[3]=nullptr, int const echo=0) {
-          if (nullptr != kpoint) {
-              std::complex<double> const minus1(-1);
-              if (echo > 5) std::printf("# grid_operator.%s", __func__);
-              for (int d = 0; d < 3; ++d) {
-                  k_point[d] = kpoint[d];
-                  if (is_complex<complex_t>()) {
-                      std::complex<double> phase = std::pow(minus1, 2*k_point[d]);
-                      boundary_phase[d][1] = to_complex_t<complex_t, double>(phase);
-                  } else {
-                      int const kk = std::round(2*k_point[d]);
-                      assert(2*k_point[d] == kk);
-                      boundary_phase[d][1] = kk ? -1 : 1;
-                  } // real phase factor
-                  boundary_phase[d][0] = conjugate(boundary_phase[d][1]);
-                  if (echo > 5) std::printf("   %c: %g ph(%g, %g)", 'x'+d, k_point[d],
-                      std::real(boundary_phase[d][1]), std::imag(boundary_phase[d][1]));
-              } // d
-              if (echo > 5) std::printf("\n");
-          } else {
-              if (echo > 6) std::printf("# grid_operator.%s resets kpoint to Gamma\n", __func__);
-              set(k_point, 3, 0.0);
-              set(boundary_phase[0], 3*2, complex_t(1));
-          } // nullptr
-      } // set_kpoint
 
       status_t set_potential(
             double const *local_potential=nullptr
@@ -415,7 +446,7 @@ namespace grid_operators {
           return stat;
       } // set_potential
 
-      void construct_dense_operator(complex_t Hmat[], complex_t Smat[], size_t const stride, int const echo=0) {
+      void construct_dense_operator(complex_t Hmat[], complex_t Smat[], size_t const stride, kpt_t const & kp, int const echo=0) {
           // assume shapes Hmat[][stride], Smat[][stride]
           size_t const ndof = grid.all();
           if (echo > 1) { std::printf("\n# %s with %ld x %ld (stride %ld)\n", __func__, ndof, ndof, stride); std::fflush(stdout); }
@@ -424,8 +455,8 @@ namespace grid_operators {
           for (size_t dof = 0; dof < ndof; ++dof) {
               set(psi.data(), ndof, complex_t(0));
               psi[dof] = 1;
-              Hamiltonian(&Hmat[dof*stride], psi.data(), echo);
-              Overlapping(&Smat[dof*stride], psi.data(), echo);
+              Hamiltonian(&Hmat[dof*stride], psi.data(), kp, echo);
+              Overlapping(&Smat[dof*stride], psi.data(), kp, echo);
           } // dof
           if (echo > 1) std::printf("# %s done\n\n", __func__);
       } // construct_dense_operator
@@ -594,6 +625,7 @@ namespace grid_operators {
       finite_difference::stencil_t<complex_t> preconditioner;
       bool has_precond;
       bool has_overlap;
+    //   kpt_t current_kpoint; // this is a state variable, so OpenMP loops over k-points should not use this.
 
     public:
 
@@ -603,6 +635,9 @@ namespace grid_operators {
       int  get_natoms()  const { return atoms.size(); }
       int    get_numax(int const ia) const { return atoms[ia].numax(); }
       double get_sigma(int const ia) const { return atoms[ia].sigma(); }
+      kpt_t set_kpoint(double const vec[3]=nullptr, int const echo=0) const {
+          return kpt_t(vec, nullptr, echo);
+      } // set_kpoint
 
   }; // class grid_operator_t
 
@@ -616,9 +651,10 @@ namespace grid_operators {
       int const all = dims[0]*dims[1]*dims[2];
       grid_operator_t<double> op(dims, empty_list_of_atoms());
       std::vector<double> psi(all, 1.0), Hpsi(all);
-      stat += op.Hamiltonian(Hpsi.data(),  psi.data(), echo);
-      stat += op.Overlapping( psi.data(), Hpsi.data(), echo);
-      stat += op.Conditioner(Hpsi.data(),  psi.data(), echo);
+      auto const kp = op.set_kpoint(0); // Gamma
+      stat += op.Hamiltonian(Hpsi.data(),  psi.data(), kp, echo);
+      stat += op.Overlapping( psi.data(), Hpsi.data(), kp, echo);
+      stat += op.Conditioner(Hpsi.data(),  psi.data(), kp, echo);
       return stat;
   } // class_test
 
@@ -631,9 +667,10 @@ namespace grid_operators {
       auto const a = list_of_atoms(xyzZinso, 2, 8, g, echo);
       grid_operator_t<double> op(g, a);
       std::vector<double> psi(g.all(), 1.0), Hpsi(g.all());
-      stat += op.Hamiltonian(Hpsi.data(),  psi.data(), echo);
-      stat += op.Overlapping( psi.data(), Hpsi.data(), echo);
-      stat += op.Conditioner(Hpsi.data(),  psi.data(), echo);
+      auto const kp = op.set_kpoint(0); // Gamma
+      stat += op.Hamiltonian(Hpsi.data(),  psi.data(), kp, echo);
+      stat += op.Overlapping( psi.data(), Hpsi.data(), kp, echo);
+      stat += op.Conditioner(Hpsi.data(),  psi.data(), kp, echo);
       return stat;
   } // class_with_atoms_test
 
@@ -649,13 +686,14 @@ namespace grid_operators {
       std::vector<double> psi(g.all(), 0.0), a_vec(ncoeff, 0.0), p_vec(ncoeff);
       auto const a_coeff = a_vec.data(), p_coeff = p_vec.data();
       grid_operator_t<double> op(g, a);
+      auto const kp = op.set_kpoint(0); // Gamma
       double const f2 = pow2(sho_projection::sho_prefactor(0, 0, 0, sigma));
       double dev{0};
       for (int ic = 0; ic < ncoeff; ++ic) {
           set(psi.data(), g.all(), 0.0); // clear
           a_coeff[ic] = 1; // set
-          stat += op.get_start_waves(psi.data(), &a_coeff, 1, echo);
-          stat += op.get_atom_coeffs(&p_coeff, psi.data(), echo);
+          stat += op.get_start_waves(psi.data(), &a_coeff, kp, 1, echo);
+          stat += op.get_atom_coeffs(&p_coeff, psi.data(), kp, echo);
           if (echo > 5) std::printf("# %s%3i  ", __func__, ic);
           for (int jc = 0; jc < ncoeff; ++jc) {
               if (ic == jc) {
