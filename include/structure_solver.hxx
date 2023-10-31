@@ -148,51 +148,65 @@ namespace structure_solver {
             if (export_Hamiltonian < 0) abort("Hamiltonian exported, hamiltonian.export= %g < 0", export_Hamiltonian);
         } // export_Hamiltonian
 
+        bool display_spectrum{true};
+        switch (*grid_eigensolver_method) {
+            case 'c': break; // "cg" or "conjugate_gradients"
+            case 'd': break; // "davidson"
+            case 'e': display_spectrum = false; break; // "explicit" dense matrix solver
+            case 'n': // "none"
+//              if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
+            default: {
+                ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
+            }
+        } // *grid_eigensolver_method
 
+        #pragma omp parallel for reduction(+:stat)
         for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+            status_t stat_k(0);
             auto const kp = op.set_kpoint(kmesh[ikpoint], echo);
-            char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
             auto psi_k = psi[ikpoint]; // get a sub-view
-            bool display_spectrum{true};
 
             // solve the Kohn-Sham equation using various solvers
             if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"
-                stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
+                stat_k += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
                 for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
                     if (echo > 6) { std::printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
-                    stat += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, kp, echo - 5);
-                    stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
+                    stat_k += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, kp, echo - 5);
+                    stat_k += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
                 } // irepeat
             } else
             if ('d' == *grid_eigensolver_method) { // "davidson"
                 for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
                     if (echo > 6) { std::printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
-                    stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
+                    stat_k += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
                 } // irepeat
             } else
             if ('e' == *grid_eigensolver_method) { // "explicit" dense matrix solver
                 view3D<wave_function_t> HSm(2, gc.all(), align<4>(gc.all()), 0.0); // get memory for the dense representation
                 op.construct_dense_operator(HSm(0,0), HSm(1,0), HSm.stride(), kp, echo);
-                stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
-                display_spectrum = false; // the dense solver will display on its own
+                char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
+                stat_k += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
                 wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor?
                 for (int iband = 0; iband < nbands; ++iband) {
-                    set(psi(ikpoint,iband), gc.all(), HSm(0,iband), factor);
+                    set(psi_k[iband], gc.all(), HSm(0,iband), factor);
                 } // iband
-            } else
-            if ('n' == *grid_eigensolver_method) { // "none"
-//              if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
-            } else {
-                ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
             } // grid_eigensolver_method
-
-            if (display_spectrum && echo > 0) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
 
 //          if we used the fermi.level=linearized option, we could combine the Kohn-Sham
 //          equation solving for a k-point with the evaluation of the density contribution
 
+            stat += stat_k; // reduction
         } // ikpoint
         op.set_kpoint(); // reset to Gamma
+
+        here;
+
+        if (display_spectrum && echo > 0) {
+            for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // serial, in order
+                char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
+                dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
+            } // ikpoint
+        } // display
 
         here;
 
