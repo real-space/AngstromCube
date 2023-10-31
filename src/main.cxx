@@ -303,16 +303,18 @@
   } // show_help
 
   int show_version(char const *executable="#", int const echo=0) {
-#ifdef _GIT_KEY
+#ifdef    _GIT_KEY
       // stringify the value of a macro, two expansion levels needed
       #define macro2string(a) stringify(a)
       #define stringify(b) #b
       auto const git_key = macro2string(_GIT_KEY);
       #undef  stringify
       #undef  macro2string
+#else  // _GIT_KEY
+      #include ".git_key.h" // generated from .git_key.h.in configured by CMake
+#endif // _GIT_KEY
       control::set("git.key", git_key); // store in the global variable environment
       if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
-#endif // _GIT_KEY
       return 0;
   } // show_version
 
