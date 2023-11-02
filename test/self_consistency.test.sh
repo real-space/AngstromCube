@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-exe=../src/a43
+exe=./a43
 
 # base=scf.H-fcc
 # a=2.12132
@@ -241,6 +241,7 @@ bands.per.atom=4
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
 # hamiltonian.kmesh=0
+hamiltonian.kmesh=1
 # hamiltonian.kmesh.x=21
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
@@ -257,7 +258,7 @@ grid.eigensolver.repeat=9
 start.waves.scale.sigma=6
 
 ## load start waves from file (basis=grid), store wave functions to file
-start.waves=$base.waves.dat
+# start.waves=$base.waves.dat
 store.waves=$base.waves.dat
 
 ## configuration for basis=pw
@@ -295,7 +296,6 @@ EOF
 for spacing in `seq 2 1 2`; do
   ## real-space grid spacing in Bohr
   project=$base.grid$spacing
-  (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
@@ -308,7 +308,6 @@ done
 for numax in `seq 4 2 2`; do
   ## SHO basis size numax
   project=$base.sho$numax
-  (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
@@ -322,7 +321,6 @@ done
 for ecut in `seq 11 3 1`; do
   ## plane-wave cutoff energy in Hartree
   project=$base.pw$ecut
-  (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \

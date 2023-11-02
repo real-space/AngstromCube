@@ -14,7 +14,7 @@ option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     OFF)
 option(HAS_RAPIDXML     "Using the 3rd party XML parser RapidXML"       ON )
 option(HAS_RAPIDJSON    "Using the 3rd party JSON parser RapidJSON"     OFF) ### errors
 option(HAS_FFTW         "Using the Fast Fourier Transform FFTW"         OFF) ### does not work yet
-option(HAS_OPENMP       "Using OpenMP to accelerate a43"                ON )
+option(HAS_OPENMP       "Using OpenMP to accelerate a43"                OFF)
 
 find_package(CUDA)
 if(CUDA_FOUND)

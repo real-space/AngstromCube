@@ -115,7 +115,7 @@ add_executable(a43 ${a43_sources} ${a43_headers})
 # version control
 execute_process(COMMAND git log -1 --pretty=format:"%H"
                 OUTPUT_VARIABLE GIT_KEY)
-configure_file(.git_key.h.in ${CMAKE_CURRENT_SOURCE_DIR}/.git_key.h @ONLY)
+configure_file(.git_key.h.in ${CMAKE_CURRENT_BINARY_DIR}/.git_key.h @ONLY)
 
 
 if(HAS_DEVEL)
