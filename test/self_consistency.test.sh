@@ -303,7 +303,7 @@ for spacing in `seq 2 1 2`; do
         +grid.spacing=`echo 0.222 / $spacing | bc -l` \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
-done
+done # spacing
 
 for numax in `seq 4 2 2`; do
   ## SHO basis size numax
@@ -316,7 +316,7 @@ for numax in `seq 4 2 2`; do
         +sho_hamiltonian.test.sigma=1.0 \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
-done
+done # numax
 
 for ecut in `seq 11 3 1`; do
   ## plane-wave cutoff energy in Hartree
@@ -328,4 +328,4 @@ for ecut in `seq 11 3 1`; do
         +plane_wave.cutoff.energy=$ecut \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
-done
+done # ecut

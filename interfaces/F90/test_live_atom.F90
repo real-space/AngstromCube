@@ -2,7 +2,10 @@ program test_live_atom
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!  Fortran-interface for the LiveAtom library
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-implicit none
+!!  All functionality is imported by subroutines
+!!  call live_atom_...(..., status)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  implicit none
   ! compile time constants
   integer(kind=4), parameter :: na = 1 ! number of atoms
   integer, parameter :: nr2 = 2**12

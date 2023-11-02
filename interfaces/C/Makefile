@@ -1,5 +1,5 @@
 ###
-### Makefile to test the usage of libliveatom.a with C
+### Makefile to test the usage of libliveatom.so with C
 ###
 
 CC=gcc
@@ -11,12 +11,12 @@ LD_FLAGS=
 EXECUTABLE= test_live_atom
 OBJECTS=    test_live_atom.o
 
-### directory containing source files
-LIBDIR= ../../../src
-LIBS= -L$(LIBDIR) -lliveatom -lblas -llapack
+### directory containing libliveatom.so
+LIBDIR= .
+LIBS= -L$(LIBDIR) -lliveatom
 
 ### directory containing header files
-INCDIR= ../../../include
+INCDIR= ../../include
 
 ###############################
 ## RULES ######################
