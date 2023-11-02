@@ -1,8 +1,9 @@
 ### 
-### CMake file for ./a43 and libliveatom.dylib
+### CMake file for ./a43 and libliveatom.so and ./green
 ### 
 
 set(a43_version 0.0.1)
+
 
 set(a43_targets libliveatom)
 
@@ -106,16 +107,94 @@ set(a43_sources ${a43_atom_sources}
     green_input.cxx
     load_balancer.cxx
     green_tests.cxx
-    main.cxx
+    a43_main.cxx
 )
 
 add_executable(a43 ${a43_sources} ${a43_headers})
 
+################
+################
+################
 
-# version control
+set(a43_targets ${a43_targets} green)
+
+set(green_headers
+    ../include/control.hxx
+    ../include/recorded_warnings.hxx
+    ../include/display_units.h
+    ../include/mpi_parallel.hxx
+    ../include/green_projection.hxx
+    ../include/green_parallel.hxx
+    ../include/green_input.hxx
+    ../include/load_balancer.hxx
+    ../include/green_kinetic.hxx
+    ../include/green_function.hxx
+    ../include/green_experiments.hxx
+    ../include/green_tests.hxx
+)
+
+set(green_sources
+    control.cxx
+    recorded_warnings.cxx
+    display_units.cxx
+    mpi_parallel.cxx
+    green_parallel.cxx
+    green_input.cxx
+    load_balancer.cxx
+)
+
+if(HAS_CUDA)
+    enable_language(CUDA)
+    set(green_sources ${green_sources}
+        green_kinetic.cu
+        green_function.cu
+        green_experiments.cu
+        green_tests.cu
+    )
+else(HAS_CUDA)
+    set(green_sources ${green_sources}
+        green_kinetic.cxx
+        green_function.cxx
+        green_experiments.cxx
+        green_tests.cxx
+    )
+endif(HAS_CUDA)
+
+set(green_sources ${green_sources}
+    green_main.cxx
+)
+
+add_executable(green ${green_sources} ${green_headers})
+
+
+
+
+
+# version control using git
 execute_process(COMMAND git log -1 --pretty=format:"%H"  OUTPUT_VARIABLE GIT_KEY)
 target_compile_definitions(libliveatom PUBLIC _GIT_KEY=${GIT_KEY})
 target_compile_definitions(a43         PUBLIC _GIT_KEY=${GIT_KEY})
+target_compile_definitions(green       PUBLIC _GIT_KEY=${GIT_KEY})
+
+
+if(HAS_CUDA)
+    target_compile_options(green
+        PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
+    )
+    find_package(CUDA REQUIRED)
+    find_package(CUDAToolkit REQUIRED) ### for cuRAND
+    target_link_libraries(green PUBLIC cuda)
+    # CUDA architectures 70=Volta, 75=Turing, 80=Ampere
+    set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80)
+
+    # a43 never has CUDA
+    target_compile_definitions(a43 PUBLIC -DHAS_NO_CUDA)
+else(HAS_CUDA)
+    # none of the 3 targets has CUDA
+    target_compile_definitions(a43   PUBLIC -DHAS_NO_CUDA)
+    target_compile_definitions(green PUBLIC -DHAS_NO_CUDA)
+endif(HAS_CUDA)
+
 
 if(HAS_DEVEL)
     add_definitions(-DDEVEL)
@@ -132,36 +211,40 @@ endif(HAS_OPENMP)
 if(HAS_MPI)
     # not tested!
     find_package(MPI REQUIRED)
-    target_link_libraries(a43 PUBLIC mpi)
+    target_link_libraries(green PUBLIC mpi)
+    target_link_libraries(a43   PUBLIC mpi)
 else(HAS_MPI)
-    add_definitions(-DHAS_NO_MPI)
+    target_compile_definitions(a43   PUBLIC -DHAS_NO_MPI)
+    target_compile_definitions(green PUBLIC -DHAS_NO_MPI)
 endif(HAS_MPI)
 
-# a43 and libliveatom.so never require CUDA
-add_definitions(-DHAS_NO_CUDA)
 
 
 if(MKL_FOUND)
     # add MKL (Intel Math Kernel Library)
-    target_link_libraries(a43 PUBLIC iomp5 mkl)
+    target_link_libraries(green PUBLIC iomp5 mkl)
+    target_link_libraries(a43   PUBLIC iomp5 mkl)
 else(MKL_FOUND)
-    add_definitions(-DHAS_NO_MKL)
+    target_compile_definitions(a43   PUBLIC -DHAS_NO_MKL)
+    target_compile_definitions(green PUBLIC -DHAS_NO_MKL)
     # add BLAS
     find_package(BLAS REQUIRED)
-    target_link_libraries(a43 PUBLIC blas)
+    target_link_libraries(green PUBLIC blas)
+    target_link_libraries(a43   PUBLIC blas)
     # add LAPACK
     find_package(LAPACK REQUIRED)
-    target_link_libraries(a43 PUBLIC lapack)
+    target_link_libraries(green PUBLIC lapack)
+    target_link_libraries(a43   PUBLIC lapack)
     # add FFTW
     if(HAS_FFTW)
-        add_definitions(-DHAS_FFTW)
         find_package(fftw REQUIRED)
+        target_compile_definitions(a43 PUBLIC -DHAS_FFTW)
         target_link_libraries(a43 PUBLIC fftw)
     endif(HAS_FFTW)
 endif(MKL_FOUND)
 
 if(HAS_UNIT_TESTS)
-    # not tested!
+    # usual case
 else(HAS_UNIT_TESTS)
     add_definitions(-DNO_UNIT_TESTS)
 endif(HAS_UNIT_TESTS)
@@ -172,15 +255,17 @@ target_include_directories(a43 PUBLIC
 )
 
 if(HAS_RAPIDXML)
-    add_definitions(-DHAS_RAPIDXML)
-    message(STATUS "CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_definitions(a43   PUBLIC -DHAS_RAPIDXML)
+    target_compile_definitions(green PUBLIC -DHAS_RAPIDXML)
     target_include_directories(a43         PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
-    target_include_directories(libliveatom PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
+    target_include_directories(green       PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
 endif(HAS_RAPIDXML)
 
 if(HAS_RAPIDJSON)
-    add_definitions(-DHAS_RAPIDJSON)
-    target_include_directories(a43 PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidjson-src>)
+    target_compile_definitions(a43   PUBLIC -DHAS_RAPIDJSON)
+    target_compile_definitions(green PUBLIC -DHAS_RAPIDJSON)
+    target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidjson-src>)
+    target_include_directories(a43   PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidjson-src>)
 endif(HAS_RAPIDJSON)
 
 target_include_directories(libliveatom PUBLIC
@@ -191,16 +276,11 @@ target_include_directories(libliveatom PUBLIC
 # info
 get_target_property(dirs a43 INCLUDE_DIRECTORIES)
 foreach(dir ${dirs})
-    message(STATUS " directory included for a43 ='${dir}'")
+    message(STATUS " directory included ='${dir}'")
 endforeach()
 
 
-set(a43_targets
-    a43
-    libliveatom
-)
-
-# install green
+# install the 3 binaries
 install(TARGETS ${a43_targets}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

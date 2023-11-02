@@ -51,9 +51,8 @@ include(GNUInstallDirs)
 # external dependencies
 add_subdirectory(external)
 
-# serial executable ./a43 and ./libliveatom.so
 add_subdirectory(src)
 
 # parallel executable ./green
-add_subdirectory(green)
+# add_subdirectory(green)
 
