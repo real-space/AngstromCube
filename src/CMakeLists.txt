@@ -5,7 +5,7 @@
 set(a43_version 0.0.1)
 
 
-set(a43_targets libliveatom)
+set(a43_targets liveatom)
 
 set(a43_atom_headers
     ../include/control.hxx
@@ -45,7 +45,7 @@ set(a43_atom_sources
 )
    
 # build a shared library for the liveatom
-add_library(libliveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
+add_library(liveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 
 
 ################
@@ -227,19 +227,23 @@ endif(HAS_MPI)
 
 if(MKL_FOUND)
     # add MKL (Intel Math Kernel Library)
-    target_link_libraries(green PUBLIC iomp5 mkl)
-    target_link_libraries(a43   PUBLIC iomp5 mkl)
+    target_link_libraries(liveatom PUBLIC iomp5 mkl)
+    target_link_libraries(a43      PUBLIC iomp5 mkl)
+    target_link_libraries(green    PUBLIC iomp5 mkl)
 else(MKL_FOUND)
-    target_compile_definitions(a43   PUBLIC -DHAS_NO_MKL)
-    target_compile_definitions(green PUBLIC -DHAS_NO_MKL)
+    target_compile_definitions(liveatom PUBLIC -DHAS_NO_MKL)
+    target_compile_definitions(a43      PUBLIC -DHAS_NO_MKL)
+    target_compile_definitions(green    PUBLIC -DHAS_NO_MKL)
     # add BLAS
     find_package(BLAS REQUIRED)
-    target_link_libraries(green PUBLIC blas)
-    target_link_libraries(a43   PUBLIC blas)
+    target_link_libraries(liveatom PUBLIC blas)
+    target_link_libraries(a43      PUBLIC blas)
+    target_link_libraries(green    PUBLIC blas)
     # add LAPACK
     find_package(LAPACK REQUIRED)
-    target_link_libraries(green PUBLIC lapack)
-    target_link_libraries(a43   PUBLIC lapack)
+    target_link_libraries(liveatom PUBLIC lapack)
+    target_link_libraries(a43      PUBLIC lapack)
+    target_link_libraries(green    PUBLIC lapack)
     # add FFTW
     if(HAS_FFTW)
         find_package(fftw REQUIRED)
@@ -269,7 +273,7 @@ if(HAS_RAPIDJSON)
 endif(HAS_RAPIDJSON)
 
 
-target_include_directories(libliveatom PUBLIC
+target_include_directories(liveatom PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
