@@ -113,10 +113,9 @@ add_executable(a43 ${a43_sources} ${a43_headers})
 
 
 # version control
-execute_process(COMMAND git log -1 --pretty=format:"%H"
-                OUTPUT_VARIABLE GIT_KEY)
-configure_file(.git_key.h.in ${CMAKE_CURRENT_BINARY_DIR}/.git_key.h @ONLY)
-
+execute_process(COMMAND git log -1 --pretty=format:"%H"  OUTPUT_VARIABLE GIT_KEY)
+target_compile_definitions(libliveatom PUBLIC _GIT_KEY=${GIT_KEY})
+target_compile_definitions(a43         PUBLIC _GIT_KEY=${GIT_KEY})
 
 if(HAS_DEVEL)
     add_definitions(-DDEVEL)

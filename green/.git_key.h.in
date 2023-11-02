@@ -1,3 +1,0 @@
-// .git_key.h.in
-//  This file is modified by CMake
-    char const *const git_key = @GIT_KEY@; // @ marks CMAKE_VARIABLEs

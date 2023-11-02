@@ -57,9 +57,8 @@ set(green_sources ${green_sources}
 add_executable(green ${green_sources} ${green_headers})
 
 # version control
-execute_process(COMMAND git log -1 --pretty=format:"%H"
-                OUTPUT_VARIABLE GIT_KEY)
-configure_file(.git_key.h.in ${CMAKE_CURRENT_SOURCE_DIR}/.git_key.h @ONLY)
+execute_process(COMMAND git log -1 --pretty=format:"%H"  OUTPUT_VARIABLE GIT_KEY)
+target_compile_definitions(green       PUBLIC _GIT_KEY=${GIT_KEY})
 
 if(HAS_CUDA)
     target_compile_options(green
