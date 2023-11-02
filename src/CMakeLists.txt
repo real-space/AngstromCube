@@ -4,8 +4,8 @@
 
 set(a43_version 0.0.1)
 
-
-set(a43_targets liveatom)
+set(all_targets )
+set(all_targets ${all_targets} liveatom)
 
 set(a43_atom_headers
     ../include/control.hxx
@@ -54,7 +54,7 @@ add_library(liveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 
 
 
-set(a43_targets ${a43_targets} a43)
+set(all_targets ${all_targets} a43)
 
 set(a43_headers ${a43_atom_headers}
     ../include/simple_timer.hxx
@@ -113,13 +113,14 @@ set(a43_sources ${a43_atom_sources}
     a43_main.cxx
 )
 
+# build a serial application
 add_executable(a43 ${a43_sources} ${a43_headers})
 
 ################
 ################
 ################
 
-set(a43_targets ${a43_targets} green)
+set(all_targets ${all_targets} green)
 
 set(green_headers
     ../include/control.hxx
@@ -169,6 +170,7 @@ set(green_sources ${green_sources}
     green_main.cxx
 )
 
+# build a parallel GPU application
 add_executable(green ${green_sources} ${green_headers})
 
 
@@ -183,22 +185,18 @@ add_definitions(-D_GIT_KEY=${GIT_KEY})
 
 
 if(HAS_CUDA)
-    target_compile_options(green
-        PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
-    )
     find_package(CUDA REQUIRED)
     find_package(CUDAToolkit REQUIRED) ### for cuRAND
+    target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>)
+    target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo -Xptxas -v>)
     target_link_libraries(green PUBLIC cuda)
-    # CUDA architectures 70=Volta, 75=Turing, 80=Ampere
+    # CUDA architectures 70=Volta, 80=Ampere, 90=GraceHopper
     set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80)
-
-    # a43 never has CUDA
-    target_compile_definitions(a43 PUBLIC -DHAS_NO_CUDA)
 else(HAS_CUDA)
-    # none of the 3 targets has CUDA
-    target_compile_definitions(a43   PUBLIC -DHAS_NO_CUDA)
     target_compile_definitions(green PUBLIC -DHAS_NO_CUDA)
 endif(HAS_CUDA)
+# a43 never has CUDA
+target_compile_definitions(a43 PUBLIC -DHAS_NO_CUDA)
 
 
 if(HAS_DEVEL)
@@ -214,10 +212,9 @@ if(HAS_OPENMP)
 endif(HAS_OPENMP)
 
 if(HAS_MPI)
-    # not tested!
     find_package(MPI REQUIRED)
-    target_link_libraries(green PUBLIC mpi)
     target_link_libraries(a43   PUBLIC mpi)
+    target_link_libraries(green PUBLIC mpi)
 else(HAS_MPI)
     target_compile_definitions(a43   PUBLIC -DHAS_NO_MPI)
     target_compile_definitions(green PUBLIC -DHAS_NO_MPI)
@@ -231,6 +228,7 @@ if(MKL_FOUND)
     target_link_libraries(a43      PUBLIC iomp5 mkl)
     target_link_libraries(green    PUBLIC iomp5 mkl)
 else(MKL_FOUND)
+    # MKL has not been found
     target_compile_definitions(liveatom PUBLIC -DHAS_NO_MKL)
     target_compile_definitions(a43      PUBLIC -DHAS_NO_MKL)
     target_compile_definitions(green    PUBLIC -DHAS_NO_MKL)
@@ -261,8 +259,8 @@ endif(HAS_UNIT_TESTS)
 if(HAS_RAPIDXML)
     target_compile_definitions(a43   PUBLIC -DHAS_RAPIDXML)
     target_compile_definitions(green PUBLIC -DHAS_RAPIDXML)
-    target_include_directories(a43         PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
-    target_include_directories(green       PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
+    target_include_directories(a43   PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
+    target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidxml-src/RapidXML>)
 endif(HAS_RAPIDXML)
 
 if(HAS_RAPIDJSON)
@@ -278,25 +276,17 @@ target_include_directories(liveatom PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-target_include_directories(a43 PUBLIC
+target_include_directories(a43      PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-target_include_directories(green PUBLIC
+target_include_directories(green    PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-
-# info
-get_target_property(dirs a43 INCLUDE_DIRECTORIES)
-foreach(dir ${dirs})
-    message(STATUS " directory included ='${dir}'")
-endforeach()
-
 
 # install the 3 binaries
-install(TARGETS ${a43_targets}
+install(TARGETS ${all_targets}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-
