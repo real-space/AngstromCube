@@ -25,6 +25,37 @@ build_on_JUSUF:
     - login     # Compile on login node
     - shell
 
+interfaces_on_JUSUF:
+  stage: test
+  script:
+    - echo "Set module environment"
+    - module --force purge && module load Stages/2023  GCC/11.3.0 CMake Julia
+    - ls ~/a43/lib64 # libliveatom.so needs to be here
+    - echo "Test Python interface"
+    - cd interfaces/Python
+    - ./test_live_atom.py
+    - cd -
+    - echo "Test Julia interface"
+    - cd interfaces/Julia
+    - ./test_live_atom.jl
+    - cd -
+    - echo "Test Fortran interface"
+    - cd interfaces/F90
+    - make -B # compile
+    - ./test_live_atom
+    - cd -
+    - echo "Test C interface"
+    - cd interfaces/C
+    - make -B # compile
+    - ./test_live_atom
+    - cd -
+    - echo "Interface tests complete."
+  tags:         # Set tags such that we can use the shared runners of the JSC gitlab
+    - jacamar
+    - jusuf 
+    - login     # Compile on login node
+    - shell
+
 test_on_JUSUF:
   stage: test
   script:
