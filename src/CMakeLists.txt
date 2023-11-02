@@ -180,8 +180,6 @@ add_executable(green ${green_sources} ${green_headers})
 # version control using git
 execute_process(COMMAND git log -1 --pretty=format:"%H"  OUTPUT_VARIABLE GIT_KEY)
 add_definitions(-D_GIT_KEY=${GIT_KEY})
-# target_compile_definitions(a43         PUBLIC _GIT_KEY=${GIT_KEY})
-# target_compile_definitions(green       PUBLIC _GIT_KEY=${GIT_KEY})
 
 
 if(HAS_CUDA)
