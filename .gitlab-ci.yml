@@ -33,23 +33,23 @@ interfaces_on_JUSUF:
     - ls ~/a43/lib64 # libliveatom.so needs to be here
     - echo "Test Python interface"
     - cd interfaces/Python
-    - ln -s ~/a43/lib64/libliveatom.so .
+    - rm ./libliveatom.so && ln -s ~/a43/lib64/libliveatom.so .
     - python ./test_live_atom.py
     - cd -
     - echo "Test Julia interface"
     - cd interfaces/Julia
-    - ln -s ~/a43/lib64/libliveatom.so .
+    - rm ./libliveatom.so && ln -s ~/a43/lib64/libliveatom.so .
     - ./test_live_atom.jl
     - cd -
     - echo "Test Fortran interface"
     - cd interfaces/F90
-    - ln -s ~/a43/lib64/libliveatom.so .
+    - rm ./libliveatom.so && ln -s ~/a43/lib64/libliveatom.so .
     - make -B # compile
     - ./test_live_atom
     - cd -
     - echo "Test C interface"
     - cd interfaces/C
-    - ln -s ~/a43/lib64/libliveatom.so .
+    - rm ./libliveatom.so && ln -s ~/a43/lib64/libliveatom.so .
     - make -B # compile
     - ./test_live_atom
     - cd -
