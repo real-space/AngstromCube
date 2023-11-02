@@ -5,7 +5,7 @@
 // C - interface
 
 /*
-    What do we need to replace PAWs in juRS?
+    What do we need to replace PAWs in any DFT code?
     Input to single_atom:
         - Z_core, double
         - atom_id, int32_t
@@ -41,7 +41,7 @@
 */
 
 #ifdef    SINGLE_ATOM_SOURCE
-    #ifndef __cplusplus
+    #ifndef   __cplusplus
         #error "C-interface and C++implementations share a file!"
     #endif // __cplusplus
     #include "control.hxx" // ::set, ::read_control_file, ::get, ::show_variables
@@ -70,14 +70,29 @@
      Mind that strings are not null-terminated in Fortran
 */
 
+
     // creates name live_atom_init_env_ in single_atom.o
     fortran_callable(init_env)
         ( char const *filename
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        std::printf("\n# init environment variables for LiveAtoms from \'%s\'\n", filename);
-        int const echo = 1;
+        int const echo = *status;
+#ifdef    _GIT_KEY
+        // stringify the value of a macro, two expansion levels needed
+        #define macro2string(a) stringify(a)
+        #define stringify(b) #b
+        auto const git_key = macro2string(_GIT_KEY);
+        #undef  stringify
+        #undef  macro2string
+#else  // _GIT_KEY
+        #include ".git_key.h" // generated from .git_key.h.in configured by CMake
+#endif // _GIT_KEY
+        control::set("git.key", git_key);
+        if (echo > 0) {
+            std::printf("\n# libliveatom.so: git checkout %s\n\n", git_key);
+            std::printf("# init environment variables for LiveAtoms from \'%s\'\n", filename);
+        } // echo
         *status = control::read_control_file(filename, echo);
         *status += unit_system::set(control::get("output.length.unit", "Bohr"),
                                     control::get("output.energy.unit", "Ha"), echo);
@@ -104,6 +119,7 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         std::vector<double> sigma_cmp(*na);
         std::vector<float>        ion(*na);
         double constexpr convert_rcut_to_sigma_cmp = 0.22360679774997898; // == 1/sqrt(20.)
@@ -112,6 +128,7 @@
             sigma_cmp[ia] = rcut[ia]*convert_rcut_to_sigma_cmp;
         } // ia
         *status = single_atom::atom_update("initialize", *na, (double*)Z_core, (int*)numax, ion.data());
+        if (echo > 0) std::printf("\n# liblivatom.so: initialize returned status= %i\n", *status);
 
         int const numax_max = 3; // ToDo: should be a result of atom_update
         *stride = align<2>(sho_tools::nSHO(numax_max));
@@ -135,12 +152,31 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        std::printf("# set environment variable for LiveAtoms:\t%s = %s\n",
-                                                        varname, newvalue);
+        int const echo = *status;
+        if (echo > 0) std::printf("\n# set environment variable for LiveAtoms:\t%s=%s\n",
+                                                                      varname, newvalue);
         control::set(varname, newvalue);
         *status = (nullptr == newvalue);
         // std::fflush(stdout);
     } // live_atom_set_env_
+#else
+    ;
+#endif
+
+    fortran_callable(get_env)
+        ( char const *varname
+        , char value[996]
+        , int32_t *status)
+#ifdef SINGLE_ATOM_SOURCE
+    {
+        int const echo = *status;
+        auto const oldvalue = control::get(varname, "");
+        if (echo > 0) std::printf("\n# get environment variable for LiveAtoms:\t%s=%s\n",
+                                                                      varname, oldvalue);
+        std::snprintf(value, 996, "%s", oldvalue);
+        *status = ('\0' == *oldvalue);
+        // std::fflush(stdout);
+    } // live_atom_get_env_
 #else
     ;
 #endif
@@ -151,8 +187,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("core densities", *na, 0, 0, 0, rhoc);
-        std::printf("# got_core_density for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("\n# got_core_density for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_core_density_
 #else
@@ -166,8 +203,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("?", *na);
-        std::printf("# got_start_waves for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# got_start_waves for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_start_waves_
 #else
@@ -180,9 +218,10 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         float mix_rho[3] = {0, 0, 0};
         *status = single_atom::atom_update("atomic density matrix", *na, 0, 0, mix_rho, atom_rho);
-        std::printf("# density_matrices set for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# density_matrices set for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_set_density_matrix_
 #else
@@ -195,8 +234,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("qlm charges", *na, 0, 0, 0, qlm);
-        std::printf("# got_compensation_charge %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# got_compensation_charge %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_compensation_charge_
 #else
@@ -209,9 +249,10 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         float mix_pot[1] = {0};
         *status = single_atom::atom_update("update", *na, 0, 0, mix_pot, vlm);
-        std::printf("# potential_multipoles set for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# potential_multipoles set for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_set_potential_multipole_
 #else
@@ -224,8 +265,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("zero potential", *na, 0, 0, 0, vbar);
-        std::printf("# got_zero_potential for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# got_zero_potential for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_zero_potential_
 #else
@@ -239,8 +281,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("projectors", *na, sigma, numax);
-        std::printf("# got_projectors for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# got_projectors for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_projectors_
 #else
@@ -253,8 +296,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("hamiltonian and overlap", *na, 0, 0, 0, hmt);
-        std::printf("# got_hamiltonian_matrix for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# got_hamiltonian_matrix for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_hamiltonian_matrix_
 #else
@@ -267,8 +311,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("e", *na, energies);
-        std::printf("# got_energy_contributions for %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# got_energy_contributions for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_energy_contributions_
 #else
@@ -285,8 +330,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {   // forward to the atom_update function for new features
+        int const echo = *status;
         *status = single_atom::atom_update(what, *na, dp, ip, fp, dpp);
-        std::printf("# update('%s') for %d LiveAtoms\n", what, *na);
+        if (echo > 0) std::printf("# update('%s') for %d LiveAtoms\n", what, *na);
         // std::fflush(stdout);
     } // live_atom_update_
 #else
@@ -298,8 +344,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
+        int const echo = *status;
         *status = single_atom::atom_update("memory cleanup", *na);
-        std::printf("# finalized %d LiveAtoms\n", *na);
+        if (echo > 0) std::printf("# finalized %d LiveAtoms\n", *na);
         int const control_show = control::get("control.show", 0.);
         if (0 != control_show) control::show_variables(control_show);
         recorded_warnings::show_warnings(3);
