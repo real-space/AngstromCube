@@ -33,6 +33,7 @@ interfaces_on_JUSUF:
     - ls ~/a43/lib64 # libliveatom.so needs to be here
     - echo "Test Python interface"
     - cd interfaces/Python
+    - nm libliveatom.so | wc -l # expect 3122
     - python ./test_live_atom.py
     - cd -
     - echo "Test Julia interface"
