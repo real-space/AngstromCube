@@ -23,6 +23,7 @@ set(a43_atom_headers
     ../include/sho_unitary.hxx
     ../include/angular_grid.hxx
     ../include/single_atom.hxx
+    ../include/single_atom.h
 )
 
 set(a43_atom_sources
@@ -56,6 +57,8 @@ add_library(libliveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 set(a43_targets ${a43_targets} a43)
 
 set(a43_headers ${a43_atom_headers}
+    ../include/simple_timer.hxx
+    ../include/global_coordinates.hxx
     ../include/geometry_analysis.hxx
     ../include/self_consistency.hxx
     ../include/iterative_poisson.hxx
@@ -123,6 +126,8 @@ set(green_headers
     ../include/recorded_warnings.hxx
     ../include/display_units.h
     ../include/mpi_parallel.hxx
+    ../include/simple_timer.hxx
+    ../include/global_coordinates.hxx
     ../include/green_projection.hxx
     ../include/green_parallel.hxx
     ../include/green_input.hxx
@@ -172,9 +177,9 @@ add_executable(green ${green_sources} ${green_headers})
 
 # version control using git
 execute_process(COMMAND git log -1 --pretty=format:"%H"  OUTPUT_VARIABLE GIT_KEY)
-target_compile_definitions(libliveatom PUBLIC _GIT_KEY=${GIT_KEY})
-target_compile_definitions(a43         PUBLIC _GIT_KEY=${GIT_KEY})
-target_compile_definitions(green       PUBLIC _GIT_KEY=${GIT_KEY})
+add_definitions(-D_GIT_KEY=${GIT_KEY})
+# target_compile_definitions(a43         PUBLIC _GIT_KEY=${GIT_KEY})
+# target_compile_definitions(green       PUBLIC _GIT_KEY=${GIT_KEY})
 
 
 if(HAS_CUDA)
@@ -249,11 +254,6 @@ else(HAS_UNIT_TESTS)
     add_definitions(-DNO_UNIT_TESTS)
 endif(HAS_UNIT_TESTS)
 
-target_include_directories(a43 PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-
 if(HAS_RAPIDXML)
     target_compile_definitions(a43   PUBLIC -DHAS_RAPIDXML)
     target_compile_definitions(green PUBLIC -DHAS_RAPIDXML)
@@ -268,7 +268,18 @@ if(HAS_RAPIDJSON)
     target_include_directories(a43   PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/rapidjson-src>)
 endif(HAS_RAPIDJSON)
 
+
 target_include_directories(libliveatom PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+target_include_directories(a43 PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+target_include_directories(green PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )

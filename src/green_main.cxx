@@ -153,14 +153,14 @@
       auto const git_key = macro2string(_GIT_KEY);
       #undef  stringify
       #undef  macro2string
-#else  // _GIT_KEY
-      #include ".git_key.h" // generated from .git_key.h.in configured by CMake
-#endif // _GIT_KEY
       control::set("git.key", git_key); // store in the global variable environment
       if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
+#endif // _GIT_KEY
+
 #ifdef    HAS_NO_MPI
       if (echo > 1) std::printf("# version was compiled with -D HAS_NO_MPI\n");
 #endif // HAS_NO_MPI
+
 #ifdef    HAS_NO_CUDA
       if (echo > 1) std::printf("# version was compiled with -D HAS_NO_CUDA\n");
 #endif // HAS_NO_CUDA

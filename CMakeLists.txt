@@ -51,8 +51,5 @@ include(GNUInstallDirs)
 # external dependencies
 add_subdirectory(external)
 
+# enter source folder
 add_subdirectory(src)
-
-# parallel executable ./green
-# add_subdirectory(green)
-

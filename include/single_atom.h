@@ -85,14 +85,10 @@
         auto const git_key = macro2string(_GIT_KEY);
         #undef  stringify
         #undef  macro2string
-#else  // _GIT_KEY
-        #include ".git_key.h" // generated from .git_key.h.in configured by CMake
-#endif // _GIT_KEY
         control::set("git.key", git_key);
-        if (echo > 0) {
-            std::printf("\n# libliveatom.so: git checkout %s\n\n", git_key);
-            std::printf("# init environment variables for LiveAtoms from \'%s\'\n", filename);
-        } // echo
+        if (echo > 0) std::printf("\n# libliveatom.so: git checkout %s\n\n", git_key);
+#endif // _GIT_KEY
+        if (echo > 0) std::printf("# init environment variables for LiveAtoms from \'%s\'\n", filename);
         *status = control::read_control_file(filename, echo);
         *status += unit_system::set(control::get("output.length.unit", "Bohr"),
                                     control::get("output.energy.unit", "Ha"), echo);

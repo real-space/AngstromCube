@@ -86,3 +86,22 @@ In C++ we treat it as a comment after the included header file
     #include "tools.hxx" // ::foo, ::bar
 We only mention the namespace name when it deviates from the header's file name,
 e.g. std:: should be mentioned once here.
+*Green function code*
+
+Compilation
+
+    green can be compiled for the CPU without CUDA to check its functionality.
+    Run the HAS_NO_CUDA.sh in this folder and activate -DHAS_NO_CUDA in Makefile.
+    Otherwise, green is a CUDA code for NVIDIA GPUs.
+    Please use either the Makefile in this folder or CMake
+
+Input
+
+    green expects Hmt.xml, an XML-formatted ASCII file containing
+    the local and non-local parts of the potential operator as
+    exported by write_to_file in include/grid_operators.hxx
+
+Dependencies
+
+    green needs the header-only library rapidxml.
+    green can include the header-only library tfQMRgpu.
