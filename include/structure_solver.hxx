@@ -36,10 +36,11 @@
 #include "print_tools.hxx" // print_stats
 #include "complex_tools.hxx" // complex_name
 #include "status.hxx" // status_t
+#include "omp_parallel.hxx" // omp_get_num_threads
 
 namespace structure_solver {
 
-  /**
+  /*
       Electronic structure solver
       generates a new density from an effective potential
    */
@@ -67,6 +68,7 @@ namespace structure_solver {
       , nrepeat(int(control::get("grid.eigensolver.repeat", 1.))) // repetitions of the solver
     {
         if (echo > 0) std::printf("# %s use  %d x %d x %d  coarse grid points\n", __func__, gc[0], gc[1], gc[2]);
+        if (echo > 2) std::printf("# %s use  %d  k-points\n", __func__, nkpoints);
 
         // Mind: When constructing the grid-based Hamiltonian and overlap operator descriptor,
         //       local potential and atom matrices of op are still unset!
@@ -86,9 +88,12 @@ namespace structure_solver {
                     start_wave_file = ""; // --> generate atomic orbitals instead
                 } else {
                     if (echo > 1) std::printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
-                    for (int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
-                        if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
-                        if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
+                    #pragma omp parallel for
+                    for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                        if (ikpoint > 0) {
+                            if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
+                            if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
+                        } // ikpoint > 0
                     } // ikpoints
                 } // errors
             } // run
@@ -100,24 +105,24 @@ namespace structure_solver {
             uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
             sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
             std::vector<int32_t> ncoeff_a(na, 20);
-            int const na1 = std::max(na, 1); // na1 is save for divide and modulo operations
             data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
-            for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                auto const kp = op.set_kpoint(kmesh[ikpoint], echo);
-                if (na > 0) {
-                for (int iband = 0; iband < nbands; ++iband) {
-                    int const ia = iband % na1; // which atom?
-                    int const io = iband / na1; // which orbital?
-                    if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands/double(na));
-                    auto const q = qn[io];
-                    if (echo > 7) std::printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
-                    int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
-                    single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
-                    if (run) op.get_start_waves(psi(ikpoint,iband), single_atomic_orbital.data(), kp, scale_sigmas, echo);
-                    single_atomic_orbital[ia][isho] = 0; // reset
-                } // iband
-                } // na > 0
-            } // ikpoint
+            if (na > 0) {
+                #pragma omp parallel for
+                for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                    auto const kp = op.set_kpoint(kmesh[ikpoint], echo);
+                    for (int iband = 0; iband < nbands; ++iband) {
+                        int const ia = iband % na; // which atom?
+                        int const io = iband / na; // which orbital?
+                        if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands/double(na));
+                        auto const q = qn[io]; auto const nu = q[3]; 
+                        if (echo > 7) std::printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2],q[1],q[0], ia);
+                        int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
+                        single_atomic_orbital[ia][isho] = 1./std::sqrt((nu > 0) ? ( (nu > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
+                        if (run) op.get_start_waves(psi(ikpoint,iband), single_atomic_orbital.data(), kp, scale_sigmas, echo);
+                        single_atomic_orbital[ia][isho] = 0; // reset
+                    } // iband
+                } // ikpoint
+            } // na > 0
             op.set_kpoint(); // reset k-point
         } // start wave method
 
@@ -160,11 +165,17 @@ namespace structure_solver {
             }
         } // *grid_eigensolver_method
 
+        {   int num_threads{1};
+            #pragma omp parallel
+            num_threads = omp_get_num_threads();
+            if (num_threads > 1 && echo > 0) std::printf("# parallelize %d k-points by %d threads\n", nkpoints, num_threads);
+        }
+
         #pragma omp parallel for reduction(+:stat)
         for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
             status_t stat_k(0);
             auto const kp = op.set_kpoint(kmesh[ikpoint], echo);
-            auto psi_k = psi[ikpoint]; // get a sub-view
+            auto psi_k = psi[ikpoint]; // get a mutable sub-view
 
             // solve the Kohn-Sham equation using various solvers
             if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"

@@ -10,7 +10,10 @@
   inline int  omp_get_thread_num()  { return 0; }
   inline int  omp_get_num_procs()   { return 1; }
   inline bool omp_in_parallel()     { return 0; }
+
+  bool constexpr omp_replacement = true;
 #else  // HAS_NO_OMP
+  bool constexpr omp_replacement = false;
   #include <omp.h> // ...
 #endif // HAS_NO_OMP
 
@@ -21,16 +24,18 @@ namespace omp_parallel {
 
   inline status_t all_tests(int const echo=0) {
 
-      auto const nthreads = omp_get_num_threads(), mthreads = omp_get_max_threads();
-      if (echo > 2) std::printf("# OpenMP with %d of max %d threads\n", nthreads, mthreads);
+      auto const max_threads = omp_get_max_threads(); // can be controlled by shell environment variable OMP_NUM_THREADS
+      if (echo > 2) std::printf("# %sOpenMP with max %d threads\n", omp_replacement?"fake ":"", max_threads);
+      assert(1 == omp_get_num_threads()); // outside a parallel region, only 1 thread should be running
       int sum{0};
-      #pragma omp parallel for reduction(+,sum)
-      for (int i = 0; i < nthreads; ++i) {
-          auto const thread_id = omp_get_thread_num();
-          if (echo > 4) std::printf("# OpenMP thread#%i works on item#%i\n", thread_id, i);
+      #pragma omp parallel for reduction(+:sum)
+      for (int i = 0; i < max_threads; ++i) {
+          auto const num_threads = omp_get_num_threads();
+          auto const thread_id   = omp_get_thread_num();
+          if (echo > 4) std::printf("# OpenMP thread#%i of %d works on item#%i\n", thread_id, num_threads, i);
           ++sum;
       } // i
-      assert(nthreads == sum);
+      assert(max_threads == sum);
 
       #pragma omp parallel
       {

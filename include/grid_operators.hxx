@@ -293,10 +293,10 @@ namespace grid_operators {
 
             public: // constructors
 
-                kpoint_t(double const kpoint[3]=nullptr, int16_t const coordinates[4]=nullptr, int const echo=0) { // constructor
+                kpoint_t(double const kpoint[4]=nullptr, int16_t const coordinates[4]=nullptr, int const echo=0) { // constructor
                     if (nullptr != kpoint) {
                         std::complex<double> const minus1(-1);
-                        if (echo > 5) std::printf("# grid_operator.%s", __func__);
+                        char phase_string[3][32];
                         for (int d = 0; d < 3; ++d) {
                             vector[d] = kpoint[d];
                             if (is_complex<complex_t>()) {
@@ -308,10 +308,11 @@ namespace grid_operators {
                                 phase[d][1] = kk ? -1 : 1;
                             } // real phase factor
                             phase[d][0] = conjugate(phase[d][1]);
-                            if (echo > 5) std::printf("   %c: %g ph(%g, %g)", 'x'+d, vector[d],
-                                std::real(phase[d][1]), std::imag(phase[d][1]));
+                            if (echo > 5) std::snprintf(phase_string[d], 32, "%g %c-ph(%g,%g)", 'x'+d, vector[d],
+                                                            std::real(phase[d][1]), std::imag(phase[d][1]));
                         } // d
-                        if (echo > 5) std::printf("\n");
+                        if (echo > 5) std::printf("# grid_operator.%s %s %s %s, weight=%g\n", __func__,
+                                           phase_string[0], phase_string[1], phase_string[2], vector[3]);
                         if (nullptr != coordinates) {
                             set(coords, 4, coordinates);
                         }
