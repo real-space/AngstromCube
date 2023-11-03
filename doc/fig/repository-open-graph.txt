@@ -1,0 +1,4 @@
+1280 × 640px
+repository-open-graph.png
+https://github.com/real-space/AngstromCube/settings/og-template
+Font for "Angstrom Cube" text is Chalkduster 128pt

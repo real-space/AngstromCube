@@ -207,6 +207,8 @@ if(HAS_OPENMP)
     if(OpenMP_CXX_FOUND)
         target_link_libraries(a43 PUBLIC OpenMP::OpenMP_CXX)
     endif()
+else(HAS_OPENMP)
+    add_definitions(-DHAS_NO_OMP)
 endif(HAS_OPENMP)
 
 if(HAS_MPI)

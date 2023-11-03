@@ -51,7 +51,7 @@ OBJ = \
 	green_input.o \
 	load_balancer.o \
 	green_tests.o \
-	main.o
+	a43_main.o
 
 .PHONY: clean allclean
 clean:
@@ -77,6 +77,7 @@ FEAFLAGS += -D _GIT_KEY=$(GITKEY)
 # FEAFLAGS += -D NO_UNIT_TESTS
 # FEAFLAGS += -D _Output_Units_Fixed
 FEAFLAGS += -D HAS_NO_MPI
+FEAFLAGS += -D HAS_NO_OMP
 FEAFLAGS += -D HAS_NO_CUDA
 FEAFLAGS += -D HAS_BITMAP_EXPORT
 FEAFLAGS += -D USE_SIMPLE_RANGE_TRUNCATION
