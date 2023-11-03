@@ -536,7 +536,8 @@ namespace single_atom {
         take_spherical_density[valence]  = atomic_valence_density ? 1 : 0;
 
         { // scope: setup radial grids
-            auto const equation = control::get("single_atom.radial.grid.equation", &radial_grid::equation_exponential);
+            char const eq[] = {radial_grid::equation_exponential, '\0'};
+            auto const equation = control::get("single_atom.radial.grid.equation", eq);
             auto const rmax     = control::get("single_atom.radial.grid.upto", 14.173);
             auto const from     = control::get("single_atom.smooth.radial.grid.from", 1e-3);
             // here use the preliminary Z_core, may be adjusted

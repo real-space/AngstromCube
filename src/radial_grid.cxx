@@ -16,11 +16,11 @@ namespace radial_grid {
       auto const eq_exponential = "r=a*(exp(d*i)-1)";
       if (equation_reciprocal  == equation) return eq_reciprocal;
       if (equation_exponential == equation) return eq_exponential;
-#ifdef  USE_RECIPROCAL_RADIAL_GRID
-      return eq_reciprocal;
-#else
-      return eq_exponential;
-#endif
+#ifdef    USE_RECIPROCAL_RADIAL_GRID
+      return eq_reciprocal;  // default radial grid is reciprocal
+#else  // USE_RECIPROCAL_RADIAL_GRID
+      return eq_exponential; // default radial grid is exponential
+#endif // USE_RECIPROCAL_RADIAL_GRID
   } // get_formula
 
   radial_grid_t* get_memory(size_t const nr_aligned) {

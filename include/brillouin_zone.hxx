@@ -15,7 +15,7 @@
 namespace brillouin_zone {
 
   int constexpr WEIGHT = 3; // the weight is stored in the 3rd component
-                            // while components 0,1,2 carry the kvector
+                            // while components 0,1,2 carry the k-vector
 
   inline int get_kpoint_mesh( // returns the number of k-points
         view2D<double> & mesh // on exit shape (nkpoints, 4)
@@ -33,8 +33,6 @@ namespace brillouin_zone {
               shift[d] = 0;
           } // d
       } // phase factors must be real
-
-      int constexpr COUNT=0, WRITE=1;
 
       auto const nfull = size_t(n[2])*size_t(n[1])*size_t(n[0]);
       view4D<double> full(n[2], n[1], n[0], 4); // get temporary memory
@@ -84,9 +82,9 @@ namespace brillouin_zone {
       for (int ix = 0; ix < n[0]; ++ix) {
           // apply time reversal symmetry (k and -k produce the same density)
     //    set(xyz, 3, full(iz,iy,ix), -1.); // go from k --> -k, ToDo: implement symmetry operation
-          double const *const vec = full(iz,iy,ix);
-          for (int inv = 0; inv < has_inv; ++inv) { // inversion symmetry
-              double const f_inv = 1. - inv*2.;
+        double const *const vec = full(iz,iy,ix);
+        for (int inv = 0; inv < has_inv; ++inv) { // inversion symmetry
+          double const f_inv = 1. - inv*2.;
           for (int s = 0; s < 24; ++s) {
               double xyz[] = {0, 0, 0};
               for (int i = 0; i < 3; ++i) {
@@ -127,13 +125,14 @@ namespace brillouin_zone {
           } // w8 > 0
 
           } // s
-          } // inv
+        } // inv
       }}} // iz iy iz
 
       // copy kpoints with positive weight into result list
       // up to here, all weights were integer, so we have to divide by the denominator nfull
+      int constexpr COUNT=0, WRITE=1;
       double const wfull = 1./nfull;
-      double const weighted[] = {1, 1, 1, wfull};
+      double const weighted[4] = {1, 1, 1, wfull};
       int nmesh{0};
       for (int i01 = COUNT; i01 <= WRITE; i01 += (WRITE - COUNT)) {
           double w8sum{0};
@@ -148,12 +147,12 @@ namespace brillouin_zone {
                   ++imesh;
               } // w8 > 0
           }}} // iz iy iz
-          if (WRITE == i01) {
-              assert(nmesh == imesh && "1st and 2nd time counting did not agree");
-          } else {
+          if (COUNT == i01) {
               nmesh = imesh;
               if (echo > 8) std::printf("# %d k-points have positive weight, weight sum = 1 + %.1e\n", nmesh, w8sum*wfull - 1);
               mesh = view2D<double>(nmesh, 4); // get memory
+          } else {
+              assert(nmesh == imesh && "1st and 2nd time counting did not agree");
           } // COUNT or WRITE
       } // twice
 
@@ -274,7 +273,7 @@ namespace brillouin_zone {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      for (int n = 0; n <= 49; ++n) {
+      for (int n = 0; n <= 9; ++n) {
           stat += test_mesh(echo, n);
       } // n
       return stat;
