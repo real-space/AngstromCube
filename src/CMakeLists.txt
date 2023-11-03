@@ -186,7 +186,8 @@ if(HAS_CUDA)
     find_package(CUDA REQUIRED)
     find_package(CUDAToolkit REQUIRED) ### for cuRAND
     target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>)
-    target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo -Xptxas -v>)
+    # GPU debugging information:
+    # target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo -Xptxas -v>)
     target_link_libraries(green PUBLIC cuda)
     # CUDA architectures 70=Volta, 80=Ampere, 90=GraceHopper
     set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80)
