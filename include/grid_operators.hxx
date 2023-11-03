@@ -284,52 +284,47 @@ namespace grid_operators {
 
 
 
-            template <typename complex_t>
-            class kpoint_t {
-            public:
-                double vector[3];
-                int16_t coords[4];
-                complex_t phase[3][2];
+    template <typename complex_t>
+    class kpoint_t {
+    public:
+        double vector[3];
+        int16_t coords[4];
+        complex_t phase[3][2];
 
-            public: // constructors
+    public: // constructors
 
-                kpoint_t(double const kpoint[4]=nullptr, int16_t const coordinates[4]=nullptr, int const echo=0) { // constructor
-                    if (nullptr != kpoint) {
-                        std::complex<double> const minus1(-1);
-                        char phase_string[3][32];
-                        for (int d = 0; d < 3; ++d) {
-                            vector[d] = kpoint[d];
-                            if (is_complex<complex_t>()) {
-                                std::complex<double> ph = std::pow(minus1, 2*vector[d]);
-                                phase[d][1] = to_complex_t<complex_t, double>(ph);
-                            } else {
-                                int const kk = std::round(2*vector[d]);
-                                assert(2*vector[d] == kk);
-                                phase[d][1] = kk ? -1 : 1;
-                            } // real phase factor
-                            phase[d][0] = conjugate(phase[d][1]);
-                            if (echo > 5) std::snprintf(phase_string[d], 32, "%g %c-ph(%g,%g)", 'x'+d, vector[d],
-                                                            std::real(phase[d][1]), std::imag(phase[d][1]));
-                        } // d
-                        if (echo > 5) std::printf("# grid_operator.%s %s %s %s, weight=%g\n", __func__,
-                                           phase_string[0], phase_string[1], phase_string[2], vector[3]);
-                        if (nullptr != coordinates) {
-                            set(coords, 4, coordinates);
-                        }
+        kpoint_t(double const kpoint[4]=nullptr, int16_t const coordinates[4]=nullptr, int const echo=0) { // constructor
+            if (nullptr != kpoint) {
+                std::complex<double> const minus1(-1);
+                char phase_string[3][32];
+                for (int d = 0; d < 3; ++d) {
+                    vector[d] = kpoint[d];
+                    if (is_complex<complex_t>()) {
+                        std::complex<double> ph = std::pow(minus1, 2*vector[d]);
+                        phase[d][1] = to_complex_t<complex_t, double>(ph);
                     } else {
-                        if (echo > 6) std::printf("# grid_operator.%s resets kpoint to Gamma\n", __func__);
-                        set(vector, 3, 0.0);
-                        set(coords, 4, int16_t(0));
-                        set(phase[0], 3*2, complex_t(1));
-                    } // nullptr
-                } // constructor
+                        int const kk = std::round(2*vector[d]);
+                        assert(2*vector[d] == kk);
+                        phase[d][1] = kk ? -1 : 1;
+                    } // real phase factor
+                    phase[d][0] = conjugate(phase[d][1]);
+                    if (echo > 5) std::snprintf(phase_string[d], 32, "%g %c-ph(%g,%g)", 'x'+d, vector[d],
+                                                    std::real(phase[d][1]), std::imag(phase[d][1]));
+                } // d
+                if (echo > 5) std::printf("# grid_operator.%s %s %s %s, weight=%g\n", __func__,
+                                    phase_string[0], phase_string[1], phase_string[2], kpoint[3]);
+                if (nullptr != coordinates) {
+                    set(coords, 4, coordinates);
+                }
+            } else {
+                if (echo > 6) std::printf("# grid_operator.%s resets kpoint to Gamma\n", __func__);
+                set(vector, 3, 0.0);
+                set(coords, 4, int16_t(0));
+                set(phase[0], 3*2, complex_t(1));
+            } // nullptr
+        } // constructor
 
-            }; // class kpoint_t
-
-
-
-
-
+    }; // class kpoint_t
 
 
 

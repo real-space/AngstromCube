@@ -6,7 +6,7 @@
 #include "green_experiments.hxx"
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "simple_timer.hxx" // SimpleTimer
+#include "simple_timer.hxx" // SimpleTimer, strip_path
 #include "unit_system.hxx" // eV, _eV, Kelvin, _Kelvin
 #include "green_input.hxx" // ::load_Hamitonian
 #include "data_view.hxx" // view2D<T>
@@ -47,7 +47,7 @@ namespace green_experiments {
   ) {
       int constexpr R1C2 = 2;
 
-      if (echo > 1) std::printf("\n# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+      if (echo > 1) std::printf("\n# %s:%s<%s,R1C2=%d,Noco=%d>\n", strip_path(__FILE__), __func__, real_t_name<real_t>(), R1C2, Noco);
 
       green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
@@ -417,19 +417,21 @@ namespace green_experiments {
       , int const nb=1 // number of bands == 64*nb
       , int const echo=0
   ) {
-      if (echo > 1) std::printf("\n# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+      if (echo > 1) std::printf("\n# %s:%s<%s,R1C2=%d,Noco=%d>\n", strip_path(__FILE__), __func__, real_t_name<real_t>(), R1C2, Noco);
+
       assert(1 == Noco && "Not prepared for Noco");
       for (int d = 0; d < 3; ++d) assert(0 == (ng[d] & 0x3)); // all grid numbers must be a multiple of 4
 
-      if (echo > 1) std::printf("# number of bands %d = %d * 64\n", nb*64, nb);
+      int const nbands = nb*64;
+      if (echo > 1) std::printf("# number of bands %d = %d * 64\n", nbands, nb);
 
-      // This module is part of the Green function code, hence its name prefix green_
-      //
-      // The idea of this module is to test the implementation of the action
-      // against an eigensolver.
-      // To do this, we need to create the action_t without truncation
-      // in a cell with periodic or isolated BCs (or combinations of those)
-      // and set the truncation radius to much larger than the cell extent.
+      if (echo > 2) std::printf("# "
+          "This module is part of the Green function code, hence its name prefix green_\n# "
+          "The idea of this module is to test the implementation of the action\n# "
+          "against an eigensolver.\n# "
+          "To do this, we need to create the action_t without truncation\n# "
+          "in a cell with periodic or isolated BCs (or combinations of those)\n# "
+          "and set the truncation radius to much larger than the cell extent.\n\n");
       // Further, we need two action_t instances, the Hamiltonian and the overlap.
 
       // Then, the number of bands replaces the total number of RHS points.
@@ -460,14 +462,13 @@ namespace green_experiments {
 
       view2D<double> k_path;
       auto const nkpoints = brillouin_zone::get_kpoint_path(k_path, echo);
-      int const nbands = nb*64;
       if (echo > 1) std::printf("# %s %d k-points, %d bands\n", __func__, nkpoints, nbands);
 
       std::vector<double> Sval(nbands, 1.0); // eigenvalues of the overlap operator
       std::vector<double> Eval(nbands, 0.0); // eigenvalues
       std::vector<std::vector<double>> bandstructure(nkpoints, Eval); // result array
 
-      int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)};
+      int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)}; // convert #gridpoints to #blocks
       auto const nblocks = size_t(ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
       if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld blocks\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
       size_t const nnzb = nblocks * nb;
@@ -516,7 +517,7 @@ namespace green_experiments {
 
       int constexpr Real = 0, Imag = R1C2 - 1;
       if (nb < nblocks) { // scope: create start wave functions
-          // iterative solver has not yet achieved to converge, use the explicit solver with nb == nblocks
+          warn("iterative solver has not yet achieved to converge, use the explicit solver with nb == nblocks", 0);
           // ToDo: delete failed code
           //
           auto constexpr twopi = 2*constants::pi;
@@ -591,11 +592,12 @@ namespace green_experiments {
 
       } else { // scope: start waves
           assert(nb == nblocks); // there are as many bands as real-space grid points
+          if (echo > 0) std::printf("# prepare as many wave functions as real-space grid points\n");
           set(psi[0][0][0], nblocks*nb*R1C2*64ul*64ul, real_t(0)); // clear
           for (int iband = 0; iband < nbands; ++iband) {
               int const ib   = iband >> 6; // divide 64
               int const ib64 = iband & 63; // modulo 64
-              psi[ib*nb + ib][Real][ib64][ib64] = 1;
+              psi[ib*nb + ib][Real][ib64][ib64] = 1; // Kronecker
           } // iband
       } // start waves
 
@@ -635,7 +637,7 @@ namespace green_experiments {
                                   psi, Hpsi, Spsi, nblocks, nb, dVol, echo);
 
           set(mat[0], pow2(nbands)*R1C2, Smat[0]); // deep copy of the overlap operator
-          // we need a deep copy here because the eigenvalue solver changes the matrix
+          // we need a deep copy here because the dense eigenvalue solver changes the matrix
           status_t stat(0);
           if (2 == R1C2) { // Hermitian generalized eigenvalue problem
               stat = linear_algebra::eigenvalues(Sval.data(), nbands,
@@ -736,7 +738,7 @@ namespace green_experiments {
       } // ik
 
 #else  // HAS_LAPACK
-      warn("cannot run this test without Lapack", 0); return -1;
+      warn("cannot run this test without -DHAS_LAPACK", 0); return -1;
 #endif // HAS_LAPACK
 
       if (echo > 0) {
@@ -752,7 +754,6 @@ namespace green_experiments {
       free_memory(Spsi); free_memory(Hpsi);
       free_memory(psi);  free_memory(tpsi);
       free_memory(colIndex);
-
       return 0;
   } // eigensolver
 
