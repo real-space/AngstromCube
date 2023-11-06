@@ -362,7 +362,9 @@
                       return show_help(argv[0]);
                   } else
                   if ('v' == (ci1 | IgnoreCase)) {
-                      verbosity += 1 + 3*('V' == ci1); // increment by 'V':4, 'v':1
+                      for (char const *vv = argv[iarg] + 1; *vv; ++vv) {
+                          verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
+                      } // vv
                   } else
                   if ('t' == (ci1 | IgnoreCase)) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
