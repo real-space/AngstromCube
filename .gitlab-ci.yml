@@ -9,7 +9,7 @@ build_on_JUSUF:
   stage: build
   script:
     - echo "Set module environment"
-    - module --force purge && module load Stages/2023  GCC/11.3.0  ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 CMake 
+    - module --force purge && module load Stages/2023  GCC/11.3.0   CUDA/11.7  ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 CMake 
     - export MKL_ROOT=/p/software/jusuf/stages/2023/software/imkl/2022.1.0/mkl/latest/
     - echo "Start build system..."
     - rm -rf build && mkdir build && cd build
