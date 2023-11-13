@@ -9,6 +9,7 @@
 #ifndef NO_UNIT_TESTS
   #include <vector> // std::vector<>
   #include <cstring> // std::strcmp
+  #include <cassert> // assert
   #include "simple_stats.hxx" // ::Stats<T>
 #endif // NO_UNIT_TESTS
 
