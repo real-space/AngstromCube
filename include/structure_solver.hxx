@@ -243,10 +243,10 @@ namespace structure_solver {
             double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
             std::vector<uint32_t> coeff_starts;
             auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
-                                            psi(ikpoint,0), op, kp, nbands, echo, ikpoint);
+                                            psi(ikpoint,0), op, kp, nbands, echo/2, ikpoint);
             stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
                                             energies[ikpoint], psi(ikpoint,0), atom_coeff.data(),
-                                            coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint,
+                                            coeff_starts.data(), na, gc, nbands, kpoint_weight, echo/2, ikpoint,
                                             rho_valence_gc[1], atom_rho_new[1].data(), charges);
         } // ikpoint
         op.set_kpoint(); // reset to Gamma
