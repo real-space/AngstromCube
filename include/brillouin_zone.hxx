@@ -75,17 +75,19 @@ namespace brillouin_zone {
          0, -1,  0,  0,  0,  1, -1,  0,  0,
          0,  1,  0,  0,  0, -1, -1,  0,  0};
 
-      int constexpr has_inv = 2;
+      int const n24 = control::get("hamiltonian.kmesh.symmetries", 1.);
+      assert(n24 < 25);
+
+      int const has_inv = 1 + (control::get("hamiltonian.kmesh.inversion", 1.) > 0);
 
       for (int iz = 0; iz < n[2]; ++iz) {
       for (int iy = 0; iy < n[1]; ++iy) {
       for (int ix = 0; ix < n[0]; ++ix) {
           // apply time reversal symmetry (k and -k produce the same density)
-    //    set(xyz, 3, full(iz,iy,ix), -1.); // go from k --> -k, ToDo: implement symmetry operation
         double const *const vec = full(iz,iy,ix);
         for (int inv = 0; inv < has_inv; ++inv) { // inversion symmetry
           double const f_inv = 1. - inv*2.;
-          for (int s = 0; s < 24; ++s) {
+          for (int s = 0; s < n24; ++s) {
               double xyz[] = {0, 0, 0};
               for (int i = 0; i < 3; ++i) {
                   for (int j = 0; j < 3; ++j) {

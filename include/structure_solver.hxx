@@ -255,6 +255,7 @@ namespace structure_solver {
     } // solve
 
     status_t store(char const *filename, int const echo=0) const {
+        // store only the wave functions of k-point #0
         return dump_to_file(filename, nbands, psi(0,0), nullptr, psi.stride(), gc.all(), "wave functions", echo);
     } // store
 
