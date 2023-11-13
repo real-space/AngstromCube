@@ -105,11 +105,11 @@ namespace structure_solver {
             uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
             sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
             std::vector<int32_t> ncoeff_a(na, 20);
-            data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
             if (na > 0) {
                 #pragma omp parallel for
                 for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                     auto const kp = op.set_kpoint(kmesh[ikpoint], echo);
+                    data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
                     for (int iband = 0; iband < nbands; ++iband) {
                         int const ia = iband % na; // which atom?
                         int const io = iband / na; // which orbital?
@@ -118,7 +118,7 @@ namespace structure_solver {
                         if (echo > 7) std::printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2],q[1],q[0], ia);
                         int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
                         single_atomic_orbital[ia][isho] = 1./std::sqrt((nu > 0) ? ( (nu > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
-                        if (run) op.get_start_waves(psi(ikpoint,iband), single_atomic_orbital.data(), kp, scale_sigmas, echo);
+                        if (run) op.get_start_wave(psi(ikpoint,iband), single_atomic_orbital.data(), kp, scale_sigmas, echo);
                         single_atomic_orbital[ia][isho] = 0; // reset
                     } // iband
                 } // ikpoint

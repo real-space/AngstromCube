@@ -396,9 +396,9 @@ namespace grid_operators {
           return _grid_operation<complex_t, real_fd_t>(nullptr, psi, grid, atoms, 0, kp.phase, nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
-      status_t get_start_waves(complex_t psi0[], complex_t const *const *const atom_coeffs, kpt_t const & kp, float const scale_sigmas=1, int const echo=0) const {
+      status_t get_start_wave(complex_t psi0[], complex_t const *const *const atom_coeffs, kpt_t const & kp, float const scale_sigmas=1, int const echo=0) const {
           return _grid_operation<complex_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, kp.phase, nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
-      } // get_start_waves
+      } // get_start_wave
 
       double get_volume_element() const { return grid.dV(); }
       size_t get_degrees_of_freedom() const { return size_t(grid[2]) * size_t(grid[1]) * size_t(grid[0]); }
@@ -688,7 +688,7 @@ namespace grid_operators {
       for (int ic = 0; ic < ncoeff; ++ic) {
           set(psi.data(), g.all(), 0.0); // clear
           a_coeff[ic] = 1; // set
-          stat += op.get_start_waves(psi.data(), &a_coeff, kp, 1, echo);
+          stat += op.get_start_wave(psi.data(), &a_coeff, kp, 1, echo);
           stat += op.get_atom_coeffs(&p_coeff, psi.data(), kp, echo);
           if (echo > 5) std::printf("# %s%3i  ", __func__, ic);
           for (int jc = 0; jc < ncoeff; ++jc) {
