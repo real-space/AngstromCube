@@ -153,13 +153,13 @@ namespace structure_solver {
             if (export_Hamiltonian < 0) abort("Hamiltonian exported, hamiltonian.export= %g < 0", export_Hamiltonian);
         } // export_Hamiltonian
 
-        bool display_spectrum{true};
         switch (*grid_eigensolver_method) {
             case 'c': break; // "cg" or "conjugate_gradients"
             case 'd': break; // "davidson"
-            case 'e': display_spectrum = false; break; // "explicit" dense matrix solver
+            case 'e': break; // "explicit" dense matrix solver
             case 'n': // "none"
 //              if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
+            break;
             default: {
                 ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
             }
@@ -212,7 +212,7 @@ namespace structure_solver {
 
         here;
 
-        if (display_spectrum && echo > 0) {
+        if (echo > 0) {
             for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // serial, in order
                 char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
                 dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);

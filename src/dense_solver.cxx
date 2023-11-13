@@ -199,7 +199,7 @@ namespace dense_solver {
                       } else if (lowest_eigenvalue < .1) {
                           warn("overlap matrix has critical eigenvalues, lowest= %g", lowest_eigenvalue);
                       } // lowest_eigenvalue
-#ifdef DEVEL
+#ifdef    DEVEL
                   } else {
                       // experiment: show Lorentzians where the eigenenergies are
                       auto const nE = int(control::get("dense_solver.test.green.lehmann", 0.));
