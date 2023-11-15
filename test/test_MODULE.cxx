@@ -13,7 +13,7 @@ int main(int const argc, char const *argv[]) {
             stat += control::command_line_interface(argv[iarg] + 1, iarg); // start after the '+' char
         } // '+'
     } // iarg
-    stat += MODULE::all_tests(control::get("verbosity", 5.));
+    stat += MODULE::all_tests(int(control::get("verbosity", 5.)));
     if (0 != int(stat)) std::printf("\n# %s: all_tests = %i\n", __FILE__, int(stat));
     return int(stat);
 } // main

@@ -188,7 +188,7 @@ namespace load_balancer {
                   assert(std::abs((load0 + load1) - (w8sum*np)) < epsilon*(w8sum*np) && "Maybe failed due to accuracy issues");
                   load_now = (i01 ? load1 : load0)/np;
 
-                  if (echo > 29) std::printf("# plane level=%d %g %g %g isrt=%d %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], isrt_middle, nhalf[0],nhalf[1]);
+                  if (echo > 29) std::printf("# plane level=%d %g %g %g isrt=%lu %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], isrt_middle, nhalf[0],nhalf[1]);
 #ifdef    LOAD_BALANCER_DRAW_SVG
                   if (echo > 29) { // show bisecting plane
                       // bisecting plane normal is the sorting vector vec, plane distance from the origin is ?
@@ -196,7 +196,7 @@ namespace load_balancer {
                       if (isrt_middle < nuna) { pd += v[isrt_middle].first; ++den; }; // distance of the point that is closest to the plane and belongs to load1
                       if (isrt_middle > 0)    { pd += v[isrt_middle - 1].first; ++den; } // distance of the ... belongs to load0
                       if (rank == rank_offset) {
-                          std::printf("plane level=%d %g %g %g  dist= %g  isrt=%d %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], pd/den, isrt_middle, nhalf[0],nhalf[1]);
+                          std::printf("plane level=%d %g %g %g  dist= %g  isrt=%lu %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], pd/den, isrt_middle, nhalf[0],nhalf[1]);
                           // store the 2D plane in a global variable to be drawn into an SVG later
                           auto const s = draw2D.size();
                           if (s > 0) {
@@ -411,9 +411,11 @@ namespace load_balancer {
       draw2D.resize(2); draw2D[0] = n[X]; draw2D[1] = n[Y]; // init
 #endif // LOAD_BALANCER_DRAW_SVG
 
+      int const echo_rank0 = control::get("load_balancer.test.echo.rank0", 0.); // increase the verbosity for rank0
+
       ProgressReport timer(__FILE__, __LINE__, 2.5, echo); // every 2.5 seconds
       for (int rank = 0; rank < nprocs; ++rank) {
-          load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, echo + (0 == rank)*16
+          load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, echo + (0 == rank)*echo_rank0
                                             , rank_center[rank], owner_rank.data());
           timer.report(rank, nprocs);
       } // rank

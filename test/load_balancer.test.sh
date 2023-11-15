@@ -14,6 +14,23 @@ project_base=load_balancer
 rm -f $project_base.out
 touch $project_base.out
 
+### basic test: does the load_balancer produce equal distributions for exactly divisible numbers?
+for n in {1..17}; do
+  for m in {1..17}; do
+    nm=$(( $n * $m ))
+    echo -n "nprocs=$n x $m"
+    $exe -test $project_base \
+          +verbosity=7 \
+          +$project_base.test.nprocs=$nm \
+          +$project_base.test.nx=$n \
+          +$project_base.test.ny=$m \
+          "$@" | grep 'per process \[1, 1.00 +/- 0.00, 1\]' | wc -l
+  done
+done
+
+exit
+
+
 for nprocs in {1..116}; do
 # echo -n "nprocs=$nprocs"
   $exe -test $project_base \
