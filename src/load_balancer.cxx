@@ -161,32 +161,32 @@ namespace load_balancer {
                   auto const f = xyz[X]*vec[X] // inner product
                                + xyz[Y]*vec[Y]
                                + xyz[Z]*vec[Z];
-                  v[iuna].first  = -f; // negativ and increment load1 until target is reached is more stable as it divides 5 domain by 5 processes equally
+                  v[iuna].first  = f;
                   v[iuna].second = iall;
               } // iall
 
               auto lambda = [](fui_t i1, fui_t i2) { return i1.first < i2.first; };
               std::stable_sort(v.begin(), v.end(), lambda);
 
-              auto const by_np = 1./np, target_load1 = nhalf[1]*by_np*w8sum;
+              auto const target_load0 = nhalf[0]*w8sum; // relative target for load0 multiplied with np
               { // scope: distribute according to target loads
                   auto const state0 = i01 ? ASSIGNED : UNASSIGNED,
                              state1 = i01 ? UNASSIGNED : ASSIGNED;
-                  double load0{0}, load1{0};
+                  double load0{0}, load1{0}; // relative load multiplied with np to avoid floating point errors
                   size_t isrt{0};
-                  for (isrt = 0; load1 < target_load1; ++isrt) { // serial
+                  for (isrt = 0; load0 < target_load0; ++isrt) { // serial
                       auto const iall = v[isrt].second;
-                      load1 += w8s[iall];
-                      state[iall] = state1;
+                      load0 += w8s[iall]*np;
+                      state[iall] = state0;
                   } // while load1 < target_load1
                   auto const isrt_middle = isrt;
-                  for(; isrt < nuna; ++isrt) { // parallel reduction(+:load0)
+                  for(; isrt < nuna; ++isrt) { // parallel reduction(+:load1)
                       auto const iall = v[isrt].second;
-                      load0 += w8s[iall];
-                      state[iall] = state0;
+                      load1 += w8s[iall]*np;
+                      state[iall] = state1;
                   } // isrt
-                  assert(std::abs((load0 + load1) - w8sum) < epsilon*w8sum && "Maybe failed due to accuracy issues");
-                  load_now = i01 ? load1 : load0;
+                  assert(std::abs((load0 + load1) - (w8sum*np)) < epsilon*(w8sum*np) && "Maybe failed due to accuracy issues");
+                  load_now = (i01 ? load1 : load0)/np;
 
                   if (echo > 29) std::printf("# plane level=%d %g %g %g isrt=%d %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], isrt_middle, nhalf[0],nhalf[1]);
 #ifdef    LOAD_BALANCER_DRAW_SVG
@@ -212,7 +212,7 @@ namespace load_balancer {
               } // scope
 
               if (echo > 19) std::printf("# rank#%i assign %g of %g (%.2f %%, target %.2f %%) to %d processes\n",
-                                            rank, load_now, w8sum, load_now*100./w8sum, nhalf[i01]*by_np*100, nhalf[0]);
+                                            rank, load_now, w8sum, load_now*100./w8sum, nhalf[i01]*100./np, nhalf[0]);
 
 
 
