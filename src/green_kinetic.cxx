@@ -199,7 +199,7 @@ namespace green_kinetic {
           sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo);
 
           if (boundary_is_periodic && FD_range > 4) {
-              warn("boundary is perodic in %c-direction, reduce range to 4", 'x' + dd);
+              warn("boundary is periodic in %c-direction, reduce finite-difference range to 4", 'x' + dd);
               FD_range = 4;
           }
           if (FD_range < 1) {

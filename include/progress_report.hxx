@@ -3,10 +3,11 @@
 
 #include <cstdio> // std::printf
 #include <chrono> // std::chrono::high_resolution_clock
-#include <cstring> // std::strcpy
+#include <cstring> // std::string
 #include <cstdint> // int32_t
 #include <algorithm> // std::max
 
+#include "simple_timer.hxx" // strip_path
 #include "status.hxx" // status_t
 
   class ProgressReport {
@@ -15,41 +16,42 @@
     // furthermore, it prints a report every time that the threshold is reached
 
     private:
-      char  file[56];
-      int32_t line;
-      int32_t echo;
       std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
       std::chrono::time_point<std::chrono::high_resolution_clock> last_time;
       double delta;
+      int32_t line;
+      int32_t echo;
+      std::string file;
     public:
 
       ProgressReport(char const *sourcefile, int const sourceline=0, double const interval=60, int const echo=1) 
-      : line(sourceline), echo(echo), delta(interval) {
-          std::strcpy(file, sourcefile);
+      : delta(interval), line(sourceline), echo(echo), file(strip_path(sourcefile)) {
           start_time = std::chrono::high_resolution_clock::now(); // start
           last_time = start_time;
       } // constructor
 
-      double report(size_t const iteration, size_t const n_iterations) {
+      double report(size_t const iteration, size_t const n_iterations, bool const overwrite=true) {
           auto const now = std::chrono::high_resolution_clock::now();
           auto const total = std::chrono::duration_cast<std::chrono::microseconds>(now - start_time).count()*1e-6;
           auto const since = std::chrono::duration_cast<std::chrono::microseconds>(now -  last_time).count()*1e-6;
           auto const average = total/(iteration + 1.);
           if (n_iterations - 1 == iteration) { // last iteration done
               auto const performance = (average > 0) ? 1./average : 0; 
-              if (total > delta && echo > 0) {
+              if (total > delta && echo > 0) { // final
                   std::printf("# timer started at %s:%d took %g sec for %ld iterations, %g sec/iteration, %g iterations/sec\n",
-                                                  file, line, total, n_iterations,      average,          performance);
-              }
+                                                  file.c_str(), line, total, n_iterations, average, performance);
+              } // delta && echo
           } else
           if (since > delta) {
               // estimated time of arrival (ETA)
               auto const done = (iteration + 1.)/std::max(1., 1.*n_iterations), left = 1 - done;
               auto const eta = total*left/done;
               if (echo > 0) {
-                  std::printf("# timer started at %s:%d took %g sec for %ld of %ld iterations (%.2f %%), expect %3g sec more\n",
-                                                  file, line, total, iteration + 1, n_iterations, done*100, eta);
-              }
+                  char tail[16] = "              \n"; tail[14] = overwrite ? '\r' : '\n'; // overwrite the last line?
+                  std::printf("# timer started at %s:%d took %g sec for %ld of %ld iterations (%.2f %%), expect %3g sec more%s",
+                               file.c_str(), line, total, iteration + 1, n_iterations, done*100, eta, tail);
+                  std::fflush(stdout);
+              } // echo
               last_time = now;
           }
           return total;

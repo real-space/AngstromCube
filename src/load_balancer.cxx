@@ -90,7 +90,7 @@ namespace load_balancer {
       , double const w8sum_all=1. // denominator of all weights
       , int const echo=0 // verbosity
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
-      , uint16_t *owner_rank=nullptr // export the rank of each task
+      , uint16_t *const owner_rank=nullptr // export the rank of each task
   ) {
       // complexity is order(N^2) as each processes loops over all tasks in the first iteration
 
@@ -284,7 +284,7 @@ namespace load_balancer {
       , uint32_t const nb[3] // number of blocks in X/Y/Z direction
       , int const echo // =0, log level
       , double rank_center[4] // =nullptr, export the rank center [0/1/2] and number of items [3]
-      , uint16_t *owner_rank // =nullptr, export the owner rank of each task, [nb[Z]*nb[Y]*nb[X]]
+      , uint16_t *const owner_rank // =nullptr, export the owner rank of each task, [nb[Z]*nb[Y]*nb[X]]
   ) {
       // distribute a rectangular box of nb[X] x nb[Y] x nb[Z] with all weights 1
 
@@ -297,14 +297,14 @@ namespace load_balancer {
 
       double w8sum_all{0};
       auto const xyzw = new float[nall][4];
-      std::vector<float> w8s(nall, 0);
+      std::vector<double> w8s(nall, 0);
 
       for (uint32_t iz = 0; iz < nb[Z]; ++iz) {
       for (uint32_t iy = 0; iy < nb[Y]; ++iy) {
       for (uint32_t ix = 0; ix < nb[X]; ++ix) {
           auto const iall = (size_t(iz)*nb[Y] + iy)*nb[X] + ix;
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
-          auto const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
+          float const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
           w8s[iall]     = w8;
           w8sum_all    += w8;
           xyzw[iall][W] = w8;
@@ -383,7 +383,7 @@ namespace load_balancer {
       for (int ix = 0; ix < n[X]; ++ix) {
           auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
-          double h{1};
+          float h{1};
           for (int ih = 1-holes; ih < holes; ih += 2) {
               auto const x_hole = n[X]*ih/(2.*holes);
               auto const r2 = pow2(ix - .5*n[X] - x_hole) + pow2(iy - .5*n[Y]) + pow2(iz - .5*n[Z]);
@@ -402,7 +402,7 @@ namespace load_balancer {
       std::vector<double> load(nprocs, 0.0);
       auto const rank_center = new double[nprocs][4];
       bool constexpr compute_rank_centers = true;
-      uint16_t constexpr no_owner = (1 << 16) - 1;
+      uint16_t constexpr no_owner = (1 << 16) - 1; // 65535
       std::vector<uint16_t> owner_rank(nall, no_owner);
 
       if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
@@ -413,7 +413,7 @@ namespace load_balancer {
 
       int const echo_rank0 = control::get("load_balancer.test.echo.rank0", 0.); // increase the verbosity for rank0
 
-      ProgressReport timer(__FILE__, __LINE__, 2.5, echo); // every 2.5 seconds
+      ProgressReport timer(__FILE__, __LINE__, 2.5, echo); // update the line every 2.5 seconds
       for (int rank = 0; rank < nprocs; ++rank) {
           load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, echo + (0 == rank)*echo_rank0
                                             , rank_center[rank], owner_rank.data());
