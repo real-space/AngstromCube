@@ -12,10 +12,12 @@
 #include <vector> // std::vector<T>
 #include <cstdint> // size_t, uint32_t
 #include <algorithm> // std::max, ::min, ::swap
+#include <utility> // std::pair
 #include <cmath> // std::ceil, ::pow, ::cbrt
 #include <numeric> // std::iota
 #ifndef NO_UNIT_TESTS
   #include <cstdlib> // rand, RAND_MAX
+  #include "progress_report.hxx" // ProgressReport
 #endif
 
 #include "load_balancer.hxx"
@@ -34,6 +36,11 @@
 
 
 namespace load_balancer {
+
+// #define   LOAD_BALANCER_DRAW_SVG
+#ifdef    LOAD_BALANCER_DRAW_SVG
+  static std::vector<double> draw2D;
+#endif // LOAD_BALANCER_DRAW_SVG
 
   int constexpr X=0, Y=1, Z=2, W=3;
 
@@ -54,9 +61,9 @@ namespace load_balancer {
           // contributes if the weight is positive
           double const w8pos = double(w8 > 0);
           add_product(cow, 3, xyz, w8pos);
-          cow[3] += w8pos;
+          cow[W] += w8pos;
       } // iall
-      if (cow[3] > 0) scale(cow, 3, 1./cow[3]); // normalize
+      if (cow[W] > 0) scale(cow, 3, 1./cow[3]); // normalize
       return w8sum; // returns the sum of weights
   } // center_of_weight
 
@@ -92,8 +99,9 @@ namespace load_balancer {
       bool constexpr UNASSIGNED = 1, ASSIGNED = 0;
       std::vector<bool> state(nall, UNASSIGNED);
 
-      std::vector<uint32_t> indirect(nall, 0);
-      std::iota(indirect.begin(), indirect.end(), 0); // initialize with 0,1,....,nall-1
+      assert(nall <= (1ull << 32) && "using uint32_t indirection lists limits the total number to 2^32");
+      std::vector<uint32_t> indirect(nall);
+      std::iota(indirect.begin(), indirect.end(), uint32_t(0)); // initialize with {0, 1, ..., nall-1}
 
       size_t nuna{nall}; // number of unassigned blocks
 
@@ -102,12 +110,13 @@ namespace load_balancer {
       int np{nprocs}; // current number of processes among which we distribute
       int rank_offset{0}; // offset w.r.t. MPI ranks
 
+      int tree_level{0};
       while (np > 1) {
 
           assert(rank_offset + np <= nprocs);
           // bisect the workload for np processors into (np + 1)/2 and np/2
           int const nhalf[] = {(np + 1) >> 1, np >> 1};
-          // MPIrank ranges are {off ... off+nhalf[0]-1} and {off+nhalf[0] ...off+np-1}
+          // MPIrank ranges are 0:{off, ..., off+nhalf[0]-1} and 1:{off+nhalf[0], ..., off+np-1}
           int const i01 = (rank >= rank_offset + nhalf[0]);
           // i01 == 0: this rank is part of the first (np + 1)/2 processes
           // i01 == 1: this rank is part of the second np/2 processes
@@ -120,14 +129,12 @@ namespace load_balancer {
           double cow[4];
           auto const w8sum = center_of_weight(cow, nuna, indirect.data(), xyzw);
 
-          // determine the largest distance^2 from the center
+          // determine the largest distance^2 from the center of weight
           double maxdist2{-1}; int64_t imax{-1}; // block with the largest distance
           for (size_t iuna = 0; iuna < nuna; ++iuna) { // serial due to special reduction
               auto const iall = indirect[iuna];
               auto const *const xyz = xyzw[iall];
-              auto const dist2 = pow2(xyz[X] - cow[X])
-                               + pow2(xyz[Y] - cow[Y])
-                               + pow2(xyz[Z] - cow[Z]);
+              auto const dist2 = pow2(xyz[X] - cow[X]) + pow2(xyz[Y] - cow[Y]) + pow2(xyz[Z] - cow[Z]);
               if (dist2 > maxdist2) { maxdist2 = dist2; imax = iall; }
           } // iuna
 
@@ -154,34 +161,60 @@ namespace load_balancer {
                   auto const f = xyz[X]*vec[X] // inner product
                                + xyz[Y]*vec[Y]
                                + xyz[Z]*vec[Z];
-                  v[iuna] = std::make_pair(float(f), uint32_t(iall));
+                  v[iuna].first  = -f; // negativ and increment load1 until target is reached is more stable as it divides 5 domain by 5 processes equally
+                  v[iuna].second = iall;
               } // iall
 
               auto lambda = [](fui_t i1, fui_t i2) { return i1.first < i2.first; };
               std::stable_sort(v.begin(), v.end(), lambda);
 
-              auto const by_np = 1./np, target_load0 = nhalf[0]*by_np*w8sum;
-              {
+              auto const by_np = 1./np, target_load1 = nhalf[1]*by_np*w8sum;
+              { // scope: distribute according to target loads
                   auto const state0 = i01 ? ASSIGNED : UNASSIGNED,
                              state1 = i01 ? UNASSIGNED : ASSIGNED;
                   double load0{0}, load1{0};
-                  size_t isrt;
-                  for (isrt = 0; load0 < target_load0; ++isrt) { // serial
-                      auto const iall = v[isrt].second;
-                      load0 += w8s[iall];
-                      state[iall] = state0;
-                  }
-                  for(; isrt < nuna; ++isrt) { // parallel, reduction(+:load1)
+                  size_t isrt{0};
+                  for (isrt = 0; load1 < target_load1; ++isrt) { // serial
                       auto const iall = v[isrt].second;
                       load1 += w8s[iall];
                       state[iall] = state1;
-                  } // i
-                  assert(std::abs(load0 + load1 - w8sum) < epsilon*w8sum && "Maybe failed due to accuracy issues");
+                  } // while load1 < target_load1
+                  auto const isrt_middle = isrt;
+                  for(; isrt < nuna; ++isrt) { // parallel reduction(+:load0)
+                      auto const iall = v[isrt].second;
+                      load0 += w8s[iall];
+                      state[iall] = state0;
+                  } // isrt
+                  assert(std::abs((load0 + load1) - w8sum) < epsilon*w8sum && "Maybe failed due to accuracy issues");
                   load_now = i01 ? load1 : load0;
-              }
+
+                  if (echo > 29) std::printf("# plane level=%d %g %g %g isrt=%d %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], isrt_middle, nhalf[0],nhalf[1]);
+#ifdef    LOAD_BALANCER_DRAW_SVG
+                  if (echo > 29) { // show bisecting plane
+                      // bisecting plane normal is the sorting vector vec, plane distance from the origin is ?
+                      double pd{0}; int den{0};
+                      if (isrt_middle < nuna) { pd += v[isrt_middle].first; ++den; }; // distance of the point that is closest to the plane and belongs to load1
+                      if (isrt_middle > 0)    { pd += v[isrt_middle - 1].first; ++den; } // distance of the ... belongs to load0
+                      if (rank == rank_offset) {
+                          std::printf("plane level=%d %g %g %g  dist= %g  isrt=%d %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], pd/den, isrt_middle, nhalf[0],nhalf[1]);
+                          // store the 2D plane in a global variable to be drawn into an SVG later
+                          auto const s = draw2D.size();
+                          if (s > 0) {
+                              draw2D.resize(s + 4);
+                              draw2D[s + 0] = vec[X];
+                              draw2D[s + 1] = vec[Y];
+                              draw2D[s + 2] = pd/den;
+                              draw2D[s + 3] = tree_level;
+                          }
+                      }
+                  } // echo
+#endif // LOAD_BALANCER_DRAW_SVG
+              } // scope
 
               if (echo > 19) std::printf("# rank#%i assign %g of %g (%.2f %%, target %.2f %%) to %d processes\n",
                                             rank, load_now, w8sum, load_now*100./w8sum, nhalf[i01]*by_np*100, nhalf[0]);
+
+
 
               // prepare for the next iteration
               rank_offset += i01*nhalf[0];
@@ -200,9 +233,10 @@ namespace load_balancer {
 
           } // imax < 0
 
+          ++tree_level;
       } // while np > 1
 
-      if (rank_center) {
+      if (nullptr != rank_center) {
           set(rank_center, 4, 0.0);
           if (load_now > 0) {
               // compute the center of weight again, for display and export
@@ -217,7 +251,7 @@ namespace load_balancer {
       if (echo > 9) std::printf("# rank#%i assign %.3f %%, target %.3f %%\n\n",
                                    rank, load_now*100/w8sum_all, 100./nprocs);
 
-      if (owner_rank) {
+      if (nullptr != owner_rank) {
           for (size_t iall = 0; iall < nall; ++iall) {
               if (UNASSIGNED == state[iall]) {
                   owner_rank[iall] = rank;
@@ -226,7 +260,7 @@ namespace load_balancer {
           } // iall
           // Beware: only the owned entried of owner_rank have been modified, so
           //         an MPI_MAX-Allreduce needs to be performed after returning.
-          if (echo > 9) {
+          if (echo > 99) {
               std::printf("# rank#%i owner_rank before MPI_MAX ", rank);
               printf_vector(" %i", owner_rank, nall);
           } // echo
@@ -308,6 +342,25 @@ namespace load_balancer {
       return pow2(a[X] - b[X]) + pow2(a[Y] - b[Y]) + pow2(a[Z] - b[Z]);
   } // distance_squared
 
+  double intersect(double xy[2], double const v1[3], double const v2[3], float const threshold=1e-7) {
+      auto const d1 = v1[2], d2 = v2[2];
+      // Given two lines with normal vectors v1 and v2 and distances to the origin d1 and d2, respectively.
+      // Compute their intersection (if any)
+      double const det2x2 = v1[0]*v2[1] - v1[1]*v2[0]; // 2d determinant
+      xy[0] = 0; xy[1] = 0; // init result (should not be used if false is returned)
+      // we look for a point (x,y) on both lines, i.e.
+      //         v1 dot xy == d1
+      // and simultaneousy
+      //         v2 dot xy == d2
+      // set result
+      double const denom = 1./det2x2;
+      if (denom == denom) {
+          xy[0] = (v2[1]*d1 - v1[1]*d2)*denom;
+          xy[1] = (v1[0]*d2 - v2[0]*d1)*denom;
+//        std::printf("# line1 (%g,%g)*(x,y) == %g intersects with line2 (%g,%g)*(x,y) == %g at (%g,%g)\n", v1[0],v1[1], d1, v2[0],v2[1], d2, xy[0],xy[1]);
+      }
+      return std::abs(det2x2);
+  } // intersect
 
   status_t test_plane_balancer(int const nprocs, int const n[3], int const echo=0) {
       status_t stat(0);
@@ -323,6 +376,7 @@ namespace load_balancer {
       std::vector<double> w8s(nall, 0);
 
       int const holes = control::get("load_balancer.test.holes", 0.);
+      auto const hole_radius_squared = pow2(control::get("load_balancer.test.holes.radius", 8.));
 
       for (int iz = 0; iz < n[Z]; ++iz) {
       for (int iy = 0; iy < n[Y]; ++iy) {
@@ -331,8 +385,9 @@ namespace load_balancer {
 //        assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
           double h{1};
           for (int ih = 1-holes; ih < holes; ih += 2) {
-              auto const r2 = pow2(ix - n[X]*(.5 + ih/(2.*holes))) + pow2(iy - .5*n[Y]) + pow2(iz - .5*n[Z]);
-              h *= (r2 > 8*8); // radius 8
+              auto const x_hole = n[X]*ih/(2.*holes);
+              auto const r2 = pow2(ix - .5*n[X] - x_hole) + pow2(iy - .5*n[Y]) + pow2(iz - .5*n[Z]);
+              h *= (r2 > hole_radius_squared); // radius_squared
           } //
           float const w8 = 1.f*h; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
           w8s[iall]     = w8;
@@ -342,9 +397,9 @@ namespace load_balancer {
           xyzw[iall][Y] = iy;
           xyzw[iall][Z] = iz;
       }}} // ix iy iz
+      double const longest_possible_distance = std::sqrt(pow2(n[X]) + pow2(n[Y]) + pow2(n[Z]));
 
       std::vector<double> load(nprocs, 0.0);
-//       view2D<double> rank_center(nprocs, 4, 0.0);
       auto const rank_center = new double[nprocs][4];
       bool constexpr compute_rank_centers = true;
       uint16_t constexpr no_owner = (1 << 16) - 1;
@@ -352,11 +407,77 @@ namespace load_balancer {
 
       if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
 
+#ifdef    LOAD_BALANCER_DRAW_SVG
+      draw2D.resize(2); draw2D[0] = n[X]; draw2D[1] = n[Y]; // init
+#endif // LOAD_BALANCER_DRAW_SVG
+
+      ProgressReport timer(__FILE__, __LINE__, 2.5, echo); // every 2.5 seconds
       for (int rank = 0; rank < nprocs; ++rank) {
-          load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, echo
+          load[rank] = plane_balancer(nprocs, rank, nall, xyzw, w8s.data(), w8sum_all, echo + (0 == rank)*16
                                             , rank_center[rank], owner_rank.data());
+          timer.report(rank, nprocs);
       } // rank
-      delete[] xyzw;
+
+#ifdef    LOAD_BALANCER_DRAW_SVG
+      {
+          // assume that draw2D is an array of sets of 4 doubles which results from a depth-first traversal of the bisection tree
+          int const nplanes = draw2D.size()/4;
+          assert(4*nplanes + 2 == draw2D.size());
+          auto const nx = int(draw2D[0]), ny = int(draw2D[1]);
+          if (echo > 2) std::printf("# found %ld planes for https://editsvgcode.com/\n\n", nplanes);
+          if (echo > 2) std::printf("<!-- SVG code generated by %s -->\n", __FILE__);
+          if (echo > 2) std::printf("<svg viewBox=\"%d %d %d %d\" xmlns=\"http://www.w3.org/2000/svg\">\n", -10, -10, nx + 20, ny + 20);
+          double const frame[4][4] = {{1,0,0,0}, {0,1,0,0}, {1,0,1.*nx,0}, {0,1,1.*ny,0}};
+          assert(0 == draw2D[5] && "the 1st plane must be the origin");
+          std::vector<int> ancestor(32, -1);
+          std::vector<int8_t>  side(32, -1);
+          for (int ip = 0; ip < nplanes; ++ip) {
+              double const *const v1 = &draw2D[ip*4 + 2];
+
+              int const tree_level = v1[3];
+              assert(tree_level >= 0 && tree_level < 32);
+              side[tree_level] = (-1 == ancestor[tree_level]) ? 0 : 1;
+              ancestor[tree_level] = ip;
+              if (0) {
+                std::printf("  <!-- I am plane #%i, level=%d, my ancestors are", ip, tree_level);
+                for (int jp = 0; jp < tree_level; ++jp) {
+                    std::printf(" %i", ancestor[jp]);
+                } // 
+                std::printf(" -->\n");
+              }
+
+              double points[99][2];
+              int npoints{0}; int ipoint[99];
+              // determine who are my ancestors i.e. which lines are my parents and grandparents and so on.
+              // The tree has been traversed depth-first
+              for (int jp = tree_level - 1; jp >= -4; --jp) { // loops over ancestor lines and frame 
+         //   for (int jp = -4; jp < tree_level; ++jp) { // loops over frame and ancestor lines
+                  double const *const v2 = (jp < 0) ? frame[jp + 4] : &draw2D[ancestor[jp]*4 + 2];
+                  if (true) {
+                      // compute intersection of the lines
+                      auto const intersects = intersect(points[npoints], v1, v2);
+                      if (intersects > 1e-12) {
+                          ipoint[npoints] = (jp < 0) ? jp : ancestor[jp];
+                          auto const x = points[npoints][0], y = points[npoints][1];
+                          double constexpr eps = 1e-9;
+                          // check if they are within the border rect [0...nx, 0...ny]
+                          bool const right_side = (jp < 4) || (int(x*v2[0] + y*v2[1] <= v2[2]) == side[jp]);
+                          if (right_side && (x > -eps) && (x < nx + eps) && (y > -eps) && (y < ny + eps)) ++npoints; // accept the point
+                      }
+                  } // level index is higher
+              } // jp
+              if (npoints > 1) {
+                  if (echo > 2) std::printf("  <!-- line #%i has %d points, take #%i and #%i -->\n", ip, npoints, ipoint[0], ipoint[1]);
+                  if (echo > 2) std::printf("  <line x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" stroke=\"black\" />\n",
+                                                points[0][0], points[0][1], points[1][0], points[1][1]);
+              } // npoints > 1
+          } // ip
+          if (echo > 2) std::printf("  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"grey\" />\n", nx, ny, 0, 0);
+          if (echo > 2) std::printf("</svg>\n\n");
+      }
+#endif // LOAD_BALANCER_DRAW_SVG
+
+
 
       analyze_load_imbalance(load.data(), nprocs, echo);
 
@@ -365,14 +486,22 @@ namespace load_balancer {
           double mindist2{9e300}; int ijmin[] = {-1, -1};
           double maxdist2{-1.0};  int ijmax[] = {-1, -1};
           simple_stats::Stats<> st2, st1;
+          double const wbin = control::get("load_balancer.bin.width", 0.25), invbin = 1./wbin;
+          int const nbin = 1 + int(longest_possible_distance/wbin);
+          std::vector<uint32_t> hist(nbin, 0);
+          int np{0}; // counter for the number of processes with a non-zero load
           for (int irank = 0; irank < nprocs; ++irank) {
               if (load[irank] > 0) {
+                  ++np;
                   for (int jrank = 0; jrank < nprocs; ++jrank) { // self-avoiding triangular loop
                       if (load[jrank] > 0) {
                           auto const dist2 = distance_squared(rank_center[irank], rank_center[jrank]);
                           if (dist2 > 0 && dist2 < mindist2) { mindist2 = dist2; ijmin[0] = irank; ijmin[1] = jrank; }
                           if (dist2 > maxdist2) { maxdist2 = dist2; ijmax[0] = irank; ijmax[1] = jrank; }
                           auto const dist = std::sqrt(dist2);
+                          if (echo > 15) std::printf("# distance-ij is %g\n", dist);
+                          int const ibin = dist*invbin; // floor
+                          ++hist[std::min(ibin, nbin - 1)];
                           st2.add(dist2);
                           st1.add(dist);
                       } // load
@@ -384,24 +513,6 @@ namespace load_balancer {
                                         mindist, ijmin[0], ijmin[1], maxdist);
           if (echo > 9) std::printf("# longest distance between centers is %g between rank#%i and #%i, shortest is %g\n",
                                         maxdist, ijmax[0], ijmax[1], mindist);
-          double const wbin = control::get("load_balancer.bin.width", 0.25), invbin = 1./wbin;
-          int const nbin = int(maxdist/wbin) + 1;
-          std::vector<uint32_t> hist(nbin, 0);
-          int np{0}; // counter for the number of processes with a non-zero load
-          for (int irank = 0; irank < nprocs; ++irank) {
-              if (load[irank] > 0) {
-                  ++np;
-                  for (int jrank = 0; jrank < nprocs; ++jrank) { // self-avoiding triangular loop
-                      if (load[jrank] > 0) {
-                          auto const dist2 = distance_squared(rank_center[irank], rank_center[jrank]);
-                          auto const dist = std::sqrt(dist2);
-                          if (echo > 15) std::printf("# distance-ij is %g\n", dist);
-                          int const ibin = dist*invbin; // floor
-                          ++hist[ibin];
-                      } // load
-                  } // jrank
-              } // load
-          } // irank
           if (echo > 7) {
               double const denom = 1./pow2(std::max(1, np));
               std::printf("## center-distance histogram, bin width %g\n", wbin);
@@ -414,7 +525,6 @@ namespace load_balancer {
                                     "#        distance^2 [%g, %g +/- %g, %g]\n",
                                     st1.min(), st1.mean(), st1.dev(), st1.max(),
                                     st2.min(), st2.mean(), st2.dev(), st2.max());
-
       } // compute_rank_centers
       delete[] rank_center;
 
@@ -438,7 +548,7 @@ namespace load_balancer {
           std::printf("\n# visualize plane balancer %d x %d on %d processes:%s", n[Y], n[X], nprocs,
                               nprocs > 64 ? " (symbols are not unique!)" : "");
           int constexpr iz = 0;
-          char const chars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ<>";
+          char const chars[65] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ<>";
           char constexpr mask_char = ' ';
           for (int iy = 0; iy < n[Y]; ++iy) {
               std::printf("\n# ");
@@ -453,23 +563,25 @@ namespace load_balancer {
           //
           // ToDo: to export the Voronoi diagrams, we need to access the plane normals
           //       and plane parameters at which the plane separates the two processes
+          //       and the tree structure in order to know in which half space the plane is valid
           //
 #ifdef    HAS_BITMAP_EXPORT
-          // create a bitmap file
-          int const n3 = std::ceil(std::cbrt(nprocs));
+          // create a color map
+          int const n3 = std::ceil(std::cbrt(nprocs));      assert(n3*n3*n3 >= nprocs);
           std::vector<uint8_t> bmp_color(n3*n3*n3*4, 0);
-          { // scope: generate nprocs distinct colors
-            int iproc{0};
-            for (int cz = 0; cz < n3; ++cz) {
-                for (int cy = 0; cy < n3; ++cy) {
-                    for (int cx = 0; cx < n3; ++cx) {
-                        bmp_color[iproc*4    ] = (255*cz)/n3;
-                        bmp_color[iproc*4 + 1] = (255*cy)/n3;
-                        bmp_color[iproc*4 + 2] = (255*cx)/n3;
-                        ++iproc;
-            }}} // cx cy cz
-            assert(iproc >= nprocs && "We need enough distinct colors");
+          { // scope: generate >=nprocs distinct colors
+              int iproc{0};
+              for (int cx = 1; cx <= n3; ++cx) {
+                  for (int cy = 1; cy <= n3; ++cy) {            // start from 1 to avoid black(0x000000)
+                      for (int cz = 1; cz <= n3; ++cz) {
+                          bmp_color[iproc*4    ] = (250*cz)/n3;
+                          bmp_color[iproc*4 + 1] = (250*cy)/n3; // use 250 instead of 255 to avoid white(0xffffff)
+                          bmp_color[iproc*4 + 2] = (250*cx)/n3;
+                          ++iproc;
+              }}} // cx cy cz
+              assert(iproc >= nprocs && "We need enough distinct colors");
           } // scope
+
           // color the owned region
           std::vector<uint8_t> bmp_data(n[Y]*n[X]*4, 0);
           for (int iy = 0; iy < n[Y]; ++iy) {
@@ -478,15 +590,18 @@ namespace load_balancer {
                   auto const owner = owner_rank[iall];
                   for (int rgb = 0; rgb < 3; ++rgb) {
                       bmp_data[iall*4 + rgb] = bmp_color[owner*4 + rgb];
-                      if (xyzw[iall][W] < 1) bmp_data[iall*4 + rgb] = 255; // white
+                      if (xyzw[iall][W] < 1) bmp_data[iall*4 + rgb] = 255; // white(0xffffff)
                   } // rgb
               } // ix
           } // iy
+
+          // store as image
           char filename[64]; std::snprintf(filename, 64, "load_balancer-n%d-%dx%d", nprocs, n[X], n[Y]);
+          if (echo > 5) std::printf("# try to create bitmap file %s with %d colors for %d domains\n", filename, n3*n3*n3, nprocs);
           stat += bitmap::write_bmp_file(filename, bmp_data.data(), n[Y], n[X], -1, 1.f);
 #endif // HAS_BITMAP_EXPORT
       } // visualize
-
+      delete[] xyzw;
       return stat;
   } // test_plane_balancer
 
@@ -555,9 +670,10 @@ namespace load_balancer {
   status_t all_tests(int const echo) {
       status_t stat(0);
 
-      int const nxyz[] = {int(control::get("load_balancer.test.nx", 17.)), // number of blocks
-                          int(control::get("load_balancer.test.ny", 19.)),
-                          int(control::get("load_balancer.test.nz", 23.))};
+      auto const niso = control::get("load_balancer.test.n", 19.);
+      int const nxyz[] = {int(control::get("load_balancer.test.nx", niso)), // number of blocks
+                          int(control::get("load_balancer.test.ny", niso)),
+                          int(control::get("load_balancer.test.nz", 1.))};
       auto const nprocs = int(control::get("load_balancer.test.nprocs", 53.));
       if (echo > 0) std::printf("\n\n# %s start %d x %d x %d = %d with %d MPI processes\n",
                       __func__, nxyz[X], nxyz[Y], nxyz[Z], nxyz[X]*nxyz[Y]*nxyz[Z], nprocs);
