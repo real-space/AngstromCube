@@ -1,6 +1,6 @@
 // This file is part of AngstromCube under MIT License
 
-#include <cstdio>     // std::printf, ::snprintf
+#include <cstdio>     // std::printf, ::snprintf, FILE, std::fprintf
 #include <cstdint>    // int64_t, int32_t, uint32_t, int16_t, uint16_t, int8_t, uint8_t
 #include <cassert>    // assert
 #include <cmath>      // std::sqrt, ::cbrt
@@ -21,6 +21,7 @@
 
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
+#include "progress_report.hxx" // ProgressReport
 
 #ifndef NO_UNIT_TESTS
   #include "green_parallel.hxx" // ::init, ::finalize, ::rank
@@ -57,7 +58,11 @@
   #include "bitmap.hxx" // ::write_bmp_file
 #endif // HAS_BITMAP_EXPORT
 
+#define   GREEN_FUNCTION_SVG_EXPORT
 
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
+#include "chemical_symbol.hxx" // ::get
+#endif // GREEN_FUNCTION_SVG_EXPORT
  /*
   *  Future plan:
   *   Support also density matrix purification scheme (McWeeney filter: x^2(3-2x)
@@ -82,6 +87,31 @@ namespace green_function {
   #define str(...) vec2str(__VA_ARGS__).c_str()
 
 
+  int8_t constexpr Vacuum_Boundary = 2;
+  // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
+  // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
+  // even if this exceeds the isolated boundary at which potential values stop to be defined.
+  // The potential is continued as zero beyond the isolated boundary but the tail of the Green function is allowed to fade there.
+  // k-points are not relevant.
+
+  // We could think of a useful new boundary condition
+  int8_t constexpr Repeat_Boundary = 3;
+  // The repeat boundary allows to compute with small unit cells but with realistic truncation radii.
+  // The local potential is repeated periodically (like Periodic_Boundary).
+  // Sources are only relevant inside the small unit cell but again, the Green function tail exceeds the cell boundaries
+  // and extends up to the truncation radius.
+  // For the dyadic potential, we may not reduce over periodic atom images but create copies of the atoms.
+  // k-points are not relevant.
+
+  // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
+  int8_t constexpr Wrap_Boundary = 5;
+  // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
+  // Nevertheless, it cannot be treated like Isolated_Boundary since target block coordinates may need to be wrapped.
+  // However, it could be viewed as Repeat_Boundary...
+
+
+
+
   status_t update_atom_matrices(
         green_dyadic::dyadic_plan_t & p
       , std::complex<double> E_param
@@ -104,7 +134,7 @@ namespace green_function {
           // for (int i = 0; i < nc; ++i) {
           //     sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
           // } // i
-          auto const ia = p.global_atom_index[iac];
+          auto const ia = p.original_atom_index[iac];
           assert(2*nc*nc <= AtomMatrices[ia].size());
 
           // fill this with matrix values
@@ -125,6 +155,10 @@ namespace green_function {
       return 0;
   } // update_atom_matrices
 
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
+  static FILE* svg;
+#endif // GREEN_FUNCTION_SVG_EXPORT
+
 
   status_t construct_dyadic_plan(
         green_dyadic::dyadic_plan_t & p
@@ -137,7 +171,8 @@ namespace green_function {
       , uint32_t const nrhs
       , uint32_t const *const rowStartGreen
       , uint16_t const *const colIndexGreen
-      , int16_t const (*target_coords)[3+1]
+      , int16_t const (*internal_target_coords)[3+1]
+      , int32_t const global_internal_offset[3]
       , double const r_block_circumscribing_sphere
       , double const max_distance_from_center
       , double const r_trunc
@@ -156,13 +191,13 @@ namespace green_function {
       double const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
       p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
 
-      int const natoms = AtomMatrices.size();
+      int32_t const natoms = AtomMatrices.size(); // number of original atoms
       if (echo > 2) std::printf("\n#\n# %s for %d atoms\n#\n", __func__, natoms);
       assert(xyzZinso.size() == natoms*8);
 
       // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
       double max_projection_radius{0};
-      for (int ia = 0; ia < natoms; ++ia) { // loop over all atoms (can be parallel with reduction)
+      for (int32_t ia = 0; ia < natoms; ++ia) { // loop over all original atoms (can be parallel with reduction)
           auto const sigma = xyzZinso[ia*8 + 6];
           auto const projection_radius = std::max(0.0, r_proj*sigma);
           max_projection_radius = std::max(max_projection_radius, projection_radius);
@@ -170,18 +205,34 @@ namespace green_function {
       if (echo > 3) std::printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
 
       auto const radius = r_trunc + max_distance_from_center + 2*max_projection_radius + 2*r_block_circumscribing_sphere;
-      int iimage[3]; // number of replications of the unit cell to each side
-      size_t nimages{1};
+
+      int iimage[3] = {0, 0, 0}; // number of images replications of the unit cell to each side
+      int icopies[3] = {0, 0, 0}; // number of copied atoms
+      size_t nimages{1}, ncopies{1};
       for (int d = 0; d < 3; ++d) { // parallel
-          iimage[d] = (Periodic_Boundary == boundary_condition[d]) * std::ceil(radius/cell[d]);
+          // what happens if there is a wrap_boundary but the non-local projection overlaps with two periodic ends of the sphere?
+          // we may have to diffentiate between images and copies of atoms! ToDo, Repeat_Boundary needs copies, Wrap_boundary needs copies
+          int const nmx = std::max(0., std::ceil(radius/cell[d]));
+          if (Periodic_Boundary == boundary_condition[d]) {
+              iimage[d] = nmx;
+          } else if (Repeat_Boundary == boundary_condition[d]) {
+              icopies[d] = nmx;
+          } else if (Wrap_Boundary == boundary_condition[d]) {
+              icopies[d] = 1; // in WRAP the truncation sphere fits into the cell, ...
+              // however, left targets of a left source and right targets of a right source could potentially see the same atom
+          }
           nimages *= (2*iimage[d] + 1); // iimage images to the left and right
+          ncopies *= (2*icopies[d] + 1); // icopies copies to the left and right
       } // d
-      auto const nAtomImages = natoms*nimages;
+      size_t const nAtomCopies = natoms*ncopies;
+      if (ncopies > 1 && echo > 3) std::printf("# copy %d atoms %s times (%ld times) for %ld atom copies\n", natoms, str(icopies), ncopies, nAtomCopies);
+      assert(ncopies >= 1); // later we divide by ncopies to retrieve the original atom index
+      size_t const nAtomImages = nAtomCopies*nimages;
       if (echo > 3) std::printf("# replicate %s atom images, %ld images total\n", str(iimage), nimages);
 
       std::vector<uint32_t> AtomImageStarts(nAtomImages + 1, 0); // probably larger than needed, should call resize(nai + 1) later
       std::vector<green_action::atom_t> atom_data(nAtomImages);
-      std::vector<int8_t> atom_numax(natoms, -1); // -1: atom does not contribute
+      std::vector<int8_t> atom_numax(nAtomCopies, -1); // -1: atom does not contribute
 
       simple_stats::Stats<> nc_stats;
       double sparse{0}, dense{0}; // stats to assess how much memory can be saved using sparse storage
@@ -194,16 +245,21 @@ namespace green_function {
       for (int y = -iimage[Y]; y <= iimage[Y]; ++y) { // serial
       for (int x = -iimage[X]; x <= iimage[X]; ++x) { // serial
 //            if (echo > 3) std::printf("# periodic shifts  %d %d %d\n", x, y, z);
-          int const xyz_shift[] = {x, y, z};
-          for (int ia = 0; ia < natoms; ++ia) { // loop over atoms in the unit cell, serial
-              // suggest a shifted atomic image position
-              double atom_pos[3];
-              for (int d = 0; d < 3; ++d) { // unroll
-                  atom_pos[d] = xyzZinso[ia*8 + d] + xyz_shift[d]*cell[d];
-              } // d
+          int const xyz_image_shift[] = {x, y, z};
+          for (int ia = 0; ia < natoms; ++ia) { // loop over original atoms in the unit cell, serial
               auto const atom_id = int32_t(xyzZinso[ia*8 + 4]);
               auto const numax =       int(xyzZinso[ia*8 + 5]);
               auto const sigma =           xyzZinso[ia*8 + 6] ;
+              int iaa{0};
+          for (int zc = -icopies[Z]; zc <= icopies[Z]; ++zc) { // serial
+          for (int yc = -icopies[Y]; yc <= icopies[Y]; ++yc) { // serial
+          for (int xc = -icopies[X]; xc <= icopies[X]; ++xc) { // serial
+              int const xyz_copy_shift[] = {xc, yc, zc};
+              // suggest a shifted atomic image position
+              double atom_pos[3];
+              for (int d = 0; d < 3; ++d) { // unroll
+                  atom_pos[d] = xyzZinso[ia*8 + d] + (xyz_image_shift[d] + xyz_copy_shift[d])*cell[d];
+              } // d
 //                   if (echo > 5) std::printf("# image of atom #%i at %s %s\n", atom_id, str(atom_pos, Ang), _Ang);
 
               double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
@@ -213,7 +269,7 @@ namespace green_function {
               // check all target blocks if they are inside the projection radius
               uint32_t ntb{0}; // number of target blocks
               for (uint32_t icube = 0; icube < nRowsGreen; ++icube) { // loop over blocks
-                  auto const *const target_block = target_coords[icube];
+                  auto const *const target_block = internal_target_coords[icube];
                   if (true) {
                       // do more precise checking
 //                        if (echo > 9) std::printf("# target block #%i at %s gets corner check\n", icube, str(target_block));
@@ -225,14 +281,14 @@ namespace green_function {
                           int const ixyz[] = {ix, iy, iz};
                           double d2i{0}; // init distance^2 of the grid point from the center
                           for (int d = 0; d < 3; ++d) {
-                              double const grid_point = (target_block[d]*4 + ixyz[d] + 0.5)*grid_spacing[d];
+                              double const grid_point = ((target_block[d] + global_internal_offset[d])*4 + ixyz[d] + 0.5)*grid_spacing[d];
                               d2i += pow2(grid_point - atom_pos[d]);
                           } // d
                           if (d2i < r2projection) {
                               ++nci; // at least one corner of the block is inside the projection radius of this atom
                           } // inside the projection radius
                       }}} // ix // iy // iz
-                      // three different cases: 0, 1...7, 8
+                      // three different cases: 0, 1...7, 8, i.e. none, partial, full
                       if (nci > 0) {
                           // atom image contributes
                           if (0 == ntb) {
@@ -264,7 +320,7 @@ namespace green_function {
               if (ntb > 0) {
                   // atom image contributes, mark in the list to have more than 0 coefficients
                   auto const nc = sho_tools::nSHO(numax); // number of coefficients for this atom
-                  atom_numax[ia] = numax; // atom image does contribute, so this atom does
+                  atom_numax[iaa] = numax; // atom image contributes, so this atom contributes
                   nc_stats.add(nc);
 
                   // at least one target block has an intersection with the projection sphere of this atom image
@@ -272,8 +328,10 @@ namespace green_function {
                   set(atom.pos, 3, atom_pos);
                   atom.sigma = sigma;
                   atom.gid = atom_id;
-                  atom.ia = ia; // local atom index
-                  set(atom.shifts, 3, xyz_shift);
+                  atom.ia = ia;
+                  atom.iaa = iaa; // local atom index, where is this used?
+                  set(atom.shifts, 3, xyz_image_shift);
+                  set(atom.copies, 3, xyz_copy_shift);
                   atom.nc = nc;
                   atom.numax = numax;
 
@@ -281,16 +339,34 @@ namespace green_function {
                   AtomImageStarts[iai + 1] = AtomImageStarts[iai] + nc;
                   ++iai;
 
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
+                  if (nullptr != svg) { // these circles show the projection spheres of the atoms
+                      std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"red\" />\n",
+                                             atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y],
+                                            r_projection/grid_spacing[X], r_projection/grid_spacing[Y]);
+                      std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\".1\" ry=\".1\" fill=\"none\" stroke=\"red\" />\n",
+                                             atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y]); // center
+                      int const iZ = xyzZinso[ia*8 + 3];
+                      if (iZ > 0) {
+                          char Sy[4]; chemical_symbol::get(Sy, iZ);
+                          std::fprintf(svg, "  <text x=\"%g\" y=\"%g\" style=\"font-size: 3;\">%s</text>\n",
+                                             atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y], Sy);
+                      } // iZ > 0
+                  } // nullptr != svg
+#endif // GREEN_FUNCTION_SVG_EXPORT
+
               } else {
 //                    if (echo > 15) std::printf("# image of atom #%i at %s %s does not contribute\n", atom_id, str(atom_pos, Ang), _Ang);
               } // ntb > 0
+              ++iaa;
+      }}} // xc // yc // zc
           } // ia
       }}} // x // y // z
 
       auto const nai = iai; // corrected number of atomic images
       if (echo > 3) std::printf("# %ld of %lu (%.2f %%) atom images have an overlap with projection spheres\n",
                                     nai, nAtomImages, nai/std::max(nAtomImages*.01, .01));
-      auto const napc = AtomImageStarts[nai];
+      auto const napc = AtomImageStarts[nai]; // number of atomic projection coefficients
 
       if (echo > 3) std::printf("# sparse %g (%.2f %%) of dense %g\n", sparse, sparse/(std::max(1., dense)*.01), dense);
 
@@ -348,7 +424,7 @@ namespace green_function {
       size_t nops{0};
       for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
           char name[64]; std::snprintf(name, 64, "sparse_SHOprj[irhs=%i of %d]", irhs, nrhs);
-          p.sparse_SHOprj[irhs] = sparse_t<>(SHOprj[irhs], false, name, echo - 2);
+          p.sparse_SHOprj[irhs] = sparse_t<>(SHOprj[irhs], false, name, echo - 4);
           // sparse_SHOprj: rows == atom images, cols == Green function non-zero elements
           nops += p.sparse_SHOprj[irhs].nNonzeros();
       } // irhs
@@ -360,18 +436,22 @@ namespace green_function {
       p.AtomImageIndex = get_memory<uint32_t>(nai, echo, "AtomImageIndex");
 
       // get all info for the atomic matrices
-      p.global_atom_index.resize(natoms); // translation table
-      std::vector<int32_t> local_atom_index(natoms, -1); // translation table
-      int iac{0};
-      for (int ia = 0; ia < natoms; ++ia) { // serial loop over all atoms
-          if (atom_numax[ia] > -1) {
-              p.global_atom_index[iac] = ia;
-              local_atom_index[ia] = iac;
+      p.global_atom_index.resize(nAtomCopies); // translation table
+      p.original_atom_index.resize(nAtomCopies); // translation table
+      std::vector<int64_t> local_atom_index(nAtomCopies, -1); // translation table
+      size_t iac{0};
+      for (int iaa = 0; iaa < nAtomCopies; ++iaa) { // serial loop over all atom copies
+          if (atom_numax[iaa] > -1) {
+              p.global_atom_index[iac] = iaa;
+              int const ia = iaa/ncopies; // integer division
+              p.original_atom_index[iac] = ia;
+              local_atom_index[iaa] = iac;
               ++iac;
           } // atom contributes
-      } // ia
-      uint32_t const nac = iac; // number of contributing atoms
+      } // iaa
+      auto const nac = iac; // number of contributing atoms
       p.global_atom_index.resize(nac);
+      p.original_atom_index.resize(nac);
 
       // store the atomic image positions in GPU memory
       p.AtomImageLmax  = get_memory<int8_t>(nai, echo, "AtomImageLmax");
@@ -383,8 +463,8 @@ namespace green_function {
       std::vector<std::vector<uint32_t>> SHOsum(nac);
 
       for (size_t iai = 0; iai < nai; ++iai) { // serial
-          int const ia = atom_data[iai].ia;
-          int const iac = local_atom_index[ia]; assert(0 <= iac); assert(iac < nac);
+          auto const iaa = atom_data[iai].iaa; // index of the atom copy
+          auto const iac = local_atom_index[iaa]; assert(0 <= iac); assert(iac < nac);
           p.AtomImageIndex[iai] = iac;
           set(p.AtomImagePos[iai], 3, atom_data[iai].pos);
           set(p.AtomImageShift[iai], 3, atom_data[iai].shifts); p.AtomImageShift[iai][3] = 0;
@@ -395,7 +475,7 @@ namespace green_function {
           set(p.AtomImagePhase[iai], 4, phase0); // TODO construct correct phases, phase0 is just a dummy
       } // iai, copy into GPU memory
 
-      p.sparse_SHOsum = sparse_t<>(SHOsum, false, "SHOsum", echo);
+      p.sparse_SHOsum = sparse_t<>(SHOsum, false, "sparse_SHOsum", echo);
       SHOsum.resize(0);
 
 
@@ -407,20 +487,21 @@ namespace green_function {
       // p.AtomSigma.resize(nac);
 
       for (uint32_t iac = 0; iac < nac; ++iac) { // parallel
-          auto const ia = p.global_atom_index[iac];
+          auto const iaa = p.global_atom_index[iac];
           // p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
-          uint32_t const nc = sho_tools::nSHO(atom_numax[ia]);
-          assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
+          uint32_t const nc = sho_tools::nSHO(atom_numax[iaa]);
+          assert(nc > 0); // the number of coefficients of a contributing atom copy must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
-          p.AtomLmax[iac] = atom_numax[ia];
-          char name[64]; std::snprintf(name, 64, "AtomMatrices[iac=%d/ia=%d]", iac, ia);
+          p.AtomLmax[iac] = atom_numax[iaa];
+          char name[64]; std::snprintf(name, 64, "AtomMatrices[iac=%d/iaa=%d]", iac, iaa);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
           // fill this with matrix values
+          auto const ia = p.original_atom_index[iac];
           assert(2*nc*nc <= AtomMatrices[ia].size());
           // use MPI communication to find values in atom owner processes
       } // iac
-      p.nAtoms = nac; // number of contributing atoms
+      p.nAtoms = nac; // number of contributing atom copies
 
       update_atom_matrices(p, E_param, AtomMatrices, dVol, Noco, 1.0, echo);
 
@@ -468,34 +549,14 @@ namespace green_function {
   } // update_phases
 
 
-  int8_t constexpr Vacuum_Boundary = 2;
-  // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
-  // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
-  // even if this exceeds the isolated boundary at which potential values stop to be defined.
-  // The potential is continued as zero beyond the isolated boundary but the tail of the Green function is allowed to fade there.
-  // k-points are not relevant.
-
-  // We could think of a usefull new boundary condition
-  // int8_t constexpr Repeat_Boundary = 3;
-  // The repeat boundary allows to compute with small unit cells but with realistic truncation radii.
-  // The local potential is repeated periodically (like Periodic_Boundary).
-  // Sources are only relevant inside the small unit cell but again, the Green function tail exceeds the cell boundaries
-  // and extends up to the truncation radius.
-  // For the dyadic potential, we may not reduce over periodic atom images but create copies of the atoms.
-  // k-points are not relevant.
-
-  // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
-  // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
-  // Nevertheless, it cannot be treated like Isolated_Boundary since target block coordinates may need to be wrapped.
-
-
 
   std::vector<int64_t> get_right_hand_sides(
         uint32_t const nb[3] // number of blocks
       , std::vector<uint16_t> & owner_rank
       , int const echo=0
   ) {
-      std::vector<int64_t> global_source_indices;
+      std::vector<int64_t> global_source_indices; // result array
+
       int const true_comm_size = green_parallel::size(); // MPI_Comm_size
       int const fake_comm = (true_comm_size > 1) ? 0 : control::get("green_function.fake.comm", 0.);
       auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
@@ -507,7 +568,8 @@ namespace green_function {
           assert(nall > 0);
           int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
                                                 : green_parallel::rank(); // MPI_Comm_rank
-          double rank_center[4];
+          double rank_center[4]; // rank_center[0/1/2] are the coordinates of the center of weight of the RHSs assigned to this rank
+                                 // rank_center[3] is the number of tasks with nonzero weight
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
           if (fake_comm < 1) green_parallel::max(owner_rank.data(), nall); // MPI_Allreduce(MPI_MAX)
           if (echo > 9) {
@@ -522,37 +584,41 @@ namespace green_function {
               green_parallel::allreduce(nt);
               if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
           }
-          global_source_indices.resize(nrhs, -1);
-          uint32_t irhs{0};
-          for (size_t iall = 0; iall < nall; ++iall) {
-              if (comm_rank == owner_rank[iall]) {
-                  // assume that iall == (iz*n[Y] + iy)*n[X] + ix;
-                  int32_t const iz = iall/(int64_t(nb[X])*nb[Y]);
-                  int32_t const iy = (iall - iz*int64_t(nb[X])*nb[Y])/nb[X];
-                  int32_t const ix = iall - (iz*int64_t(nb[Y]) + iy)*nb[X];
-                  global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
-                  ++irhs;
-              } // owned
-          } // iall
-          if (nrhs != irhs) error("rank#%i number of right hand sides=%d inconsistent with number of owned tasks=%d", comm_rank, nrhs, irhs);
-          assert(nrhs == irhs && "number of right hand sides inconsistent");
+
+          {
+              global_source_indices.resize(nrhs, -1);
+              uint32_t irhs{0};
+              int64_t const nbX = nb[X], nbY = nb[Y];
+              for (size_t iall = 0; iall < nall; ++iall) {
+                  if (comm_rank == owner_rank[iall]) {
+                      int32_t const iz = iall/(nbX*nbY);
+                      int32_t const iy = (iall - iz*nbX*nbY)/nbX;
+                      int32_t const ix = iall - ((iz*nbY) + iy)*nbX;
+                      assert(iall == (iz*nbY + iy)*nbX + ix);
+                      global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
+                      ++irhs;
+                  } // owned
+              } // iall
+              if (nrhs != irhs) error("rank#%i number of right hand sides=%d inconsistent with number of owned tasks=%d", comm_rank, nrhs, irhs);
+              assert(nrhs == irhs && "number of right hand sides inconsistent");
+          }
 
       } else { // comm_size > 1
 
-          // generate a box of source points
 #ifdef    HAS_NO_MPI
           auto const default_sources =  1.; // 1: 1x1x1 right-hand-side only (suitable default for ./a43 --test green_function)
 #else  // HAS_NO_MPI
           auto const default_sources = -1.; // -1: all right-hand-sides (suitable default for ./green --test green_function)
 #endif // HAS_NO_MPI
-          double nsb[3] = {0, 0, 0};
+          // generate a box of source points
+          double nsb[3] = {0, 0, 0}; // number of source blocks
           int32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", default_sources);
           int32_t n_source_blocks[] = {int(nsb[X]), int(nsb[Y]), int(nsb[Z])};
           int32_t off[3];
           for (int d = 0; d < 3; ++d) {
               n_source_blocks[d] = (n_source_blocks[d] < 0) ? nb[d] : // "green_function.sources" negative means all
                     std::min(std::max(1, n_source_blocks[d]), int32_t(nb[d])); // clamp
-              off[d] = (nb[d] - n_source_blocks[d])/2;
+              off[d] = (nb[d] - n_source_blocks[d])/2; // place at center of the unit cell
           } // d
           if (source_cube && echo > 0) std::printf("\n# use green_function.sources= %d x %d x %d\n",
                                         n_source_blocks[X], n_source_blocks[Y], n_source_blocks[Z]);
@@ -560,10 +626,10 @@ namespace green_function {
           // total number of right-hand-sides treated in this MPI process
           auto const nrhs = size_t(n_source_blocks[Z])*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
 
-          if (echo > 3) std::printf("# n_source_blocks %s = %ld\n", str(n_source_blocks, 1, " x "), nrhs);
+          if (echo > 3) std::printf("# number of RHS source blocks %s = %ld\n", str(n_source_blocks, 1, " x "), nrhs);
 
           global_source_indices.resize(nrhs, -1);
-          size_t irhs{0};
+          uint32_t irhs{0};
           for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
           for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {
           for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
@@ -582,7 +648,7 @@ namespace green_function {
   status_t construct_Green_function(
         green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
       , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
-      , int8_t const boundary_condition[3] // boundary conditions
+      , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
       , double const hg[3] // grid spacings
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
@@ -595,18 +661,20 @@ namespace green_function {
 
       p.E_param = energy_parameter ? *energy_parameter : 0;
 
+      int8_t bc[3] = {boundary_condition[X], boundary_condition[Y], boundary_condition[Z]};
       uint32_t n_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_blocks[d] = (ng[d] >> 2); // divided by 4
-          assert(n_blocks[d] > 0);
+          assert(n_blocks[d] > 0 && "Needs at least one block (=4 grid points) per direction");
           assert(ng[d] == 4*n_blocks[d] && "All grid dimensions must be a multiple of 4!");
           assert(n_blocks[d] <= (1ul << 21) && "Max grid is 2^21 blocks due to global_coordinates");
-          assert(hg[d] > 0.);
+          assert(hg[d] > 0. && "Needs a positive grid spacing");
+          assert(Isolated_Boundary <= bc[d] && bc[d] <= Repeat_Boundary);
       } // d
       if (echo > 3) std::printf("# n_blocks %s\n", str(n_blocks));
 
 
-      auto const n_all_blocks = n_blocks[Z]*size_t(n_blocks[Y])*size_t(n_blocks[X]);
+      auto const n_all_blocks = size_t(n_blocks[Z])*size_t(n_blocks[Y])*size_t(n_blocks[X]);
 
       // regroup effective potential into blocks of 4x4x4
       assert(1 == Noco || 2 == Noco);
@@ -620,7 +688,7 @@ namespace green_function {
           std::printf("\n# Cell summary:\n");
           for (int d = 0; d < 3; ++d) {
               std::printf("# %7d %c-points, %6d blocks, spacing= %8.6f, cell.%c= %8.3f %s, boundary= %d\n",
-                  ng[d], 'x' + d, n_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, boundary_condition[d]);
+                  ng[d], 'x' + d, n_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, bc[d]);
           } // d
           std::printf("# ================ ============== ================== ====================== ============\n"
               "# %7.3f M points, %11.3f k, average= %8.6f, volume= %8.1f %s^3\n\n",
@@ -630,6 +698,7 @@ namespace green_function {
       // we assume that the source blocks lie compact in space and preferably close to each other
       std::vector<uint16_t> owner_rank(0);
       p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, echo);
+      // now owner_rank[] tells the MPI rank of the process responsible for a RHS block
       uint32_t const nrhs = p.global_source_indices.size();
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
 
@@ -712,10 +781,9 @@ namespace green_function {
 
       double r_block_circumscribing_sphere{0};
 
-      uint32_t num_target_coords[3] = {0, 0, 0};
-      int32_t  min_target_coords[3] = {0, 0, 0}; // global coordinates
-      int32_t  max_target_coords[3] = {0, 0, 0}; // global coordinates
-      int32_t  min_targets[3]       = {0, 0, 0}; // global coordinates
+      uint32_t num_target_coords[3] = {0, 0, 0}; // range of target coordinates
+      int32_t  min_target_coords[3] = {0, 0, 0}; // minimum of global target coordinates
+      int32_t  max_target_coords[3] = {0, 0, 0}; // maximum of global target coordinates
       { // scope: create the truncated Green function block-sparsity pattern
           auto const rtrunc = std::max(0., r_trunc);
           double scale_grid_spacing[] = {1, 1, 1};
@@ -724,8 +792,7 @@ namespace green_function {
               if (1. != def) warn("using +green_function.scale.grid.spacing=%g without .x, .y or .z may be confusing", def);
           }
 
-          uint8_t is_periodic[] = {0, 0, 0, 0}; // is_periodic > 0 if the truncation sphere overlaps with the truncation sphere of periodic images
-          double h[] = {hg[X], hg[Y], hg[Z]}; // customized grid spacing for the truncation sphere, also used in green_potential::multiply
+          double h[] = {hg[X], hg[Y], hg[Z]}; // customize grid spacing for the truncation sphere, also used in green_potential::multiply
           for (int d = 0; d < 3; ++d) { // spatial directions
 
               if (r_trunc >= 0) {
@@ -741,20 +808,20 @@ namespace green_function {
                       } // scale factor deviates from unity
                   } else error("cannot use +green_function.scale.grid.spacing.%c=%g with a negative number", 'x'+d, scale_h);
 
-                  if (Periodic_Boundary == boundary_condition[d]) { // periodic boundary conditions
+                  if (Periodic_Boundary == bc[d]) { // periodic boundary conditions
                       auto const deformed_cell = h[d]*ng[d];
                       if (2*rtrunc > deformed_cell) {
                           if (h[d] > 0) {
                               warn("truncation sphere (diameter= %g %s) does not fit cell in %c-direction (%g %s)" "\n#               "
                                    "better use +green_function.scale.grid.spacing.%c=0 for cylindrical truncation",
-                                   2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang, 'x'+ d);
-                              is_periodic[d] = std::min(std::max(0., std::ceil(rtrunc/deformed_cell)), 255.); // truncation sphere may overlap with its periodic images
+                                   2*rtrunc*Ang, _Ang, 'x' + d, deformed_cell*Ang, _Ang, 'x' + d);
+                              h[d] = 0; // cylindrical or plane or no truncation (depending on the other boundaries)
+                              assert(deformed_cell > 0);
                           } else { // h[d] > 0
-                              is_periodic[d] = 1; // truncation sphere may overlap with its periodic images
+                              assert(0 == h[d]); // truncation in this direction has been switched off manually --> no warning
                           }
-                          if (echo > 1) std::printf("# boundary condition in %c-direction has up to %d images\n", 'x' + d, is_periodic[d]);
-                          assert(deformed_cell > 0);
                       } else {
+                          bc[d] = Wrap_Boundary; // now bc[d] may differ from boundary_condition[d]
                           // truncation sphere does not overlap with its periodic images, we can treat it like a Vacuum_Boundary
                           if (echo > 1) std::printf("# periodic boundary condition in %c-direction is wrapped\n", 'x' + d);
                       }
@@ -773,31 +840,23 @@ namespace green_function {
           int32_t itr[3];
           for (int d = 0; d < 3; ++d) { // spatial directions
 
-              // how many blocks around the source block do we need to check
-              itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : (n_blocks[d] + 1)/2;
+              // how many blocks around each source block do we need to check
+              itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : (n_blocks[d]/2);
               assert(itr[d] >= 0);
 
               min_target_coords[d] = min_global_source_coords[d] - itr[d];
               max_target_coords[d] = max_global_source_coords[d] + itr[d];
 
-              if (Isolated_Boundary == boundary_condition[d]) {
-                  int32_t const n = n_blocks[d];
-                  // limit to global coordinates in [0, n)
+              if (Isolated_Boundary == bc[d]) {
+                  int32_t const nb = n_blocks[d];
+                  // limit to global coordinates in [0, nb)
                   min_target_coords[d] = std::max(min_target_coords[d], 0);
-                  max_target_coords[d] = std::min(max_target_coords[d], n - 1);
-              }
+                  max_target_coords[d] = std::min(max_target_coords[d], nb - 1);
+              } // Isolated_Boundary
+
               num_target_coords[d] = std::max(0, max_target_coords[d] + 1 - min_target_coords[d]);
 
-              min_targets[d] = min_target_coords[d];
-              if (is_periodic[d]) {
-                  // prepare for all blocks in this direction
-                  min_targets[d] = 0;
-                  num_target_coords[d] = n_blocks[d];
-              } // is_periodic[d]
-
           } // d
-          int constexpr ANY = 3;
-          is_periodic[ANY] = (is_periodic[X] > 0) + (is_periodic[Y] > 0) + (is_periodic[Z] > 0);
           if (r_trunc < 0) {
               if (echo > 1) std::printf("# truncation deactivated\n");
           } else {
@@ -821,8 +880,8 @@ namespace green_function {
           assert(nrhs < (1ul << 16) && "the integer type of ColIndex is uint16_t!");
           std::vector<std::vector<bool>> sparsity_pattern(nrhs); // std::vector<bool> is a memory-saving bit-array
 
-          simple_stats::Stats<> inout[4];
-          for (uint16_t irhs = 0; irhs < nrhs; ++irhs) { // must be a serial loop if the order in column_indices is relevant
+          simple_stats::Stats<> inout[4]; // 4 classes {inside, partial, outside, checked}
+          for (uint32_t irhs = 0; irhs < nrhs; ++irhs) { // must be a serial loop if the order in column_indices is relevant
               auto & sparsity_RHS = sparsity_pattern[irhs]; // abbreviate
               sparsity_RHS.resize(product_target_blocks, false);
               auto const *const source_coords = global_source_coords[irhs]; // global source block coordinates
@@ -833,11 +892,23 @@ namespace green_function {
               size_t hit_single{0}, hit_multiple{0};
               int64_t idx3_diagonal{-1};
 
-              int32_t b_first[3], b_last[3];
+              int32_t b_first[3], b_last[3]; // box extent relative to source block
               for (int d = 0; d < 3; ++d) {
-                  b_first[d] = std::max(-itr[d], min_target_coords[d] - source_coords[d]);
-                  b_last[d]  = std::min( itr[d], max_target_coords[d] - source_coords[d]);
+                  if (Isolated_Boundary == bc[d]) {
+                      b_first[d] = std::max(-itr[d], min_target_coords[d] - source_coords[d]);
+                      b_last[d]  = std::min( itr[d], max_target_coords[d] - source_coords[d]);
+                  } else
+                  if (Periodic_Boundary == bc[d]) {
+                      b_first[d] = (1 - int32_t(n_blocks[d]))/2;
+                      b_last[d]  =      int32_t(n_blocks[d]) /2;
+                  } else { // boundary_condition
+                      assert(Wrap_Boundary == bc[d] || Repeat_Boundary == bc[d] || Vacuum_Boundary == bc[d]);
+                      b_first[d] = -itr[d]; 
+                      b_last[d]  =  itr[d];
+                  } // boundary_condition
               } // d
+              if (echo > 7) std::printf("# RHS#%i checks target box from (%s) to (%s)\n", irhs, str(b_first), str(b_last));
+
               int32_t target_coords[3]; // global target block coordinates
               for (int32_t bz = b_first[Z]; bz <= b_last[Z]; ++bz) { target_coords[Z] = source_coords[Z] + bz;
                   assert(target_coords[Z] >= min_target_coords[Z] && target_coords[Z] <= max_target_coords[Z]);
@@ -846,8 +917,9 @@ namespace green_function {
               for (int32_t bx = b_first[X]; bx <= b_last[X]; ++bx) { target_coords[X] = source_coords[X] + bx;
                   assert(target_coords[X] >= min_target_coords[X] && target_coords[X] <= max_target_coords[X]);
 
-//                for (int d = 0; d < 3; ++d ) assert(target_coords[d] >= min_target_coords[d]
-//                                                 && target_coords[d] <= max_target_coords[d]);
+//                for (int d = 0; d < 3; ++d ) {
+//                    assert(target_coords[d] >= min_target_coords[d] && target_coords[d] <= max_target_coords[d]);
+//                } // d
 
                   // d2 is the distance^2 of the block centers
                   auto const d2 = pow2(bx*4*h[X]) + pow2(by*4*h[Y]) + pow2(bz*4*h[Z]);
@@ -856,42 +928,38 @@ namespace green_function {
                   if (d2 < r2trunc_plus) { // potentially inside, check all 8 or 27 corner cases
 #ifdef    USE_SIMPLE_RANGE_TRUNCATION
                       if (d2 <= r2trunc) { nci = max_nci; } // similar to tfqmrgpu_generate_FD_example.cxx
-                      if (false) // skip the 8- or 27-corners test for inner blocks
-#endif // USE_SIMPLE_RANGE_TRUNCATION
-                      { // scope: 8 or 27 corner test
-                          int const far = (d2 > r2block_circum); // far in {0, 1}
-                          // i = i4 - j4 --> i in [-3, 3],
-                          //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
-                          //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
-                          int const inc = 3 + 3*far;
-                          for (int iz = -3; iz <= 3; iz += inc) { auto const d2z   = pow2((bz*4 + iz)*h[Z]);
-                          for (int iy = -3; iy <= 3; iy += inc) { auto const d2yz  = pow2((by*4 + iy)*h[Y]) + d2z;
-                          for (int ix = -3; ix <= 3; ix += inc) { auto const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
+                                                            // skip the 8- or 27-corners test for inner blocks
+#else  // USE_SIMPLE_RANGE_TRUNCATION
+                      int const far = (d2 > r2block_circum); // far in {0, 1}
+                      // i = i4 - j4 --> i in [-3, 3],
+                      //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
+                      //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
+                      int const inc = 3 + 3*far;
+                      for (int iz = -3; iz <= 3; iz += inc) { auto const d2z   = pow2((bz*4 + iz)*h[Z]);
+                      for (int iy = -3; iy <= 3; iy += inc) { auto const d2yz  = pow2((by*4 + iy)*h[Y]) + d2z;
+                      for (int ix = -3; ix <= 3; ix += inc) { auto const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
 #if 0
-                              if (0 == irhs && (d2xyz < r2trunc) && echo > 17) {
-                                  std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n",
-                                      __func__, bx,by,bz, ix,iy,iz, d2xyz, (d2xyz < r2trunc)?"in":"out");
-                              }
+                          if (0 == irhs && (d2xyz < r2trunc) && echo > 17) {
+                              std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n",
+                                  __func__, bx,by,bz, ix,iy,iz, d2xyz, (d2xyz < r2trunc)?"in":"out");
+                          }
 #endif // 0
-                              nci += (d2xyz < r2trunc); // add 1 if inside
-                          }}} // ix iy iz
-                          int const mci = far ? 8 : 27;
-                          if (d2 < r2trunc_minus) assert(mci == nci); // for these, we could skip the 8-corners test
-                          nci = (nci*27)/mci; // limit nci to [0, 27], also the 9 different far cases are cast into the bin numbers {0,3,6,10,13,16,20,23,27}
-                      } // scope
-
+                          nci += (d2xyz < r2trunc); // add 1 if inside
+                      }}} // ix iy iz
+                      int const mci = far ? 8 : 27;
+                      if (d2 < r2trunc_minus) assert(mci == nci); // for these, we could skip the 8-corners test
+                      nci = (nci*27)/mci; // limit nci to [0, 27], also the 9 different far cases are cast into the bin numbers {0,3,6,10,13,16,20,23,27}
+#endif // USE_SIMPLE_RANGE_TRUNCATION
                   } // d2 < r2trunc_plus
 
                   if (nci > 0) {
-                      // any grid point in target block (bx,by,bz) is closer than rtrunc to any grid point in the source block
-                      int32_t idx[3];
+                      // at least one grid point in target block (bx,by,bz) is closer than rtrunc to a grid point in the source block
+                      int32_t idx[3]; // internal coordinates
                       for (int d = 0; d < 3; ++d) {
-                          idx[d] = target_coords[d] - min_targets[d];
-                          // in the periodic case we have to make sure that we hit no element twice
-                          if (is_periodic[d]) idx[d] = (target_coords[d] + 999*n_blocks[d]) % n_blocks[d];
+                          idx[d] = target_coords[d] - min_target_coords[d];
                           assert(0 <= idx[d]); assert(idx[d] < num_target_coords[d]);
                       } // d
-                      auto const idx3 = index3D(num_target_coords, idx); // flat index
+                      auto const idx3 = index3D(num_target_coords, idx); // idx3 is a flat index into the target box
                       assert(idx3 < product_target_blocks);
                       if (sparsity_RHS[idx3]) {
                           ++hit_multiple; // already set
@@ -909,13 +977,19 @@ namespace green_function {
                           tag_diagonal[idx3] = irhs;
                           idx3_diagonal = idx3;
                       } // diagonal entry
+
+                      if (nci < max_nci) { // partial hit
+                          // insert these lines into green_function.svg to visualize the partially hit target blocks (2D)
+//                        std::printf("  <rect width=\"4\" height=\"4\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"blue\" />\n", target_coords[X]*4, target_coords[Y]*4); // SVG
+                      } // partial
+
                   } // nci > 0
                   ++hist[nci];
                   stats_d2[nci].add(d2);
 
-              }}} // xyz
+              }}} // bx // by // bz
               if (echo > 8) std::printf("# RHS#%i has %ld single and %ld multiple hits\n", irhs, hit_single, hit_multiple);
-              assert((0 == hit_multiple) || (hit_multiple > 0 && is_periodic[ANY]));
+              assert(0 == hit_multiple); // in this version, target blocks may not be hit more than once
               assert(hit_single <= product_target_blocks);
               if (echo > 7) {
                   std::printf("# RHS#%i at %s reaches from (%g, %g, %g) to (%g, %g, %g)\n",
@@ -939,10 +1013,10 @@ namespace green_function {
                   auto const partial = total_checked - hist[0] - hist[max_nci];
                   if (echo > 8) std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
                                 irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
-                  inout[0].add(hist[max_nci]);
-                  inout[1].add(partial);
-                  inout[2].add(hist[0]);
-                  inout[3].add(total_checked);
+                  inout[0].add(hist[max_nci]);  // inside
+                  inout[1].add(partial);        // partial
+                  inout[2].add(hist[0]);        // outside
+                  inout[3].add(total_checked);  // checked
               } // echo
               assert(idx3_diagonal > -1 && "difference vector (0,0,0) must be hit once");
               assert(tag_diagonal[idx3_diagonal] == irhs && "diagonal inconsistent");
@@ -959,9 +1033,9 @@ namespace green_function {
           // a histogram about the distribution of the number of columns per row
           std::vector<uint32_t> hist(1 + nrhs, 0);
           for (size_t idx3 = 0; idx3 < column_indices.size(); ++idx3) {
-              auto const n = column_indices[idx3].size();
-              assert(n <= nrhs);
-              ++hist[n];
+              auto const nc = column_indices[idx3].size();
+              assert(nc <= nrhs);
+              ++hist[nc];
           } // idx3
 
           // eval the histogram
@@ -987,7 +1061,7 @@ namespace green_function {
           { // scope: export_as_bitmap, reduce over z-coordinate
               int const nx = num_target_coords[X], ny = num_target_coords[Y];
               view3D<float> image(ny, nx, 4, 0.f);
-              for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
+              for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
                   auto const & sparsity_RHS = sparsity_pattern[irhs]; // abbreviate
                   for (size_t idx3 = 0; idx3 < product_target_blocks; ++idx3) {
                       if (sparsity_RHS[idx3]) {
@@ -1011,6 +1085,7 @@ namespace green_function {
               bitmap::write_bmp_file("green_function", image.data(), ny, nx, -1, 254.999/maxval);
           } // scope: export_as_bitmap
 #endif // HAS_BITMAP_EXPORT
+
 
           assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
 
@@ -1038,14 +1113,11 @@ namespace green_function {
           p.global_target_indices.resize(p.nRows);
           p.subset.resize(p.nCols); // we assume columns of the unit operator as right-hand-sides
 
-          view3D<int32_t> iRow_of_coords(num_target_coords[Z],
-                                         num_target_coords[Y],
-                                         num_target_coords[X], -1); // init as non-existing
+          view3D<int32_t> iRow_of_coords(num_target_coords[Z],num_target_coords[Y],num_target_coords[X], -1); // init as non-existing
 
           { // scope: fill BSR tables
-              size_t warn_needs_shortest{0}, periodic_image_nontrivial{0};
               simple_stats::Stats<> st;
-              uint32_t iRow{0};
+              uint32_t iRow{0}; // init as 1st index
               for (uint32_t z = 0; z < num_target_coords[Z]; ++z) { // serial
               for (uint32_t y = 0; y < num_target_coords[Y]; ++y) { // serial
               for (uint32_t x = 0; x < num_target_coords[X]; ++x) { // serial
@@ -1053,18 +1125,18 @@ namespace green_function {
                   auto const idx3 = index3D(num_target_coords, idx);
                   assert(idx3 < product_target_blocks);
 
-                  auto const n = column_indices[idx3].size();
-                  if (n > 0) {
-                      st.add(n);
+                  auto const ncols = column_indices[idx3].size();
+                  if (ncols > 0) {
+                      st.add(ncols);
                       iRow_of_coords(idx[Z], idx[Y], idx[X]) = iRow; // set existing
 
-                      p.RowStart[iRow + 1] = p.RowStart[iRow] + n;
+                      p.RowStart[iRow + 1] = p.RowStart[iRow] + ncols;
                       // copy the column indices
-                      set(p.colindx.data() + p.RowStart[iRow], n, column_indices[idx3].data());
+                      set(p.colindx.data() + p.RowStart[iRow], ncols, column_indices[idx3].data());
                       // copy the target block coordinates
                       int32_t global_target_coords[3];
                       for (int d = 0; d < 3; ++d) {
-                          global_target_coords[d] = idx[d] + min_targets[d];
+                          global_target_coords[d] = idx[d] + min_target_coords[d];
                           auto const internal_target_coord = global_target_coords[d] - global_internal_offset[d];
                           p.target_coords[iRow][d] = internal_target_coord; assert(internal_target_coord == p.target_coords[iRow][d] && "safe assign");
                           p.rowCubePos[iRow][d]    = internal_target_coord; assert(internal_target_coord == p.rowCubePos[iRow][d]    && "safe assign");
@@ -1086,14 +1158,14 @@ namespace green_function {
                                             iCol, str(p.source_coords[iCol]), str(p.target_coords[iRow]));
                                   assert(p.source_coords[iCol][d] == p.target_coords[iRow][d]);
                               } // d
-                              { // search inz such that p.colindx[inz] == iCol
+                              { // scope: search inz such that p.colindx[inz] == iCol
                                   int64_t inz_found{-1};
                                   for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1] && -1 == inz_found; ++inz) {
                                       if (iCol == p.colindx[inz]) inz_found = inz;
                                   } // inz
                                   assert(-1 != inz_found && "iCol should be in the list");
                                   p.subset[iCol] = inz_found;
-                              } // search
+                              } // scope
                           } // iCol valid
                       } // scope: determine the diagonal entry
 
@@ -1102,59 +1174,29 @@ namespace green_function {
                           int32_t mod[3];
                           bool potential_given{true};
                           for (int d = 0; d < 3; ++d) {
-                              mod[d] = global_target_coords[d];
-                              if (Periodic_Boundary == boundary_condition[d]) {
+                              mod[d] = global_target_coords[d]; // global target coordinates may be negative
+                              if (Periodic_Boundary == bc[d] || Wrap_Boundary == bc[d] || Repeat_Boundary == bc[d]) {
                                   mod[d] = global_target_coords[d] % n_blocks[d];
-                                  mod[d] += (mod[d] < 0)*n_blocks[d];
+                                  mod[d] += (mod[d] < 0)*n_blocks[d]; // cast into range [0, n_blocks[d] - 1]
                               } else {
+                                  assert(Vacuum_Boundary == bc[d] || Isolated_Boundary == bc[d]);
                                   potential_given = potential_given && (mod[d] >= 0 && mod[d] < n_blocks[d]);
-                              }
+                                  // potential element is only given if inside the unit cell
+                              } // bc
                           } // d
                           if (potential_given) {
-                              // auto const iloc = index3D(n_blocks, mod);
-                              auto const iloc = iRow; // ToDo: check
+                              auto const iloc = index3D(n_blocks, mod);
                               veff_index = iloc; assert(iloc == veff_index && "safe assign");
                           } else { // potential_given
-                              assert(Vacuum_Boundary == boundary_condition[X] ||
-                                     Vacuum_Boundary == boundary_condition[Y] ||
-                                     Vacuum_Boundary == boundary_condition[Z]);
+                              assert(Vacuum_Boundary == bc[X] || Vacuum_Boundary == bc[Y] || Vacuum_Boundary == bc[Z]);
                               veff_index = -1; // outside of the unit cell due to Vacuum_Boundary
                           } // potential_given
                       } // scope: fill indirection table
 
                       for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
                           auto const iCol = p.colindx[inz];
-
-                          int iimage[] = {0, 0, 0};
-                          if (is_periodic[ANY]) {
-                              int32_t dv[3];
-                              for (int d = 0; d < 3; ++d) {
-                                  dv[d] = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d];
-                              } // d
-                              // with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
-                              double d2shortest{9e37}; // init very long
-                              for (int iz = -1; iz <= 1; ++iz) {
-                              for (int iy = -1; iy <= 1; ++iy) {
-                              for (int ix = -1; ix <= 1; ++ix) {
-                                  double const d2 = pow2((dv[X] + ix*n_blocks[X])*4*h[X])
-                                                  + pow2((dv[Y] + iy*n_blocks[Y])*4*h[Y])
-                                                  + pow2((dv[Z] + iz*n_blocks[Z])*4*h[Z]);
-                                  if (d2 < d2shortest) {
-                                      d2shortest = d2;
-                                      iimage[X] = ix;  iimage[Y] = iy;  iimage[Z] = iz;
-                                  } // is shorter
-                              }}} // ix iy iz
-                              if (pow2(iimage[X]) + pow2(iimage[Y]) + pow2(iimage[Z]) > 0) {
-                                  if (echo > 7) std::printf("# block pair target(%s) - source(%s) has shortest distance %g %s at image(%s)\n",
-                                                              str(p.target_coords[iRow]), str(p.source_coords[iCol]),
-                                                              std::sqrt(d2shortest)*Ang, _Ang, str(iimage));
-                                  ++periodic_image_nontrivial;
-                              } // |iimage|^2 > 0
-                              ++warn_needs_shortest; // still, the confinement potential may not be correct in each grid point
-                          } // is_periodic[ANY]
-
                           for (int d = 0; d < 3; ++d) {
-                              auto const diff = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d] + n_blocks[d]*iimage[d];
+                              auto const diff = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d];
                               p.target_minus_source[inz][d] = diff; assert(diff == p.target_minus_source[inz][d] && "safe assign");
                           } // d
                           p.target_minus_source[inz][3] = 0; // component #3 not used
@@ -1162,19 +1204,12 @@ namespace green_function {
                           p.veff_index[inz] = veff_index;
                       } // inz
 
-                      // count up the number of active rows
-                      ++iRow;
+                      ++iRow; // count up the number of active rows
                   } // n > 0
               }}} // idx
               assert(p.nRows == iRow && "counting 2nd time");
               assert(nnzb == p.RowStart[p.nRows] && "sparse matrix consistency");
               if (echo > 2) std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
-              if (warn_needs_shortest > 0) {
-                  warn("for %.3f k block pairs the nearest periodic images are only evaluated on the block level", warn_needs_shortest*1e-3);
-              } // warn_needs_shortest
-              if (periodic_image_nontrivial > 0 && echo > 1) {
-                  std::printf("# for %.3f k of %.3f k block pairs the nearest periodic image is non-trivial\n", periodic_image_nontrivial*1e-3, warn_needs_shortest*1e-3);
-              } // periodic_image_nontrivial
           } // scope: fill BSR tables
           column_indices.clear(); // not needed beyond this point
 
@@ -1198,35 +1233,16 @@ namespace green_function {
           // Green function is stored sparse as real_t green[nnzb][2][Noco*64][Noco*64];
 
           { // scope: set up kinetic plans
-              auto const *const keyword = "green_kinetic.range";
-              int16_t const kinetic_nFD_default = control::get(keyword, 8.0);
+              auto const keyword = "green_kinetic.range";
+              int16_t const kinetic_nFD_default = control::get(keyword, 8.); // if possible use 16th order Laplace operator
               for (int dd = 0; dd < 3; ++dd) { // derivate direction
-                  int16_t kinetic_nFD_dd{kinetic_nFD_default};
-                  // create lists for the finite-difference derivatives
-                //   auto const stat = green_kinetic::finite_difference_plan(p.kinetic_plan[dd], kinetic_nFD_dd
-                //       , dd
-                //       , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
-                //       , num_target_coords
-                //       , p.RowStart, p.colindx.data()
-                //       , iRow_of_coords
-                //       , sparsity_pattern.data()
-                //       , nrhs, echo);
-                //   if (stat && echo > 0) std::printf("# finite_difference_plan in %c-direction returned status= %i\n", 'x' + dd, int(stat));
+                  int16_t kinetic_nFD_dd{kinetic_nFD_default}; // suggestion for this direction
                   char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
-                //   p.kinetic_nFD[dd] = control::get(keyword_dd, double(kinetic_nFD_dd));
 
-                //   p.kinetic[dd] = green_kinetic::kinetic_plan_t(p.kinetic_plan[dd], kinetic_nFD_dd
-                //       , dd
-                //       , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
-                //       , num_target_coords
-                //       , p.RowStart, p.colindx.data()
-                //       , iRow_of_coords
-                //       , sparsity_pattern.data()
-                //       , nrhs, hg[dd], echo);
-
+                  // create lists for the finite-difference derivatives
                   auto const new_stat = green_kinetic::finite_difference_plan(p.kinetic[dd].sparse, kinetic_nFD_dd // results
                       , dd
-                      , (Periodic_Boundary == boundary_condition[dd]) // is periodic?
+                      , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
                       , num_target_coords
                       , p.RowStart, p.colindx.data()
                       , iRow_of_coords
@@ -1240,9 +1256,7 @@ namespace green_function {
               } // dd derivate direction
           } // scope: set up kinetic plans
 
-          // transfer grid spacing into managed GPU memory
-        //   p.grid_spacing = get_memory<double>(3, echo, "grid_spacing");
-        //   set(p.grid_spacing, 3, hg); // for kinetic
+          // transfer stuff into managed GPU memory
 
           p.grid_spacing_trunc = get_memory<double>(3, echo, "grid_spacing_trunc");
           set(p.grid_spacing_trunc, 3, h); // customized grid spacings used for the construction of the truncation sphere
@@ -1298,7 +1312,7 @@ namespace green_function {
               for (int mag = 0; mag < Noco*Noco; ++mag) {
                   set(p.Veff[mag][0], p.nRows*64, 0.0);
               } // mag
-          }
+          } // needs exchange?
 
           delete[] Vinp;
 
@@ -1315,11 +1329,23 @@ namespace green_function {
           } // echo
       } // scope
 
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
+      { // scope
+        assert(nullptr == svg);
+        svg = std::fopen("green_function.svg", "w");
+        if (nullptr != svg) {
+            std::fprintf(svg, "<!-- SVG code generated by %s -->\n", __FILE__); // can be viewed at https://editsvgcode.com/
+            std::fprintf(svg, "<svg viewBox=\"%d %d %d %d\" xmlns=\"http://www.w3.org/2000/svg\">\n",
+                min_target_coords[X]*4-20, min_target_coords[Y]*4-20, num_target_coords[X]*4+20, num_target_coords[Y]*4+20);
+        } // nullptr != svg
+      } // scope
+#endif // GREEN_FUNCTION_SVG_EXPORT
+
       auto const stat = construct_dyadic_plan(p.dyadic_plan
-                            , cell, boundary_condition, hg
+                            , cell, bc, hg
                             , AtomMatrices, xyzZinso
                             , p.nRows, p.nCols, p.RowStart, p.colindx.data()
-                            , p.target_coords, r_block_circumscribing_sphere
+                            , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
                             , max_distance_from_center, r_trunc
                             , p.E_param, hg[2]*hg[1]*hg[0], Noco
                             , echo);
@@ -1327,6 +1353,32 @@ namespace green_function {
 
       auto const nerr = p.dyadic_plan.consistency_check();
       if (nerr && echo > 0) std::printf("# dyadic_plan.consistency_check has %d errors\n", nerr);
+
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
+      if (nullptr != svg) {
+            // show the cell boundaries if in range
+            std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"black\" />\n", n_blocks[X]*4, n_blocks[Y]*4, 0, 0);
+            // show a square box for each source block
+            for (uint32_t irhs = 0; irhs < nrhs; ++irhs) { auto const *const v = global_source_coords[irhs];
+                std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"grey\" />\n", 4, 4, v[X]*4, v[Y]*4);
+            } // irhs
+            // show a 4 truncation spheres around each source block
+            auto const h = p.grid_spacing_trunc;
+            if (h[X] > 0 && h[Y] > 0) {
+                auto const rx = r_trunc/h[X], ry = r_trunc/h[Y];
+                for (uint32_t irhs = 0; irhs < nrhs; ++irhs) { auto const *const v = global_source_coords[irhs];
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+0.5, rx, ry);
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+0.5, rx, ry);
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+3.5, rx, ry);
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+3.5, rx, ry);
+                } // irhs
+            } // grid spacings relevant for truncation are positive
+          std::fprintf(svg, "</svg>\n");
+          std::fclose(svg);
+          svg = nullptr;
+          if (echo > 3) std::printf("# file green_function.svg (Scalable Vector Graphics) written\n");
+      } // nullptr != svg
+#endif // GREEN_FUNCTION_SVG_EXPORT
 
       return stat;
   } // construct_Green_function
@@ -1347,7 +1399,7 @@ namespace green_function {
       if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
 
       if (0 == iterations) { 
-          if (echo > 2) std::printf("# requested to run 0 iterations --> only check the action_t constructor\n");
+          if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
           return;
       } // 0 iterations
 
@@ -1376,7 +1428,8 @@ namespace green_function {
           int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
           if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
           double time_needed{1};
-          {   SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+          { // scope: benchmark the solver
+              SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
               tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
 
@@ -1404,18 +1457,19 @@ namespace green_function {
           SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
           simple_stats::Stats<> timings;
           double nflops{0};
-          p.echo = (1 == niterations)*echo; // mute for more than 1 iteration
+          ProgressReport progress(__FILE__, __LINE__, 2.5, echo); // update the line every 2.5 seconds
           for (int iteration = 0; iteration < niterations; ++iteration) {
-              if (echo > 5) { std::printf("# iteration #%i of %d\n", iteration, niterations); std::fflush(stdout); }
-              SimpleTimer timeit(__FILE__, __LINE__, __func__, echo);
+              SimpleTimer timeit(__FILE__, __LINE__, __func__, echo*0);
 
               nflops += action.multiply(y, x, colIndex, nnzbX, p.nCols);
               cudaDeviceSynchronize();
 
               timings.add(timeit.stop());
               std::swap(x, y);
+              p.echo = 0; // mute after the 1st iteration
+              progress.report(iteration, niterations);
           } // iteration
-          if (echo > 1) std::printf("#\n# running action.multiply for needed [%g, %g +/- %g, %g] seconds per iteration\n",
+          if (echo > 1) std::printf("#\n# running action.multiply needed [%g, %g +/- %g, %g] seconds per iteration\n",
                                           timings.min(), timings.mean(), timings.dev(), timings.max());
           char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
           if (echo > 1) std::printf("# %d calls of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
@@ -1452,6 +1506,8 @@ namespace green_function {
 
       int const r1c2 = control::get("green_function.benchmark.complex", 1.) + 1;
       int const noco = control::get("green_function.benchmark.noco", 1.);
+
+//    for (int ia = 0; ia < natoms; ++ia) { xyzZinso[ia*8 + 3] = 6; } // set all atoms to carbon
 
       green_action::plan_t p;
       stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo, nullptr, noco);

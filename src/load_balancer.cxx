@@ -43,6 +43,7 @@ namespace load_balancer {
 #endif // LOAD_BALANCER_DRAW_SVG
 
   int constexpr X=0, Y=1, Z=2, W=3;
+  uint16_t constexpr no_owner = (1 << 16) - 1; // 65535
 
   template <typename real_t>
   double center_of_weight(
@@ -254,12 +255,14 @@ namespace load_balancer {
       if (nullptr != owner_rank) {
           for (size_t iall = 0; iall < nall; ++iall) {
               if (UNASSIGNED == state[iall]) {
+                  assert(no_owner == owner_rank[iall]);
                   owner_rank[iall] = rank;
                   assert(owner_rank[iall] == rank && "uint16_t too short for owner_ranks");
               } // unassigned
           } // iall
-          // Beware: only the owned entried of owner_rank have been modified, so
-          //         an MPI_MAX-Allreduce needs to be performed after returning.
+          // Beware: only the owned entries of owner_rank have been modified, so
+          //         an MPI_MAX-Allreduce needs to be performed later. This is skipped here
+          //         to maintain serial executability of this routine.
           if (echo > 99) {
               std::printf("# rank#%i owner_rank before MPI_MAX ", rank);
               printf_vector(" %i", owner_rank, nall);
@@ -402,7 +405,6 @@ namespace load_balancer {
       std::vector<double> load(nprocs, 0.0);
       auto const rank_center = new double[nprocs][4];
       bool constexpr compute_rank_centers = true;
-      uint16_t constexpr no_owner = (1 << 16) - 1; // 65535
       std::vector<uint16_t> owner_rank(nall, no_owner);
 
       if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
@@ -546,7 +548,7 @@ namespace load_balancer {
           if (strange) warn("strange: %d under-assignments", strange);
       }
 
-      if (1 == n[Z] && echo > 5) {
+      if (1 == n[Z] && echo > 5 && n[X] <= 300 && n[Y] <= 300) {
           std::printf("\n# visualize plane balancer %d x %d on %d processes:%s", n[Y], n[X], nprocs,
                               nprocs > 64 ? " (symbols are not unique!)" : "");
           int constexpr iz = 0;

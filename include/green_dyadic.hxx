@@ -708,7 +708,7 @@ namespace green_dyadic {
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
         , uint32_t const (*const __restrict__ AtomImageStarts) // prefix sum over nSHO(AtomImageLmax[:])
-        , double   const (*const __restrict__ AtomImagePhase)[4] // complex/magnetic phase [nAtomImages]
+        , double   const (*const __restrict__ AtomImagePhase)[4] // complex/magnetic phase [nAtomImages][4]
         , green_sparse::sparse_t<> const & sparse_SHOsum
         , uint32_t const nAtoms // number of atoms
         , int      const nrhs
@@ -880,6 +880,7 @@ namespace green_dyadic {
       green_sparse::sparse_t<>  sparse_SHOsum;
 
       std::vector<int32_t> global_atom_index;
+      std::vector<int32_t> original_atom_index;
 
       size_t flop_count_SHOgen = 0,
              flop_count_SHOsum = 0,
@@ -975,9 +976,9 @@ namespace green_dyadic {
 
       size_t get_flop_count(int const R1C2, int const Noco, int const echo=0) const {
           size_t nops{0};
-//        nops += flop_count_SHOgen; // Hermite Gauss functions
-//        nops += flop_count_SHOprj*R1C2*pow2(Noco); // projection
-//        nops += flop_count_SHOsum*pow2(R1C2)*pow2(Noco); // collect
+//        nops += 0*flop_count_SHOgen; // Hermite Gauss functions
+//        nops += 0*flop_count_SHOprj*R1C2*pow2(Noco); // projection
+//        nops += 0*flop_count_SHOsum*pow2(R1C2)*pow2(Noco); // collect
           nops +=   flop_count_SHOmul*pow2(R1C2)*pow3(Noco); // small matrix multiplication
           nops += 2*flop_count_SHOsum*pow2(R1C2)*pow2(Noco); // broadcast
           nops += 2*flop_count_SHOgen; // Hermite Gauss functions
@@ -1064,7 +1065,12 @@ namespace green_dyadic {
         , float    const (*const __restrict__ rowCubePos)[3+1] // cube positions +alignment of row indices
         , float    const (*const __restrict__ colCubePos)[3+1] // cube positions +alignment of col indices
         , int const echo=0 // log-level
-    ) {
+    )
+    // The typical projection operation of green_dyadic is SHOprj, however,
+    // SHOprj contracts the localized Gauss-Hermite functions with the left Green function index.
+    // This function calls green_projection::SHOprj projecting onto the right Green function index
+    // which is necessary to find atomic density matrices.
+    {
         if (echo > 0) std::printf("# %s\n", __func__);
         size_t const ncoeffs = p.AtomStarts[p.nAtoms];
         auto Cpr_export = get_memory<double[R1C2][Noco][Noco*64]>(ncoeffs*p.nrhs, echo, "Cpr_export");

@@ -87,8 +87,7 @@ namespace simple_stats {
     double mean() const { return (v[0] > 0) ? v[1]/double(v[0]) : 0.0; }
     double variance() const {
         auto const mu = mean();
-        return (times > 0 && v[0] > 0) ?
-            std::max(0.0, v[2]/v[0] - mu*mu) : 0.0;
+        return (times > 1 && v[0] > 0) ? std::max(0.0, v[2]/v[0] - mu*mu) : 0.;
     } // variance
     double dev() const { return std::sqrt(variance()); } // standard deviation
 

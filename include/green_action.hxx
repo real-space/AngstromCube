@@ -55,11 +55,13 @@ namespace green_action {
       double pos[3]; // position
       double sigma; // Gaussian spread
       int32_t gid; // global identifier
-      int32_t ia; // local atom index
+      int32_t ia; // local original atom index
+      int32_t iaa; // local atom copy index
       int16_t shifts[3]; // periodic image shifts
       uint8_t nc; // number of coefficients, uint8_t sufficient up to numax=9 --> 220 coefficients
       int8_t numax; // SHO basis size
-  }; // atom_t 48 Byte, only used in CPU parts
+      int16_t copies[3]; // periodic copy shifts
+  }; // atom_t 56 Byte, only used in CPU parts
 
   // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
   struct atom_image_t {
@@ -111,19 +113,14 @@ namespace green_action {
       float V_confinement   = 1; // potential prefactor
       std::complex<double> E_param; // energy parameter
 
-    //   // these members are now replaced by kinetic_plan_t kinetic
-    //   green_sparse::sparse_t<int32_t> kinetic_plan[3];
-    //   double *grid_spacing = nullptr; // [3]
-    //   int16_t kinetic_nFD[4];
-
-      green_kinetic::kinetic_plan_t kinetic[3]; // new struct replacing [kinetic_plan, grid_spacing, kinetic_nFD]
+      green_kinetic::kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
 
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
       uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
-      float   (*rowCubePos)[3+1]    = nullptr; // [nRows]      internal coordinates in float, could be int16_t for most applications
-      float   (*colCubePos)[3+1]    = nullptr; // [nCols]      internal coordinates in float, could be int16_t for most applications
+      float   (*rowCubePos)[3+1]    = nullptr; // [nRows][3+1] internal coordinates in float, could be int16_t for most applications
+      float   (*colCubePos)[3+1]    = nullptr; // [nCols][3+1] internal coordinates in float, could be int16_t for most applications
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
       double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
       // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
@@ -134,7 +131,7 @@ namespace green_action {
 
       bool noncollinear_spin = false;
 
-      green_dyadic::dyadic_plan_t dyadic_plan;
+      green_dyadic::dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
       plan_t() {
           debug_printf("# default constructor for %s\n", __func__);
@@ -156,9 +153,7 @@ namespace green_action {
           free_memory(colCubePos);
           free_memory(rowCubePos);
           free_memory(grid_spacing_trunc);
-     //   free_memory(grid_spacing);
           free_memory(phase);
-     //   for (int dd = 0; dd < 3; ++dd) kinetic_plan[dd].~sparse_t();
       } // destructor
 
   }; // plan_t

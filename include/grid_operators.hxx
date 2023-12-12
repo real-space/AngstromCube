@@ -224,8 +224,8 @@ namespace grid_operators {
   // prepare the sho_atoms for grid_operator_t
   inline // ToDo: move body to grid_operators.cxx since this is not templated
   std::vector<atom_image::sho_atom_t> list_of_atoms(
-        double const xyzZins[] // data layout [na][8], collection of different quantities
-      , int const na // number of atoms
+        double const xyzZins[] // data layout [natoms][8], collection of different quantities
+      , int const natoms // number of atoms
       , int const stride // typically stride=8
       , real_space::grid_t const & gc // we need cell info here (for periodic_images) and grid spacing (for grid_offset)
       , int const echo=9
@@ -240,8 +240,8 @@ namespace grid_operators {
       if (echo > 1) std::printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
       assert(stride >= 7);
-      std::vector<atom_image::sho_atom_t> a(na);
-      for (int ia = 0; ia < na; ++ia) {
+      std::vector<atom_image::sho_atom_t> a(natoms);
+      for (int ia = 0; ia < natoms; ++ia) {
           double pos[3];
           for (int d = 0; d < 3; ++d) {
               pos[d] =    grid_offset[d] + xyzZins[ia*stride + d];
@@ -259,9 +259,8 @@ namespace grid_operators {
           double const *apos = &xyzZins[ia*stride + 0];
           if (echo > 3) std::printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__,
               Symbol, apos[0]*Ang, apos[1]*Ang, apos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
-          if (echo > 3) std::printf("# %s %s %g %g %g (rel) has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__,
+          if (echo > 4) std::printf("# %s %s %g %g %g (rel) has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__,
               Symbol, pos[0]*gc.inv_h[0], pos[1]*gc.inv_h[1], pos[2]*gc.inv_h[2], n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
-
       } // ia
 
       status_t stat(0);
@@ -464,7 +463,7 @@ namespace grid_operators {
           , char const *filename=nullptr // filename, nullptr: use a default name
           , char const *pathname="."
       ) {
-#ifdef  DEVEL
+#ifdef    DEVEL
           char file_name_buffer[512];
           if (nullptr == filename) {
               std::snprintf(file_name_buffer, 512, "%s/%s.%s", pathname, "Hmt", fileformat);
@@ -477,6 +476,8 @@ namespace grid_operators {
               if (echo > 0) std::printf("# %s Error opening file %s for writing!\n", __func__, filename);
               return __LINE__;
           } // failed to open
+
+          double const grid_offset[] = {0.5*(grid[0] - 1)*grid.h[0], 0.5*(grid[1] - 1)*grid.h[1], 0.5*(grid[2] - 1)*grid.h[2]};
 
           if ('x' == (*fileformat | 32)) {
 
@@ -494,7 +495,7 @@ namespace grid_operators {
                   auto const & atom = atoms[ia];
                   std::fprintf(f, "    <atom global_id=\"%i\">\n", atom.atom_id());
                   auto const pos = atom.pos();
-                  std::fprintf(f, "      <position x=\"%.12f\" y=\"%.12f\" z=\"%.12f\" unit=\"Bohr\"/>\n", pos[0], pos[1], pos[2]);
+                  std::fprintf(f, "      <position x=\"%.12f\" y=\"%.12f\" z=\"%.12f\" unit=\"Bohr\"/>\n", pos[0] - grid_offset[0], pos[1] - grid_offset[1], pos[2] - grid_offset[2]);
                   int const numax = atom.numax();
                   std::fprintf(f, "      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.12f\" sigma_unit=\"Bohr\"/>\n",
                                                                   numax, atom.sigma());
@@ -555,7 +556,7 @@ namespace grid_operators {
               for (int ia = 0; ia < atoms.size(); ++ia) {
                   std::fprintf(f, "     %c{\"atom_id\": %i\n", ia?',':' ', atoms[ia].atom_id());
                   auto const pos = atoms[ia].pos();
-                  std::fprintf(f, "      ,\"position\": [%.12f, %.12f, %.12f]\n", pos[0], pos[1], pos[2]);
+                  std::fprintf(f, "      ,\"position\": [%.12f, %.12f, %.12f]\n", pos[0] - grid_offset[0], pos[1] - grid_offset[1], pos[2] - grid_offset[2]);
                   int const numax = atoms[ia].numax();
                   std::fprintf(f, "      ,\"projectors\": {\"type\": \"sho\", \"numax\": %d, \"sigma\": %.12f}\n",
                                                                                 numax, atoms[ia].sigma());
