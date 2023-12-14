@@ -55,15 +55,11 @@ namespace atom_image {
           _ncoeff = sho_tools::nSHO(_numax);
           _stride = align<2>(_ncoeff);
           _matrix64 = std::vector<double>(2*_ncoeff*_stride, 0.0);
-          _matrix32 = std::vector<float> (2*_ncoeff*_stride, 0.f);
           if (nullptr != pos) {
               _images.resize(1); // only the one base image
               _images[0] = atom_image::atom_image_t(pos[0], pos[1], pos[2], atom_id, 0,0,0, Zi);
           } // pos
       } // constructor
-
-      template <typename real_t>
-      inline real_t const * get_matrix(int const h0s1=0) const; // provide no implementation for the general case
 
       status_t set_matrix(
             double const values[] // data layout values[ncoeff][stride_values], coefficients are assumed in order_zyx --> therefore, we must match ncoeff == _ncoeff
@@ -80,7 +76,6 @@ namespace atom_image {
 
           for (int ij = 0; ij < _ncoeff*_stride; ++ij) {
               _matrix64[h0s1*_ncoeff*_stride + ij] = 0; // clear
-              _matrix32[h0s1*_ncoeff*_stride + ij] = 0; // clear
           } // ij
 
           assert(ncoeff == _ncoeff && "for need order_nxyz for setting a matrix of different size!");
@@ -90,7 +85,6 @@ namespace atom_image {
                   int const ij = (h0s1*_ncoeff + i)*_stride + j;
                   int const ij_values = i*stride_values + j;
                   _matrix64[ij] = rescale[i] * values[ij_values] * factor * rescale[j];
-                  _matrix32[ij] = _matrix64[ij]; // convert to float
               } // j
           } // i
           return (ncoeff != _ncoeff); // report mismatch
@@ -128,6 +122,11 @@ namespace atom_image {
       double const * pos(int const ii=0) const { assert(ii >= 0); assert(ii < _images.size()); return _images[ii].pos(); }
       int8_t const * idx(int const ii=0) const { assert(ii >= 0); assert(ii < _images.size()); return _images[ii].index(); }
 
+      inline double const * get_matrix(int const h0s1) const {
+          assert((0 == h0s1) || (1 == h0s1));
+          return &_matrix64[h0s1*_ncoeff*_stride];
+      } // get_matrix
+
     private:
       double  _sigma{1.};
       int32_t _numax{-1};
@@ -135,21 +134,9 @@ namespace atom_image {
       int32_t _ncoeff{0};
       int32_t _stride{0};
       std::vector<double> _matrix64; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
-      std::vector<float>  _matrix32; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
       std::vector<atom_image_t> _images;
   }; // class sho_atom_t
 
-  template <> // specialization for real_t=double
-  inline double const * sho_atom_t::get_matrix<double>(int const h0s1) const {
-      assert((0 == h0s1) || (1 == h0s1));
-      return &_matrix64[h0s1*_ncoeff*_stride];
-  } // get_matrix
-
-  template <> // specialization for real_t=float
-  inline float  const * sho_atom_t::get_matrix<float> (int const h0s1) const {
-      assert((0 == h0s1) || (1 == h0s1));
-      return &_matrix32[h0s1*_ncoeff*_stride];
-  } // get_matrix
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

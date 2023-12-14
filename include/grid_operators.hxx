@@ -58,7 +58,6 @@ namespace grid_operators {
       , float const scale_sigmas=1 // only during addition (used for start wave functions) [optional]
   ) {
       using real_t = decltype(std::real(complex_t(1)));
-      using atom_matrix_t = decltype(std::real(real_fd_t(1)));
 
       status_t stat(0);
 
@@ -147,13 +146,13 @@ namespace grid_operators {
                       // scope: V_atom_coeff = matrix * atom_coeff
                       int const stride = a[ia].stride();
                       assert(stride >= ncoeff); // check internal consistency
-                      auto *const mat = a[ia].get_matrix<atom_matrix_t>(h0s1);
+                      auto *const mat = a[ia].get_matrix(h0s1);
                       auto *const vec = atom_coeff[ia].data();
                       // matrix-vector multiplication
                       for (int i = 0; i < ncoeff; ++i) {
                           complex_t ci(0);
                           for (int j = 0; j < ncoeff; ++j) {
-                              auto const am = mat[i*stride + j];
+                              real_fd_t const am = mat[i*stride + j];
                               auto const cj = vec[j];
 #ifdef DEVEL
 //                               if (echo > 9) std::printf("# %s atomic %s matrix for atom #%i mat(%i,%i)= %g\n",
@@ -502,7 +501,7 @@ namespace grid_operators {
                   int const nSHO = sho_tools::nSHO(numax);
                   auto const stride = atom.stride();
                   for (int h0s1 = 0; h0s1 <= 1; ++h0s1) {
-                      auto const mat = atom.template get_matrix<double>(h0s1);
+                      auto const mat = atom.get_matrix(h0s1);
                       auto const tag = h0s1 ? "overlap" : "hamiltonian";
                       std::fprintf(f, "      <%s unit=\"%s\">\n", tag, h0s1?"1":"Hartree");
                       for (int i = 0; i < nSHO; ++i) {
@@ -563,7 +562,7 @@ namespace grid_operators {
                   int const nSHO = sho_tools::nSHO(numax);
                   auto const stride = atoms[ia].stride();
                   for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
-                      auto const mat = atoms[ia].template get_matrix<double>(h0s1);
+                      auto const mat = atoms[ia].get_matrix(h0s1);
                       auto const tag = h0s1 ? "overlap" : "hamiltonian";
                       std::fprintf(f, "      ,\"%s\":\n", tag);
                       for (int i = 0; i < nSHO; ++i) {
