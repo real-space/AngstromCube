@@ -49,7 +49,7 @@ namespace atom_image {
           , double const *pos=nullptr
           , int8_t const Zi=-128
       )
-          : _sigma(sigma), _numax(numax), _atom_id(atom_id), _images(0)
+          : _sigma(sigma), _numax(numax), _atom_id(atom_id), _atom_iZ(Zi), _images(0)
       {
           assert(sigma > 0);
           _ncoeff = sho_tools::nSHO(_numax);
@@ -57,7 +57,7 @@ namespace atom_image {
           _matrix64 = std::vector<double>(2*_ncoeff*_stride, 0.0);
           if (nullptr != pos) {
               _images.resize(1); // only the one base image
-              _images[0] = atom_image::atom_image_t(pos[0], pos[1], pos[2], atom_id, 0,0,0, Zi);
+              _images[0] = atom_image_t(pos[0], pos[1], pos[2], atom_id, 0,0,0, _atom_iZ);
           } // pos
       } // constructor
 
@@ -93,28 +93,30 @@ namespace atom_image {
       status_t set_image_positions(
             double const atom_position[3]
           , int const nimages=1
-          , view2D<double> const *periodic_positions=nullptr
-          , view2D<int8_t> const *indices=nullptr
+          , view2D<double> const *const periodic_positions=nullptr
+          , view2D<int8_t> const *const indices=nullptr
       ) {
           if (nullptr == periodic_positions) {
               _images.resize(1);
-              _images[0] = atom_image_t(atom_position[0], atom_position[1], atom_position[2], _atom_id, 0,0,0);
+              _images[0] = atom_image_t(atom_position[0], atom_position[1], atom_position[2], _atom_id, 0,0,0, _atom_iZ);
               return (nimages - 1); // return inconsistency if nullptr==periodic_positions && 1!=nimages
-          } // nullptr
-          _images.resize(nimages);
-          int8_t const i000[] = {0,0,0};
-          for (int ii = 0; ii < nimages; ++ii) {
-              double p[3];
-              for (int d = 0; d < 3; ++d) {
-                  p[d] = atom_position[d] + (*periodic_positions)(ii,d);
-              } // d
-              int8_t const *iv = indices ? ((*indices)[ii]) : i000;
-              _images[ii] = atom_image_t(p[0], p[1], p[2], _atom_id, iv[0], iv[1], iv[2]);
-          } // ii
-          return 0;
+          } else {
+              _images.resize(nimages);
+              int8_t const i000[] = {0,0,0};
+              for (int ii = 0; ii < nimages; ++ii) {
+                  double p[3];
+                  for (int d = 0; d < 3; ++d) {
+                      p[d] = atom_position[d] + (*periodic_positions)(ii,d);
+                  } // d
+                  int8_t const *const iv = indices ? ((*indices)[ii]) : i000;
+                  _images[ii] = atom_image_t(p[0], p[1], p[2], _atom_id, iv[0], iv[1], iv[2], _atom_iZ);
+              } // ii
+              return 0;
+          }
       } // set_image_positions
 
       int32_t atom_id() const { return _atom_id; }
+      int8_t  atom_iZ() const { return _images.size() ? _images[0].index(3) : -128; }
       int     numax()   const { return _numax; }
       double  sigma()   const { return _sigma; }
       int     stride()  const { return _stride; }
@@ -133,6 +135,7 @@ namespace atom_image {
       int32_t _atom_id{-1};
       int32_t _ncoeff{0};
       int32_t _stride{0};
+      int32_t _atom_iZ{0};
       std::vector<double> _matrix64; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
       std::vector<atom_image_t> _images;
   }; // class sho_atom_t

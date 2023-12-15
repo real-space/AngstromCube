@@ -492,7 +492,7 @@ namespace grid_operators {
               std::fprintf(f, "  <sho_atoms number=\"%ld\">\n", atoms.size());
               for (int ia = 0; ia < atoms.size(); ++ia) {
                   auto const & atom = atoms[ia];
-                  std::fprintf(f, "    <atom global_id=\"%i\">\n", atom.atom_id());
+                  std::fprintf(f, "    <atom global_id=\"%i\" Z=\"%d\">\n", atom.atom_id(), atom.atom_iZ());
                   auto const pos = atom.pos();
                   std::fprintf(f, "      <position x=\"%.12f\" y=\"%.12f\" z=\"%.12f\" unit=\"Bohr\"/>\n", pos[0] - grid_offset[0], pos[1] - grid_offset[1], pos[2] - grid_offset[2]);
                   int const numax = atom.numax();
@@ -554,6 +554,7 @@ namespace grid_operators {
               std::fprintf(f, "   ,\"atoms\": [\n");
               for (int ia = 0; ia < atoms.size(); ++ia) {
                   std::fprintf(f, "     %c{\"atom_id\": %i\n", ia?',':' ', atoms[ia].atom_id());
+                  std::fprintf(f, "      ,\"Z\": %d\n", atoms[ia].atom_iZ());
                   auto const pos = atoms[ia].pos();
                   std::fprintf(f, "      ,\"position\": [%.12f, %.12f, %.12f]\n", pos[0] - grid_offset[0], pos[1] - grid_offset[1], pos[2] - grid_offset[2]);
                   int const numax = atoms[ia].numax();
