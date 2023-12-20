@@ -91,8 +91,10 @@ namespace green_input {
               int ia{0};
               for (auto atom = sho_atoms->first_node(); atom; atom = atom->next_sibling()) {
                   auto const gid = xml_reading::find_attribute(atom, "global_id", "-1");
-                  if (echo > 5) std::printf("# <%s global_id=%s>\n", atom->name(), gid);
+                  auto const atZ = xml_reading::find_attribute(atom, "Z", "0");
+                  if (echo > 5) std::printf("# <%s global_id=%s Z=%s>\n", atom->name(), gid, atZ);
                   xyzZinso[ia*8 + 4] = std::atoi(gid);
+                  xyzZinso[ia*8 + 3] = std::atof(atZ);
 
                   double pos[3] = {0, 0, 0};
                   auto const position = xml_reading::find_child(atom, "position", echo);
@@ -126,7 +128,7 @@ namespace green_input {
                   xyzZinso[ia*8 + 5] = numax;
                   xyzZinso[ia*8 + 6] = sigma;
                   int const nSHO = sho_tools::nSHO(numax);
-                  atom_mat[ia].resize(2*nSHO*nSHO);
+                  atom_mat[ia].resize(2*nSHO*nSHO, 0.0);
                   for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
                       auto const matrix_name = h0s1 ? "overlap" : "hamiltonian";
                       auto const matrix = xml_reading::find_child(atom, matrix_name, echo);

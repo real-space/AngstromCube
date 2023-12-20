@@ -15,7 +15,6 @@
   #include "global_coordinates.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
-  #include "green_projection.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
@@ -84,7 +83,6 @@
           add_module_test(load_balancer);
           add_module_test(mpi_parallel);
           add_module_test(green_parallel);
-          add_module_test(green_projection);
           green_tests::add_tests(results, input_name, show, all, echo);
 
 #undef    add_module_test

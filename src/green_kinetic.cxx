@@ -191,9 +191,9 @@ namespace green_kinetic {
 
           // store the number of lists
           uint32_t const n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
-          if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
+          if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), lengths in [%g, %g +/- %g, %g]\n",
                                 n_lists, direction, n_lists/std::max(max_lists*.01, .01),
-                                length_stats.mean(), length_stats.dev(), length_stats.min(), length_stats.max());
+                                length_stats.min(), length_stats.mean(), length_stats.dev(), length_stats.max());
           list.resize(n_lists);
 
           sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo);

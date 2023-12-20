@@ -60,9 +60,6 @@
 
 #define   GREEN_FUNCTION_SVG_EXPORT
 
-#ifdef    GREEN_FUNCTION_SVG_EXPORT
-#include "chemical_symbol.hxx" // ::get
-#endif // GREEN_FUNCTION_SVG_EXPORT
  /*
   *  Future plan:
   *   Support also density matrix purification scheme (McWeeney filter: x^2(3-2x)
@@ -258,7 +255,7 @@ namespace green_function {
               // suggest a shifted atomic image position
               double atom_pos[3];
               for (int d = 0; d < 3; ++d) { // unroll
-                  atom_pos[d] = xyzZinso[ia*8 + d] + (xyz_image_shift[d] + xyz_copy_shift[d])*cell[d];
+                  atom_pos[d] = xyzZinso[ia*8 + d] + (xyz_image_shift[d] + xyz_copy_shift[d] + 0.5)*cell[d];
               } // d
 //                   if (echo > 5) std::printf("# image of atom #%i at %s %s\n", atom_id, str(atom_pos, Ang), _Ang);
 
@@ -346,12 +343,9 @@ namespace green_function {
                                             r_projection/grid_spacing[X], r_projection/grid_spacing[Y]);
                       std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\".1\" ry=\".1\" fill=\"none\" stroke=\"red\" />\n",
                                              atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y]); // center
-                      int const iZ = xyzZinso[ia*8 + 3];
-                      if (iZ > 0) {
-                          char Sy[4]; chemical_symbol::get(Sy, iZ);
-                          std::fprintf(svg, "  <text x=\"%g\" y=\"%g\" style=\"font-size: 3;\">%s</text>\n",
-                                             atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y], Sy);
-                      } // iZ > 0
+                      auto const Z = xyzZinso[ia*8 + 3];
+                      if (Z > 0) std::fprintf(svg, "  <text x=\"%g\" y=\"%g\" style=\"font-size: 3;\">%g</text>\n",
+                                             atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y], Z);
                   } // nullptr != svg
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
@@ -481,7 +475,7 @@ namespace green_function {
 
       // get memory for the matrices and fill
       p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
-      p.AtomLmax     = get_memory<int8_t>(nai, echo, "AtomLmax");
+      p.AtomLmax     = get_memory<int8_t>(nac, echo, "AtomLmax");
       p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
       p.AtomStarts[0] = 0; // init prefetch sum
       // p.AtomSigma.resize(nac);
@@ -505,7 +499,7 @@ namespace green_function {
 
       update_atom_matrices(p, E_param, AtomMatrices, dVol, Noco, 1.0, echo);
 
-      if (echo > 1) std::printf("# found %d contributing atoms with %ld atom images\n", nac, nai);
+      if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
 
       p.update_flop_counts(echo); // prepare to count the number of floating point operations
 

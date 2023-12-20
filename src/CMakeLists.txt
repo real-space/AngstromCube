@@ -75,7 +75,6 @@ set(a43_headers ${a43_atom_headers}
     ../include/sho_projection.hxx
     ../include/sho_potential.hxx
     ../include/structure_solver.hxx
-    ../include/green_projection.hxx
     ../include/green_parallel.hxx
     ../include/green_kinetic.hxx
     ../include/green_function.hxx
@@ -129,7 +128,6 @@ set(green_headers
     ../include/mpi_parallel.hxx
     ../include/simple_timer.hxx
     ../include/global_coordinates.hxx
-    ../include/green_projection.hxx
     ../include/green_parallel.hxx
     ../include/green_input.hxx
     ../include/load_balancer.hxx

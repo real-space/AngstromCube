@@ -114,7 +114,7 @@ namespace simple_timer {
       if (echo > 99) { // warning: Fibonacci numbers grow exponentially, i.e. for large numbers every number 
                        //          is about 1.618033989 (golden ratio) larger than its predecessor
           for (int i = 0; i <= 1476; ++i) {
-              if (i < 94) { std::printf("# fibonacci(%i) = %llu\n",  i, fibonacci_noarray<size_t>(i)); }
+              if (i < 94) { std::printf("# fibonacci(%i) = %ld\n",  i, size_t(fibonacci_noarray<size_t>(i))); }
                      else { std::printf("# fibonacci(%i) = %.20g\n", i, fibonacci_noarray<double>(i)); }
            } // i
            // fibonacci_noarray<double>(1476) == 1.3069892237633987375e+308

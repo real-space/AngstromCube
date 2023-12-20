@@ -306,7 +306,7 @@ namespace grid_operators {
                         phase[d][1] = kk ? -1 : 1;
                     } // real phase factor
                     phase[d][0] = conjugate(phase[d][1]);
-                    if (echo > 5) std::snprintf(phase_string[d], 32, "%g %c-ph(%g,%g)", 'x'+d, vector[d],
+                    if (echo > 5) std::snprintf(phase_string[d], 32, "%g %c-ph(%g,%g)", vector[d], 'x' + d,
                                                     std::real(phase[d][1]), std::imag(phase[d][1]));
                 } // d
                 if (echo > 5) std::printf("# grid_operator.%s %s %s %s, weight=%g\n", __func__,
@@ -496,7 +496,7 @@ namespace grid_operators {
                   auto const pos = atom.pos();
                   std::fprintf(f, "      <position x=\"%.12f\" y=\"%.12f\" z=\"%.12f\" unit=\"Bohr\"/>\n", pos[0] - grid_offset[0], pos[1] - grid_offset[1], pos[2] - grid_offset[2]);
                   int const numax = atom.numax();
-                  std::fprintf(f, "      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.12f\" sigma_unit=\"Bohr\"/>\n",
+                  std::fprintf(f, "      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.12f\" unit=\"Bohr\"/>\n",
                                                                   numax, atom.sigma());
                   int const nSHO = sho_tools::nSHO(numax);
                   auto const stride = atom.stride();

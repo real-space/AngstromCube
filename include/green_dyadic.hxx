@@ -14,7 +14,7 @@
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 #include "constants.hxx" // ::sqrtpi
 #include "green_parallel.hxx" // ::rank, ::size, ::dyadic_exchange
-#include "green_projection.hxx" // ::SHOprj
+// #include "green_projection.hxx" // ::SHOprj
 
 #ifndef NO_UNIT_TESTS
     #include "control.hxx" // ::get
@@ -45,7 +45,7 @@ namespace green_dyadic {
       // Evaluate the 1D Hermite-Gauss functions on a 3D block of 4^3 grid points in parallel
     {
 
-        double const R2_projection = pow2(double(hxyz[3])); // projection radius can be controlled from outside
+        double const R2_projection = hxyz[3]*hxyz[3]; // projection radius can be controlled from outside
 
         if (lmax < 0) return R2_projection; // as float
 
@@ -1057,8 +1057,142 @@ namespace green_dyadic {
     } // multiply (dyadic operations)
 
 
+
+    template <int R1C2=2, int Noco=1>
+    __host__ std::vector<std::vector<double>> SHOprj_left( // result: density matrices
+          double   const (*const __restrict__ pGreen)[R1C2][Noco][Noco*64] // input: projected Green function, layout[natomcoeffs*nrhs][R1C2][Noco][Noco*64]
+        , double   const (*const __restrict__ AtomImagePos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , int8_t   const (*const __restrict__ AtomImageLmax) // SHO basis size [nAtomImages]
+        , uint32_t const (*const __restrict__ AtomImageStarts) // prefix sum over nSHO(AtomImageLmax[:])
+        , uint32_t const (*const __restrict__ AtomImageIndex) // [nAtomImages]
+        , double   const (*const __restrict__ AtomImagePhase)[4] // [nAtomImages][4]
+        , uint32_t const nAtomImages
+        , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [nAtoms]
+        , uint32_t const nAtoms
+        , float    const (*const __restrict__ colCubePos)[3+1] // only [0],[1],[2] used, CubePos[irhs][0:3] of RHS cubes
+        , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
+        , uint32_t const nrhs // number or right hand sides
+        , int      const echo=0 // log-level
+        , double   const factor=1.0
+    )
+        // Other than green_dyadic::SHOprj, this version of Spherical Harmonic Oscillator projects onto the Green functions right index
+    {
+        SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+        assert(1 == Noco || 2 == Noco);
+
+        if (echo > 0) std::printf("# %s for %d atoms, %d atom images\n", __func__, nAtoms, nAtomImages);
+        std::vector<std::vector<double>> pGp(nAtoms); // result: projection coefficients, layout[nAtoms][nSHO*nSHO*Noco*Noco]
+        for (uint32_t iatom = 0; iatom < nAtoms; ++iatom) {
+            int const lmax = AtomLmax[iatom];
+            int const nSHO = sho_tools::nSHO(lmax);
+            pGp[iatom].resize(nSHO*nSHO*Noco*Noco, 0.0); // init
+        } // iai
+
+        typedef std::complex<double> complex_t;
+        complex_t constexpr zero = complex_t(0, 0);
+
+        for (uint32_t iai = 0; iai < nAtomImages; ++iai) {
+
+        int const lmax = AtomImageLmax[iai];
+        int constexpr Lmax = 7;
+        if (lmax > Lmax) std::printf("# %s Error: lmax= %d but max. Lmax= %d, iai=%d, iatom=%d\n", __func__, lmax, Lmax, iai, AtomImageIndex[iai]);
+        assert(lmax <= Lmax);
+
+        auto const a0 = AtomImageStarts[iai];
+        int const nSHO = sho_tools::nSHO(lmax);
+        int const n2HO = sho_tools::n2HO(lmax);
+        int const n1HO = sho_tools::n1HO(lmax);
+
+        std::vector<complex_t> piGp(nSHO*nSHO*Noco*Noco, zero);
+
+        double H1D[1 + Lmax][3][4]; // non-normalized orthogonal 1-dimensional Hermite Gauss functions
+        float     xi_squared[3][4]; // distance along one Cartesian direction squared
+
+        // ToDo: would it be good to move these 3 loops inside?
+        for (int spin = 0; spin < Noco; ++spin) {
+        for (int spjn = 0; spjn < Noco; ++spjn) {
+        for (int jsho = 0; jsho < nSHO; ++jsho) {
+
+        std::vector<complex_t> czyx(nSHO, zero);
+
+        // in this loop over RHS we accumulate atom projection coefficients over many cubes, however, we also need MPI_SUM later
+        for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
+
+            float R2_projection;
+            for (int i12 = 0; i12 < 12; ++i12) {
+                R2_projection = Hermite_polynomials_1D(H1D, xi_squared, i12, lmax, AtomImagePos[iai], colCubePos[irhs], hGrid);
+            } // i12
+
+            for (int z4 = 0; z4 < 4; ++z4) { // loop over real-space grid in z-direction
+                auto const d2z = xi_squared[2][z4] - R2_projection;
+                if (d2z < 0) {
+                    std::vector<complex_t> byx(n2HO, zero);
+                    for (int y4 = 0; y4 < 4; ++y4) { // loop over real-space grid in y-direction
+                        auto const d2yz = xi_squared[1][y4] + d2z;
+                        if (d2yz < 0) {
+                            std::vector<complex_t> ax(n1HO, zero);
+                            for (int x4 = 0; x4 < 4; ++x4) { // loop over real-space grid in x-direction
+                                auto const d2xyz = xi_squared[0][x4] + d2yz;
+                                if (d2xyz < 0) {
+                                    int const xyz = (z4*4 + y4)*4 + x4;
+                                    int constexpr RealPart = 0, ImagPart= R1C2 - 1;
+                                    auto const pG = complex_t(pGreen[(a0 + jsho)*nrhs + irhs][RealPart][spin][spjn*64 + xyz],  // load Re{<p|G>}
+                                                              pGreen[(a0 + jsho)*nrhs + irhs][ImagPart][spin][spjn*64 + xyz]); // load Im{<p|G>}
+                                    for (int ix = 0; ix <= lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
+                                        ax[ix] += pG * H1D[ix][0][x4];
+                                    } // ix
+                                } // inside mask x
+                            } // x4
+                            for (int iy = 0; iy <= lmax; ++iy) { // loop over the 2nd Cartesian SHO quantum number
+                                int const iyx0 = (iy*(2*lmax + 3 - iy)) >> 1;
+                                auto const Hy = H1D[iy][1][y4]; // load Hy
+                                for (int ix = 0; ix <= lmax - iy; ++ix) { // loop over the 1st Cartesian SHO quantum number
+                                    byx[iyx0 + ix] += ax[ix] * Hy;
+                                } // ix
+                            } // iy
+                        } // inside mask y
+                    } // y4
+                    for (int isho = 0, iz = 0; iz <= lmax; ++iz) { // loop over the 3rd Cartesian SHO quantum number
+                        auto const Hz = H1D[iz][2][z4]; // load Hz
+                        for (int iy = 0; iy <= lmax - iz; ++iy) { // loop over the 2nd Cartesian SHO quantum number
+                            int const iyx0 = (iy*(2*lmax + 3 - iy)) >> 1;
+                            for (int ix = 0; ix <= lmax - iz - iy; ++ix) { // loop over the 1st Cartesian SHO quantum number
+                                czyx[isho] += byx[iyx0 + ix] * Hz; // form <p|G|p>
+                                ++isho;
+                            } // ix
+                        } // iy
+                    } // iz
+                } // inside mask z
+            } // z4
+
+        } // irhs
+
+        for (int isho = 0; isho < nSHO; ++isho) {
+            piGp[((isho*nSHO + jsho)*Noco + spin)*Noco + spjn] = czyx[isho]; // TODO: inefficient memory access to piGp, maybe move jsho, spin, spjn loops to inside
+        } // isho
+
+        } // jsho
+        } // spjn
+        } // spin
+
+            auto const iatom = AtomImageIndex[iai];
+            assert(nSHO*nSHO*Noco*Noco == pGp[iatom].size() && "Inconsistency between AtomLmax[:] and AtomImageLmax[AtomImageIndex[:]]");
+            auto const phase = AtomImagePhase[iai];
+            auto const ph = complex_t(phase[0], phase[1]); // Block phase factor, ToDo: needs a conjugation here?, how to deal with spin?
+            for (int ij = 0; ij < nSHO*nSHO*Noco*Noco; ++ij) {
+                complex_t const c = piGp[ij] * ph; // complex multiplication
+                pGp[iatom][ij] += c.imag()*factor; // add only the imaginary part, accumulate over images of the same atom
+            } // ij
+
+        } // iai
+
+        return pGp;
+    } // SHOprj_left
+
+
+
     template <typename real_t, int R1C2=2, int Noco=1>
-    std::vector<std::vector<double>> get_projection_coefficients(
+    std::vector<std::vector<double>> get_projection_coefficients( // result: atomic density matrices
           real_t   const (*const __restrict__ Green)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks [nnzb][R1C2][Noco*64][Noco*64]
         , dyadic_plan_t const & p
         , uint32_t const (*const __restrict__ RowIndexCubes) // Green functions rowIndex[nnzb]
@@ -1066,10 +1200,10 @@ namespace green_dyadic {
         , float    const (*const __restrict__ colCubePos)[3+1] // cube positions +alignment of col indices
         , int const echo=0 // log-level
     )
-    // The typical projection operation of green_dyadic is SHOprj, however,
-    // SHOprj contracts the localized Gauss-Hermite functions with the left Green function index.
-    // This function calls green_projection::SHOprj projecting onto the right Green function index
-    // which is necessary to find atomic density matrices.
+        // The typical projection operation of green_dyadic is SHOprj, however,
+        // SHOprj_left contracts the localized Gauss-Hermite functions with the left Green function index.
+        // This function calls green_projection::SHOprj projecting onto the right Green function index
+        // which is necessary to find atomic density matrices.
     {
         if (echo > 0) std::printf("# %s\n", __func__);
         size_t const ncoeffs = p.AtomStarts[p.nAtoms];
@@ -1081,10 +1215,10 @@ namespace green_dyadic {
         assert(0 == nflop);
         if (echo > 3) std::printf("# %s from projected Green function\n", __func__);
         assert(p.nAtomImages == p.nAtoms && "reduction over Bloch phases not yet implemented!");
-        auto const result = green_projection::SHOprj(Cpr_export, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.AtomImageIndex,
-                                    p.AtomImagePhase, p.nAtomImages, p.AtomLmax, p.nAtoms, colCubePos, p.grid_spacing, p.nrhs, echo);
+        auto const result = SHOprj_left(Cpr_export, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.AtomImageIndex,
+                                p.AtomImagePhase, p.nAtomImages, p.AtomLmax, p.nAtoms, colCubePos, p.grid_spacing, p.nrhs, echo);
         free_memory(Cpr_export);
-        // now what's missing is an MPI_Allreduce onto each atom's matrix
+        warn("missing is an MPI_Allreduce onto each atom matrix for %d atoms", int(p.nAtoms));
         return result;
     } // get_projection_coefficients
 
@@ -1115,6 +1249,14 @@ namespace green_dyadic {
         }
         return vec;
     } // sho_normalization
+
+
+
+
+
+
+
+
 
 
 #ifdef  NO_UNIT_TESTS
