@@ -1150,11 +1150,12 @@ namespace green_dyadic {
                 R2_projection = Hermite_polynomials_1D(H1D, xi_squared, i12, lmax, AtomImagePos[iai], colCubePos[irhs], hGrid);
             } // i12
 
+            int constexpr X=0, Y=1, Z=2;
             if (echo > 16) std::printf("# %s  iai=%d, iatom=%d, lmax=%d, irhs=%d, R^2=%g, H0= %g %g %g\n",
-                __func__, iai, AtomImageIndex[iai], lmax, irhs, R2_projection, H1D[0][0][0], H1D[0][1][0], H1D[0][2][0]);
+                __func__, iai, AtomImageIndex[iai], lmax, irhs, R2_projection, H1D[0][X][0], H1D[0][Y][0], H1D[0][Z][0]);
 
             for (int z4 = 0; z4 < 4; ++z4) { // loop over real-space grid in z-direction
-                auto const d2z = xi_squared[2][z4] - R2_projection;
+                auto const d2z = xi_squared[Z][z4] - R2_projection;
                 if (d2z < 0) {
                     std::vector<complex_t> byx(n2HO, zero);
                     for (int y4 = 0; y4 < 4; ++y4) { // loop over real-space grid in y-direction
