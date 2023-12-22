@@ -29,6 +29,7 @@
 
 namespace green_dyadic {
 
+    int constexpr X = 0, Y = 1, Z = 2;
 
     template <typename real_t>
     float __host__ __device__
@@ -216,7 +217,7 @@ namespace green_dyadic {
 
 
             for (int z = 0; z < 4; ++z) { // loop over real-space grid in z-direction
-                auto const d2z = xi_squared[2][z] - R2_proj;
+                auto const d2z = xi_squared[Z][z] - R2_proj;
                 if (d2z < 0) {
 
                     real_t byx[sho_tools::n2HO(Lmax)];
@@ -225,7 +226,7 @@ namespace green_dyadic {
                     } // iyx
 
                     for (int y = 0; y < 4; ++y) { // loop over real-space grid in y-direction
-                        auto const d2yz = xi_squared[1][y] + d2z;
+                        auto const d2yz = xi_squared[Y][y] + d2z;
                         if (d2yz < 0) {
 
                             real_t ax[Lmax + 1];
@@ -235,12 +236,12 @@ namespace green_dyadic {
 
                             // __unroll__
                             for (int x = 0; x < 4; ++x) { // loop over real-space grid in x-direction
-                                auto const d2xyz = xi_squared[0][x] + d2yz;
+                                auto const d2xyz = xi_squared[X][x] + d2yz;
                                 if (d2xyz < 0) {
                                     int const xyz = (z*4 + y)*4 + x;
                                     real_t const ps = Psi[inzb][reim][spin*64 + xyz][j]; // load from global memory
                                     for (int ix = 0; ix <= lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
-                                        auto const Hx = H1D[ix][0][x]; // load Hx from shared memory
+                                        auto const Hx = H1D[ix][X][x]; // load Hx from shared memory
                                         ax[ix] += ps * Hx; // FMA: 2 flop * 4**3 * (L+1)
                                     } // ix
                                 } // inside mask
@@ -248,7 +249,7 @@ namespace green_dyadic {
 
                             for (int iy = 0; iy <= lmax; ++iy) { // loop over the 2nd Cartesian SHO quantum number
                                 int const iyx0 = (iy*(2*lmax + 3 - iy)) >> 1;
-                                auto const Hy = H1D[iy][1][y]; // load Hy from shared memory
+                                auto const Hy = H1D[iy][Y][y]; // load Hy from shared memory
                                 for (int ix = 0; ix <= lmax - iy; ++ix) { // loop over the 1st Cartesian SHO quantum number
                                     byx[iyx0 + ix] += ax[ix] * Hy; // FMA: 2 flop * 4**2 * ((L+1)*(L+2))/2
                                 } // ix
@@ -258,7 +259,7 @@ namespace green_dyadic {
                     } // y
 
                     for (int sho = 0, iz = 0; iz <= lmax; ++iz) { // loop over the 3rd Cartesian SHO quantum number
-                        auto const Hz = H1D[iz][2][z]; // load Hz from shared memory
+                        auto const Hz = H1D[iz][Z][z]; // load Hz from shared memory
                         for (int iy = 0; iy <= lmax - iz; ++iy) { // loop over the 2nd Cartesian SHO quantum number
                             int const iyx0 = (iy*(2*lmax + 3 - iy)) >> 1;
                             for (int ix = 0; ix <= lmax - iz - iy; ++ix) { // loop over the 1st Cartesian SHO quantum number
@@ -451,14 +452,14 @@ namespace green_dyadic {
                         ++sho;
                         // __unroll__
                         for (int x = 0; x < 4; ++x) {
-                            real_t const Hx = H1D[ix][0][x]; // load Hx from shared memory
+                            real_t const Hx = H1D[ix][X][x]; // load Hx from shared memory
                             ax[x] += Hx * ca; // FMA: 2 flop * 4 * (L+1)*(L+2)*(L+3)/6
                         } // x
                     } // ix
 
                     // __unroll__
                     for (int y = 0; y < 4; ++y) {
-                        real_t const Hy = H1D[iy][1][y]; // load Hy from shared memory
+                        real_t const Hy = H1D[iy][Y][y]; // load Hy from shared memory
                         // __unroll__
                         for (int x = 0; x < 4; ++x) {
                             byx[y][x] += Hy * ax[x]; // FMA: 2 flop * 4**2 * (L+1)*(L+2)/2
@@ -470,16 +471,16 @@ namespace green_dyadic {
                 int64_t mask_atom{0}; // occupy 2 GPU registers
                 // __unroll__
                 for (int z = 0; z < 4; ++z) {
-                    real_t const Hz = H1D[iz][2][z]; // load Hz from shared memory
-                    auto const d2z = xi_squared[2][z] - R2_proj;
+                    real_t const Hz = H1D[iz][Z][z]; // load Hz from shared memory
+                    auto const d2z = xi_squared[Z][z] - R2_proj;
                     if (d2z < 0) {
                         // __unroll__
                         for (int y = 0; y < 4; ++y) {
-                            auto const d2yz = xi_squared[1][y] + d2z;
+                            auto const d2yz = xi_squared[Y][y] + d2z;
                             if (d2yz < 0) {
                                 // __unroll__
                                 for (int x = 0; x < 4; ++x) {
-                                    auto const d2xyz = xi_squared[0][x] + d2yz;
+                                    auto const d2xyz = xi_squared[X][x] + d2yz;
                                     if (d2xyz < 0) {
                                         czyx[z][y][x] += Hz * byx[y][x]; // FMA: 2 flop * 4**3 * (L+1) are these real flops?
                                         int const xyz = (z*4 + y)*4 + x;
@@ -1150,7 +1151,6 @@ namespace green_dyadic {
                 R2_projection = Hermite_polynomials_1D(H1D, xi_squared, i12, lmax, AtomImagePos[iai], colCubePos[irhs], hGrid);
             } // i12
 
-            int constexpr X=0, Y=1, Z=2;
             if (echo > 16) std::printf("# %s  iai=%d, iatom=%d, lmax=%d, irhs=%d, R^2=%g, H0= %g %g %g\n",
                 __func__, iai, AtomImageIndex[iai], lmax, irhs, R2_projection, H1D[0][X][0], H1D[0][Y][0], H1D[0][Z][0]);
 
@@ -1159,24 +1159,24 @@ namespace green_dyadic {
                 if (d2z < 0) {
                     std::vector<complex_t> byx(n2HO, zero);
                     for (int y4 = 0; y4 < 4; ++y4) { // loop over real-space grid in y-direction
-                        auto const d2yz = xi_squared[1][y4] + d2z;
+                        auto const d2yz = xi_squared[Y][y4] + d2z;
                         if (d2yz < 0) {
                             std::vector<complex_t> ax(n1HO, zero);
                             for (int x4 = 0; x4 < 4; ++x4) { // loop over real-space grid in x-direction
-                                auto const d2xyz = xi_squared[0][x4] + d2yz;
+                                auto const d2xyz = xi_squared[X][x4] + d2yz;
                                 if (d2xyz < 0) {
                                     int const xyz = (z4*4 + y4)*4 + x4;
                                     int constexpr RealPart = 0, ImagPart= R1C2 - 1;
                                     auto const pG = complex_t(pGreen[(a0 + isho)*nrhs + irhs][RealPart][spin][spjn*64 + xyz],  // load Re{<p|G}
                                                               pGreen[(a0 + isho)*nrhs + irhs][ImagPart][spin][spjn*64 + xyz]); // load Im{<p|G}
                                     for (int ix = 0; ix <= lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
-                                        ax[ix] += pG * H1D[ix][0][x4];
+                                        ax[ix] += pG * H1D[ix][X][x4];
                                     } // ix
                                 } // inside mask x
                             } // x4
                             for (int iy = 0; iy <= lmax; ++iy) { // loop over the 2nd Cartesian SHO quantum number
                                 int const iyx0 = (iy*(2*lmax + 3 - iy)) >> 1;
-                                auto const Hy = H1D[iy][1][y4]; // load Hy
+                                auto const Hy = H1D[iy][Y][y4]; // load Hy
                                 for (int ix = 0; ix <= lmax - iy; ++ix) { // loop over the 1st Cartesian SHO quantum number
                                     byx[iyx0 + ix] += ax[ix] * Hy;
                                 } // ix
@@ -1184,7 +1184,7 @@ namespace green_dyadic {
                         } // inside mask y
                     } // y4
                     for (int jsho = 0, iz = 0; iz <= lmax; ++iz) { // loop over the 3rd Cartesian SHO quantum number
-                        auto const Hz = H1D[iz][2][z4]; // load Hz
+                        auto const Hz = H1D[iz][Z][z4]; // load Hz
                         for (int iy = 0; iy <= lmax - iz; ++iy) { // loop over the 2nd Cartesian SHO quantum number
                             int const iyx0 = (iy*(2*lmax + 3 - iy)) >> 1;
                             for (int ix = 0; ix <= lmax - iz - iy; ++ix) { // loop over the 1st Cartesian SHO quantum number
@@ -1449,7 +1449,8 @@ namespace green_dyadic {
           } // isho
           if (echo > 5) std::printf("\n");
       } // scope
-      if (echo > 2) std::printf("# %s<%s> orthogonality error %.2e, normalization error %.2e\n", __func__, real_t_name<real_t>(), maxdev[0], maxdev[1]);
+      if (echo > 2) std::printf("# %s<%s,R1C2=%d,Noco=%d> orthogonality error %.2e, normalization error %.2e\n",
+                                   __func__, real_t_name<real_t>(), R1C2, Noco, maxdev[0], maxdev[1]);
       if (echo > 5) {
           for (int nu = 0; nu < std::min(8, lmax + 1); ++nu) {
               std::printf("# %s  nu=%d  %.2e  %.2e\n", real_t_name<real_t>(), nu, maxdev_nu[nu][0], maxdev_nu[nu][1]);
