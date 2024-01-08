@@ -14,7 +14,7 @@
 #include "unit_system.hxx" // Ang, _Ang
 #include "sho_tools.hxx" // ::nn_max, ::nSHO_radial
 #include "scattering_test.hxx" // ::expand_sho_projectors
-#include "radial_grid.hxx" // radial_grid_t, ::create_radial_grid, ::destroy_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid, ::equation_equidistant
 
 #ifdef    HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
@@ -61,7 +61,7 @@ namespace sho_basis {
 
       char const ellchar[] = "spdfgh?";
 
-      auto rg = *radial_grid::create_radial_grid(256, 10.f, '='); // for display
+      auto rg = *radial_grid::create_radial_grid(256, 10.f, radial_grid::equation_equidistant); // for display
 
       std::vector<std::vector<std::vector<double>>> all_coeffs;
       std::vector<double> all_sigma;
@@ -69,40 +69,42 @@ namespace sho_basis {
       std::vector<std::vector<int8_t>> all_ells, all_enns;
       
       // check all bases
-      for (auto atomic = main_node->first_node("atomic"); atomic; atomic = atomic->next_sibling()) {
-//        if (echo > 0) std::printf("# %s atomic= %p\n", __func__, (void*)atomic);
-          auto const symbol =          (xml_reading::find_attribute(atomic, "symbol", "?"));
-          auto const Z      = std::atof(xml_reading::find_attribute(atomic, "Z",     "-9"));
-          auto const numax  = std::atoi(xml_reading::find_attribute(atomic, "numax", "-1"));
-          auto const sigma  = std::atof(xml_reading::find_attribute(atomic, "sigma",  "0"));
-          if (echo > 0) std::printf("# %s symbol= %s Z= %g numax= %d sigma= %g %s\n", __func__, symbol, Z, numax, sigma*Ang, _Ang);
+      for (auto species = main_node->first_node("species"); species; species = species->next_sibling()) {
+//        if (echo > 0) std::printf("# %s species= %p\n", __func__, (void*)species);
+          auto const symbol =          (xml_reading::find_attribute(species, "symbol", "?"));
+          auto const Z      = std::atof(xml_reading::find_attribute(species, "Z",     "-9"));
 
-          std::vector<std::vector<double>> coeffs;
-          std::vector<int8_t> enns, ells;
-          for (auto wave = atomic->first_node("wave"); wave; wave = wave->next_sibling()) {
-              int const enn = std::atoi(xml_reading::find_attribute(wave, "n",  "0"));
-              int const ell = std::atoi(xml_reading::find_attribute(wave, "l", "-1"));
-              assert(ell >= 0);
-              assert(enn > ell);
-              size_t const n_expect = sho_tools::nn_max(numax, ell);
-              auto const vec = xml_reading::read_sequence<double>(wave->value(), echo, n_expect);
-              if (echo > 0) std::printf("# %s   %s-%d%c  (%ld of %ld elements)\n", __func__, symbol, enn, ellchar[ell], vec.size(), n_expect);
-              assert(n_expect == vec.size());
-              enns.push_back(enn);
-              ells.push_back(ell);
-              coeffs.push_back(vec);
-          } // wave
+          for (auto set = species->first_node("set"); set; set = set->next_sibling()) {          
+              auto const numax  = std::atoi(xml_reading::find_attribute(set, "numax", "-1"));
+              auto const sigma  = std::atof(xml_reading::find_attribute(set, "sigma",  "0"));
+              if (echo > 0) std::printf("# %s symbol= %s Z= %g numax= %d sigma= %g %s\n", __func__, symbol, Z, numax, sigma*Ang, _Ang);
 
-          all_coeffs.push_back(coeffs);
-          all_numax.push_back(numax);
-          all_sigma.push_back(sigma);
-          all_ells.push_back(ells);
-          all_enns.push_back(enns);
+              std::vector<std::vector<double>> coeffs;
+              std::vector<int8_t> enns, ells;
+              for (auto wave = set->first_node("wave"); wave; wave = wave->next_sibling()) {
+                  int const enn = std::atoi(xml_reading::find_attribute(wave, "n",  "0"));
+                  int const ell = std::atoi(xml_reading::find_attribute(wave, "l", "-1"));
+                  assert(ell >= 0);
+                  assert(enn > ell);
+                  size_t const n_expect = sho_tools::nn_max(numax, ell);
+                  auto const vec = xml_reading::read_sequence<double>(wave->value(), echo, n_expect);
+                  if (echo > 0) std::printf("# %s   %s-%d%c  (%ld of %ld elements)\n", __func__, symbol, enn, ellchar[ell], vec.size(), n_expect);
+                  assert(n_expect == vec.size());
+                  enns.push_back(enn);
+                  ells.push_back(ell);
+                  coeffs.push_back(vec);
+              } // wave
 
-//        if (echo > 0) std::printf("# %s atomic->next_sibling= %p\n", __func__, (void*)atomic->next_sibling());
+              all_coeffs.push_back(coeffs);
+              all_numax.push_back(numax);
+              all_sigma.push_back(sigma);
+              all_ells.push_back(ells);
+              all_enns.push_back(enns);
+
+          } // set
       } // atomic
 
-      
+      // plot the basis functions
       for (int k = 0; k < all_coeffs.size(); ++k) {
           auto const & coeffs = all_coeffs[k];
           auto const numax  = all_numax[k];
@@ -139,9 +141,19 @@ namespace sho_basis {
                   std::printf("\n\n");
               } // echo
           } // plot
-          
+
       } // k
-      
+
+
+      // Idea: create a coefficient matrix that holds the wave functions coefficients.
+      //       Modify the module sho_hamiltonian to incorporate such a matrix
+      //       which defaults to unity if no basis file is specified.
+      //       Perform the solving in that basis to make a cheap method possible
+      //       e.g. for molecules.
+      //       The coefficient matrix includes the Cartesian to Radial sho_transform so we can label the 
+      //       basis functions with sharp n,l,m-quantum numbers
+
+
       radial_grid::destroy_radial_grid(&rg);
 
       return 0;
@@ -163,7 +175,7 @@ namespace sho_basis {
 
       return stat;
   } // test_load
-  
+
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_load(echo);

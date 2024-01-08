@@ -4215,81 +4215,82 @@ namespace single_atom {
         int const numax_max = std::min(control::get("single_atom.fit.basis.numax", -1.), 19.);
         if (numax_max < numax) return;
 
-        auto const extra_weight = control::get("single_atom.fit.basis.weight", 0.); // careful about negative weights! they may deavtivate that wave
+        auto const extra_weight = control::get("single_atom.fit.basis.weight", 0.); // careful about negative weights! they may deactivate waves
 
         if (echo > 1) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
 
         int const nln = sho_tools::nSHO_radial(numax);
-        std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive basis functions
+        std::vector<double> wgt_ln(nln, -99.); // init with negative weights for inactive basis functions
         view2D<double> rwave(nln, align<2>(rg[SMT].n), 0.0);
         for (int iln = 0; iln < nln; ++iln) {
             double const *const wave = partial_wave[iln].wave[SMT];
-            if (wave) {
-                occ_ln[iln] = partial_wave[iln].occupation + extra_weight;
+            if (nullptr != wave) {
+                wgt_ln[iln] = partial_wave[iln].occupation + extra_weight;
+                // radial wave is r*smooth partial wave
                 product(rwave[iln], rg[SMT].n, rg[SMT].r, wave);
             } // wave
         } // iln
 
         // export into XML format
-        auto const *filename = "pseudo_basis.xml";
-        auto *const f = std::fopen(filename, "w");
-        if (f) {
+        auto const *const filename = "pseudo_basis.xml";
+        auto *const xml = std::fopen(filename, "w");
+        if (xml) {
             // XML file header
-            std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
-            std::fprintf(f, "<basis version=\"%.1f\">\n", 0.0);
-            std::fprintf(f, "  <!-- Radial pseudo basis functions expanded in SHO basis -->\n");
-            std::fprintf(f, "  <!-- SHO spread sigma in units of Bohr radii -->\n");
-        } // f
+            std::fprintf(xml, "<?xml version=\"%.1f\"?>\n", 1.0);
+            std::fprintf(xml, "<basis version=\"%.1f\">\n", 0.1);
+            std::fprintf(xml, "  <!-- Radial pseudo basis functions expanded in SHO basis -->\n");
+            std::fprintf(xml, "  <!-- SHO spread sigma in units of Bohr radii -->\n\n");
+            std::fprintf(xml, "  <species symbol=\"%s\" Z=\"%g\" extra_weight=\"%g\">\n",
+                                                 label, Z_core,  extra_weight);
+        } // xml
 
         for (int numax_basis = numax; numax_basis <= numax_max; ++numax_basis) {
 
             view2D<double> wave_coeff(nln, 32, 0.0);
-            double const sigma_out = fit_function_set( // returns optimized sigma
+            auto const sigma_out = fit_function_set( // returns optimized sigma
                 wave_coeff // resulting coefficients
               , numax // nln(numax) determines how many radial functions at most
-              , occ_ln.data() // optimization weights
+              , wgt_ln.data() // [nln] optimization weights
               , rg[SMT] // radial grid descriptor, typically the smooth grid
               , rwave // r*functions(numerical), rfunc(nln,>= rg.n)
               , sigma_basis // input SHO spread
               , numax_basis // SHO basis size
-              , 4.0 // range from 25% to 400%
+              , 4.0 // search range from 25% to 400%
               , "pseudo basis" // what
               , label // log-prefix
-              , echo); // log-level
+              , echo - 4); // log-level
 
-            if (echo > 0) std::printf("# %s %s optimized sigma= %g %s for numax= %d\n", label, __func__, sigma_out*Ang, _Ang, numax_basis);
+            if (echo > 0) std::printf("# %s %s optimized sigma= %.6f %s for numax= %d\n", label, __func__, sigma_out*Ang, _Ang, numax_basis);
 
-            if (f) {
-                // XML file body
-                std::fprintf(f, "  <atomic symbol=\"%s\" Z=\"%g\" numax=\"%d\" sigma=\"%.9f\">\n",
-                                                  label,  Z_core, numax_basis, sigma_out);
+            if (xml) { // XML file body
+                std::fprintf(xml, "  <set numax=\"%d\" sigma=\"%.9f\">\n", numax_basis, sigma_out);
                 for (int iln = 0; iln < nln; ++iln) {
                     auto const & vs = partial_wave[iln];
-                    if (vs.wave[SMT]) {
-                        std::fprintf(f, "    <wave id=\"%s\" n=\"%d\" l=\"%d\" f=\"%g\"> ",
-                                                    vs.tag, vs.enn, vs.ell, occ_ln[iln]);
+                    if (nullptr != vs.wave[SMT]) {
+                        std::fprintf(xml, "      <wave id=\"%s\" n=\"%d\" l=\"%d\" f=\"%g\">",
+                                                       vs.tag, vs.enn, vs.ell, vs.occupation);
                         int const n_coeff = sho_tools::nn_max(numax_basis, vs.ell);
-                        double const norm2 = dot_product(n_coeff, wave_coeff[iln], wave_coeff[iln]);
-                        double const normf = (norm2 > 0) ? 1./std::sqrt(norm2) : 1;
+                        auto const norm2 = dot_product(n_coeff, wave_coeff[iln], wave_coeff[iln]);
+                        auto const normf = (norm2 > 0) ? 1./std::sqrt(norm2) : 1;
                         for (int jrn = 0; jrn < n_coeff; ++jrn) {
-                            std::fprintf(f, " %.12f", wave_coeff(iln,jrn)*normf);
+                            std::fprintf(xml, " %.12f", wave_coeff(iln,jrn)*normf);
                         } // jrn
-                        std::fprintf(f, " </wave>\n");
+                        std::fprintf(xml, "   </wave>\n");
                     } // wave
                 } // iln
-                std::fprintf(f, "  </atomic>\n");
-            } // f
+                std::fprintf(xml, "  </set>\n");
+            } // xml
 
         } // sigma_numax
 
-        if (f) {
-            // XML file footer
-            std::fprintf(f, "</basis>\n");
-            std::fclose(f);
-            if (echo > 0) std::printf("# %s exported \'%s\'\n", label, filename);
+        if (xml) { // XML file footer
+            std::fprintf(xml, "  </species>\n");
+            std::fprintf(xml, "</basis>\n");
+            std::fclose(xml);
+            if (echo > 0) std::printf("# %s exported to \'%s\'\n", label, filename);
         } else {
             warn("%s failed to open file \'%s\' for export", label, filename);
-        } // f
+        } // xml
 
     } // fit_basis_functions
 

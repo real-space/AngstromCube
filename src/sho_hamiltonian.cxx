@@ -92,7 +92,7 @@ namespace sho_hamiltonian {
       , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
       , int const echo=0 // log-level
   ) {
-      using real_t = decltype(std::real(complex_t(1))); // base type
+      using real_t = decltype(std::real(complex_t(1))); // base type of complex_t
 
       status_t stat(0);
 #ifdef DEVEL
@@ -175,18 +175,18 @@ namespace sho_hamiltonian {
 
       // allocate bulk memory for overlap and Hamiltonian
       view3D<complex_t> HSm(2, nB, nBa, complex_t(0)); // get memory for 1:Overlap S and 0:Hamiltonian matrix H
-      
-#ifdef DEVEL
+
+#ifdef    DEVEL
       double const scale_k = control::get("hamiltonian.scale.kinetic", 1.0);
       if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
       real_t const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.0);
       real_t const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.0);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
-#else
+#else  // DEVEL
       real_t constexpr scale_h = 1, scale_s = 1;
       double constexpr scale_k = 1;
 #endif // DEVEL
-      double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
+      double const kinetic_prefactor = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
 
       // we construct sub-views to the blocks for each atom pair
       std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // <\chi3D_i| 1 + s_PAW |\chi3D_j>
@@ -200,6 +200,7 @@ namespace sho_hamiltonian {
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
           int const nb_ia = sho_tools::nSHO(numaxs[ia]);
           for (int ja = 0; ja < natoms; ++ja) {
+
               S_iaja[ia][ja] = view2D<complex_t>(&(HSm(S,offset[ia],offset[ja])), HSm.stride()); // wrapper to sub-blocks of the overlap matrix
               H_iaja[ia][ja] = view2D<complex_t>(&(HSm(H,offset[ia],offset[ja])), HSm.stride()); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j   = sho_tools::n1HO(numaxs[ja]);
@@ -223,7 +224,7 @@ namespace sho_hamiltonian {
                   } // d
 
                   // add the kinetic energy contribution
-                  stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], ovl1Dm, nabla2,                      numaxs[ia], numaxs[ja], phase, kinetic);
+                  stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], ovl1Dm, nabla2,                      numaxs[ia], numaxs[ja], phase, kinetic_prefactor);
 
                   // add the contribution of the local potential
                   stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja], phase);
@@ -246,8 +247,8 @@ namespace sho_hamiltonian {
                           complex_t s(0), h(0);
                           for (int lb = 0; lb < nb_la; ++lb) { // contract
                               auto const p = conjugate(P_jala[ja][la](jb,lb)); // needs a conjugation if complex
-                              s += Psh_iala[ia][la](0,ib,lb) * p;
-                              h += Psh_iala[ia][la](1,ib,lb) * p;
+                              s += Psh_iala[ia][la](S,ib,lb) * p;
+                              h += Psh_iala[ia][la](H,ib,lb) * p;
                           } // lb
                           S_iaja[ia][ja](ib,jb) += s * scale_s;
                           H_iaja[ia][ja](ib,jb) += h * scale_h;
@@ -261,7 +262,7 @@ namespace sho_hamiltonian {
       Psh_iala.clear(); // release the memory, P_jala is still needed for the generation of density matrices
       S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
-      return dense_solver::solve(HSm, x_axis, echo);
+      return dense_solver::solve(HSm, x_axis, echo); // will also display the spectrum
   } // solve_k
 
 
@@ -272,7 +273,7 @@ namespace sho_hamiltonian {
 
   status_t solve(
         int const natoms // number of SHO basis centers
-      , view2D<double> const & xyzZ // (natoms, 4)
+      , view2D<double> const & xyzZ // (natoms,4+)
       , real_space::grid_t const & g // Cartesian grid descriptor for vtot
       , double const *const vtot // total effective potential on grid
       , int const nkpoints
@@ -290,9 +291,10 @@ namespace sho_hamiltonian {
       auto const usual_sigma = control::get("sho_hamiltonian.test.sigma", .5);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
+#if 0
       double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
-
+#endif // 0
 
       std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
       int total_basis_size{0}, maximum_numax{-1};
@@ -306,7 +308,7 @@ namespace sho_hamiltonian {
           maximum_numax = std::max(maximum_numax, numaxs[ia]);
           maximum_sigma = std::max(maximum_sigma, sigmas[ia]);
           offset[ia] = total_basis_size; // prefix sum
-          total_basis_size += atom_basis_size;
+          total_basis_size += std::max(0, atom_basis_size);
       } // ia
       int const numax_max = maximum_numax;
       if (echo > 5) std::printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
@@ -330,6 +332,16 @@ namespace sho_hamiltonian {
           int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
           if (atom_mat) {
               hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap input
+              if (echo > 4) {
+                  std::printf("# PAW center #%i\n", ka);
+                  for (int kb = 0; kb < nb_ka; ++kb) {
+                      std::printf("# %3i \t", kb);
+                      for (int lb = 0; lb < nb_ka; ++lb) { std::printf(" %.6f", hs_PAW[ka](0,kb,lb)); }
+                      std::printf(" \t\t");
+                      for (int lb = 0; lb < nb_ka; ++lb) { std::printf(" %.6f", hs_PAW[ka](1,kb,lb)); }
+                      std::printf("\n");
+                  } // kb
+              } // echo
           } else {
               hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
           } // atom_mat
@@ -542,10 +554,10 @@ namespace sho_hamiltonian {
       bool const single_precision = (32 == floating_point_bits);
       simple_stats::Stats<> time_stats;
       for (int ikp = 0; ikp < nkpoints; ++ikp) {
-          std::complex<double> constexpr minus_one = -1;
-          std::complex<double> const Bloch_phase[3] = {std::pow(minus_one, 2*kmesh(ikp,0))
-                                                     , std::pow(minus_one, 2*kmesh(ikp,1))
-                                                     , std::pow(minus_one, 2*kmesh(ikp,2))};
+          auto constexpr imag1 = std::complex<double>(0,1);
+          std::complex<double> const Bloch_phase[3] = {std::pow(imag1, kmesh(ikp,0))
+                                                     , std::pow(imag1, kmesh(ikp,1))
+                                                     , std::pow(imag1, kmesh(ikp,2))};
           char x_axis[96]; std::snprintf(x_axis, 96, "# %g %g %g spectrum ", kmesh(ikp,0), kmesh(ikp,1), kmesh(ikp,2));
           double Bloch_phase_real[3];
           bool can_be_real{true};
@@ -569,7 +581,7 @@ namespace sho_hamiltonian {
               stat += single_precision ?
                   solve_k<std::complex<float>>  SOLVE_K_ARGS(Bloch_phase):
                   solve_k<std::complex<double>> SOLVE_K_ARGS(Bloch_phase);
-          } // !can_be_real
+          } // can_be_real
           #undef SOLVE_K_ARGS
           time_stats.add(timer.stop());
           if (echo > 0) fflush(stdout);
