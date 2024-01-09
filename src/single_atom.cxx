@@ -4220,12 +4220,12 @@ namespace single_atom {
         if (echo > 1) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
 
         int const nln = sho_tools::nSHO_radial(numax);
-        std::vector<double> wgt_ln(nln, -99.); // init with negative weights for inactive basis functions
+        std::vector<double> weight_ln(nln, -99.); // init with negative optimization weights for inactive basis functions
         view2D<double> rwave(nln, align<2>(rg[SMT].n), 0.0);
         for (int iln = 0; iln < nln; ++iln) {
             double const *const wave = partial_wave[iln].wave[SMT];
             if (nullptr != wave) {
-                wgt_ln[iln] = partial_wave[iln].occupation + extra_weight;
+                weight_ln[iln] = partial_wave[iln].occupation + extra_weight;
                 // radial wave is r*smooth partial wave
                 product(rwave[iln], rg[SMT].n, rg[SMT].r, wave);
             } // wave
@@ -4250,7 +4250,7 @@ namespace single_atom {
             auto const sigma_out = fit_function_set( // returns optimized sigma
                 wave_coeff // resulting coefficients
               , numax // nln(numax) determines how many radial functions at most
-              , wgt_ln.data() // [nln] optimization weights
+              , weight_ln.data() // [nln] optimization weights
               , rg[SMT] // radial grid descriptor, typically the smooth grid
               , rwave // r*functions(numerical), rfunc(nln,>= rg.n)
               , sigma_basis // input SHO spread

@@ -69,31 +69,38 @@ namespace sho_basis {
       std::vector<std::vector<int8_t>> all_ells, all_enns;
       
       // check all bases
+      int n_species{0};
       for (auto species = main_node->first_node("species"); species; species = species->next_sibling()) {
 //        if (echo > 0) std::printf("# %s species= %p\n", __func__, (void*)species);
-          auto const symbol =          (xml_reading::find_attribute(species, "symbol", "?"));
-          auto const Z      = std::atof(xml_reading::find_attribute(species, "Z",     "-9"));
+          auto const symbol =      xml_reading::find_attribute(species, "symbol", "?");
+          auto const Z = std::atof(xml_reading::find_attribute(species, "Z", "-9"));
 
-          for (auto set = species->first_node("set"); set; set = set->next_sibling()) {          
-              auto const numax  = std::atoi(xml_reading::find_attribute(set, "numax", "-1"));
-              auto const sigma  = std::atof(xml_reading::find_attribute(set, "sigma",  "0"));
-              if (echo > 0) std::printf("# %s symbol= %s Z= %g numax= %d sigma= %g %s\n", __func__, symbol, Z, numax, sigma*Ang, _Ang);
+          int n_sets{0};
+          for (auto set = species->first_node("set"); set; set = set->next_sibling()) {
+              auto const numax = std::atoi(xml_reading::find_attribute(set, "numax", "-1"));
+              auto const sigma = std::atof(xml_reading::find_attribute(set, "sigma",  "0"));
+              if (echo > 5) std::printf("\n# %s symbol= %s Z= %g numax= %d sigma= %g %s\n", __func__, symbol, Z, numax, sigma*Ang, _Ang);
 
               std::vector<std::vector<double>> coeffs;
               std::vector<int8_t> enns, ells;
+              int n_waves{0}, n_basis{0};
               for (auto wave = set->first_node("wave"); wave; wave = wave->next_sibling()) {
-                  int const enn = std::atoi(xml_reading::find_attribute(wave, "n",  "0"));
-                  int const ell = std::atoi(xml_reading::find_attribute(wave, "l", "-1"));
+                  auto const enn = std::atoi(xml_reading::find_attribute(wave, "n",  "0"));
+                  auto const ell = std::atoi(xml_reading::find_attribute(wave, "l", "-1"));
                   assert(ell >= 0);
                   assert(enn > ell);
                   size_t const n_expect = sho_tools::nn_max(numax, ell);
-                  auto const vec = xml_reading::read_sequence<double>(wave->value(), echo, n_expect);
-                  if (echo > 0) std::printf("# %s   %s-%d%c  (%ld of %ld elements)\n", __func__, symbol, enn, ellchar[ell], vec.size(), n_expect);
+                  auto const vec = xml_reading::read_sequence(wave->value(), echo, n_expect);
+                  if (echo > 7) std::printf("# %s   %s-%d%c  (%ld of %ld elements)\n", __func__, symbol, enn, ellchar[ell], vec.size(), n_expect);
                   assert(n_expect == vec.size());
                   enns.push_back(enn);
                   ells.push_back(ell);
                   coeffs.push_back(vec);
+                  ++n_waves;
+                  n_basis += (2*ell + 1);
               } // wave
+              if (echo > 3) std::printf("# %s symbol= %s Z= %g numax= %d sigma= %g %s has %d radial, %d basis functions\n",
+                                            __func__, symbol, Z, numax, sigma*Ang, _Ang, n_waves, n_basis);
 
               all_coeffs.push_back(coeffs);
               all_numax.push_back(numax);
@@ -101,8 +108,13 @@ namespace sho_basis {
               all_ells.push_back(ells);
               all_enns.push_back(enns);
 
+              ++n_sets;
           } // set
+          if (echo > 2) std::printf("# %s symbol= %s Z= %g contains %d sets\n\n", __func__, symbol, Z, n_sets);
+
+          ++n_species;
       } // atomic
+      if (echo > 1) std::printf("# file \'%s\' contains %d species\n", filename, n_species);
 
       // plot the basis functions
       for (int k = 0; k < all_coeffs.size(); ++k) {
@@ -115,7 +127,7 @@ namespace sho_basis {
           if (coeffs.size() > 0) { // plot
               assert(coeffs.size() == enns.size());
               assert(coeffs.size() == ells.size());
-              if (echo > 7) {
+              if (echo > 11) {
                   int const nln = sho_tools::nSHO_radial(numax);
                   view2D<double> basis_funcs(nln, rg.n, 0.0);
                   scattering_test::expand_sho_projectors(basis_funcs.data(), basis_funcs.stride(), rg, sigma, numax);

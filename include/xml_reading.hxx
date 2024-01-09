@@ -60,7 +60,7 @@ namespace xml_reading {
     } // find_child
 #endif // HAS_RAPIDXML
 
-    template <typename real_t>
+    template <typename real_t=double>
     std::vector<real_t> read_sequence(
           char const *sequence
         , int const echo=0

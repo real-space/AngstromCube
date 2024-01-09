@@ -219,7 +219,7 @@ namespace pawxml_import {
           auto const q_node = xml_reading::find_child(paw_setup, q_name, echo);
           if (q_node) {
               auto const grid = xml_reading::find_attribute(q_node, "grid", "?grid");
-              auto const vals = xml_reading::read_sequence<double>(q_node->value(), echo, p.n);
+              auto const vals = xml_reading::read_sequence(q_node->value(), echo, p.n);
               if (echo > 7) std::printf("# %s:  <%s grid=\"%s\"> ...(%ld numbers)... </%s>\n",
                   filename, q_name, grid, vals.size(), q_name);
               if (vals.size() != p.n) warn("%s: %s has %ld but expected %d grid points",
@@ -230,7 +230,7 @@ namespace pawxml_import {
 
       auto const kinetic_energy_differences = xml_reading::find_child(paw_setup, "kinetic_energy_differences", echo);
       if (kinetic_energy_differences) {
-          auto const vals = xml_reading::read_sequence<double>(kinetic_energy_differences->value(), echo, nstates*nstates);
+          auto const vals = xml_reading::read_sequence(kinetic_energy_differences->value(), echo, nstates*nstates);
           if (echo > 7) std::printf("# %s:  <kinetic_energy_differences> ...(%ld numbers)... </kinetic_energy_differences>\n", filename, vals.size());
           if (vals.size() != nstates*nstates) warn("%s: expected %d^2 numbers in kinetic_energy_differences matrix but found %ld", filename, nstates, vals.size());
           p.dkin = vals;
@@ -246,7 +246,7 @@ namespace pawxml_import {
                       auto & state = p.states[istate];
                       if (state.id == state_id) {
                           auto const grid = xml_reading::find_attribute(child, "grid", "?grid", echo/2);
-                          auto const vals = xml_reading::read_sequence<double>(child->value(), echo, p.n);
+                          auto const vals = xml_reading::read_sequence(child->value(), echo, p.n);
                           if (echo > 8) std::printf("# %s:  <%s state=\"%s\" grid=\"%s\"> ...(%ld numbers)... </%s>\n",
                                                        filename, q_name, state_id, grid, vals.size(), q_name);
                           nwarn[iq] += (vals.size() != p.n);

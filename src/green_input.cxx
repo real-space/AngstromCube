@@ -134,7 +134,7 @@ namespace green_input {
                       auto const matrix = xml_reading::find_child(atom, matrix_name, echo);
                       if (matrix) {
                           if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
-                          auto const v = xml_reading::read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
+                          auto const v = xml_reading::read_sequence(matrix->value(), echo, nSHO*nSHO);
                           if (echo > 5) std::printf("# %s matrix has %ld values, expect %d x %d = %d\n",
                               matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
@@ -190,7 +190,7 @@ namespace green_input {
               } // d
               auto const ngall = size_t(ng[2])*size_t(ng[1])*size_t(ng[0]);
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
-              Veff = xml_reading::read_sequence<double>(potential->value(), echo, ngall);
+              Veff = xml_reading::read_sequence(potential->value(), echo, ngall);
               if (echo > 2) std::printf("# potential has %ld values, expect %d x %d x %d = %ld\n",
                                                         Veff.size(), ng[0], ng[1], ng[2], ngall);
               if (Veff.size() != ngall) {
