@@ -4232,13 +4232,13 @@ namespace single_atom {
         } // iln
 
         // export into XML format
-        auto const *const filename = "pseudo_basis.xml";
+        char filename[96]; std::snprintf(filename, 96, "pseudo_basis.%g.xml", Z_core);
         auto *const xml = std::fopen(filename, "w");
         if (xml) {
             // XML file header
             std::fprintf(xml, "<?xml version=\"%.1f\"?>\n", 1.0);
             std::fprintf(xml, "<basis version=\"%.1f\">\n", 0.1);
-            std::fprintf(xml, "  <!-- Radial pseudo basis functions expanded in SHO basis -->\n");
+            std::fprintf(xml, "  <!-- Radial pseudo basis functions expanded in Spherical Harmonic Oscillator (SHO) basis -->\n");
             std::fprintf(xml, "  <!-- SHO spread sigma in units of Bohr radii -->\n\n");
             std::fprintf(xml, "  <species symbol=\"%s\" Z=\"%g\" extra_weight=\"%g\">\n",
                                                  label, Z_core,  extra_weight);
@@ -4263,7 +4263,7 @@ namespace single_atom {
             if (echo > 0) std::printf("# %s %s optimized sigma= %.6f %s for numax= %d\n", label, __func__, sigma_out*Ang, _Ang, numax_basis);
 
             if (xml) { // XML file body
-                std::fprintf(xml, "  <set numax=\"%d\" sigma=\"%.9f\">\n", numax_basis, sigma_out);
+                std::fprintf(xml, "    <set numax=\"%d\" sigma=\"%.9f\">\n", numax_basis, sigma_out);
                 for (int iln = 0; iln < nln; ++iln) {
                     auto const & vs = partial_wave[iln];
                     if (nullptr != vs.wave[SMT]) {
@@ -4275,10 +4275,10 @@ namespace single_atom {
                         for (int jrn = 0; jrn < n_coeff; ++jrn) {
                             std::fprintf(xml, " %.12f", wave_coeff(iln,jrn)*normf);
                         } // jrn
-                        std::fprintf(xml, "   </wave>\n");
+                        std::fprintf(xml, " </wave>\n");
                     } // wave
                 } // iln
-                std::fprintf(xml, "  </set>\n");
+                std::fprintf(xml, "    </set>\n");
             } // xml
 
         } // sigma_numax

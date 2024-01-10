@@ -8,12 +8,13 @@
 
 namespace sho_basis {
 
-  status_t load(
-        std::vector<view2D<double>> & basis
-      , std::vector<int> & indirection
-      , int const natoms // number of SHO basis centers
-      , double const Z_core[] // Z_core[atoms]
-      , int const echo=0 // log-level
+  template <typename complex_t>
+  status_t generate(
+        view2D<complex_t> & matrix // result: reduction matrix[nsho,nbasis]
+      , double & sigma // result: SHO spread
+      , double const Z // input core charge
+      , int const numax=-1 // input SHO basis size, -1=smallest possible
+      , int const echo=0 // log-level verbosity
   ); // declaration only
 
   status_t all_tests(int const echo=0); // declaration only

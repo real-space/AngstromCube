@@ -551,7 +551,7 @@ namespace self_consistency {
               data_list<double> atom_rho_new[2];
               atom_rho_new[0] = data_list<double>(n_atom_rho, 0.0); // new valence density matrices
               atom_rho_new[1] = data_list<double>(n_atom_rho, 0.0); // and valence response matrices
-              double charges[4] = {0, 0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:d_charge, 3:unused
+              double charges[3] = {0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:derived_charge
 
               KS.solve(rho_valence_new, atom_rho_new, charges, Fermi,
                         g, Vtot.data(), na, atom_mat, occupation_method, scf_iteration, echo);

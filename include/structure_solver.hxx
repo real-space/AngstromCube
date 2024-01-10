@@ -530,15 +530,13 @@ namespace structure_solver {
       KohnShamStates<float>                *s = nullptr;
 
       char key = '?';
-      bool psi_on_grid;
+      bool psi_on_grid = true;
       char const *basis_method  = nullptr;
       char const *solver_method = nullptr;
   public:
       view2D<double> energies; // energies(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
 
   }; // class RealSpaceKohnSham
-
-
 
   status_t all_tests(int const echo=0); // declaration only
 

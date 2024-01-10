@@ -70,11 +70,9 @@ namespace xml_reading {
         char const *seq{sequence};
         std::vector<real_t> v;
         v.reserve(reserve);
-        for (double f = std::strtod(seq, &end);
-             seq != end;
-             f = std::strtod(seq, &end)) {
+        for (double f = std::strtod(seq, &end); seq != end; f = std::strtod(seq, &end)) {
             seq = end;
-            if (errno == ERANGE){
+            if (errno == ERANGE) {
                 warn("range error, got %g", f);
                 errno = 0;
             } else {
