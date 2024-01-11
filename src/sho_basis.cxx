@@ -61,7 +61,7 @@ namespace sho_basis {
   status_t load(
         RadialFunctionSet const* & rfset // result
       , double const Z_core
-      , int const numax_in
+      , int const numax_in // =-1
       , int const echo // =0 log-level
       , bool const plot=false
   ) {
@@ -96,12 +96,6 @@ namespace sho_basis {
       auto const main_node = doc.first_node("basis");
       if (!main_node) return -1; // error
 
-
-    //   std::vector<std::vector<std::vector<double>>> all_coeffs;
-    //   std::vector<double> all_sigma;
-    //   std::vector<int> all_numax;
-    //   std::vector<std::vector<int8_t>> all_ells, all_enns;
-
       // check all bases
       int n_species{0};
       for (auto species = main_node->first_node("species"); species; species = species->next_sibling()) {
@@ -123,8 +117,6 @@ namespace sho_basis {
               ss.numax_min = std::min(ss.numax_min, numax);
               ss.numax_max = std::max(ss.numax_max, numax);
 
-            //   std::vector<std::vector<double>> coeffs;
-            //   std::vector<int8_t> enns, ells;
               int n_waves{0}, n_basis{0};
               for (auto wave = set->first_node("wave"); wave; wave = wave->next_sibling()) {
                   auto const enn = std::atoi(xml_reading::find_attribute(wave, "n",  "0"));
@@ -139,21 +131,11 @@ namespace sho_basis {
                   if (echo > 7) std::printf("# %s   %s-%d%c  (%ld of %ld elements)\n", __func__, symbol, enn, ellchar(ell), rf.vec.size(), n_expect);
                   assert(n_expect == rf.vec.size());
                   rfs.vec.push_back(rf);
-
-                //   enns.push_back(enn);
-                //   ells.push_back(ell);
-                //   coeffs.push_back(rf.vec);
                   ++n_waves;
                   n_basis += (2*ell + 1);
               } // wave
               if (echo > 3) std::printf("# %s symbol= %s Z= %g numax= %d sigma= %g %s has %d radial, %d basis functions\n",
                                             __func__, symbol, Z, numax, sigma*Ang, _Ang, n_waves, n_basis);
-            //   all_coeffs.push_back(coeffs);
-            //   all_numax.push_back(numax);
-            //   all_sigma.push_back(sigma);
-            //   all_ells.push_back(ells);
-            //   all_enns.push_back(enns);
-
               ++n_sets;
           } // set
           if (echo > 2) std::printf("# %s symbol= %s Z= %g contains %d sets\n", __func__, symbol, Z, n_sets);
