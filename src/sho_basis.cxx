@@ -58,6 +58,14 @@ namespace sho_basis {
       return _ellchar[ell & 0x7];
   } // ellchar
 
+  double norm2(std::vector<double> const & vec) {
+      double n2{0};
+      for (auto v : vec) {
+          n2 += v*v;
+      } // v
+      return n2;
+  } // norm2
+
   status_t load(
         RadialFunctionSet const* & rfset // result
       , double const Z_core
@@ -96,6 +104,8 @@ namespace sho_basis {
       auto const main_node = doc.first_node("basis");
       if (!main_node) return -1; // error
 
+      double max_norm_err{0};
+
       // check all bases
       int n_species{0};
       for (auto species = main_node->first_node("species"); species; species = species->next_sibling()) {
@@ -128,7 +138,9 @@ namespace sho_basis {
                   rf.enn = enn;
                   size_t const n_expect = sho_tools::nn_max(numax, ell);
                   rf.vec = xml_reading::read_sequence(wave->value(), echo, n_expect);
-                  if (echo > 7) std::printf("# %s   %s-%d%c  (%ld of %ld elements)\n", __func__, symbol, enn, ellchar(ell), rf.vec.size(), n_expect);
+                  auto const norm_err = norm2(rf.vec) - 1;
+                  max_norm_err = std::max(max_norm_err, std::abs(norm_err));
+                  if (echo > 7) std::printf("# %s   %s-%d%c  (%ld of %ld elements), normalization %.1e\n", __func__, symbol, enn, ellchar(ell), rf.vec.size(), n_expect, norm_err);
                   assert(n_expect == rf.vec.size());
                   rfs.vec.push_back(rf);
                   ++n_waves;
@@ -142,7 +154,7 @@ namespace sho_basis {
 
           ++n_species;
       } // species
-      if (echo > 1) std::printf("# file \'%s\' contains %d species\n", filename, n_species);
+      if (echo > 1) std::printf("# file \'%s\' contains %d species, largest normalization error is %.1e\n", filename, n_species, max_norm_err);
 
       // Idea: create a coefficient matrix that holds the wave functions coefficients.
       //       Modify the module sho_hamiltonian to incorporate such a matrix
