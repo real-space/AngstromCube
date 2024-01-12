@@ -1175,6 +1175,69 @@ The operators enter an iterative Davidson diagonalization procedure. For small g
 
 \newpage
 %
+
+\section{Experimental features}
+This chapter treats features that still lack rigorous testing and could benefit from improvements.
+
+\subsection{Pseudo-atomic-orbital-basis}
+Much cheaper than the Cartesian real space grid representation of wave functions or Green functions
+are compact basis sets of pseudo atomic orbitals.
+In fact, we select a set of valence orbitals, e.g.~the set selected for \ac{PAW} generation,
+and diagonalize the Hamiltonian in these.
+The basis sets are defined in the file \ttt{pseudo\_basis.xml}.
+There is a \ttt{numax} parameter attached to each set which becomes clear from the next section.
+
+\subsection{SHO-as-a-basis}
+To compute the matrix elements of Hamiltonian and overlap operator expanded in a pseudo atomic orbitals,
+we expand the radial functions of the pseudo atomic orbitals into radial eigenfunctions of the \ac{SHO}.
+This requires a certain cutoff $\nu\um{max}$ given as \ttt{numax} in \ttt{pseudo\_basis.xml}.
+
+It is fairly straightforward to compute kinetic energy elements for Cartesian products of \ac{HO} functions
+as these functions are given analytically.
+Since a Gaussian at one center multiplied by a Gaussian at a different center leads to another Gaussian
+centered at a location between the two original centers, it is simple to compute overlaps between \ac{SHO} basis
+functions on two atoms, c.f.~\ttt{sho\_overlap}.
+The same is exploited for the evaluation of the inner products of basis functions and \ac{PAW} projectors
+since also the \ac{PAW} projectors are given in a Cartesian \ac{SHO} basis.
+
+Slightly more complicated is the evaluation of the local potential matrix elements.
+Here, various methods have been tried, see \ttt{sho\_potential}.
+
+Once the elements of the \ttt{sho\_hamiltonian} and overlap matrix are given in the \ac{SHO} basis
+we can apply a transformation matrix from left and right that is generated from the expansion
+coefficients of the radial basis functions in radial \ac{SHO} eigenstates.
+This transformation matrix also incorporates the \ttt{sho\_transform} from Cartesian to radial
+representations which preserves sharp $(\ell,m)$ quantum numbers for the basis functions.
+
+\begin{verbatim}
+./a43 -t sho_hamiltonian +sho_hamiltonian.use.sho_basis=yes
+\end{verbatim}
+
+\subsection{Generation of Pseudo-atomic-orbitals}
+In order to generate sets of pseudo atomic orbitals, e.g.~for copper, we pseudize an atom according to the \ac{PAW} recipes.
+Additionally, we add the following \ttt{fit.basis} parameters:
+\begin{verbatim}
+./a43 -t single_atom +single_atom.test.Z=29 \
+        +single_atom.fit.basis.numax=19 \
+        +single_atom.fit.basis.sigma=1.5 \
+        +single_atom.fit.basis.weight=.0 
+\end{verbatim}
+The fitting procedure runs for all possible $\nu\um{max}$ up to \ttt{fit.basis.numax}.
+It searches an optimal \ac{SHO} spread $\sigma$ where \ttt{fit.basis.sigma} is used as a start guess and to define
+the search boundaries.
+
+The optimization finds a single $\sigma$ for all basis functions at the same time.
+Since the occupied valence wave functions are typically most important for ground state results,
+the optimization weights are the orbital occupation numbers by default 
+(for \ttt{Cu} $4s_{2} \, 3d_{9}$ or $4s_{1} \, 3d_{10}$, see \ttt{sigma\_config}).
+However, we can specify additional \ttt{weight} to all states.
+
+The newly generated file is called \ttt{psuedo\_basis.29.xml} containing expansion coefficients of
+the radial basis functions. Its content can be copy-pasted into \ttt{pseudo\_basis.xml}
+or, if only copper atoms are in the sample, \ttt{+sho\_basis.file} can be set to \ttt{psuedo\_basis.29.xml}.
+
+\newpage
+
 \appendix
 %
 \section{Appendix}
