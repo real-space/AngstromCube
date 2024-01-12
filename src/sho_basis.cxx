@@ -244,24 +244,21 @@ namespace sho_basis {
           assert(nullptr != rfset);
           sigma = rfset->sigma;
           numax = rfset->numax;
-          auto const & rfs = rfset->vec;
-
           assert(numax >= 0);
-          auto const nsho = sho_tools::nSHO(numax);
-
+          auto const & rfs = rfset->vec;
           nbasis = 0;
-          int nradial{0}, ellmax{-1};
           for (auto rf : rfs) {
              nbasis += (2*rf.ell + 1);
-             ellmax = std::max(ellmax, int(rf.ell));
-             ++nradial;
           } // rf
 
-          if (echo > 3) std::printf("# found for Z= %g numax= %d --> %d sigma= %g Bohr\n", Z_core, numax_in, numax, sigma);
-          if (echo > 3) std::printf("# found for Z= %g numax= %d sigma= %g Bohr\n", Z_core, numax, sigma);
-          if (echo > 3) std::printf("# basis for Z= %g numax= %d has %d radial, %d basis functions\n", Z_core, numax, nradial, nbasis);
-          if (echo > 3) std::printf("# matrix for Z= %g numax= %d will be %d x %d\n", Z_core, numax, nsho, nbasis);
-
+          if (echo > 3) {
+              std::printf("# found basis set for Z= %g numax= %d --> %d sigma= %g Bohr has %ld radial, %d basis functions\n",
+                                       Z_core, numax_in, numax, sigma, rfs.size(), nbasis);
+              std::printf("# matrix for Z= %g will be %d x %d\n", Z_core, sho_tools::nSHO(numax), nbasis);
+          } // echo
+      } else {
+          if (echo > 1) std::printf("# loading for Z= %g numax= %d failed, load status= %i\n",
+                                       Z_core, numax_in, int(load_stat));
       } // loading successful
       return load_stat;
   } // get
@@ -271,7 +268,7 @@ namespace sho_basis {
   status_t generate(
         view2D<complex_t> & matrix // result: on successful exit this is a nSHO(numax) x nbasis matrix
       , double & sigma
-      , int & numax // SHO basis size parameter, -1 for minimum given in file
+      , int & numax // SHO basis size parameter
       , double const Z_core // nuclear charge
       , int const echo // =0, verbosity
   ) {
@@ -293,19 +290,17 @@ namespace sho_basis {
           sigma = rfset->sigma;
           numax = rfset->numax;
           auto const & rfs = rfset->vec;
-          if (echo > 3) std::printf("# found for Z= %g numax= %d sigma= %g Bohr\n", Z_core, numax, sigma);
+          if (echo > 5) std::printf("# found for Z= %g numax= %d sigma= %g Bohr\n", Z_core, numax, sigma);
 
           assert(numax >= 0);
           auto const nsho = sho_tools::nSHO(numax);
 
-          int nbasis{0}, nradial{0}, ellmax{-1};
+          int nbasis{0};
           for (auto rf : rfs) {
              nbasis += (2*rf.ell + 1);
-             ellmax = std::max(ellmax, int(rf.ell));
-             ++nradial;
           } // rf
-          if (echo > 3) std::printf("# basis for Z= %g numax= %d has %d radial, %d basis functions\n", Z_core, numax, nradial, nbasis);
-          if (echo > 3) std::printf("# basis matrix for Z= %g numax= %d will be %d x %d\n", Z_core, numax, nsho, nbasis);
+          if (echo > 7) std::printf("# basis for Z= %g numax= %d has %ld radial, %d basis functions\n", Z_core, numax, rfs.size(), nbasis);
+          if (echo > 5) std::printf("# basis matrix for Z= %g numax= %d will be %d x %d\n", Z_core, numax, nsho, nbasis);
 
           if (nbasis > nsho) {
               error("there are more basis functions than SHO functions, %d > %d", nbasis, nsho);
@@ -332,18 +327,14 @@ namespace sho_basis {
           std::vector<uint8_t> enn_basis(nbasis, 1), ell_basis(nbasis, 0), rf_index(nbasis, 0);
           std::vector<int8_t> emm_basis(nbasis);
           { // scope: fill quantum number arrays
-              std::vector<int> enn_min(1 + ellmax, 99);
-              for (auto rf : rfs) {
-                  enn_min[rf.ell] = std::min(enn_min[rf.ell], int(rf.enn));
-                  if (1) {
-                      auto const n_expect = sho_tools::nn_max(numax, rf.ell);
-                      assert(n_expect == rf.vec.size());
-                  } // sanity checks
-              } // rf
 
               if (echo > 5) std::printf("# Z= %g has", Z_core);
               int ibasis{0}, iradial{0};
               for (auto rf : rfs) {
+                  if (1) {
+                      auto const n_expect = sho_tools::nn_max(numax, rf.ell);
+                      assert(n_expect == rf.vec.size());
+                  } // sanity checks
                   for (int emm = -rf.ell; emm <= rf.ell; ++emm) {
                         enn_basis[ibasis] = rf.enn;
                         ell_basis[ibasis] = rf.ell;
@@ -355,8 +346,8 @@ namespace sho_basis {
                   ++iradial;
               } // rf
               assert(nbasis == ibasis);
-              assert(nradial == iradial);
-              if (echo > 5) std::printf(", %d radial functions\n", nradial); 
+              assert(rfs.size() == iradial);
+              if (echo > 5) std::printf(", %ld radial functions\n", rfs.size()); 
               
               if (echo > 9) {
                   std::printf("# enn_basis "); printf_vector(" %2d", enn_basis);
