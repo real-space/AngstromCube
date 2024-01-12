@@ -26,6 +26,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "vector_math.hxx" // ::vec<N,T>
 #include "dense_solver.hxx" // ::solve
+#include "sho_basis.hxx" // ::get, ::generate
 
 namespace sho_hamiltonian {
   // computes Hamiltonian matrix elements between two SHO basis functions
@@ -90,6 +91,7 @@ namespace sho_hamiltonian {
       , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
       , phase_t const Bloch_phase[3]
       , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
+      , bool const use_sho_basis=false // {no, yes}
       , int const echo=0 // log-level
   ) {
       using real_t = decltype(std::real(complex_t(1))); // base type of complex_t
@@ -174,7 +176,32 @@ namespace sho_hamiltonian {
       // PAW projection matrix ready
 
       // allocate bulk memory for overlap and Hamiltonian
-      view3D<complex_t> HSm(2, nB, nBa, complex_t(0)); // get memory for 1:Overlap S and 0:Hamiltonian matrix H
+      view3D<complex_t> HSm;
+      std::vector<uint32_t> nbasis(natoms, 0), basis_offset(natoms, 0);
+      std::vector<view2D<complex_t>> trans(0);
+      if (use_sho_basis) { // use_sho_basis
+
+          // get basis transformations from sho_basis module
+          size_t nbasis_all{0};
+          trans.resize(natoms);
+          for (int ia = 0; ia < natoms; ++ia) {
+              double sigma;
+              int numax = numaxs[ia];
+              sho_basis::generate(trans[ia], sigma, numax, xyzZ(ia,3), echo*0);
+              assert(numaxs[ia] == numax);
+              nbasis[ia] = trans[ia].stride();
+              if (echo > 7) std::printf("# atom #%i sigma= %g %g Bohr, %d basis functions\n", ia, sigma, sigmas[ia], nbasis[ia]);
+              basis_offset[ia] = nbasis_all;
+              nbasis_all += nbasis[ia]; 
+          } // ia
+          auto const nbasis_all_aligned = align<2>(nbasis_all);
+          HSm = view3D<complex_t>(2, nbasis_all, nbasis_all_aligned, complex_t(0)); // get memory for 1:Overlap S and 0:Hamiltonian matrix H
+          if (echo > 3) std::printf("# use sho_basis with %ld basis functions in total\n", nbasis_all);
+
+      } else {
+          HSm = view3D<complex_t>(2, nB, nBa, complex_t(0)); // get memory for 1:Overlap S and 0:Hamiltonian matrix H
+      } // use_sho_basis
+
 
 #ifdef    DEVEL
       double const scale_k = control::get("hamiltonian.scale.kinetic", 1.0);
@@ -200,11 +227,19 @@ namespace sho_hamiltonian {
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
           int const nb_ia = sho_tools::nSHO(numaxs[ia]);
           for (int ja = 0; ja < natoms; ++ja) {
-
-              S_iaja[ia][ja] = view2D<complex_t>(&(HSm(S,offset[ia],offset[ja])), HSm.stride()); // wrapper to sub-blocks of the overlap matrix
-              H_iaja[ia][ja] = view2D<complex_t>(&(HSm(H,offset[ia],offset[ja])), HSm.stride()); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j   = sho_tools::n1HO(numaxs[ja]);
               int const nb_ja = sho_tools::nSHO(numaxs[ja]);
+
+              if (use_sho_basis) {
+                  if (echo > 11) std::printf("# get memory for sub-blocks of the overlap and Hamiltonian matrix in the full SHO basis for atom #%i and atom #%i\n", ia, ja);
+                  // get memory for sub-blocks of the overlap and Hamiltonian matrix in the full SHO basis
+                  S_iaja[ia][ja] = view2D<complex_t>(nb_ia, nb_ja, complex_t(0));
+                  H_iaja[ia][ja] = view2D<complex_t>(nb_ia, nb_ja, complex_t(0));
+              } else {
+                  // wrapper to sub-blocks of the overlap and Hamiltonian matrix
+                  S_iaja[ia][ja] = view2D<complex_t>(&(HSm(S,offset[ia],offset[ja])), HSm.stride()); 
+                  H_iaja[ia][ja] = view2D<complex_t>(&(HSm(H,offset[ia],offset[ja])), HSm.stride());
+              } // use_sho_basis
 
               for (int ip = 0; ip < n_periodic_images; ++ip) { // periodic images of ja
                   int const ic      = center_map(ia,ja,ip,0); // expansion center index
@@ -256,13 +291,43 @@ namespace sho_hamiltonian {
                   } // ib
               } // la
 
+              if (use_sho_basis) {
+                  // transform the blocks of H and S into the reduced basis representations
+
+                  view2D<complex_t> st(nb_ia, nbasis[ja], complex_t(0)); // temporary
+                  view2D<complex_t> ht(nb_ia, nbasis[ja], complex_t(0)); // temporary
+                  for (int ib = 0; ib < nb_ia; ++ib) {
+                      for (int jb = 0; jb < nbasis[ja]; ++jb) {
+                          for (int kb = 0; kb < nb_ja; ++kb) {
+                              st(ib,jb) += S_iaja[ia][ja](ib,kb) * trans[ja](kb,jb);
+                              ht(ib,jb) += H_iaja[ia][ja](ib,kb) * trans[ja](kb,jb);
+                          } // kb
+                      } // jb
+                  } // ib
+                  
+                  // we can release the memory of the blocks already
+                  S_iaja[ia][ja] = view2D<complex_t>(nullptr, 0);
+                  H_iaja[ia][ja] = view2D<complex_t>(nullptr, 0);
+
+                  for (int ib = 0; ib < nbasis[ia]; ++ib) {
+                      for (int jb = 0; jb < nbasis[ja]; ++jb) {
+                          for (int kb = 0; kb < nb_ia; ++kb) {
+                              HSm(S,basis_offset[ia] + ib,basis_offset[ja] + jb) += trans[ia](kb,ib) * st(kb,jb);
+                              HSm(H,basis_offset[ia] + ib,basis_offset[ja] + jb) += trans[ia](kb,ib) * ht(kb,jb);
+                          } // kb
+                      } // jb
+                  } // ib
+
+              } // use_sho_basis
+
           } // ja
       } // ia
 
       Psh_iala.clear(); // release the memory, P_jala is still needed for the generation of density matrices
       S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
-      return dense_solver::solve(HSm, x_axis, echo); // will also display the spectrum
+      auto const result = dense_solver::solve(HSm, x_axis, echo); // will display the spectrum, no construction of density so far
+      return result;
   } // solve_k
 
 
@@ -287,10 +352,22 @@ namespace sho_hamiltonian {
       status_t stat(0);
       SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
 
+      auto const use_sho_basis_word = control::get("sho_hamiltonian.use.sho_basis", "no");
+      bool const use_sho_basis = ('n' != ((*use_sho_basis_word) | 32));
+      if (echo > 0) std::printf("# sho_hamiltonian.use.sho_basis=%s\n", use_sho_basis_word);
+
       int  const usual_numax = control::get("sho_hamiltonian.test.numax", 1.);
       auto const usual_sigma = control::get("sho_hamiltonian.test.sigma", .5);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
+      if (use_sho_basis) {
+          for (int ia = 0; ia < natoms; ++ia) {
+              int nbasis; // number of basis functions (radial functions including emm-multiplicity)
+              numaxs[ia] = -1;
+              stat += sho_basis::get(sigmas[ia], numaxs[ia], nbasis, xyzZ(ia,3), echo);
+          } // ia
+      } // use_sho_basis
+
 #if 0
       double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
@@ -572,7 +649,7 @@ namespace sho_hamiltonian {
                           Vcoeffs.data(), center_map, \
                           nB, nBa, offset.data(), \
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(), \
-                          BLOCH_PHASE, x_axis, echo)
+                          BLOCH_PHASE, x_axis, use_sho_basis, echo)
           if (can_be_real) {
               stat += single_precision ?
                   solve_k<float>  SOLVE_K_ARGS(Bloch_phase_real):
@@ -626,7 +703,7 @@ namespace sho_hamiltonian {
           std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       } // echo
 
-      int const nkpoints = control::get("hamiltonian.test.kpoints", 17.);
+      int const nkpoints = control::get("hamiltonian.test.kpoints", 7.);
       auto const kpointdir = int(control::get("hamiltonian.test.kpoint.direction", 0.)) % 3;
       view2D<double> kmesh(nkpoints, 4, 0.0);
       for (int ikp = 0; ikp < nkpoints; ++ikp) {

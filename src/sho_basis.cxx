@@ -150,7 +150,7 @@ namespace sho_basis {
                                             __func__, symbol, Z, numax, sigma*Ang, _Ang, n_waves, n_basis);
               ++n_sets;
           } // set
-          if (echo > 2) std::printf("# %s symbol= %s Z= %g contains %d sets\n", __func__, symbol, Z, n_sets);
+          if (echo > 3) std::printf("# %s symbol= %s Z= %g contains %d sets\n", __func__, symbol, Z, n_sets);
 
           ++n_species;
       } // species
@@ -171,18 +171,21 @@ namespace sho_basis {
       if (1 == found_Z) {
           auto & speciesset = _map[Z_core];
           if (echo > 3) std::printf("# %s found Z= %g --> %s %g\n", __func__, Z_core, speciesset.symbol, speciesset.Z_core);
-          assert(1 == found_Z); // std::map can only return 1 or 0 on count
+          assert(1 == found_Z && "std::map can only return 1 or 0 on count");
           uint8_t nu = 0;
           if (numax_in < 0) {
-              nu = speciesset.numax_min; // insert minimum basis
+              nu = speciesset.numax_min; // use minimum basis
               if (echo > 3) std::printf("# %s found Z= %g --> minimum numax= %d\n", __func__, Z_core, nu);
+          } else if (numax_in > speciesset.numax_max) {
+              nu = speciesset.numax_max; // use maximum basis
+              if (echo > 3) std::printf("# %s found Z= %g --> maximum numax= %d\n", __func__, Z_core, nu);
           } else {
-              nu = uint8_t(numax_in);
+              nu = uint8_t(numax_in); // use exactly the SHO basis size requested
           }
           auto const found_nu = speciesset.map.count(nu);
           if (found_nu) {
               rfset = & speciesset.map[nu];
-              assert(1 == found_nu); // std::map can only return 1 or 0 on count
+              assert(1 == found_nu && "std::map can only return 1 or 0 on count");
               if (echo > 3) std::printf("# %s found Z= %g numax= %d ptr= %p\n", __func__, Z_core, nu, (void*)rfset);
   
               if (plot) { // scope: plot the basis functions of the requsted species
@@ -195,9 +198,9 @@ namespace sho_basis {
                   std::printf("\n## radius ");
                   auto const & rfs = rfset->vec;
                   for (auto & rf : rfs) {
-                      assert(rf.ell >= 0);
+                      assert(rf.ell >= 0 && "ell unphysical");
                       std::printf(" %d%c", rf.enn, ellchar(rf.ell));
-                      assert(rf.vec.size() == sho_tools::nn_max(numax, rf.ell));
+                      assert(rf.vec.size() == sho_tools::nn_max(numax, rf.ell) && "inconsistent number of coefficients");
                   } // rf
                   std::printf(" (numax= %d)\n", numax);
                   for (int ir = 0; ir < rg.n; ++ir) {
@@ -219,12 +222,12 @@ namespace sho_basis {
               return 0;
           } else {
               warn("numax= %d for species Z= %g not found", nu, Z_core);
-              assert(0 == found_nu); // std::map can only return 1 or 0 on count
+              assert(0 == found_nu && "std::map can only return 1 or 0 on count");
               return 3;
           }
       } else {  
           warn("species Z= %g not found", Z_core);
-          assert(0 == found_Z); // std::map can only return 1 or 0 on count
+          assert(0 == found_Z && "std::map can only return 1 or 0 on count");
           return 4;
       } // found_Z
 
@@ -232,33 +235,65 @@ namespace sho_basis {
   } // load
 
 
+
+  status_t get(double & sigma, int & numax, int & nbasis, double const Z_core, int const echo) {
+      RadialFunctionSet const* rfset{nullptr};
+      auto const numax_in = numax;
+      auto const load_stat = load(rfset, Z_core, numax, echo);
+      if (0 == load_stat) {
+          assert(nullptr != rfset);
+          sigma = rfset->sigma;
+          numax = rfset->numax;
+          auto const & rfs = rfset->vec;
+
+          assert(numax >= 0);
+          auto const nsho = sho_tools::nSHO(numax);
+
+          nbasis = 0;
+          int nradial{0}, ellmax{-1};
+          for (auto rf : rfs) {
+             nbasis += (2*rf.ell + 1);
+             ellmax = std::max(ellmax, int(rf.ell));
+             ++nradial;
+          } // rf
+
+          if (echo > 3) std::printf("# found for Z= %g numax= %d --> %d sigma= %g Bohr\n", Z_core, numax_in, numax, sigma);
+          if (echo > 3) std::printf("# found for Z= %g numax= %d sigma= %g Bohr\n", Z_core, numax, sigma);
+          if (echo > 3) std::printf("# basis for Z= %g numax= %d has %d radial, %d basis functions\n", Z_core, numax, nradial, nbasis);
+          if (echo > 3) std::printf("# matrix for Z= %g numax= %d will be %d x %d\n", Z_core, numax, nsho, nbasis);
+
+      } // loading successful
+      return load_stat;
+  } // get
+
+
   template <typename complex_t>
   status_t generate(
         view2D<complex_t> & matrix // result: on successful exit this is a nSHO(numax) x nbasis matrix
       , double & sigma
+      , int & numax // SHO basis size parameter, -1 for minimum given in file
       , double const Z_core // nuclear charge
-      , int const numax_in // SHO basis size parameter, -1 for minimum given in file
       , int const echo // =0, verbosity
   ) {
-      if (echo > 1) std::printf("# %s<%s>(Z= %g, numax= %d)\n", __func__, complex_name<complex_t>(), Z_core, numax_in);
+      if (echo > 1) std::printf("# %s<%s>(Z= %g, numax= %d)\n", __func__, complex_name<complex_t>(), Z_core, numax);
 
       // make sure that the pseudo_basis.xml file has been loaded for this Z
-      RadialFunctionSet const * set = nullptr;
-      auto const load_stat = load(set, Z_core, numax_in, echo); // should return a RadialFunctionSet
-      if (echo > 3) std::printf("# loading status= %i ptr= %p\n", int(load_stat), (void*)set);
+      RadialFunctionSet const * rfset = nullptr;
+      auto const load_stat = load(rfset, Z_core, numax, echo); // should return a RadialFunctionSet
+      if (echo > 3) std::printf("# loading status= %i ptr= %p\n", int(load_stat), (void*)rfset);
       // get nbasis
       if (0 != load_stat) {
-          warn("failed to load a pseudo_basis for Z= %g numax= %d", Z_core, numax_in);
+          warn("failed to load a pseudo_basis for Z= %g numax= %d", Z_core, numax);
           return load_stat;
       } // loading failed
-      if (nullptr == set) {
-          warn("loading a pseudo_basis for Z= %g numax= %d produced nullptr", Z_core, numax_in);
+      if (nullptr == rfset) {
+          warn("loading a pseudo_basis for Z= %g numax= %d produced nullptr", Z_core, numax);
           return 1;
       } else {
-          sigma = set->sigma;
-          auto const numax = set->numax;
-          auto const & rfs = set->vec;
-          if (echo > 3) std::printf("# found for Z= %g numax= %d --> %d sigma= %g Bohr\n", Z_core, numax_in, numax, sigma);
+          sigma = rfset->sigma;
+          numax = rfset->numax;
+          auto const & rfs = rfset->vec;
+          if (echo > 3) std::printf("# found for Z= %g numax= %d sigma= %g Bohr\n", Z_core, numax, sigma);
 
           assert(numax >= 0);
           auto const nsho = sho_tools::nSHO(numax);
@@ -358,7 +393,7 @@ namespace sho_basis {
               std::printf("\n");
           } // echo
 
-      } // set
+      } // rfset
 
       if (echo > 3) std::printf("# %s done\n\n", __func__);
 
@@ -366,10 +401,10 @@ namespace sho_basis {
   } // generate
 
   // explicit template instantiations
-  template status_t generate<std::complex<double>>(view2D<std::complex<double>> &, double &, double, int, int);
-  template status_t generate<std::complex<float >>(view2D<std::complex<float >> &, double &, double, int, int);
-  template status_t generate<double              >(view2D<double              > &, double &, double, int, int);
-  template status_t generate<float               >(view2D<float               > &, double &, double, int, int);
+  template status_t generate<std::complex<double>>(view2D<std::complex<double>> &, double &, int &, double, int);
+  template status_t generate<std::complex<float >>(view2D<std::complex<float >> &, double &, int &, double, int);
+  template status_t generate<double              >(view2D<double              > &, double &, int &, double, int);
+  template status_t generate<float               >(view2D<float               > &, double &, int &, double, int);
 
 
 #ifdef    NO_UNIT_TESTS
@@ -379,26 +414,27 @@ namespace sho_basis {
   status_t test_load(int const echo=5) {
       auto const Z = control::get("sho_basis.test.Z", 29.);
       status_t stat(0);
-      RadialFunctionSet const* ptr;
+      RadialFunctionSet const* rfset;
       int const load_echo = control::get("sho_basis.load.echo", 0.);
-      stat += load(ptr, Z, -1, load_echo); // load for the first time
+      stat += load(rfset, Z, -1, load_echo); // load for the first time
       int const nu_min = control::get("sho_basis.plot.min", 5.);
-      int const nu_max = control::get("sho_basis.plot.max", 5.);
+      int const nu_max = control::get("sho_basis.plot.max", 4.);
       for (int numax = nu_min; numax <= nu_max; ++numax) {
-          load(ptr, Z, numax, echo, true); // plot
+          bool constexpr plot = true;
+          load(rfset, Z, numax, echo, plot); // ignore status for non-existing numax entries
       } // numax
       return stat;
   } // test_load
 
   status_t test_generate(int const echo=5) {
-      double const  Z = control::get("sho_basis.test.Z", 29.);
-      int const numax = control::get("sho_basis.test.numax", -1.);
+      double const Z = control::get("sho_basis.test.Z", 29.);
+      int numax      = control::get("sho_basis.test.numax", -1.);
       status_t stat(0);
       double sigma;
-      { view2D<std::complex<double>> m; stat += generate(m, sigma, Z, numax, echo  ); }
-      { view2D<std::complex<float >> m; stat += generate(m, sigma, Z, numax, echo/8); }
-      { view2D<float               > m; stat += generate(m, sigma, Z, numax, echo/8); }
-      { view2D<double              > m; stat += generate(m, sigma, Z, numax, echo/8); }
+      { view2D<std::complex<double>> m; stat += generate(m, sigma, numax, Z, echo  ); }
+      { view2D<std::complex<float >> m; stat += generate(m, sigma, numax, Z, echo/8); }
+      { view2D<float               > m; stat += generate(m, sigma, numax, Z, echo/8); }
+      { view2D<double              > m; stat += generate(m, sigma, numax, Z, echo/8); }
       return stat;
   } // test_generate
 
