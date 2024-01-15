@@ -315,30 +315,32 @@ namespace sho_tools {
   // 0000000000111111111122222222223333333333444444444455555555556666666666
   inline char sho_hex(unsigned i) { return (i<10)?('0'+i):((i<32)?('W'+i):((i<64)?('!'+i):'?')); }
 
-  template <unsigned nChar=8> inline // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
+  inline 
   status_t construct_label_table(
         char label[]
       , int const numax
       , SHO_order_t const order
-      , int const echo=0
+      , int const nchar=8 // stride
+      // use nchar=4 for Cartesian or emm_degenerate, use nchar=6 or nchar=8 for radial indices
   ) {
-
       auto const ellchar = "spdfghijklmno?????????????????????"; // ToDo: 'i' should not be included by convention
       int ii{0};
       switch (order) {
 
+        // Cartesian orders
         case order_zyx:
         case order_Ezyx: // energy-ordered
           for (int z = 0; z <= numax; ++z) {
               for (int y = 0; y <= numax - z; ++y) {
                   for (int x = 0; x <= numax - z - y; ++x) {
                       int const j = is_energy_ordered(order) ? Ezyx_index(x, y, z) : ii;
-                      std::snprintf(&label[j*nChar], nChar, "%c%c%c", sho_hex(z), sho_hex(y), sho_hex(x));
+                      std::snprintf(&label[j*nchar], nchar, "%c%c%c", sho_hex(z), sho_hex(y), sho_hex(x));
                       ++ii;
           }}} // x y z
           assert(nSHO(numax) == ii);
         break;
 
+        // Radial orders
         case order_lmn:
         case order_lnm:
         case order_nlm:
@@ -350,12 +352,13 @@ namespace sho_tools {
                       if (order_Elnm == order) j = Elnm_index(l, n, m);
                       if (order_lnm == order)  j =  lnm_index(numax, l, n, m);
                       if (order_nlm == order)  j =  nlm_index(numax, n, l, m);
-                      std::snprintf(&label[j*nChar], nChar, "%i%c%i", n, ellchar[l], m);
+                      std::snprintf(&label[j*nchar], nchar, "%i%c%i", n, ellchar[l], m);
                       ++ii;
           }}} // l m n
           assert(nSHO(numax) == ii);
         break;
 
+        // emm-degenerate radial orders
         case order_ln: // ell-ordered emm-degenerate
         case order_nl: // nrn-ordered emm-degenerate
         case order_Enl: // energy-ordered emm-degenerate
@@ -366,15 +369,15 @@ namespace sho_tools {
                   if (order_nl == order) { j = nl_index(numax, n, l); } else
                   if (order_ln == order) { j = ii; assert( ln_index(numax, l, n) == ii ); }
                   assert(j >= 0);
-                  std::snprintf(&label[j*nChar], nChar, "%c%i", ellchar[l], n);
+                  std::snprintf(&label[j*nchar], nchar, "%c%i", ellchar[l], n);
                   ++ii;
           }} // l n
           assert(nSHO_radial(numax) == ii);
         break;
 
         default:
-            if (echo > 0) std::printf("# %s: no such case implemented: order_%s\n",
-                                        __func__, SHO_order2string(order).c_str());
+            std::printf("# %s: no such case implemented: order_%s\n",
+                           __func__, SHO_order2string(order).c_str());
             return order; // error
       } // switch order
       return 0; // success

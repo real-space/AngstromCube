@@ -1696,8 +1696,8 @@ namespace single_atom {
         , bool const all_j=false // otherwise only active partial waves
     ) const {
         int const nlnr = sho_tools::nSHO_radial(numax);
-        view2D<char> ln_label(nlnr, 4);
-        sho_tools::construct_label_table<4>(ln_label.data(), numax, sho_tools::order_ln);
+        view2D<char> ln_label(nlnr, 8, '\0');
+        sho_tools::construct_label_table(ln_label.data(), numax, sho_tools::order_ln);
         int const mlnr = display_delimiter(numax, nn);
         for (int iln = 0; iln < mlnr; ++iln) {
             if (partial_wave_active[iln] || all_i) {
@@ -3663,8 +3663,8 @@ namespace single_atom {
         if (echo > 7) { // display
             std::printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
                         label, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), _eV);
-            view2D<char> zyx_label(nSHO, 8);
-            sho_tools::construct_label_table<8>(zyx_label.data(), numax, sho_tools::order_zyx);
+            view2D<char> zyx_label(nSHO, 8, '\0');
+            sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
             for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 std::printf("# %s hamiltonian elements for %-6s", label, zyx_label[iSHO]);
                 printf_vector(" %11.6f", hamiltonian[iSHO], nSHO, "\n", eV);
@@ -3758,8 +3758,8 @@ namespace single_atom {
             int const mln = display_delimiter(numax, nn);
             std::printf("\n# %s ln-based projector matrix:\n", label);
             if (1) { // show a legend
-                view2D<char> ln_labels(nln, 8);
-                sho_tools::construct_label_table<8>(ln_labels.data(), numax, sho_tools::order_ln);
+                view2D<char> ln_labels(nln, 8, '\0');
+                sho_tools::construct_label_table(ln_labels.data(), numax, sho_tools::order_ln);
                 std::printf("# %s              radial SHO:      ", label);
                 for (int jln = 0; jln < mln; ++jln) {
                     std::printf("%-12s", ln_labels[jln]);

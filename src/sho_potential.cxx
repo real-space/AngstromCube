@@ -28,6 +28,8 @@
 namespace sho_potential {
   // computes potential matrix elements between two SHO basis functions
 
+  int constexpr X = 0, Y = 1, Z = 2;
+
   template <typename real_t>
   status_t multiply_potential_matrix(
         view2D<real_t> & Vmat // result Vmat(i,j) = sum_k Vaux(i,k) * ovl(j,k)
@@ -57,9 +59,9 @@ namespace sho_potential {
 
                   double tmp{0};
                   int kzyx{0}; // contraction index
-                  for     (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl1D(2,jz,kz);
-                    for   (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl1D(1,jy,ky) * tz;
-                      for (int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl1D(0,jx,kx) * tyz;
+                  for     (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl1D(Z,jz,kz);
+                    for   (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl1D(Y,jy,ky) * tz;
+                      for (int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl1D(X,jx,kx) * tyz;
 
                           tmp += Vaux(izyx,kzyx) * txyz;
 
@@ -104,8 +106,8 @@ namespace sho_potential {
       { // scope: set up mat3D
           view2D<double> mat3D(inv3D.data(), inv3D.stride()); // wrap
           int mzyx{0}; // moments
-          for     (int mz = 0; mz <= numax; ++mz) {
-            for   (int my = 0; my <= numax - mz; ++my) {
+          for     (int mz = 0; mz <= numax;           ++mz) {
+            for   (int my = 0; my <= numax - mz;      ++my) {
               for (int mx = 0; mx <= numax - mz - my; ++mx) {
 
                 // mat1D(n,m) = <H(n)|x^m>
@@ -113,11 +115,10 @@ namespace sho_potential {
                 //    connecting even-even or odd-odd indices are non-zero
                 //    ToDo: this could be exploited in the following pattern
                 int kzyx{0}; // Hermite coefficients
-                for     (int kz = 0; kz <= numax; ++kz) {            auto const tz   = mat1D(kz,mz);
-                  for   (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = mat1D(ky,my) * tz;
+                for     (int kz = 0; kz <= numax;           ++kz) {  auto const tz   = mat1D(kz,mz);
+                  for   (int ky = 0; ky <= numax - kz;      ++ky) {  auto const tyz  = mat1D(ky,my) * tz;
                     for (int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = mat1D(kx,mx) * tyz;
 
-                      // despite the name
                       mat3D(kzyx,mzyx) = txyz;
                       if (debug_check) mat3D_copy(kzyx,mzyx) = txyz;
 
@@ -133,7 +134,7 @@ namespace sho_potential {
               warn("Maybe factorization failed, status=%i", int(stat));
               return stat;
           } // inversion returned non-zero status
-          // inverse is stored in inv3D due o pointer overlap
+          // inverse is stored in inv3D due to pointer overlap
       } // scope
 
       std::vector<double> c_new(nc, 0.0); // get memory
@@ -164,12 +165,12 @@ namespace sho_potential {
 
       { // scope: coeff := c_new[reordered]
           int mzyx{0};
-          for    (int mz = 0; mz <= numax;           ++mz) {
-            for  (int my = 0; my <= numax - mz;      ++my) {
+          for     (int mz = 0; mz <= numax;           ++mz) {
+            for   (int my = 0; my <= numax - mz;      ++my) {
               for (int mx = 0; mx <= numax - mz - my; ++mx) {
-                int const Ezyx = sho_tools::Ezyx_index(mx, my, mz);
-                coeff[Ezyx] = c_new[mzyx]; // reorder
-                ++mzyx;
+                  int const Ezyx = sho_tools::Ezyx_index(mx, my, mz);
+                  coeff[Ezyx] = c_new[mzyx]; // reorder from order_zyx --> order_Ezyx
+                  ++mzyx;
               } // mx
             } // my
           } // mz
@@ -198,7 +199,6 @@ namespace sho_potential {
       , int const echo // =0 // log-level
   ) {
       // load the total potential from a file
-
       status_t stat(0);
       set(dims, 3, 0); // clear
       vtot.clear();
@@ -207,16 +207,18 @@ namespace sho_potential {
           char sep;
           for (int d = 2; d >= 0; --d) {
               infile >> sep >> dims[d]; // expect a line like "# 5 x 4 x 3"
-              if (echo > 5) std::printf("# %s: found dim %c with %i grid points\n", __func__, 120+d, dims[d]);
+              if (echo > 5) std::printf("# %s: found dim %c with %i grid points\n", __func__, 'x' + d, dims[d]);
           } // d
-          size_t const all = dims[2]*dims[1]*dims[0];
-          vtot.reserve(all);
-          size_t idx;
-          double val;
-          while (infile >> idx >> val) {
-              assert(idx < all);
-              vtot.push_back(val);
-          } // while
+          auto const all = size_t(dims[2])*size_t(dims[1])*size_t(dims[0]);
+          { // scope: fill array
+              vtot.reserve(all);
+              size_t idx;
+              double val;
+              while (infile >> idx >> val) {
+                  assert(idx < all);
+                  vtot.push_back(val);
+              } // while
+          } // scope
           if (vtot.size() < all) {
               warn("when loading local potential from file '%s' found only %ld of %ld entries", filename, vtot.size(), all);
               if (echo > 3) std::printf("# %s: use %.3f k < %.3f k values from file '%s'\n", __func__, vtot.size()*.001, all*.001, filename);
@@ -267,17 +269,17 @@ namespace sho_potential {
           double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}}; 
           stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo/2);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geo_file, cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang, bc[0], bc[1], bc[2]);
-          g.set_grid_spacing(length(cell[0])/g[0], length(cell[1])/g[1], length(cell[2])/g[2]);
+                              natoms, geo_file, cell[X][X]*Ang, cell[Y][Y]*Ang, cell[Z][Z]*Ang, _Ang, bc[X], bc[Y], bc[Z]);
+          g.set_grid_spacing(length(cell[X])/g[X], length(cell[Y])/g[Y], length(cell[Z])/g[Z]);
       } // scope
 
 //    for (int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary && "Periodic BCs not implemented!");
 
       if (echo > 1) std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
-      double const origin[] = {.5*(g[0] - 1)*g.h[0],
-                               .5*(g[1] - 1)*g.h[1], 
-                               .5*(g[2] - 1)*g.h[2]};
+      double const origin[] = {.5*(g[X] - 1)*g.h[X],
+                               .5*(g[Y] - 1)*g.h[Y], 
+                               .5*(g[Z] - 1)*g.h[Z]};
 
       view2D<double> center(natoms, 4); // list of atomic centers
       for (int ia = 0; ia < natoms; ++ia) {
@@ -292,14 +294,14 @@ namespace sho_potential {
                     my = (artificial_potential /  10) % 10,
                     mz = (artificial_potential / 100) % 10;
           if (echo > 0) std::printf("# artificial potential z^%i y^%i x^%i\n", mz, my, mx);
-          for (int iz = 0; iz < g[2]; ++iz) {
-              auto const zmz = intpow(iz*g.h[2] - origin[2], mz);
-              for (int iy = 0; iy < g[1]; ++iy) {
-                  auto const ymy = intpow(iy*g.h[1] - origin[1], my);
-                  for (int ix = 0; ix < g[0]; ++ix) {
-                      auto const xmx = intpow(ix*g.h[0] - origin[0], mx);
+          for (int iz = 0; iz < g[Z]; ++iz) {
+              auto const zmz = intpow(iz*g.h[Z] - origin[Z], mz);
+              for (int iy = 0; iy < g[Y]; ++iy) {
+                  auto const ymy = intpow(iy*g.h[Y] - origin[Y], my);
+                  for (int ix = 0; ix < g[X]; ++ix) {
+                      auto const xmx = intpow(ix*g.h[X] - origin[X], mx);
 
-                      int const izyx = (iz*g[1] + iy)*g[0] + ix;
+                      int const izyx = (iz*g[Y] + iy)*g[X] + ix;
                       vtot[izyx] = xmx * ymy * zmz;
 
                   } // ix
@@ -324,7 +326,7 @@ namespace sho_potential {
       int numax_max{0};
       for (int ia = 0; ia < natoms; ++ia) {
           if (echo > 0) std::printf("# atom #%i Z=%g \tpos %9.3f %9.3f %9.3f  sigma=%9.6f %s numax=%d\n", 
-              ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, sigmas[ia]*Ang, _Ang, numaxs[ia]);
+              ia, xyzZ(ia,3), xyzZ(ia,X)*Ang, xyzZ(ia,Y)*Ang, xyzZ(ia,Z)*Ang, sigmas[ia]*Ang, _Ang, numaxs[ia]);
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
 
@@ -443,7 +445,7 @@ namespace sho_potential {
                   } // d
                   int const numax_V = numaxs[ia] + numaxs[ja];
                   if (echo > 1) std::printf("# ai#%i aj#%i  center of weight: %9.6f %9.6f %9.6f sigma_V=%9.6f %s numax_V=%i\n", 
-                                                  ia, ja, cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
+                                                  ia, ja, cnt[X]*Ang, cnt[Y]*Ang, cnt[Z]*Ang, sigma_V*Ang, _Ang, numax_V);
                   for (int d = 0; d < 3; ++d) {
                       cnt[d] += origin[d];
                   } // d
@@ -529,7 +531,7 @@ namespace sho_potential {
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
 
-          auto const coarsest_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
+          auto const coarsest_grid_spacing = std::max(std::max(g.h[X], g.h[Y]), g.h[Z]);
           auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing); // in Hartree
 #ifndef SCAN_PERCENTAGES
           auto const percentage = control::get("sho_potential.test.method.on_site.percentage", 25.); // specific for method=On_Site
