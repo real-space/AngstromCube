@@ -14,7 +14,7 @@ namespace sho_hamiltonian {
       , double const *const vtot // total effective potential on grid
       , int const nkpoints
       , view2D<double> const & kmesh
-      , int const natoms_prj=-1 // number of PAW centers
+      , int const natoms_prj=-1 // number of PAW centers, -1: use natoms
       , double const *const sigma_prj=nullptr // spreads of the SHO-type PAW projectors
       , int    const *const numax_prj=nullptr // cutoffs of the SHO-type PAW projectors
       , double *const *const atom_mat=nullptr // PAW charge-deficit and Hamiltonian correction matrices

@@ -18,7 +18,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project
-#include "boundary_condition.hxx" // Isolated_Boundary, ::periodic_image
+#include "boundary_condition.hxx" // Isolated_Boundary, ::periodic_image, Periodic_Boundary
 #include "sho_overlap.hxx" // ::overlap_matrix, ::nabla2_matrix, ::moment_tensor
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "simple_math.hxx" // ::random<real_t>, align<nBits>
@@ -71,6 +71,10 @@ namespace sho_hamiltonian {
       return 0;
   } // kinetic_matrix
 
+
+  int constexpr H = 0, S = 1; // static indices for H:Hamiltonian matrix, S:overlap matrix
+
+
   template <typename complex_t, typename phase_t>
   status_t solve_k(
         int const natoms // number of SHO basis centers
@@ -88,7 +92,7 @@ namespace sho_hamiltonian {
       , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
       , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
       , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
-      , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
+      , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction (0) and charge-deficit (1)
       , phase_t const Bloch_phase[3]
       , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
       , bool const use_sho_basis=false // {no, yes}
@@ -113,7 +117,6 @@ namespace sho_hamiltonian {
       //
 
       double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
-      int constexpr S=1, H=0; // static indices for S:overlap matrix, H:Hamiltonian matrix
 
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
@@ -152,11 +155,11 @@ namespace sho_hamiltonian {
               for (int ib = 0; ib < nb_ia; ++ib) {
                   for (int lb = 0; lb < nb_la; ++lb) {
                       complex_t s(0), h(0);
-                      for (int kb = 0; kb < nb_ka; ++kb) { // contract
-                          auto const p = P_jala[ia][ka](ib,kb);
-                          // Mind that hs_PAW matrices are ordered {0:H,1:S}
-                          s += p * real_t(hs_PAW[ka](1,kb,lb));
-                          h += p * real_t(hs_PAW[ka](0,kb,lb));
+                      for (int kb = 0; kb < nb_la; ++kb) { // contract over kb
+                          auto const p = P_jala[ia][la](ib,kb);
+                          // Mind that hs_PAW matrices are ordered {0:H, 1:S}
+                          s += p * real_t(hs_PAW[la](S,kb,lb));
+                          h += p * real_t(hs_PAW[la](H,kb,lb));
                       } // kb
                       Psh_iala[ia][la](S,ib,lb) = s;
                       Psh_iala[ia][la](H,ib,lb) = h;
@@ -169,7 +172,7 @@ namespace sho_hamiltonian {
 
       // allocate bulk memory for overlap and Hamiltonian
       view3D<complex_t> HSm;
-      std::vector<uint32_t> nbasis(natoms, 0), basis_offset(natoms, 0);
+      std::vector<uint32_t> nbasis(natoms, 0), basis_offset(natoms + 1, 0);
       std::vector<view2D<complex_t>> trans(0);
       if (use_sho_basis) { // use_sho_basis
 
@@ -186,6 +189,7 @@ namespace sho_hamiltonian {
               basis_offset[ia] = nbasis_all;
               nbasis_all += nbasis[ia]; 
           } // ia
+          basis_offset[natoms] = nbasis_all; // finalize prefetch sum
           auto const nbasis_all_aligned = align<2>(nbasis_all);
           HSm = view3D<complex_t>(2, nbasis_all, nbasis_all_aligned, complex_t(0)); // get memory for 1:Overlap S and 0:Hamiltonian matrix H
           if (echo > 3) std::printf("# use sho_basis with %ld basis functions in total\n", nbasis_all);
@@ -258,15 +262,15 @@ namespace sho_hamiltonian {
 
               } // ip
 
-              // PAW contributions to H_{ij} = Ph_{il} P^*_{jl}
-              //                  and S_{ij} = Ps_{il} P^*_{jl}
-              for (int la = 0; la < natoms_PAW; ++la) { // contract
+              // PAW contributions to H_{ij} += \sum_l Ph_{il} P^*_{jl}
+              //                  and S_{ij} += \sum_l Ps_{il} P^*_{jl}
+              for (int la = 0; la < natoms_PAW; ++la) { // contract over la
                   int const nb_la = sho_tools::nSHO(numax_PAW[la]);
                   // triple-loop matrix-matrix multiplication
                   for (int ib = 0; ib < nb_ia; ++ib) {
                       for (int jb = 0; jb < nb_ja; ++jb) {
                           complex_t s(0), h(0);
-                          for (int lb = 0; lb < nb_la; ++lb) { // contract
+                          for (int lb = 0; lb < nb_la; ++lb) { // contract over lb
                               auto const p = conjugate(P_jala[ja][la](jb,lb)); // needs a conjugation if complex
                               s += Psh_iala[ia][la](S,ib,lb) * p;
                               h += Psh_iala[ia][la](H,ib,lb) * p;
@@ -327,7 +331,7 @@ namespace sho_hamiltonian {
       , double const *const vtot // total effective potential on grid
       , int const nkpoints
       , view2D<double> const & kmesh // kmesh(nkpoints, 4);
-      , int const natoms_prj // =-1 number of PAW atoms
+      , int const natoms_prj // =-1 // number of PAW centers, -1: use natoms
       , double const *const sigma_prj // =nullptr
       , int    const *const numax_prj // =nullptr
       , double *const *const atom_mat // =nullptr
@@ -372,14 +376,15 @@ namespace sho_hamiltonian {
           total_basis_size += std::max(0, atom_basis_size);
       } // ia
       int const numax_max = maximum_numax;
-      if (echo > 5) std::printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
+      if (echo > 5) std::printf("# largest basis size per atom is %d, numax= %d\n", sho_tools::nSHO(numax_max), numax_max);
       offset[natoms] = total_basis_size;
       int const nB   = total_basis_size;
       int const nBa  = align<3>(nB); // memory aligned main matrix stride
 
 
 
-      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
+      // prepare for the PAW contributions:
+      // find the projection coefficient matrix of basis functions P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
       int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
       auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
       std::vector<int32_t> numax_PAW(natoms_PAW,  3);
@@ -397,16 +402,19 @@ namespace sho_hamiltonian {
                   std::printf("# PAW center #%i\n", ka);
                   for (int kb = 0; kb < nb_ka; ++kb) {
                       std::printf("# %3i \t", kb);
-                      for (int lb = 0; lb < nb_ka; ++lb) { std::printf(" %.6f", hs_PAW[ka](0,kb,lb)); }
+                      for (int lb = 0; lb < nb_ka; ++lb) { std::printf(" %.6f", hs_PAW[ka](H,kb,lb)); }
                       std::printf(" \t\t");
-                      for (int lb = 0; lb < nb_ka; ++lb) { std::printf(" %.6f", hs_PAW[ka](1,kb,lb)); }
+                      for (int lb = 0; lb < nb_ka; ++lb) { std::printf(" %.6f", hs_PAW[ka](S,kb,lb)); }
                       std::printf("\n");
                   } // kb
               } // echo
           } else {
               hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
+              // we can prove that projectors are normalized by hs_PAW[ka](H, 0,0) = 1; and e.g.
+              // ./a43 -t sho_hamiltonian +geometry.file=scf.C-atom.xyz +sho_hamiltonian.test.numax=3 +hamiltonian.scale.kinetic=0 \
+              //             +hamiltonian.scale.nonlocal.h=1 +hamiltonian.scale.nonlocal.s=0 +hamiltonian.scale.potential=0 -VVVV
           } // atom_mat
-          // for both matrices: L2-normalization w.r.t. SHO projector functions is important
+          // for both matrices: L2-normalization w.r.t. SHO projector functions is important.
       } // ka
 
 
@@ -424,7 +432,7 @@ namespace sho_hamiltonian {
       double const origin[] = {.5*(g[0] - 1)*g.h[0],
                                .5*(g[1] - 1)*g.h[1], 
                                .5*(g[2] - 1)*g.h[2]};
-      
+
       int ncenters = natoms*natoms*n_periodic_images; // non-const
       view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
       view4D<int> center_map(natoms, natoms, n_periodic_images, 2, -1);
@@ -687,14 +695,15 @@ namespace sho_hamiltonian {
           std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       } // echo
 
-      int const nkpoints = control::get("hamiltonian.test.kpoints", 7.);
       auto const kpointdir = int(control::get("hamiltonian.test.kpoint.direction", 0.)) % 3;
+      auto const nkpoints  = int(control::get("hamiltonian.test.kpoints", (Periodic_Boundary == bc[kpointdir]) ? 17. : 1.));
       view2D<double> kmesh(nkpoints, 4, 0.0);
-      for (int ikp = 0; ikp < nkpoints; ++ikp) {
+      for (int ikp = 1; ikp < nkpoints; ++ikp) {
           kmesh(ikp,kpointdir) = ikp*0.5/(nkpoints - 1.); // bandstructure e.g. in x-direction
       } // ikp
 
-      stat += solve(natoms, xyzZ, g, vtot.data(), nkpoints, kmesh, 0, 0, 0, 0, echo);
+      stat += solve(natoms, xyzZ, g, vtot.data(), nkpoints, kmesh, -1, 0, 0, 0, echo);
+      warn("sho_hamiltonian results for %d atoms are calculated without PAW potentials", natoms);
 
       return stat;
   } // test_Hamiltonian

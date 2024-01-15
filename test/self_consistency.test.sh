@@ -22,10 +22,10 @@ exe=./a43
 # echo "#cell 4 4 4 i i i" >> $base.xyz
 # echo "__  0 0 0" >> $base.xyz
 
-# base=scf.C-atom
-# echo " 1" > $base.xyz
-# echo "#cell 8 8 8 i i i" >> $base.xyz
-# echo "C  0 0 0" >> $base.xyz
+base=scf.C-atom
+echo " 1" > $base.xyz
+echo "#cell 24 24 24 i i i" >> $base.xyz
+echo "C  0 0 0" >> $base.xyz
 
 # base=scf.methane
 # echo " 5" > $base.xyz
@@ -102,19 +102,19 @@ exe=./a43
 # echo "Au    1.016 -1.016  1.016" >> $base.xyz
 # echo "Au   -1.016  1.016  1.016" >> $base.xyz
 
-### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 (2009), al. et Blaha
-base=scf.C-diamond
-echo " 8" > $base.xyz
-echo "#cell 3.536 3.536 3.536 p p p" >> $base.xyz
-# 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
-echo "C  -1.326 -1.326 -1.326" >> $base.xyz
-echo "C   0.442  0.442 -1.326" >> $base.xyz
-echo "C  -0.442 -0.442 -0.442" >> $base.xyz
-echo "C   1.326  1.326 -0.442" >> $base.xyz
-echo "C  -1.326  0.442  0.442" >> $base.xyz
-echo "C   0.442 -1.326  0.442" >> $base.xyz
-echo "C  -0.442  1.326  1.326" >> $base.xyz
-echo "C   1.326 -0.442  1.326" >> $base.xyz
+# ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 (2009), al. et Blaha
+# base=scf.C-diamond
+# echo " 8" > $base.xyz
+# echo "#cell 3.536 3.536 3.536 p p p" >> $base.xyz
+# # 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
+# echo "C  -1.326 -1.326 -1.326" >> $base.xyz
+# echo "C   0.442  0.442 -1.326" >> $base.xyz
+# echo "C  -0.442 -0.442 -0.442" >> $base.xyz
+# echo "C   1.326  1.326 -0.442" >> $base.xyz
+# echo "C  -1.326  0.442  0.442" >> $base.xyz
+# echo "C   0.442 -1.326  0.442" >> $base.xyz
+# echo "C  -0.442  1.326  1.326" >> $base.xyz
+# echo "C   1.326 -0.442  1.326" >> $base.xyz
 
 # base=scf.C_chain.sho
 # echo " 1" > $base.xyz
@@ -197,17 +197,16 @@ element_P=" 3s* 2 3p* 3 0 3d | 1.8 sigma .512"
 single_atom.relax.partial.waves=0
 
 ## special verbosity for PAW setup
-single_atom.init.echo=7
+single_atom.init.echo=0
 
 ## special verbosity for PAW update
-single_atom.echo=3
+single_atom.echo=0
 
+## bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
+single_atom.echo.mask=3
 
 ## limit the number of partial waves per ell-channel, default=2
 # single_atom.nn.limit=2
-
-## bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
-single_atom.echo.mask=1
 
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
 # single_atom.optimize.sigma=1
@@ -287,13 +286,13 @@ hamiltonian.export.format=xml
 # structure_solver.complex=1
 
 # show variables defined in control (1=minimal, 2=unused, 4=defaults, 6=4+2, negative for details)
-control.show=-7
+control.show=-1
 
 EOF
 ## end of control file
 
 
-for spacing in `seq 2 1 2`; do
+for spacing in `seq 2 1 0`; do
   ## real-space grid spacing in Bohr
   project=$base.grid$spacing
   echo "# start calculation $project" && \
@@ -305,15 +304,17 @@ for spacing in `seq 2 1 2`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done # spacing
 
-for numax in `seq 4 2 2`; do
+for numax in `seq 4 2 4`; do
   ## SHO basis size numax
   project=$base.sho$numax
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=sho \
+        +grid.spacing="0.111 Bohr" \
         +sho_hamiltonian.test.numax=$numax \
         +sho_hamiltonian.test.sigma=1.0 \
+        +sho_hamiltonian.use.sho_basis=yes \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done # numax

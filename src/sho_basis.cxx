@@ -69,10 +69,11 @@ namespace sho_basis {
   status_t load(
         RadialFunctionSet const* & rfset // result
       , double const Z_core
-      , int const numax_in // =-1
-      , int const echo // =0 log-level
+      , int const numax_in=-1
+      , int const echo_in=0 // log-level, -1: use +sho_basis.load.echo
       , bool const plot=false
   ) {
+      int const echo = (echo_in < 0) ? control::get("sho_basis.load.echo", 0.) : echo_in;
 
       static std::map<double,SpeciesSet> _map; // map_Key=Z_core
 
@@ -239,7 +240,7 @@ namespace sho_basis {
   status_t get(double & sigma, int & numax, int & nbasis, double const Z_core, int const echo) {
       RadialFunctionSet const* rfset{nullptr};
       auto const numax_in = numax;
-      auto const load_stat = load(rfset, Z_core, numax, echo);
+      auto const load_stat = load(rfset, Z_core, numax, -1);
       if (0 == load_stat) {
           assert(nullptr != rfset);
           sigma = rfset->sigma;
@@ -276,7 +277,7 @@ namespace sho_basis {
 
       // make sure that the pseudo_basis.xml file has been loaded for this Z
       RadialFunctionSet const * rfset = nullptr;
-      auto const load_stat = load(rfset, Z_core, numax, echo); // should return a RadialFunctionSet
+      auto const load_stat = load(rfset, Z_core, numax, -1); // should return a RadialFunctionSet
       if (echo > 3) std::printf("# loading status= %i ptr= %p\n", int(load_stat), (void*)rfset);
       // get nbasis
       if (0 != load_stat) {
@@ -406,8 +407,7 @@ namespace sho_basis {
       auto const Z = control::get("sho_basis.test.Z", 29.);
       status_t stat(0);
       RadialFunctionSet const* rfset;
-      int const load_echo = control::get("sho_basis.load.echo", 0.);
-      stat += load(rfset, Z, -1, load_echo); // load for the first time
+      stat += load(rfset, Z, -1, -1); // load for the first time
       int const nu_min = control::get("sho_basis.plot.min", 5.);
       int const nu_max = control::get("sho_basis.plot.max", 4.);
       for (int numax = nu_min; numax <= nu_max; ++numax) {
