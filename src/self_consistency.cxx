@@ -526,7 +526,7 @@ namespace self_consistency {
                                 center, n_periodic_images, periodic_images, atom_vbar.data(),
                                 echo, 0, Y00, "zero potential");
 
-          if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential  (after adding zero potentials)", eV, _eV);
+          if (echo > 1) print_stats(Vtot.data(), g.all(), 0,   "# Total effective potential  (after adding zero potentials)", eV, _eV);
           here;
 
 

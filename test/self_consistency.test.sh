@@ -24,7 +24,7 @@ exe=./a43
 
 base=scf.C-atom
 echo " 1" > $base.xyz
-echo "#cell 24 24 24 i i i" >> $base.xyz
+echo "#cell 32 32 32 i i i" >> $base.xyz
 echo "C  0 0 0" >> $base.xyz
 
 # base=scf.methane
@@ -146,7 +146,7 @@ cat > control.sh << EOF
 # use # for silent comments and #! for comments in the log file
 
 ## general verbosity of the log file
-verbosity=7
+# verbosity=7
 
 ## display energies in custom units {Ha, Ry, eV}
 #output.energy.unit=eV
@@ -304,18 +304,18 @@ for spacing in `seq 2 1 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done # spacing
 
-for numax in `seq 4 2 4`; do
+for numax in `seq 9 2 9`; do
   ## SHO basis size numax
   project=$base.sho$numax
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=sho \
-        +grid.spacing="0.111 Bohr" \
+        +grid.spacing=0.12501 \
         +sho_hamiltonian.test.numax=$numax \
-        +sho_hamiltonian.test.sigma=1.0 \
         +sho_hamiltonian.use.sho_basis=yes \
         "$@" > $project.out
+        # +sho_hamiltonian.test.sigma=1.0 \
   ./spectrum.sh $project.out > $project.spectrum.dat
 done # numax
 

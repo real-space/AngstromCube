@@ -344,14 +344,13 @@ namespace sho_hamiltonian {
       bool const use_sho_basis = ('n' != ((*use_sho_basis_word) | 32));
       if (echo > 0) std::printf("# sho_hamiltonian.use.sho_basis=%s\n", use_sho_basis_word);
 
-      int  const usual_numax = control::get("sho_hamiltonian.test.numax", 1.);
+      int  const usual_numax = control::get("sho_hamiltonian.test.numax", use_sho_basis ? -1. : 1.);
       auto const usual_sigma = control::get("sho_hamiltonian.test.sigma", .5);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       if (use_sho_basis) {
           for (int ia = 0; ia < natoms; ++ia) {
               int nbasis; // number of basis functions (radial functions including emm-multiplicity)
-              numaxs[ia] = -1;
               stat += sho_basis::get(sigmas[ia], numaxs[ia], nbasis, xyzZ(ia,3), echo);
           } // ia
       } // use_sho_basis
