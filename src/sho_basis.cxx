@@ -20,6 +20,7 @@
 #include "complex_tools.hxx" // complex_name
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 #include "print_tools.hxx" // printf_vector
+#include "chemical_symbol.hxx" // ::get
 
 #ifdef    HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
@@ -69,7 +70,7 @@ namespace sho_basis {
   status_t load(
         RadialFunctionSet const* & rfset // result
       , double const Z_core
-      , int const numax_in=-1
+      , int const numax_in=-1 // -1: automatically get minimum or sho_basis.Sy.numax with Sy=chemical_symbol::get(Z)
       , int const echo_in=0 // log-level, -1: use +sho_basis.load.echo
       , bool const plot=false
   ) {
@@ -173,15 +174,18 @@ namespace sho_basis {
           auto & speciesset = _map[Z_core];
           if (echo > 3) std::printf("# %s found Z= %g --> %s %g\n", __func__, Z_core, speciesset.symbol, speciesset.Z_core);
           assert(1 == found_Z && "std::map can only return 1 or 0 on count");
-          uint8_t nu = 0;
-          if (numax_in < 0) {
-              nu = speciesset.numax_min; // use minimum basis
+          int nu = numax_in;
+          if (nu < 0) { // auto --> external config
+              char Sy[4]; chemical_symbol::get(Sy, Z_core);
+              char keyword[64]; std::snprintf(keyword, 64, "sho_basis.%s.numax", Sy);
+              nu = control::get(keyword, speciesset.numax_min*1.); // use minimum basis if not defined otherwise
+          }
+          if (nu < speciesset.numax_min) {
+              nu = speciesset.numax_min;
               if (echo > 3) std::printf("# %s found Z= %g --> minimum numax= %d\n", __func__, Z_core, nu);
-          } else if (numax_in > speciesset.numax_max) {
+          } else if (nu > speciesset.numax_max) {
               nu = speciesset.numax_max; // use maximum basis
               if (echo > 3) std::printf("# %s found Z= %g --> maximum numax= %d\n", __func__, Z_core, nu);
-          } else {
-              nu = uint8_t(numax_in); // use exactly the SHO basis size requested
           }
           auto const found_nu = speciesset.map.count(nu);
           if (found_nu) {

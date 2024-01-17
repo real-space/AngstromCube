@@ -22,10 +22,28 @@ exe=./a43
 # echo "#cell 4 4 4 i i i" >> $base.xyz
 # echo "__  0 0 0" >> $base.xyz
 
-base=scf.C-atom
-echo " 1" > $base.xyz
-echo "#cell 32 32 32 i i i" >> $base.xyz
-echo "C  0 0 0" >> $base.xyz
+# base=scf.C-atom
+# echo " 1" > $base.xyz
+# echo "#cell 32 32 32 i i i" >> $base.xyz
+# echo "C  0 0 0" >> $base.xyz
+
+base=scf.ozone
+### bond length is 128pm, bond angles are 116.8, 60 and 84 (transition state) degrees 
+echo " 3" > $base.xyz
+echo "#cell 16 16 8 i i i" >> $base.xyz
+# ### for 120 degrees:
+# echo "O      0  -.32 0" >> $base.xyz
+# echo "O    -1.1  .32 0" >> $base.xyz
+# echo "O     1.1  .32 0" >> $base.xyz
+# ### for 60 degrees:
+# echo "O      0  -.555 0" >> $base.xyz
+# echo "O    -.64  .555 0" >> $base.xyz
+# echo "O     .64  .555 0" >> $base.xyz
+### for 84 degrees:
+echo "O      0    -.4756 0" >> $base.xyz
+echo "O    -.8565  .4756 0" >> $base.xyz
+echo "O     .8565  .4756 0" >> $base.xyz
+
 
 # base=scf.methane
 # echo " 5" > $base.xyz
@@ -251,7 +269,7 @@ hamiltonian.floating.point.bits=32
 # grid.eigensolver=explicit
 # grid.eigensolver=cg
 conjugate_gradients.max.iter=4
-grid.eigensolver.repeat=9
+grid.eigensolver.repeat=38
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
@@ -291,27 +309,30 @@ control.show=-1
 EOF
 ## end of control file
 
+### ensure this is compiled if $exe contains a make
+$exe --version > /dev/null
 
-for spacing in `seq 2 1 0`; do
+for spacing in `seq 1 1 1`; do
   ## real-space grid spacing in Bohr
   project=$base.grid$spacing
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=grid \
-        +grid.spacing=`echo 0.222 / $spacing | bc -l` \
+        +grid.spacing=`echo 0.125001 / $spacing | bc -l` \
         "$@" > $project.out
+     # +grid.spacing=`echo 0.222 / $spacing | bc -l` \
   ./spectrum.sh $project.out > $project.spectrum.dat
 done # spacing
 
-for numax in `seq 9 2 9`; do
+for numax in `seq 3 1 0`; do
   ## SHO basis size numax
   project=$base.sho$numax
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=sho \
-        +grid.spacing=0.12501 \
+        +grid.spacing=0.125001 \
         +sho_hamiltonian.test.numax=$numax \
         +sho_hamiltonian.use.sho_basis=yes \
         "$@" > $project.out

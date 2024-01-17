@@ -315,6 +315,25 @@ namespace sho_hamiltonian {
       Psh_iala.clear(); // release the memory, P_jala is still needed for the generation of density matrices
 
       auto const result = dense_solver::solve(HSm, x_axis, echo); // will display the spectrum, no construction of density so far
+
+      if (use_sho_basis && echo > 3) {
+          // classify the eigenstates according to the basis functions
+          for (int iband = 0; iband < HSm.dim1(); ++iband) {
+              int ia_max{-1}, ib_max{-1};
+              double wg_max{-1}, norm2{0};
+              for (int ia = 0; ia < natoms; ++ia) {
+                  for (int ib = 0; ib < nbasis[ia]; ++ib) {
+                      auto const psi = HSm(0,iband,basis_offset[ia] + ib);
+                      double const wg = pow2(std::real(psi)) + pow2(std::imag(psi));
+                      norm2 += wg;
+                      if (wg > wg_max) { wg_max = wg; ia_max = ia; ib_max = ib; }
+                  } // ib
+              } // ia
+              std::printf("# band #%i norm= %g largest weight %.1f %% at atom #%i basis function #%i of %d\n",
+                                    iband, std::sqrt(norm2), wg_max/norm2*100., ia_max, ib_max, nbasis[ia_max]);
+          } // iband
+      } // use_sho_basis
+
       return result;
   } // solve_k
 
@@ -344,7 +363,7 @@ namespace sho_hamiltonian {
       bool const use_sho_basis = ('n' != ((*use_sho_basis_word) | 32));
       if (echo > 0) std::printf("# sho_hamiltonian.use.sho_basis=%s\n", use_sho_basis_word);
 
-      int  const usual_numax = control::get("sho_hamiltonian.test.numax", use_sho_basis ? -1. : 1.);
+      int  const usual_numax = control::get("sho_hamiltonian.test.numax", use_sho_basis ? -1. : 1.); // -1: use sho_basis.Sy.numax with Sy=chemical_symbol::get(Z)
       auto const usual_sigma = control::get("sho_hamiltonian.test.sigma", .5);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads

@@ -34,6 +34,8 @@
 \acrodef{MPI}[MPI]{message passing interface}
 \acrodef{SCF}[SCF]{self-consistent field}
 \acrodef{RHS}[RHS]{right-hand side}
+\acrodef{XML}[XML]{eXtendable Markup Language}
+\acrodef{API}[API]{application programming interface}
 
 
 \setlength{\tabcolsep}{6pt}
@@ -393,7 +395,8 @@ We can pass more environment variables to \codename{} using a \ttt{+control.file
 \end{verbatim}
 Hint: There is no default name or naming scheme for the control file 
 but it may be helpful to use an \ttt{.sh}-file extension since that
-enables useful syntax highlighting in common text editors.
+enables useful syntax highlighting and commenting functionality in common text editors.
+In most examples, we use the name \ttt{control.sh}.
 %
 %
 
@@ -421,7 +424,7 @@ A repeated $variablename$ will launch a warning about redefinition, even if the 
 Use e.g.~\ttt{+control.show=1} to display all environment variables used during execution.
 Set \ttt{+control.show=2} to show only the unused variables, \ttt{=4} to show also those variables that have their default values, \ttt{6} for both.
 In order to get information where the variable's value originated and how many times it was used, invert the same number as above into their negatives, i.e.~\ttt{-1}, \ttt{-2}, \ttt{-4} and \ttt{-6}.
-See Tab \ref{tab:control-show-details} for decoding. 
+See Tab \ref{tab:control-show-details} for decoding the origin. 
 %
 %
 \begin{table}[ht!]
@@ -450,38 +453,41 @@ In order to target current \ac{HPC} systems
 the executable \ttt{./green} incorporates the \ac{MPI} library
 for inter-node communication
 and the \ttt{CUDA} programming model for acceleration by a \ac{GPU}.
+When \ac{MPI} and \ac{GPU}s are employed, multi-\ac{GPU} parallelisation is achieved
+with exactly one device per \ac{MPI} rank.
 
 \noindent
 Please consult with your \ac{HPC} system administrator for support
-about how to control the different levels of parallelism.
+about how to control and place the different levels of parallelism.
 
 \section{Representation of Wave Functions} \label{sec:representation}
 %
 Kohn-Sham eigenstates have very different character depending on their energy level: core states, valence states and depending on the species also semicore states. The following sections will give a short overview of their treatment in \codename{}.
 %
 %
-\subsubsection{Treatment of Core States} \label{sec:core-states}
+\subsection{Treatment of Core States} \label{sec:core-states}
 %
-Core states are very low in energy and strongly bound 
-to the atomic core.
-Their spatial extent is so strongly localized 
-in the vicinity of the atomic nucleus 
-that they feel almost exclusively the strong attractive Coulomb potential of the core. 
-This can be approximated fairly well as a spherically symmetric potential.
+Core states are very low in energy and strongly bound to the atomic core.
+Their spatial extent is strongly localized in the vicinity of the atomic nucleus
+so that they feel almost exclusively the strong attractive Coulomb potential of the core. 
+This can be approximated fairly well as a spherically symmetric potential
 with a singularity at its origin.
 The eigenstates show a clear angular momentum quantum number, the $\ell$-character. 
-For usual atoms, $s$ ($\ell$ = 0), $p$ ($\ell$ = 1), $d$ ($\ell$ = 2) or even $f$ ($\ell$ = 3) states can be found.
-Technically, the solutions are found on a 1D radial grid by the \ttt{radial\_eigensolver} module.
-Relativistic effects are treated on the basis of the scalar-relativistic approximation.
+For usual atoms, bound states with $s$ ($\ell$ = 0), $p$ ($\ell$ = 1), $d$ ($\ell$ = 2) or even $f$ ($\ell$ = 3) character can be found.
+Technically, the \ttt{radial\_eigensolver} module determines the solutions on a 1D radial grid.
+Relativistic effects are treated on the basis of the scalar-relativistic approximation (SRA).
+\todo[inline]{cite SRA}
 Due to the spherical symmetry of the potential
-the energies of core states are well defined and degenerate with respect to the magnetic quantum number $m$.
+the energies of core states are well defined
+and degenerate with respect to the magnetic quantum number $m$.
 Try
 \begin{verbatim}
 ./a43 --test atom_core
 \end{verbatim}
+See Appendix \ref{sec:example-output-for-atom-core} for an example of the expected output.
 %
 %
-\subsubsection{Treatment of Semicore States} \label{sec:semincore-states}
+\subsection{Treatment of Semicore States} \label{sec:semincore-states}
 %
 Semicore states are high-lying core states but energy-wise below the valence band.
 Their wave function tail can extend beyond half a nearest neighbor atom distance.
@@ -499,7 +505,7 @@ Please stay tuned for feature updates.
 
 %
 %
-\subsubsection{Treatment of Valence States} \label{sec:valence-states}
+\subsection{Treatment of Valence States} \label{sec:valence-states}
 %
 Valence states are high in energy, by definition up to the Fermi energy.
 They are delocalized over several atoms and form bands and bonds.
@@ -509,59 +515,76 @@ Valence states exhibit relatively slow oscillations
 in the space between atoms but close to the atomic nuclei,
 their structure resembles that of high-lying core states.
 In particular in projected radial coordinates, we can find up to $6$ nodes
-(7$s$-bands) with the distance between the nodes becoming smaller
+(7$s$-bands) with the distances between nodes becoming smaller
 the closer we move towards the core.
 These rapid oscillations are difficult to represent
 on the same footing that gets the behaviour in the interstitial regions correct. 
 We will review some of the most common approaches:
 
-
+\subsubsection*{Local orbital methods}
 Local orbital methods use radial eigenfunctions 
-of the spherically averaged atomic potential as atom-centered basis functions.
+of the spherically symmetric atomic potential (typically of neutral or selected ionized configurations) as atom-centered basis functions.
 This captures the behaviour in the core region well
 but shows a slow and not systematic convergence behaviour in the interstitial region. 
 An advantage is that atomic orbital basis sets can be rather compact
-and localized which casts the Hamiltonian into a block-sparse matrix operator with small block dimensions ($\approx 30$).
+and localized which casts the Hamiltonian into a block-sparse matrix operator with small block dimensions (up to $\approx 30$ basis functions per atom).
 The drawback is that the description in the interstitial region determines the
-quality of description for bandstructures, bonds and forces. The advanced user may try
+quality of description for bandstructures, bonds and forces.
+The advanced user may try
 \begin{verbatim}
 ./a43 --test sho_hamiltonian
 \end{verbatim}
+see chapter \ref{sec:sho-hamiltonian} for details.
 
-
-LAPW (Linearized Augmented Plane Wave) methods take the best of two worlds:
+\subsubsection*{LAPW}
+Linearized Augmented Plane Wave (LAPW) methods take the best of two worlds:
 In order to construct efficient basis functions, 
-they assume a spherical potential inside an atomic sphere (solutions are radial)
+they assume a spherical potential inside an atomic sphere (solutions are numerically given radial functions multiplied by spherical harmonics)
 and a constant potential inside the interstitial region (solutions are plane waves). 
 On the boundary spheres between the two regions, the basis function components need to be matched.
 Due to the \ac{PW}-character, the basis functions are fully delocalized and 
-the Hamiltonian becomes dense.
+the LAPW-Hamiltonian becomes a dense matrix.
 
 
+\subsubsection*{Plane wave pseudopotential methods}
 Using \ac{PW}s as a basis for the entire space shifts the problem to the representation of the valence wave function in the core region.
-The \ac{PAW} method is a successful generalization of the family of pseudopotential methods with allows a full-potential access.
-A pseudopotential replaces the true deep full potential in the core region
-by some potential which can be represented with a finite number of \ac{PW}s
+The \ac{PAW} method is a successful generalization of the family of pseudopotential methods which allows a full-potential and potentially an all-electron treatment.
+A pseudopotential replaces the singular full $1/r$-potential in the core region
+by a smooth potential which can be represented with a finite number of \ac{PW}s
 and approximates the scattering properties (phase shifts) in the typical energy
 range of valence states.
-In most cases the construction of such a potential only succeeds in the form of
-a non-local potential. See
+In most cases the construction of such a potential only succeeds in the form of a non-local potential, c.f.~chapter \ref{sec:single-atom}.
+\\
+Try the experimental feature
 \begin{verbatim}
-./a43 --test plane_waves
+./a43 --test self_consistency +basis=plane_wave
 \end{verbatim}
-and the \ttt{+basis=plane\_wave} option for \ttt{-t self\_consistency}.
+for moderate sized periodic geometries.
 
-
+\subsubsection*{Real space grid methods}
 Real-space grid based methods for \ac{DFT}
-feature an improved scalablity on massively parallel \ac{HPC} systems at the same level of accuracy as \ac{PW} basis sets. 
+feature an improved scalability on massively parallel \ac{HPC} systems at the same level of accuracy as \ac{PW} basis sets. 
 The \ac{PAW} method can be utilized and comes at the advantage that the projector functions are localized around the atoms, 
 hence, the Hamiltonian becomes an implicit low-rank operator with sparsity which does not involve Fourier transforms when applied to a wave function.
-
 
 \codename{} implements Cartesian real-space grids 
 in combination with a revision of the \ac{PAW} method (revPAW) suitable for
 a reduced memory capacity consumption and lower memory bandwidth requirements.
 \todo[inline]{cite Baumeister, Tsukamoto, PASC19 proceedings}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -743,7 +766,9 @@ various modules in detail.
 
 \subsection{Atomic Core} \label{sec:atom-core}
 %
-The \ttt{atom\_core} module determines a self-consistent solution
+\subsubsection{Self consistent potentials}
+%
+The \ttt{atom\_core} module determines self-consistent \ac{DFT} solutions
 of a spherically symmetric, isolated atom with $Z$ protons in the core.
 The resulting potential $V(r)$ is stored in \ttt{pot/Zeff.}$00Z$
 in the form $-rV(r) = Z\um{eff}(r)$ given that the directory \ttt{./pot} has been created beforehand.
@@ -773,12 +798,14 @@ to predefined values. \ttt{atom\_core.occupations=auto} or \ttt{=custom} can be 
 where they are taken from the element configuration, see Section \ref{sec:sigma-config}.
 For an example output see the Appendix \ref{sec:example-output-for-atom-core}.
 
-\subsubsection{Core State Diagram} \label{sec:core-state-diagram}
+\subsubsection{Core State Diagrams} \label{sec:core-state-diagram}
+visualize the energy and localization of core states. Try
 \begin{verbatim}
 ./a43 -t atom_core +atom_core.show.state.diagram=5 > logg
 \end{verbatim}
-will plot a diagram representing the spherical all-electron potential $V\um{eff}(r)$
+to plot a diagram representing the spherical all-electron potential $V\um{eff}(r)$
 and the spherical states of copper by lines at their corresponding eigenenergies.
+See figure \ref{fig:core-state-diagrams-Z30-and-Z80} for examples of zinc and mercury.
 The lines start and end at the radii where $5\%$ and $95\%$ of the charge density of that state are included, respectively.
 You can use \ttt{xmgrace -nxy logg} to plot the diagram.
 \todo[inline]{check if state\_diagram.template.agr is checked into the git!}
@@ -786,7 +813,7 @@ You can use \ttt{xmgrace -nxy logg} to plot the diagram.
 Mind that the radius has been transformed as $\sqrt{r}$
 and the energies are shown as -$\log_{10}($-$E)$ to make up for the different scales involved.
 
-\begin{figure}[t]
+\begin{figure}[h]
 	\centering
 	\includegraphics[width=.49\textwidth]{fig/state_diagram_Z30}
 	\includegraphics[width=.49\textwidth]{fig/state_diagram_Z80}
@@ -808,15 +835,15 @@ and the energies are shown as -$\log_{10}($-$E)$ to make up for the different sc
 
 \subsection{Element Configuration} \label{sec:sigma-config-short}
 %
-A list of $120$ default element configuration is contained in the application.
+A list of $120$ default element configurations is contained in the application.
 For example the default configuration for aluminum can be displayed by
 \begin{verbatim}
 ./a43 --test sigma_config +sigma_config.test.Z=13
 \end{verbatim}
 The user can modify the configuration string using the chemical symbol
 \begin{verbatim}
-./a43 --test sigma_config +element_Al="3s 2 3p 1 | 2.05 sigma .5" \
- 		+sigma_config.test.Z=13
+./a43 --test sigma_config +sigma_config.test.Z=13 \
+	        +element_Al="3s* 2 3p 1 | 2.05 sigma .5" 		
 \end{verbatim}
 where the high quotes are necessary only in the command line interface
 and can be omitted in the control file, see Section \ref{sec:control-file-rules}.
@@ -824,14 +851,16 @@ and can be omitted in the control file, see Section \ref{sec:control-file-rules}
 \noindent
 An element configuration string consists of
 \begin{itemize}
-	\item occupation numbers used for the isolated atom calculation
-	\item a \ac{PAW} cutoff radius specified in Bohr after the \ttt{|} and
-	\item a \ttt{sigma} parameter for the spread of \ac{SHO} projectors.
+	\item valence occupations used for the isolated atom calculation, here $3s^2 \, 3p^1$
+	\item a \ac{PAW} cutoff radius after the \ttt{|}, here $2.05\,$Bohr
+	\item a \ttt{sigma} parameter for the spread of \ac{SHO} projectors, here $0.5\,$Bohr
+	\item additional partial waves, here \ttt{s*}, i.e.~a second $s$-wave.
 \end{itemize}
 
-\subsection{PAW Potential} \label{sec:single-atom}
+\subsection{PAW Potential Generation} \label{sec:single-atom}
 %
-For the advanced user we recommend to inspect the logarithmic derivatives by
+When modifying the element configurations for \ac{PAW} generation,
+we recommend to inspect the logarithmic derivatives by
 \begin{verbatim}
 ./a43 --test single_atom +single_atom.test.Z=13 \
         +logder.start=-4 +logder.step=1e-4 +logder.stop=1
@@ -840,16 +869,16 @@ The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy} $logfile$.
 %
 \noindent
 For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
-\ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of $e$Volt.
+\ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of \ttt{eV}.
 
 \noindent
 Logarithmic derivatives are summarized by the position of the resonances (poles).
-For \ttt{+verbosity=8} and higher, the generalized node counts are given plottable in the log file.
+At \ttt{+verbosity=8} or higher the generalized node counts are given plottable in the log file.
 
 \noindent
 The \ttt{eigenstate\_analysis} tool solves the spherically symmetric pseudo atom
 problem on an equidistant radial mesh. This allows to check for ghost states of the pseudopotential.
-Increase \ttt{+scattering\_test.eigenstate.analysis.warn=.005 Ha} to suppress warnings about deviations.
+Increase \ttt{+scattering\_test.eigenstate.analysis.warn=.005} (5 mHa) to suppress warnings about deviations.
 To check correct functionality, run
 \begin{verbatim}
 ./a43 --test scattering_test
@@ -868,14 +897,16 @@ The \ac{PAW} data generated by \ttt{single\_atom} can be exported into the \ttt{
 by CECAM's ESL\cite{CECAM_Electronic_Structure_Library} (https://esl.cecam.org/data/paw-xml/)
 to later be imported by GPAW\cite{gpaw} and ABINIT\cite{abinit}.
 To export please add \ttt{+single\_atom.export=1} and \ttt{+single\_atom.smooth.radial.grid.from=0}.
-The latter is necessary as \ttt{single\_atom} uses less grid points close to the radial center 
-to represent smooth quantities, however, it may be better to use a single radial grid in the \ttt{PAW-XML} file
+The latter option is necessary as \ttt{single\_atom} by default uses less grid points close to the radial center 
+to represent smooth quantities compared to all-electron quantities, 
+however, it may be better to use a single radial grid in the \ttt{PAW-XML} file
 although the standard says that multiple radial grids should be supported.
-In case it is necessary to explicitly include the values of the radial grid in the file add \ttt{+pawxml\_export.show.radial.grid=1}.
+In case it is necessary to explicitly include the values of the radial grid in the file add 
+\ttt{+pawxml\_export.show.radial.grid=1}.
 
 \noindent
 The \ttt{single\_atom} module starts the all-electron radial grid at zero.
-If that is a problem for the importing software package increase \ttt{+pawxml\_export.radial.grid.from} to \ttt{1} or higher. File names are generated as \ttt{Cu.xml} for copper.
+If that is a problem for the importing software package increase \ttt{+pawxml\_export.radial.grid.from} to \ttt{1} or higher. File names are generated as \ttt{Cu.xml} for copper. \\
 A path \ttt{+pawxml\_export.path="."} may be adjusted by the user. 
 
 \noindent
@@ -883,12 +914,19 @@ Mind that the \ttt{UPF} format supported by Quantum Espresso\cite{qe} is current
 Try \ttt{+pawxml\_export.type=upf} to see how much is working so far.
 
 \noindent
-\codename{} uses a radial exponential grid with equation \ttt{r=a*(exp(d*i)-1)}.
+\codename{} natively uses a radial exponential grid with the equation \ttt{r=a*(exp(d*i)-1)}.
 If this cannot be imported by the other software, try \ttt{+single\_atom.radial.grid.equation=reciprocal} for GPAW's native radial grid.
 
 \noindent
 Within the development branch of \codename{}, several experimental ways to generate the smooth partial waves
 are implemented. ABINIT, however, checks very strictly that smooth and true partial wave coincide outside the augmentation sphere. Therefore, \ttt{+single\_atom.partial.wave.method=classical} is currently the only option that produces PAW-XML files that can be run by ABINIT.
+
+
+\subsection{LibLiveAtom} \label{sec:lib-live-atom}
+%
+The functionality of the \ttt{single\_atom} module to generate \ac{PAW} potentials from a configuration string and a radial potential file \ttt{pot/Zeff.}$00Z$ can be used by other \ac{DFT} codes.
+Therefore, the shared object library \ttt{libliveatom.so} is built during compilation and examples of its \ac{API} can be found in the subfolder \ttt{interfaces/} for \ttt{C}, \ttt{F90}, \ttt{Julia} and \ttt{Python}.
+Mind that there is not export functionality foreseen for the radial function of projectors as by default the projector functions are pure Cartesian \ac{SHO} functions, so that only \ttt{sigma} and \ttt{numax} need to be communicated.
 
 \subsection{Self Consistency Iterations} \label{sec:self-consistency}
 %
@@ -1157,7 +1195,7 @@ Further, we can try to run the experimental feature for non-collinear magnetism 
 \noindent
 \emph{Real/Complex} If \ttt{./green} has been built without the \ttt{tfQMRgpu} library, we can also check the performance of the pure action for real numbers by \ttt{+green\_function.benchmark.complex=0} while the default is \ttt{1}.
 
-\subsection{Green experiments}
+\subsection{Green experiments} \label{sec:green-experiments}
 This module is designed to verify that the \ac{DFT} Hamiltonian loaded from file is implemented equivalent to
 where the file was written.
 It works best, if we still have the logg files from the generation process and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
@@ -1184,18 +1222,20 @@ Much cheaper than the Cartesian real space grid representation of wave functions
 are compact basis sets of pseudo atomic orbitals.
 In fact, we select a set of valence orbitals, e.g.~the set selected for \ac{PAW} generation,
 and diagonalize the Hamiltonian in these.
-The basis sets are defined in the file \ttt{pseudo\_basis.xml}.
-There is a \ttt{numax} parameter attached to each set which becomes clear from the next section.
+The basis sets are defined in the \ac{XML} file \ttt{pseudo\_basis.xml}.
+Instead of a Gaussian $\alpha$ spread, there is a \ttt{numax} and \ttt{sigma} parameter attached to each \ttt{<set>} which becomes clear from the next section.
 
-\subsection{SHO-as-a-basis}
+\subsection{SHO-as-a-basis} \label{sec:sho-hamiltonian}
 To compute the matrix elements of Hamiltonian and overlap operator expanded in a pseudo atomic orbitals,
 we expand the radial functions of the pseudo atomic orbitals into radial eigenfunctions of the \ac{SHO}.
 This requires a certain cutoff $\nu\um{max}$ given as \ttt{numax} in \ttt{pseudo\_basis.xml}.
+The module \ttt{sho\_basis} provides the transformation matrix from a Cartesian \ac{SHO} basis set
+to the selected pseudo atomic orbitals. 
 
 It is fairly straightforward to compute kinetic energy elements for Cartesian products of \ac{HO} functions
 as these functions are given analytically.
 Since a Gaussian at one center multiplied by a Gaussian at a different center leads to another Gaussian
-centered at a location between the two original centers, it is simple to compute overlaps between \ac{SHO} basis
+centered at a location between the two original centers, it is simple to compute overlap integrals between \ac{SHO} basis
 functions on two atoms, c.f.~\ttt{sho\_overlap}.
 The same is exploited for the evaluation of the inner products of basis functions and \ac{PAW} projectors
 since also the \ac{PAW} projectors are given in a Cartesian \ac{SHO} basis.
@@ -1213,8 +1253,13 @@ representations which preserves sharp $(\ell,m)$ quantum numbers for the basis f
 ./a43 -t sho_hamiltonian +sho_hamiltonian.use.sho_basis=yes
 \end{verbatim}
 
-\subsection{Generation of Pseudo-atomic-orbitals}
-In order to generate sets of pseudo atomic orbitals, e.g.~for copper, we pseudize an atom according to the \ac{PAW} recipes.
+\noindent
+Furthermore, the size of the used \ac{SHO} basis can be controlled via \ttt{+sho\_hamiltonian.test.numax=-1},
+where \ttt{-1} means use the smallest \ac{SHO} expansion of the basis set available in \ttt{pseudo\_basis.xml}, or
+individually for different species, e.g.~via \ttt{sho\_basis.Cu.numax=-1} for copper.
+
+\subsection{Generation of pseudo atomic orbitals}
+In order to generate sets of pseudo atomic orbitals, e.g.~for copper, we pseudize an atom according to the \ac{PAW} recipes, see chapter \ref{sec:single-atom} on the \ttt{single\_atom} module.
 Additionally, we add the following \ttt{fit.basis} parameters:
 \begin{verbatim}
 ./a43 -t single_atom +single_atom.test.Z=29 \
@@ -1222,17 +1267,18 @@ Additionally, we add the following \ttt{fit.basis} parameters:
         +single_atom.fit.basis.sigma=1.5 \
         +single_atom.fit.basis.weight=.0 
 \end{verbatim}
-The fitting procedure runs for all possible $\nu\um{max}$ up to \ttt{fit.basis.numax}.
-It searches an optimal \ac{SHO} spread $\sigma$ where \ttt{fit.basis.sigma} is used as a start guess and to define
-the search boundaries.
+The fitting procedure runs for all possible $\nu\um{max}$ up to \ttt{fit.basis.numax}
+where the minimum \ttt{numax} is determined by the configuration of partial waves, see element configuration in chapter \ref{sec:element-config}. 
+It searches for an optimal \ac{SHO} spread $\sigma$ where \ttt{fit.basis.sigma} is used as a start guess and to define the search boundaries.
 
-The optimization finds a single $\sigma$ for all basis functions at the same time.
+The optimization finds a single value of $\sigma$ for all basis functions at the same time.
+The smooth partial waves (pseudo wave functions) are expanded in radial \ac{SHO} eigenstates.
 Since the occupied valence wave functions are typically most important for ground state results,
 the optimization weights are the orbital occupation numbers by default 
 (for \ttt{Cu} $4s_{2} \, 3d_{9}$ or $4s_{1} \, 3d_{10}$, see \ttt{sigma\_config}).
 However, we can specify additional \ttt{weight} to all states.
 
-The newly generated file is called \ttt{psuedo\_basis.29.xml} containing expansion coefficients of
+The newly generated file is called \ttt{pseudo\_basis.29.xml} containing expansion coefficients of
 the radial basis functions. Its content can be copy-pasted into \ttt{pseudo\_basis.xml}
 or, if only copper atoms are in the sample, \ttt{+sho\_basis.file} can be set to \ttt{psuedo\_basis.29.xml}.
 
@@ -1243,7 +1289,7 @@ or, if only copper atoms are in the sample, \ttt{+sho\_basis.file} can be set to
 \section{Appendix}
 %
 \subsection{Example output for \ttt{atom\_core}} \label{sec:example-output-for-atom-core}
-%
+% %%% ./a43 -t atom_core +output.energy.unit=eV
 \small
 \begin{verbatim}
 # ../src/a43 -t atom_core +output.energy.unit=eV
@@ -1295,7 +1341,7 @@ This number is too small to influence \ttt{atom\_core} results but becomes relev
 \newpage
 
 \subsection{Example output for \ttt{single\_atom}} \label{sec:example-output-for-single-atom}
-%
+% %%% ./a43 -t single_atom +verbosity=2 +element_Cu="4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma 0.75" +logder.step=1e-4
 \small
 %%% +element_Cu="4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma 0.75" +logder.step=1e-4
 \begin{verbatim}
@@ -1352,7 +1398,7 @@ This number is too small to influence \ttt{atom\_core} results but becomes relev
 \newpage
 
 \subsection{Example output for \ttt{geometry\_analysis}} \label{sec:example-output-for-geometry-analysis}
-%
+% %%% ./a43 -t geometry_analysis +geometry.file=geo/Cu320Zr180.xyz +output.length.unit=Ang
 \small
 \begin{verbatim}
 # ../src/a43 -t geometry_analysis +geometry.file=geo/Cu320Zr180.xyz +output.length.unit=Ang
@@ -1405,7 +1451,7 @@ This number is too small to influence \ttt{atom\_core} results but becomes relev
 \newpage
 \begin{landscape}
 \subsection{Example output for \ttt{radial\_eigensolver}} \label{sec:example-output-for-radial-_eigensolver}
-%
+% %%%% ./a43 -t radial_eigensolver +radial_eigensolver.test.Z=100
 \small
 \begin{verbatim}
 # radial_eigensolver.cxx test_hydrogen_like_potential (Z=100) non-relativistic

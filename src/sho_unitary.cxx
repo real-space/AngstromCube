@@ -11,6 +11,7 @@
 #include <sstream> // std::istringstream
 #include <numeric> // std::iota
 #include <vector> // std::vector
+#include <cstdlib> // std::exit
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
@@ -24,9 +25,9 @@ namespace sho_unitary {
   status_t read_unitary_matrix_from_file(
         double *const *const u
       , int const numax
-      , int &nu_high
-      , char const filename[]="sho_unitary.dat"
+      , int & nu_high
       , int const echo=7
+      , char const filename[]="sho_unitary.dat"
   ) {
       //
       // Expected File format:
@@ -60,7 +61,8 @@ namespace sho_unitary {
           if ('#' != c0 && ' ' != c0 && '\n' != c0 && 0 != c0) {
               std::istringstream iss(line);
               int nx{-1}, ny{-1}, nz{-1}, ell{-1}, emm{0}, nrn{-1};
-              int64_t nom{0}, den{1};
+              double  nom{0};
+              int64_t den{1};
               if (!(iss >> nx >> ny >> nz >> ell >> emm >> nrn >> nom >> den)) {
                   std::printf("# Failed to read integer number from \"%s\"!\n", line.c_str());
                   break;
@@ -100,6 +102,7 @@ namespace sho_unitary {
           // process pair (a,b)
       } // while
       if (n_ignored && (echo > 2)) std::printf("# ignored %d lines in file <%s> reading up to nu=%d\n", n_ignored, filename, numax);
+
       return 0;
   } // read_unitary_matrix_from_file
 
@@ -127,7 +130,7 @@ namespace sho_unitary {
               warn("I/O failed with status=%i, Unitary_SHO_Transform was initialized as unit operator!", int(stat));
           } // stat
           if (highest_nu < numax_) {
-              warn("file for Unitary_SHO_Transform provided elements only up to numax=%d, requested %d", highest_nu, numax_);
+              warn("file for Unitary_SHO_Transform provided elements only up to numax= %d, requested %d", highest_nu, numax_);
           } // warn
       } // constructor
     
@@ -298,24 +301,22 @@ namespace sho_unitary {
 #else // NO_UNIT_TESTS
 
 #if 0
-  template <int numax=9>
-  status_t generate_unitary_transform(int const echo) {
-//       int const mx = align<2>(1 + numax);
-
-      int constexpr lmax = numax;
+  template <int lmax=19, typename int_t=int64_t>
+  status_t generate_unitary_transform(int const echo=0) {
+      // generate the matrix coefficient for the Radial <--> Cartesian transform to be stored in sho_unitary.dat 
       int constexpr lx = (1 + lmax);
-      int xory[lmax + 1 + lmax][lx]; // xory[lmax + m][k] --> for m <  0: x^(|m|- k)*y^k if k even
-                                     //                   --> for m >= 0: y^(|m|- k)*x^k if k odd
-      for (int k = 0; k < (2*lmax + 1)*lx; ++k) xory[0][k] = 0; // clear
+      int_t xory[lmax + 1 + lmax][lx]; // xory[lmax + m][k] --> for m <  0: x^(|m|- k)*y^k if k even
+                                       //                   --> for m >= 0: y^(|m|- k)*x^k if k odd
+      for (int k = 0; k < (2*lmax + 1)*lx; ++k) { xory[0][k] = 0; } // clear
 
-      int Pl[lx][lx]; // generate (r^2 - u^2)^l
-      for (int k = 0; k < lx*lx; ++k) Pl[0][k] = 0; // clear
+      int_t Pl[lx][lx]; // generate (r^2 - u^2)^l
+      for (int k = 0; k < lx*lx; ++k) { Pl[0][k] = 0; } // clear
 
-      int rxy2pl[lx][lx]; // generate (x^2 + y^2)^l
-      for (int k = 0; k < lx*lx; ++k) rxy2pl[0][k] = 0; // clear
+      int_t rxy2pl[lx][lx]; // generate (x^2 + y^2)^l
+      for (int k = 0; k < lx*lx; ++k) { rxy2pl[0][k] = 0; } // clear
 
-      { // bnc-scope
-          int bnc[lx]; bnc[0] = 1; for (int l = 1; l <= lmax; ++l) bnc[l] = 0; // init binomial coefficients
+      { // scope: prepare binomial coefficients
+          int_t bnc[lx]; bnc[0] = 1; for (int l = 1; l <= lmax; ++l) { bnc[l] = 0; } // init binomial coefficients
           for (int m = 0; m <= lmax; ++m) {
 
               if (echo > 2) std::printf("# Pl l=%d  ", m);
@@ -356,13 +357,12 @@ namespace sho_unitary {
           if (echo > 2) std::printf("\n\n");
       } // echo
 
-      int64_t Plm[lx][lx][2*lx]; // data-type needs to capture factorial(2*lmax)
-      for (int k = 0; k < lx*lx*2*lx; ++k) Plm[0][0][k] = 0; // clear
+      int_t Plm[lx][lx][2*lx]; // associated Legendre polynomials, data-type needs to capture factorial(2*lmax)
+      for (int k = 0; k < lx*lx*2*lx; ++k) { Plm[0][0][k] = 0; } // clear
 
       for (int l = 0; l <= lmax; ++l) {
-          int64_t poly[2*lx + 1]; // polynomial in u
-          for (int k = 0; k <= 2*l; ++k) poly[k] = 0; // clear
-          for (int k = 0; k <= l;   ++k) poly[2*k] = Pl[l][k]; // copy underived
+          std::vector<int_t> poly(2*l + 1, 0); // polynomial in u
+          for (int k = 0; k <= l; ++k) { poly[2*k] = Pl[l][k]; } // copy underived, Pl is a polynomial in u^2
 
           for (int m = -l; m <= l; ++m) { // start at -l to derive l times for pure Legendre polynomials
               if (m >= 0) {          // before valid m range starts for associated Legendre Polynomials
@@ -372,18 +372,22 @@ namespace sho_unitary {
                       if (echo > 2) std::printf(" %lldx^%d ", Plm[l][m][k], k);
                   } // k
                   if (echo > 2) std::printf("\n");
-              }
+              } // m >= 0
               // derive (r^2 - u^2)^l w.r.t. u one time, i.e. for l+m times
-              for (int k = 1; k <= 2*l; ++k) poly[k - 1] = k*poly[k]; poly[2*l] = 0; // derive in-place
+              for (int k = 1; k <= 2*l; ++k) { poly[k - 1] = k*poly[k]; } poly[2*l] = 0; // derive in-place
           } // m
-          for (int k = 0; k <= 2*l; ++k) assert(0 == poly[k]); // all coefficients of poly must vanish since we derive u^{2l} for 2l times
+          for (int k = 0; k <= 2*l; ++k) { assert(0 == poly[k]); } // all coefficients of poly must vanish since we derive u^{2l} for 2l times
       } // l
 
+
+
+
+      std::exit(0);
       return 0;
   } // generate_unitary_transform
 
   status_t test_generation(int const echo) {
-      return generate_unitary_transform(echo);
+      return generate_unitary_transform<7>(echo);
   } // test_generation
 #else  // 1
   status_t test_generation(int const echo) {
@@ -391,7 +395,7 @@ namespace sho_unitary {
   } // test_generation
 #endif // 1
 
-  status_t test_loading(int const echo=1, int const numax=9) {
+  status_t test_loading(int const echo=1, int const numax=19) {
       sho_unitary::Unitary_SHO_Transform U(numax);
       auto const dev = U.test_unitarity(echo);
       if (echo > 2) std::printf("# Unitary_SHO_Transform.test_unitarity = %.1e\n", dev);

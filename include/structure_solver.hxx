@@ -91,10 +91,10 @@ namespace structure_solver {
                     #pragma omp parallel for
                     for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                         if (ikpoint > 0) {
-                            if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
                             if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
                         } // ikpoint > 0
                     } // ikpoints
+                    if (echo > 3) std::printf("# copied %d bands for %d k-points from k-point #0\n", nbands, nkpoints - 1);
                 } // errors
             } // run
         } // start wave method
