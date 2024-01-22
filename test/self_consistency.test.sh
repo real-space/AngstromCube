@@ -260,8 +260,8 @@ bands.per.atom=4
 # hamiltonian.kmesh=0
 hamiltonian.kmesh=1
 # hamiltonian.kmesh.x=21
-## hamiltonian.floating.point.bits=64
-hamiltonian.floating.point.bits=32
+hamiltonian.floating.point.bits=64
+# hamiltonian.floating.point.bits=32
 
 ## configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
@@ -281,6 +281,7 @@ store.waves=$base.waves.dat
 ## configuration for basis=pw
 # plane_wave.solver {auto, both, direct, iterative}
 # plane_wave.solver=direct
+# plane_wave.solver=iterative
 # plane_wave.cutoff.energy=520  eV
 # plane_wave.cutoff.energy.unit=eV
 # plane_wave.cutoff.energy=5.78  Ha
@@ -290,7 +291,7 @@ store.waves=$base.waves.dat
 # plane_wave.iterative.solver=cg
 # conjugate_gradients.max.iter=2
 # plane_wave.max.cg.iterations=12
-# davidson_solver.max.iterations=7
+davidson_solver.max.iterations=3
 
 ## also compute the eigenvalues of the overlap matrix?
 # dense_solver.test.overlap.eigvals=0
@@ -312,7 +313,7 @@ EOF
 ### ensure this is compiled if $exe contains a make
 $exe --version > /dev/null
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   ## real-space grid spacing in Bohr
   project=$base.grid$spacing
   echo "# start calculation $project" && \
@@ -340,7 +341,7 @@ for numax in `seq 3 1 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done # numax
 
-for ecut in `seq 11 3 1`; do
+for ecut in `seq 1 1 9`; do
   ## plane-wave cutoff energy in Hartree
   project=$base.pw$ecut
   echo "# start calculation $project" && \

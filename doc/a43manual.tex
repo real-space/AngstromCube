@@ -1114,14 +1114,27 @@ an energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{v
 
 \section{The Real-Space Green function DFT method} \label{sec:green}
 
+\subsection{Theory}
+In wave function methods the electron density is found as sum over the absolute square of occupied wave functions, see Eq.~(\ref{eqn:simplified_density_generation}).
+Mathematically, we can also find the electron density integrating over an energy contour over the imaginary part of the trace of the green function, i.e.
+\begin{align}
+  \int\limits_{\mathcal C} \mathrm{d}E \, \Im\{ G(\vec r, \vec r; E) \} &= \varrho(\vec r) \\
+  \left( \hat H - E \cdot \hat S \right) \cdot \hat G &= \mathbf{1}
+\end{align}
+There are two striking advantages of a Green function formulation.
+First, matrix inversions or linear system solves are needed rather than eigenvalue problems.
+This allows for an efficient parallelization over right-hand-sides.
+Second, Green function elements relating distance parts of space can be truncated which allows for a linear scaling method.
+
+\subsection{Code}
 The second important executable shipped with the \fullcodename{} package is \ttt{./green}
-with the purpose of inverting the implicit real-space Hamiltonian. Running
+with the purpose of finding the Green function of the implicit real-space Hamiltonian. Running
 \begin{verbatim}
 ./green --help
 \end{verbatim}
 will look very similar to \ttt{./a43 -h}, however, \ttt{./green} is an \ac{MPI} application
-with CUDA support so you might want to start it in a parallel environment, e.g.~\ttt{srun} for SLURM
-on a compute system with \ac{GPU}s.
+with CUDA support so you might want to start it in a parallel environment, e.g.~\ttt{srun -n1} for SLURM,
+and (if available) on a compute system with CUDA-capable \ac{GPU}s.
 
 %
 \begin{table}[h]
@@ -1133,7 +1146,7 @@ Most important variables to control the Green function calculation.
 \hline
   Variable Name & Default & Meaning \\
 \hline
-  \ttt{green\_function.truncation.radius} & $10\,$Bohr   & Green function truncation \\
+  \ttt{green\_function.truncation.radius} & $10\,$Bohr   & Green function truncation radius \\
   \ttt{green\_function.projection.radius} & $6$          & Radius of non-local potential, in units of $\sigma$ \\
   \ttt{green\_function.sources}			  & 1            & Number of \ac{RHS} blocks, \ttt{-1}: all \\
   \ttt{tfqmrgpu.max.iterations}           & $99$         & Iterative solver limit \\
@@ -1147,20 +1160,20 @@ Table \ref{tab:main-green-variables} gives an overview of the most important con
 
 \noindent
 % grep -in 'hamiltonian\.file' ../green/*.cxx ../include/*.hxx
-The \ac{DFT} Hamiltonian is passed to \ttt{./green} via an \ttt{xml} or a \ttt{json} formatted file.
-The filename is controlled by \ttt{+hamiltonian.file} with default \ttt{Hmt.json}.
+The \ac{DFT} Hamiltonian $\hat H$ is passed to \ttt{./green} via an \ac{XML} or a \ttt{JSON} formatted file.
+The filename is controlled by \ttt{+hamiltonian.file} with default name \ttt{Hmt.xml}.
 
 \subsection{Getting started} \label{sec:green-getting-started}
 %
 \begin{verbatim}
 ./green --test '?'
 \end{verbatim}
-will list all available module tests. Most of these modules are shared with \ttt{./a43}.
+will list all available module tests. Many of these modules are shared with \ttt{./a43}.
 Start by
 \begin{verbatim}
 ./green --test green_input
 \end{verbatim}
-to see if the input file \ttt{+hamiltonian.file=Hmt.json} is found and parsed without errors or warnings.
+to see if the input file \ttt{+hamiltonian.file=Hmt.xml} is found and parsed without errors or warnings.
 
 %
 \noindent
@@ -1188,26 +1201,32 @@ and on success increase \ttt{iterations} to \ttt{1}, \ttt{10}, and more.
 %
 \noindent
 The default precision type is \ttt{+green\_function.benchmark.floating.point.bits=32}, i.e.~\ttt{float}.
-If the memory capacity of the \ac{GPU} allows, we can increase to \ttt{64} for \ttt{double}.
+If the memory capacity of the \ac{GPU} allows, we can increase to \ttt{=64} for \ttt{double}.
 Further, we can try to run the experimental feature for non-collinear magnetism by \ttt{+green\_function.benchmark.noco=2}.
 
 %
 \noindent
-\emph{Real/Complex} If \ttt{./green} has been built without the \ttt{tfQMRgpu} library, we can also check the performance of the pure action for real numbers by \ttt{+green\_function.benchmark.complex=0} while the default is \ttt{1}.
+\emph{Real/Complex} If \ttt{./green} has been built without the \ttt{tfQMRgpu} library,
+we can also check the performance of the action alone for real numbers by \ttt{+green\_function.benchmark.complex=0} while the default is \ttt{=1}.
 
 \subsection{Green experiments} \label{sec:green-experiments}
 This module is designed to verify that the \ac{DFT} Hamiltonian loaded from file is implemented equivalent to
 where the file was written.
 It works best, if we still have the logg files from the generation process and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
-The implemented two different ways to find the spectrum are
+The two different ways implemented to find the spectrum are
 \begin{itemize}
   \item by inversion,
   \item by diagonalization.
 \end{itemize}
-In the inversion approach, the Green function is found by \ttt{tfQMRgpu} at various $\vec{k}$-points and a dense set of energy parameters.
-The result is a heatmap on the strength of the resonance, i.e.~the integrated trace of the imaginary part of the found Green function.
+In the inversion approach, the Green function is found by \ttt{tfQMRgpu} at various $\vec{k}$-points
+and a dense set of energy parameters $E$.
+The result is a heatmap on the strength of the resonance, 
+i.e.~the integrated trace of the imaginary part of the found Green function.\\
 For the diagonalization approach the \ttt{action\_t} which usually represents $\hat A = \hat H - E\cdot \hat S$ is duplicated into $\hat H = 1\cdot \hat H - 0\cdot\hat S$ and $\hat S = 0\cdot \hat H - (-1)\cdot\hat S$.
 The operators enter an iterative Davidson diagonalization procedure. For small grids (up to $12 \times 12 \times 12$ grid points) a dense matrix diagonalization routine can be called to find the exact spectrum directly.
+\begin{verbatim}
+./green --test green_experiments
+\end{verbatim}
 
 \todo[inline]{describe handling}
 
@@ -1222,7 +1241,7 @@ Much cheaper than the Cartesian real space grid representation of wave functions
 are compact basis sets of pseudo atomic orbitals.
 In fact, we select a set of valence orbitals, e.g.~the set selected for \ac{PAW} generation,
 and diagonalize the Hamiltonian in these.
-The basis sets are defined in the \ac{XML} file \ttt{pseudo\_basis.xml}.
+The basis sets are defined in the file \ttt{pseudo\_basis.xml}, formatted in \ac{XML}.
 Instead of a Gaussian $\alpha$ spread, there is a \ttt{numax} and \ttt{sigma} parameter attached to each \ttt{<set>} which becomes clear from the next section.
 
 \subsection{SHO-as-a-basis} \label{sec:sho-hamiltonian}

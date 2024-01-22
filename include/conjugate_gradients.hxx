@@ -14,6 +14,7 @@
 #include "display_units.h" // eV, _eV
 #include "recorded_warnings.hxx" // warn
 #include "control.hxx" // ::get
+#include "grid_operators.hxx" // ::kpoint_t<>
 
 #ifndef NO_UNIT_TESTS
 //  // additional includes needed by test_eigensolve in particle_in_box.hxx

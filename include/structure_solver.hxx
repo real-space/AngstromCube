@@ -76,7 +76,6 @@ namespace structure_solver {
         if (echo > 0) std::printf("# real-space grid wave functions are of type %s\n", complex_name<wave_function_t>());
         psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), 1.0); // get memory (potentially large)
 
-        int const na = list_of_atoms.size();
         auto start_wave_file = control::get("start.waves", "");
         assert(nullptr != start_wave_file);
         if ('\0' != *start_wave_file) {
@@ -100,12 +99,14 @@ namespace structure_solver {
         } // start wave method
 
         if ('\0' == *start_wave_file) {
+            int const na = list_of_atoms.size();
             if (echo > 1) std::printf("# initialize grid wave functions as %d atomic orbitals on %d atoms\n", nbands, na);
-            float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
-            uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
-            sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
-            std::vector<int32_t> ncoeff_a(na, 20);
             if (na > 0) {
+                float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
+                int constexpr numax = 3;
+                uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
+                sho_tools::quantum_number_table(qn[0], numax, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
+                std::vector<int32_t> ncoeff_a(na, 20);
                 #pragma omp parallel for
                 for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                     auto const kp = op.set_kpoint(kmesh[ikpoint], echo);
@@ -114,14 +115,16 @@ namespace structure_solver {
                         int const ia = iband % na; // which atom?
                         int const io = iband / na; // which orbital?
                         if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands/double(na));
-                        auto const q = qn[io]; auto const nu = q[3]; 
+                        auto const q = qn[io]; auto const nu = q[3];
                         if (echo > 7) std::printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2],q[1],q[0], ia);
-                        int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
+                        int const isho = sho_tools::zyx_index(numax, q[0], q[1], q[2]); // isho in order_zyx
                         single_atomic_orbital[ia][isho] = 1./std::sqrt((nu > 0) ? ( (nu > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
                         if (run) op.get_start_wave(psi(ikpoint,iband), single_atomic_orbital.data(), kp, scale_sigmas, echo);
                         single_atomic_orbital[ia][isho] = 0; // reset
                     } // iband
                 } // ikpoint
+            } else { // na > 0
+                warn("no atoms --> no start wave functions for %d bands", nbands);
             } // na > 0
             op.set_kpoint(); // reset k-point
         } // start wave method

@@ -129,12 +129,20 @@ namespace control {
   } // _environment
 
   // define a pair of strings (name,value) for the variable environment
-  void set(char const *const name, char const *const value, int const echo) {
+  char const* set(char const *const name, char const *const value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
       assert(nullptr != name  && "control::set(name, value) needs a valid string as name!");
       assert(nullptr != value && "control::set(name, value) needs a valid string as value!");
-      _environment(echo, name, value); // set
+      return _environment(echo, name, value); // set
   } // set<string>
+
+  // allow value in set(name,value) to be a floating point number
+  double set(char const *const name, double const value, int const echo) {
+      if (echo > 5) std::printf("# control::set(\"%s\", %g)\n", name, value);
+      assert(nullptr != name  && "control::set(name, double value) needs a valid string as name!");
+      char buffer[32]; double2string(buffer, value);
+      return string2double(set(name, buffer, echo));
+  } // set<double>
 
   // look up a name in the variable environment, return default string if not defined
   char const* get(char const *const name, char const *const default_value) {
@@ -173,12 +181,6 @@ namespace control {
       return 0;
   } // command_line_interface
 
-  // define a (name,value) pair, value is converted from double to a string
-  void set(char const *const name, double const value, int const echo) {
-      /* This version of set is only used in the tests below */
-      char buffer[32]; double2string(buffer, value);
-      return set(name, buffer, echo);
-  } // set<double>
 
   // look up a name in the variable environment, return default double if not defined
   double get(char const *const name, double const default_value) {

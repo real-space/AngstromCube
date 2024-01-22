@@ -150,11 +150,13 @@ namespace green_experiments {
           } // ik
           std::printf("\n");
       } // echo
+
 #ifdef    HAS_TFQMRGPU
       free_memory(rho);
 #else  // HAS_TFQMRGPU
       warn("%s needs tfQMRgpu", __func__);
 #endif // HAS_TFQMRGPU
+
       return 0;
   } // bandstructure
 
@@ -528,11 +530,12 @@ namespace green_experiments {
           auto const radius = 2.06/R1C2*std::cbrt(nb*64*recV*3/(4*constants::pi)); // in Bohr^-1
           auto const E_cut = pow2(radius); // in Rydberg
           int const npw[] = {int(radius/reci[0]), int(radius/reci[1]), int(radius/reci[2])};
-          if (echo > 1) std::printf("# start waves are plane waves cutoff energy is %g Rydberg\n", E_cut);
+          if (echo > 1) std::printf("# start waves are plane waves with cutoff energy %g Rydberg\n", E_cut);
           auto const E_pw_max = pow2(npw[0]*reci[0]) + pow2(npw[1]*reci[1]) + pow2(npw[2]*reci[2]); // in Rydberg
           if (echo > 1) std::printf("# plane wave box corner energy is %g Rydberg\n", E_pw_max);
           auto const max_npw = (R1C2*npw[2] + 1)*(R1C2*npw[1] + 1)*(R1C2*npw[0] + 1);
-          if (echo > 1) std::printf("# check a plane wave box of [-%d,%d] x [-%d,%d] x [-%d,%d] = %.3f k\n", npw[0], npw[0], npw[1], npw[1], npw[2], npw[2], max_npw*.001);
+          if (echo > 1) std::printf("# check a plane wave box of [-%d,%d] x [-%d,%d] x [-%d,%d] = %.3f k\n",
+                                            npw[0], npw[0], npw[1], npw[1], npw[2], npw[2], max_npw*.001);
           assert(nb*64 <= max_npw);
           uint32_t const stride = (((max_npw - 1) >> 2) + 1) << 2; // 2: align to 4 doubles
           int ipw{0}, jpw{0}, mpw{0};
@@ -782,8 +785,7 @@ namespace green_experiments {
 
       if ('g' != how) {
           double const huge = 9*std::max(std::max(ng[0]*hg[0], ng[1]*hg[1]), ng[2]*hg[2]);
-          char string[32]; std::snprintf(string, 32, "%g", huge);
-          control::set("green_function.truncation.radius", string);
+          control::set("green_function.truncation.radius", huge, echo);
       } // how
 
       int const Noco = 1 + (control::get("green_experiments.eigen.noco", 0.) > 0);
@@ -827,7 +829,7 @@ namespace green_experiments {
   inline uint8_t transfer(view3D<T> & rhs, int ix, int iy, int iz, int jx, int jy, int jz) {
       auto const t = rhs(jz,jy,jx);
       if (t > 0) {
-          rhs(jz,jy,jx) = 0;
+          rhs(jz,jy,jx) = 0; // for the case ix==jx && iy==jy && iz==jz it is relevant to set to zero first
           rhs(iz,iy,ix) += t;
       } // t
       return t;
@@ -929,7 +931,7 @@ namespace green_experiments {
                   transfer(rhs, x,y,z, Y,z,X);
                   transfer(rhs, x,y,z, y,Z,X);
       }   }   } // x y z
-      // Beware: Compute time scales as n^3: for n={128 256 512 1024 2048}, a single core needs {1.5 6.2 70 772 >6200} seconds
+      // Beware: Computing time scales as n^3: for n={128 256 512 1024 2048}, a single core needs {1.5 6.2 70 772 >6200} seconds
       
 
       size_t all{0}, nonzero{0}; // for n={1..16}, nonzeros go as {1 1 4 4 10 11 21 24 39 45 66 76 104 119 155 176}

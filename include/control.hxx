@@ -16,7 +16,8 @@ namespace control {
   status_t command_line_interface(char const *statement, int const iarg // define a (name, value) pair
                                   , int const echo=default_echo_level); // by "name=value" syntax
 
-  void set(char const *name, char const *value, int const echo=default_echo_level); // define a (name, value) pair
+  char const* set(char const *name, char const  *value, int const echo=default_echo_level); // define a (name, value) pair
+  double      set(char const *name, double const value, int const echo=default_echo_level);
 
   char const* get(char const *name, char const * default_value); // read a string  value from the variable environment
   double      get(char const *name, double const default_value); // read a numeric value from the variable environment

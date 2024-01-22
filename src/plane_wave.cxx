@@ -138,6 +138,7 @@ namespace plane_wave {
           int const nsubspace = std::max(nbands, int(direct_ratio*nbands));
           int const nsub = std::min(nsubspace, nPW);
           view3D<complex_t> SHmat_b(2, nsub, align<2>(nsub));
+          // assume that the plane waves are sorted according to their kinetic energy
           for (int ib = 0; ib < nsub; ++ib) {
               set(SHmat_b(S,ib), nsub, HSm(S,ib));
               set(SHmat_b(H,ib), nsub, HSm(H,ib));
@@ -184,23 +185,23 @@ namespace plane_wave {
                               __func__, nPW, nPW, nPWa); std::fflush(stdout); }
       // construct a dense-matrix operator op
       dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, HSm(H,0), HSm(S,0));
-      grid_operators::kpoint_t<complex_t> const kp;
+      grid_operators::kpoint_t<complex_t> const kp; // Gamma point dummy - the real k-point is already in the matrix elements of the dense operator
 
       char const method = *control::get("plane_wave.iterative.solver", "Davidson") | 32;
 
       // solve using the Davidson eigensolver
       std::vector<double> eigvals(nbands);
       status_t stat_slv(0);
-      if ('c' == method) {
+      if ('c' == method) { // Conjugate Gradients
           int const nit = control::get("plane_wave.max.cg.iterations", 3.);
           if (echo > 6) { std::printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for (int it = 0; it < nit && (0 == stat_slv); ++it) {
               if (echo > 7) { std::printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
               stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, kp, echo - 10);
               stat += stat_slv;
-              davidson_solver::rotate(waves.data(), eigvals.data(), nbands, op, kp, echo - 10);
+              davidson_solver::rotate(waves.data(), eigvals.data(), nbands, op, kp, echo + 10);
           } // it
-      } else { // method
+      } else { // Davidson method
           int const nit = control::get("davidson_solver.max.iterations", 1.);
           if (echo > 6) { std::printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for (int it = 0; it < nit && (0 == stat_slv); ++it) {
@@ -302,14 +303,21 @@ namespace plane_wave {
       } // scope: generate set of plane waves
       int const nB = pw_basis.size();
       nPWs = nB; // export the number of plane waves used for statistics
+
+
+      int  const nB_auto = control::get("plane_wave.dense.solver.below", 999.);
+      char const solver = *control::get("plane_wave.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
+      bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
+                                  ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
+
 #ifdef DEVEL
-      if (echo > 6) {
-          auto const time = 1e-9*pow3(nPWs) + 2e-6*pow2(nPWs); // estimator for MacBook Pro with M1 max processor
+      if (run_solver[1] && echo > 6) { // only if direct solver is active
+          auto const time = 1e-9*pow3(double(nPWs)) + 2e-6*pow2(double(nPWs)); // estimator for MacBook Pro with M1 max processor
           char const *_seconds="seconds"; auto seconds=1.;
           if (time > 3600) { _seconds="hours"; seconds=1/3600.; } else
           if (time > 180) { _seconds="minutes"; seconds=1/60.; }
-          std::printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %.1f %s)\n",
-                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, time*seconds, _seconds);
+          std::printf("\n# start %s<%s> Ecut= %g %s nPW=%d (direct solve estimate %.1f %s)\n",
+              __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, time*seconds, _seconds);
           std::fflush(stdout);
       } // echo
 #endif // DEVEL
@@ -487,10 +495,6 @@ namespace plane_wave {
           } // jB
       } // iB
 
-      int  const nB_auto = control::get("plane_wave.dense.solver.below", 999.);
-      char const solver = *control::get("plane_wave.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
-      bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
-                                  ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
       std::vector<double> eigenenergies(nbands, -9e9);
       { SimpleTimer timer("plane wave solver", __LINE__, __func__, echo);
@@ -661,7 +665,7 @@ namespace plane_wave {
 
       view2D<double> kmesh;
       auto const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
-      if (echo > 3) std::printf("# k-point mesh has %d points\n", nkpoints);
+      if (echo > 3) std::printf("# k-point mesh has %d k-points\n", nkpoints);
 
       if (export_rho) export_rho->resize(nkpoints);
 
