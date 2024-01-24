@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 exe=./a43
+# exe=../build/src/a43
 
 # base=scf.H-fcc
 # a=2.12132
@@ -215,13 +216,13 @@ element_P=" 3s* 2 3p* 3 0 3d | 1.8 sigma .512"
 single_atom.relax.partial.waves=0
 
 ## special verbosity for PAW setup
-single_atom.init.echo=0
+single_atom.init.echo=7
 
 ## special verbosity for PAW update
-single_atom.echo=0
+single_atom.echo=7
 
 ## bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
-single_atom.echo.mask=3
+single_atom.echo.mask=1
 
 ## limit the number of partial waves per ell-channel, default=2
 # single_atom.nn.limit=2
@@ -291,7 +292,7 @@ store.waves=$base.waves.dat
 # plane_wave.iterative.solver=cg
 # conjugate_gradients.max.iter=2
 # plane_wave.max.cg.iterations=12
-davidson_solver.max.iterations=3
+davidson_solver.max.iterations=1
 
 ## also compute the eigenvalues of the overlap matrix?
 # dense_solver.test.overlap.eigvals=0
@@ -305,7 +306,7 @@ hamiltonian.export.format=xml
 # structure_solver.complex=1
 
 # show variables defined in control (1=minimal, 2=unused, 4=defaults, 6=4+2, negative for details)
-control.show=-1
+control.show=-6
 
 EOF
 ## end of control file
@@ -313,7 +314,7 @@ EOF
 ### ensure this is compiled if $exe contains a make
 $exe --version > /dev/null
 
-for spacing in `seq 1 1 0`; do
+for spacing in `seq 1 1 1`; do
   ## real-space grid spacing in Bohr
   project=$base.grid$spacing
   echo "# start calculation $project" && \
@@ -341,7 +342,7 @@ for numax in `seq 3 1 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done # numax
 
-for ecut in `seq 1 1 9`; do
+for ecut in `seq 3 1 0`; do
   ## plane-wave cutoff energy in Hartree
   project=$base.pw$ecut
   echo "# start calculation $project" && \

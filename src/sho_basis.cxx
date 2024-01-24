@@ -194,7 +194,7 @@ namespace sho_basis {
               if (echo > 3) std::printf("# %s found Z= %g numax= %d ptr= %p\n", __func__, Z_core, nu, (void*)rfset);
   
               if (plot) { // scope: plot the basis functions of the requsted species
-                  std::printf("# %s plot for Z= %g numax= %d\n", __func__, Z_core, nu, (void*)rfset);
+                  std::printf("# %s plot for Z= %g numax= %d\n", __func__, Z_core, nu);
                   auto rg = *radial_grid::create_radial_grid(256, 10.f, radial_grid::equation_equidistant); // for display
                   int const numax = rfset->numax;
                   int const nln = sho_tools::nSHO_radial(numax);

@@ -151,7 +151,7 @@ namespace davidson_solver {
 
       int niter{niterations};
       for (int iteration = 0; iteration < niter; ++iteration) {
-          if (echo > 9) std::printf("# %s iteration %i\n", func, iteration);
+          if (echo > 9) std::printf("# %s iteration #%i\n", func, iteration);
 
           int n_drop{0};
           do {

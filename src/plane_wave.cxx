@@ -325,8 +325,10 @@ namespace plane_wave {
       // now we could sort the plane waves by their g2 length, optional
       bool constexpr sort_PWs = true;
       if (sort_PWs) {
+          {   SimpleTimer timer("sort plane waves", __LINE__, __func__, echo);        
           auto compare_lambda = [](PlaneWave const & lhs, PlaneWave const & rhs) { return lhs.g2 < rhs.g2; };
           std::sort(pw_basis.begin(), pw_basis.end(), compare_lambda);
+          } // timing
 #ifdef DEVEL
           if (echo > 8) { // show kinetic energies in ascending order
               std::printf("# %s|k+G|^2 =", x_axis);
@@ -372,6 +374,7 @@ namespace plane_wave {
       std::vector<double>   P2_l(nC, 0.0); // |<k+G_i|\tilde p_{la lb}>|^2
 #endif // DEVEL
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
+      #pragma omp parallel for
       for (int jB = 0; jB < nB; ++jB) {
           auto const & pw = pw_basis[jB];
           double const kv[3] = {pw.x + kpoint[0], pw.y + kpoint[1], pw.z + kpoint[2]};
@@ -460,6 +463,7 @@ namespace plane_wave {
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
       real_t const localpot = scale_p / (nG[0]*nG[1]*nG[2]);
 
+      #pragma omp parallel for
       for (int iB = 0; iB < nB; ++iB) {
           auto const & i = pw_basis[iB];
 
@@ -515,6 +519,7 @@ namespace plane_wave {
           std::complex<double> const zero(0);
           view3D<std::complex<double>> psi_G(nG[2], nG[1], nG[0]); // Fourier space array
 
+          #pragma omp parallel for
           for (int iband = 0; iband < nbands; ++iband) {
               auto const atom_coeff = export_rho->coeff[iband];
               // clear
@@ -616,6 +621,8 @@ namespace plane_wave {
           SimpleTimer timer(__FILE__, __LINE__, "manual Fourier transform (not FFT)");
           double const two_pi = 2*constants::pi;
           double const tpi_g[] = {two_pi/g[0], two_pi/g[1], two_pi/g[2]};
+
+          #pragma omp parallel for
           for (int iGz = 0; iGz < nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
           for (int iGy = 0; iGy < nG[1]; ++iGy) {  auto const Gy = iGy*tpi_g[1];
           for (int iGx = 0; iGx < nG[0]; ++iGx) {  auto const Gx = iGx*tpi_g[0];

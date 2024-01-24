@@ -11,7 +11,7 @@
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2, align<nBits>
 #include "constants.hxx" // ::sqrtpi, ::pi
-#include "solid_harmonics.hxx" // ::Y00
+#include "solid_harmonics.hxx" // ::Y00, ::cleanup
 #include "real_space.hxx" // ::grid_t, ::add_function
 #include "chemical_symbol.hxx" // ::get
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
@@ -263,7 +263,7 @@ namespace self_consistency {
       } // initial_valence_density_method
 
 
-      std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
+      std::vector<double> sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
       char const pawdata_from = *control::get("pawdata.from", "auto"); // 'a': auto, 'f': pawxml_import
       std::vector<int32_t> numax(na, ('f' == pawdata_from)?-9:-1); // -1: LivePAW, -9: load from pawxml files
       std::vector<int32_t> lmax_qlm(na, -1);
@@ -551,7 +551,7 @@ namespace self_consistency {
               data_list<double> atom_rho_new[2];
               atom_rho_new[0] = data_list<double>(n_atom_rho, 0.0); // new valence density matrices
               atom_rho_new[1] = data_list<double>(n_atom_rho, 0.0); // and valence response matrices
-              double charges[3] = {0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:derived_charge
+              double charges[3] = {0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:response
 
               KS.solve(rho_valence_new, atom_rho_new, charges, Fermi,
                         g, Vtot.data(), na, atom_mat, occupation_method, scf_iteration, echo);
@@ -590,8 +590,9 @@ namespace self_consistency {
                       band_energy_sum += Fermi.get_band_sum(1)*alpha;
                       Fermi.set_Fermi_level(Fermi.get_Fermi_level() + alpha, echo);
                   } else {
-                      warn("in SCF iteration #%i number of valence electrons %g deviates from %g but response is zero",
-                               scf_iteration, charges[1], Fermi.get_n_electrons());
+                      auto const n_e = Fermi.get_n_electrons();
+                      warn("in SCF iteration #%i number of valence electrons %g deviates from %g by %g but response is zero",
+                               scf_iteration, charges[1], n_e, charges[1] - n_e);
                   } // response is non-zero
               } // the number of valence electrons does not match the requested number
 
@@ -659,16 +660,18 @@ namespace self_consistency {
                       std::printf("# total        %32.9f %s\n", E_tot                                        *eV, _eV);
                   } // echo
 
-                  // now add grid contributions
-                  Ea[energy_contribution::KINETIC] += grid_kinetic_energy * (1. - take_atomic_valence_densities);
-                  Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
-                  Ea[energy_contribution::ELECTROSTATIC] += grid_electrostatic_energy;
-                  // reconstruct total energy from its contributions KINETIC + ES + XC
-                  Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
-                                                 + Ea[energy_contribution::ELECTROSTATIC]
-                                                 + Ea[energy_contribution::EXCHANGE_CORRELATION];
+                  if (0 == i01) {
+                      // now add grid contributions
+                      Ea[energy_contribution::KINETIC] += grid_kinetic_energy * (1. - take_atomic_valence_densities);
+                      Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
+                      Ea[energy_contribution::ELECTROSTATIC] += grid_electrostatic_energy;
+                      // reconstruct total energy from its contributions KINETIC + ES + XC
+                      Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
+                                                     + Ea[energy_contribution::ELECTROSTATIC]
+                                                     + Ea[energy_contribution::EXCHANGE_CORRELATION];
+                  } // 0 == i01
+              } // i01 show without and with grid contributions
 
-              } // show without and with grid contributions
           } else {
               stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
           } // total_energy_details
@@ -726,7 +729,7 @@ namespace self_consistency {
 
       stat += single_atom::atom_update("memory cleanup", na);
 
-      solid_harmonics::cleanup<double>();
+      solid_harmonics::cleanup();
 
       return stat;
   } // init

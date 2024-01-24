@@ -508,15 +508,14 @@ namespace single_atom {
 
   public:
 
-    LiveAtom( // constructor method
+    LiveAtom( // preferred constructor method
           double const Z_protons // number of protons in the nucleus
         , bool const atomic_valence_density // this option allows to make an isolated atom scf calculation
         , int32_t const global_atom_id // global atom identifier
         , int const echo=0 // logg level for this constructor method only
         , double const ionization=0 // charged valence configurations
     )
-        : // initializations
-          atom_id{global_atom_id}
+        : atom_id{global_atom_id}
         , Z_core{Z_protons}
         , gaunt_init{-1}
     {
@@ -1090,12 +1089,12 @@ namespace single_atom {
 
 #ifdef    HAS_RAPIDXML
 
-    LiveAtom( // constructor method from pawxml
+    LiveAtom( // constructor method from pawxml file
           double const Z_protons // number of protons in the nucleus
+        , int32_t const global_atom_id // global atom identifier
         , int const echo=0 // logg level for this constructor method only
     )
-        : // initializations
-          atom_id{-1}
+        : atom_id{global_atom_id}
         , gaunt_init{-1}
     {
         // constructor routine
@@ -1121,7 +1120,7 @@ namespace single_atom {
 
         take_spherical_density[core]     = 1; // must always be 1 since we can represent the true core density only on the radial grid
         take_spherical_density[semicore] = 1;
-        take_spherical_density[valence]  = 0; // use a synthetic density matrix instead
+        take_spherical_density[valence]  = 1; // or use a synthetic density matrix instead
 
         int const nr[] = {int(align<2>(rg[TRU].n)), int(align<2>(rg[SMT].n))}; // optional memory access alignment
         if (echo > 0) std::printf("# %s radial grid up to %g %s\n", label, rg[TRU].rmax*Ang, _Ang);
@@ -1338,8 +1337,10 @@ namespace single_atom {
                             // copy the true and smmoth partial wave function
                             auto const & tsp = p.states[ist].tsp;
                             for (int ts = TRU; ts <= SMT; ++ts) {
-                                if (tsp[ts].size() != rg[ts].n) error("%s %s partial wave %s has %ld grid points but expected %d",
-                                                                      label, ts_name[ts], vs.tag, tsp[ts].size(), rg[ts].n);
+                                if (tsp[ts].size() != rg[ts].n) {
+                                    error("%s %s partial wave %s has %ld grid points but expected %d",
+                                           label, ts_name[ts], vs.tag, tsp[ts].size(), rg[ts].n);
+                                }
                                 assert(tsp[ts].size() == rg[ts].n);
                                 set(vs.wave[ts], rg[ts].n, tsp[ts].data());
                             } // ts
@@ -1348,6 +1349,8 @@ namespace single_atom {
                                 set(projectors[iln], rg[SMT].n, tsp[2].data());
                             }
                         } // ist >= 0
+
+                        // missing: valence_kinetic_energy += vs.occupation * dot_product(rg[TRU].n, vs.wave[TRU], vs.wKin[TRU], rg[TRU].rdr);
 
                         // add to inital valence density
                         if (vs.occupation > 0) {
@@ -1372,6 +1375,7 @@ namespace single_atom {
                 } // nrn
             } // ell
             assert(nlnn == ilnn && "count of partial waves incorrect");
+
         } // scope: initialize partial waves
 
         set(reference_spdf[0], 3*4, 0.f); // clear reference valence eigenvalues
@@ -1462,15 +1466,13 @@ namespace single_atom {
         sigma = 0.5*r_cut; // estimate, ToDo: sigma from optimizing the projector representation in SHO basis
 
         // ToDo: Gram-Schmidt orthogonalize projectors against lower partial waves and higher partial waves against projectors
+        //  OR   construct only the projector coefficients orthogonal to the existing partial waves
         warn("when loading from %s partial waves are not orthogonalized", xmlfilename);
         // ToDo: update the kinetic_energy deficit matrix acccordingly
 
-        // kinetic energy of core electrons
-        set(energy_kin_csvn[0], 4*2, 0.0);
-        energy_kin_csvn[core][TRU] = p.core_energy_kinetic;
 
         update_charge_deficit(echo);
-        // scope: compute charge deficit of spherical densities
+        // compute charge deficit of spherical densities
         for (int csv = core; csv <= valence; ++csv) {
             double const cd[] = {dot_product(rg[TRU].n, spherical_density[TRU][csv], rg[TRU].r2dr),
                                  dot_product(rg[SMT].n, spherical_density[SMT][csv], rg[SMT].r2dr)};
@@ -1479,13 +1481,40 @@ namespace single_atom {
                 std::printf("# %s true and smooth %s densities have %g and %g electrons, respectively\n",
                                label, csv_name(csv), cd[TRU], cd[SMT]);
             } // echo
-        } // scope
+        } // csv
 
         float const density_mixing[] = {0, 0, 0};
         bool const synthetic_density_matrix = true;
         update_density(density_mixing, echo, synthetic_density_matrix);
-        update_potential(0.f, nullptr, echo);
+        update_full_potential(1.f, nullptr, 0*echo); // 1.f --> construct full_potential and transfer 100% into the spherical potential
 
+        { // scope: we can reconstruct the kinetic energy of spherical states
+            // kinetic energy of core electrons
+            set(energy_kin_csvn[0], 4*2, 0.0);
+            energy_kin_csvn[core][TRU] = p.core_energy_kinetic;
+            double valence_kinetic_energy{0};
+            std::vector<double> potential_r2dr(rg[TRU].n);
+            product(potential_r2dr.data(), rg[TRU].n, potential[TRU].data(), rg[TRU].rdr); // potential is already defined as r*V(r) to remove the singularity
+            if (echo > 3) std::printf("# %s valence states  \t     kinetic  +  potential = total energy\n", label);
+            for (int iln = 0; iln < nln; ++iln) {
+                auto & vs = partial_wave[iln]; // abbreviate "valence state"
+                if (partial_wave_active[iln]) {
+                    assert(vs.wave[TRU]); // make sure the pointer is not null
+                    double const norm2 = dot_product(nr[TRU], vs.wave[TRU], vs.wave[TRU], rg[TRU].r2dr);
+                    auto const potential_expectation_value = dot_product(rg[TRU].n, vs.wave[TRU], vs.wave[TRU], potential_r2dr.data());
+                    auto const E_pot = (norm2 > 0) ? potential_expectation_value / norm2 : 0;
+                    auto const E_kin = vs.energy - E_pot;
+                    valence_kinetic_energy += vs.occupation * E_kin;
+                    if (echo > 3) std::printf("# %s valence state %s\t %12.6f %12.6f = %12.6f %s\n",
+                                                  label, vs.tag, E_kin*eV, E_pot*eV, vs.energy*eV, _eV);
+                } // active
+            } // iln
+            energy_kin_csvn[valence][TRU] = valence_kinetic_energy;
+
+            // we could also check the position of core states, however, the arrays for spherical_states are not allocated
+        } // scope
+
+        update_potential(0.f, nullptr, echo); // will also display energy contributions
 
     } // constructor from pawxml
 
@@ -4423,10 +4452,10 @@ namespace single_atom {
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((bmask >> ia) & 0x1);
                   int type{0}; if (ip) type = (-9 == ip[ia]);
                   if (0 == type) {
-                      a[ia] = new LiveAtom(Za[ia], atomic_valence_density, ia, echo_mask[ia]*echo_init, ion);
+                      a[ia] = new LiveAtom(Za[ia], atomic_valence_density, int32_t(ia), echo_mask[ia]*echo_init, ion);
                   } else {
 #ifdef    HAS_RAPIDXML
-                      a[ia] = new LiveAtom(Za[ia], echo_mask[ia]*echo_init); // load from pawxml files
+                      a[ia] = new LiveAtom(Za[ia], int32_t(ia), echo_mask[ia]*echo_init); // load from pawxml files
 #else  // HAS_RAPIDXML
                       ++stat;
 #endif // HAS_RAPIDXML
@@ -4670,7 +4699,7 @@ namespace single_atom {
 #ifdef    HAS_RAPIDXML
       auto const Z = control::get("single_atom.test.Z", 29.); // default copper
       if (echo > 0) std::printf("# try to construct a LiveAtom instance from a PAW-XML file for Z=%g\n", Z);
-      LiveAtom a(Z, echo); // envoke constructor loading from pawxml
+      LiveAtom a(Z, -1, echo); // envoke constructor loading from pawxml
       return 0;
 #else  // HAS_RAPIDXML
       if (echo > 0) std::printf("# %s cannot parse pawxml file without -D HAS_RAPIDXML\n", __func__);
