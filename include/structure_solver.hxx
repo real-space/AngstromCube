@@ -295,6 +295,13 @@ namespace structure_solver {
 
 
 
+  inline double rho_Thomas_Fermi(double const Ekin, double & derivative) {
+      if (Ekin <= 0) { derivative = 0; return 0; }
+      double constexpr by_pi2 = 1./pow2(constants::pi);
+      derivative = by_pi2 * std::sqrt(2*Ekin);
+      double const value = derivative * Ekin * (2./3.);
+      return value;
+  } // rho_Thomas_Fermi
 
 
 
@@ -317,7 +324,7 @@ namespace structure_solver {
         // how to solve the KS-equation
         basis_method = control::get("basis", "grid");
         key = (*basis_method) | 32; // lower case
-        psi_on_grid = ((*basis_method | 32) == 'g');
+        psi_on_grid = ((*basis_method | 32) == 'g'); // "grid"
 
         // get a default kmesh controlled by +hamiltonian.kmesh or +hamiltonian.kmesh.x, .y, .z
         nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
@@ -471,6 +478,57 @@ namespace structure_solver {
         } else if ('n' == key) { // none
 
             warn("with basis=%s no new density is generated", basis_method);
+
+        } else if ('t' == key) { // Thomas-Fermi approximation for density
+            //
+            // Thomas-Fermi model
+            //
+            double mu = Fermi.get_Fermi_level();
+            auto const gd_all = gd.all();
+            { // scope: correct Fermi level
+                double V_min{9e9}, V_max{-9e9};
+                #pragma omp parallel for reduction(max:V_max; min:V_min)
+                for (size_t zyx = 0; zyx < gd_all; ++zyx) {
+                    auto const V = Vtot[zyx];
+                    V_max = std::max(V_max, V);
+                    V_min = std::min(V_min, V);
+                } // zyx
+                if (mu <= V_min) { mu = 0.5*(V_max + V_min); }
+                mu = std::max(V_min, mu);
+            } // scope
+
+            if (echo > 3) std::printf("# Thomas-Fermi model, starting with chemical potential mu= %g %s\n", mu*eV, _eV);
+            double ne{0}, de{0}; // preliminary number of electrons
+            int iterations{0};
+            bool converged{false};
+            do {
+                de = 0; ne = 0;
+                #pragma omp parallel for reduction(+:ne,de)
+                for (size_t zyx = 0; zyx < gd_all; ++zyx) {
+                    double der;
+                    double const rho = rho_Thomas_Fermi(mu - Vtot[zyx], der);
+                    ne += rho;
+                    de += der;
+                } // zyx
+                ne *= gd.dV(); de *= gd.dV();
+                if (echo > 5) std::printf("# Thomas-Fermi iteration #%i mu= %g %s --> %g electrons, derivative= %g\n",
+                                                                    iterations, mu*eV, _eV, ne, de);
+                converged = (std::abs(ne - Fermi.get_n_electrons()) < 1e-12);
+                mu += (Fermi.get_n_electrons() - ne)/std::max(0.1, de); // new mu by Newton step
+                ++iterations;
+            } while (!converged && iterations < 99);
+            if (converged) {
+                if (echo > 2) std::printf("# Thomas-Fermi converged in %d iterations, mu= %g %s --> %g electrons, derivative= %g\n",
+                                                                    iterations, mu*eV, _eV, ne, de);
+                #pragma omp parallel for
+                for (size_t zyx = 0; zyx < gd_all; ++zyx) {
+                    rho_valence_new(0,zyx) = rho_Thomas_Fermi(mu - Vtot[zyx], rho_valence_new(1,zyx));
+                } // zyx
+                Fermi.add(mu); // store for the next iteration
+                charges[0] = 1;
+                charges[1] = ne;
+                charges[2] = de;
+            } else warn("Thomas-Fermi model did not converge in %d iterations", iterations);
 
         } else {
 

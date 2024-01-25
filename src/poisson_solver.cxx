@@ -186,7 +186,7 @@ namespace poisson_solver {
               real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);
               if (echo > 2) std::printf("# electrostatic.solver=%c (Multi-grid) is a multi-grid solver"
                       " on a %d x %d x %d grid\n", es_solver_name, gd[0], gd[1], gd[2]);
-              gd.set_grid_spacing(g.h[0]/2, g.h[1]/2, g.h[2]/2);
+              gd.set_grid_spacing(g.h[0]*.5, g.h[1]*.5, g.h[2]*.5);
               gd.set_boundary_conditions(g.boundary_conditions());
 
               std::vector<double> Ves_dense(gd.all()), rho_dense(gd.all());

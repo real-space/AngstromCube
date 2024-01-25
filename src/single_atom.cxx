@@ -4427,8 +4427,8 @@ namespace single_atom {
       char const how = what[0] | 32; // first char, convert to lowercase
       if (echo > 4) std::printf("\n# %s %s what=\"%s\" --> \'%c\'\n\n", __FILE__, __func__, what, how);
 
-      float constexpr ar2_default = 16.f;
-      int   constexpr nr2_default = 1 << 12;
+      float constexpr ar2_default = 16.f;    // default scale for an radial_r2grid, see radial_r2grid.hxx
+      int   constexpr nr2_default = 1 << 12; // default number of grid points on an radial_r2grid
       float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
 
       int na{natoms};
@@ -4691,7 +4691,7 @@ namespace single_atom {
           LiveAtom a(Z, avd, -1, echo, ionic); // envoke constructor
           if (echo > 3) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n");
       } // Z
-      if (Z_begin >= Z_end) warn("Empty range for Z in [%g, %g]", Z_begin, Z_end);
+      if (Z_begin >= Z_end) warn("Empty range for Z in [%g, %g)", Z_begin, Z_end);
       return 0;
   } // test_LiveAtom
 

@@ -5,6 +5,8 @@
  *    as produced by density functional theory (DFT)
  */
 
+#include "status.hxx" // status_t
+
 #ifndef NO_UNIT_TESTS
   #include "simple_timer.hxx" // SimpleTimer
   // the following header files contain CUDA code
@@ -20,7 +22,7 @@
 #include <cstdio> // std::printf
 #include <vector> // std::vector
 #include <string> // std::string
-#include <tuple> // std::tuple<...>, ::make_tuple, ::get
+#include <tuple>  // std::tuple
 
 #include "green_tests.hxx"
 

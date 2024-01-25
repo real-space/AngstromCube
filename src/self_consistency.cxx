@@ -66,7 +66,7 @@ namespace self_consistency {
         real_space::grid_t & g // output grid descriptor
       , view2D<double> & xyzZ // output atom coordinates and core charges Z
       , int & natoms // output number of atoms found
-      , int const echo=0 // log-level
+      , int const echo // =0 log-level
   ) {
       status_t stat(0);
 
@@ -154,7 +154,7 @@ namespace self_consistency {
   } // init_geometry_and_grid
 
 
-  double get_temperature(int const echo, double const def=1e-3) {
+  double get_temperature(int const echo, double const def) { // def=1e-3
       auto const unit = control::get("electronic.temperature.unit", "Ha");
       char const *_eu;
       auto const eu = unit_system::energy_unit(unit, &_eu);
@@ -164,9 +164,8 @@ namespace self_consistency {
   } // get_temperature
 
 
-  status_t init(
+  status_t SCF(
         int const echo // =0 // log-level
-      , float const ion // =0.f // ionization between first and last atom
   ) {
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
@@ -192,14 +191,14 @@ namespace self_consistency {
       view2D<double> xyzZ;
       real_space::grid_t g;
       int na_noconst{0};
-      // ToDo: when including potential_generator::init_geometry_and_grid, the code hangs!
       stat += init_geometry_and_grid(g, xyzZ, na_noconst, echo);
       int const na{na_noconst}; // total number of atoms
 
       std::vector<float> ionization(na, 0.f);
-      if (0 != ion) {
+      { // scope: ionization between first and last atom
 #ifdef    DEVEL
-          if (na > 0) {
+          auto const ion = control::get("self_consistency.test.ion", 0.0);
+          if (0 != ion && na > 0) {
               if (echo > 2) std::printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
               ionization[na - 1] = -ionization[0];
               ionization[0] = ion;
@@ -732,20 +731,19 @@ namespace self_consistency {
       solid_harmonics::cleanup();
 
       return stat;
-  } // init
+  } // SCF
 
 #ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  status_t test_init(int const echo=3) {
-      float const ion = control::get("self_consistency.test.ion", 0.);
-      return init(echo, ion);
-  } // test_init
+  status_t test_scf(int const echo=3) {
+      return SCF(echo);
+  } // test_scf
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_init(echo);
+      stat += test_scf(echo);
       return stat;
   } // all_tests
 
