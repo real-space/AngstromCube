@@ -481,7 +481,7 @@ namespace structure_solver {
 
         } else if ('t' == key) { // Thomas-Fermi approximation for density
             //
-            // Thomas-Fermi model
+            // Thomas-Fermi model, hint: use +single_atom.synthetic.density.matrix=1
             //
             double mu = Fermi.get_Fermi_level();
             auto const gd_all = gd.all();

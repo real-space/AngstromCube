@@ -54,6 +54,7 @@ namespace fourier_poisson {
 
       int const nh[] = {ng[0]/2, ng[1]/2, ng[2]/2};
 
+      #pragma omp parallel for
       for (        int j2 = 0; j2 < ng[2]; ++j2) {
                       int const k2 = j2 - (j2 > nh[2])*ng[2];
                       int const kk2   = k2*k2;

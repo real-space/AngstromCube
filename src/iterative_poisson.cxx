@@ -11,8 +11,8 @@
 
 #include "real_space.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
-#include "inline_math.hxx" // set, dot_product
-#include "finite_difference.hxx" // ::stencil_t
+#include "inline_math.hxx" // set, dot_product, pow2
+#include "finite_difference.hxx" // ::stencil_t, ::apply
 #include "constants.hxx" // ::pi
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D, ::analyze_grid_sizes
 #include "linear_algebra.hxx" // ::linear_solve
@@ -120,10 +120,10 @@ namespace iterative_poisson {
           double const b_avg = norm1(b8, n)/n;
           for (int i = 0; i < n; ++i) b8[i] -= b_avg; // make charge neutral
       } // periodic
-#ifdef DEVEL
+#ifdef    DEVEL
       double c8[8]; set(c8, 8, b8);
       view2D<double> c88(8, 8, 0.0);
-#endif
+#endif // DEVEL
 
       // construct the explicit matrix operator
       finite_difference::stencil_t<real_t> const A(g.h, 1, m1over4pi); // 1:lowest order FD stencil
@@ -149,9 +149,9 @@ namespace iterative_poisson {
                           int const jxyz = (jxjyjz[2]*g[1] + jxjyjz[1])*g[0] + jxjyjz[0];
                           assert(jxyz < n);
                           a88(ixyz,jxyz) += f*A.c2nd[d][std::abs(ij)];
-#ifdef DEVEL
+#ifdef    DEVEL
                           c88(ixyz,jxyz) = a88(ixyz,jxyz); // copy
-#endif
+#endif // DEVEL
                       } // ij
                   } // d
               } // ix
@@ -170,7 +170,7 @@ namespace iterative_poisson {
           for (int i = 0; i < n; ++i) x8[i] -= x_avg; // make neutral
       } // periodic
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 9) {
           std::printf("\n# %s for %dx%dx%d=%d status=%i\n", __func__, g[0],g[1],g[2], n, info);
           for (int i = 0; i < n; ++i) {
@@ -184,7 +184,7 @@ namespace iterative_poisson {
           } // i
           std::printf("\n");
       } // echo
-#endif
+#endif // DEVEL
 
       if (0 == info) {
           set(x, n, x8); // convert x into real_t
@@ -315,7 +315,7 @@ namespace iterative_poisson {
     
     view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
     auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
-    
+
     finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil
     
     finite_difference::stencil_t<real_t> precond;
@@ -495,12 +495,12 @@ namespace iterative_poisson {
     return (res > threshold);
   } // solve
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   template // explicit template instantiation for double
   status_t solve(double*, double const*, real_space::grid_t const &, char, int, float, float*, int, int, int);
 
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename real_t>
   status_t test_solver(int const echo=9, int const ng=32) {

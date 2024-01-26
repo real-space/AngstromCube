@@ -314,7 +314,7 @@ EOF
 ### ensure this is compiled if $exe contains a make
 $exe --version > /dev/null
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   ## real-space grid spacing in Bohr
   project=$base.grid$spacing
   echo "# start calculation $project" && \

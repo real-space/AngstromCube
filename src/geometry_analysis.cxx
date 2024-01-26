@@ -4,7 +4,7 @@
 #include <cassert> // assert
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
-#include <cstdint> // uint8_t, int8_t
+#include <cstdint> // uint8_t, int8_t, int32_t
 #include <fstream> // std::ifstream
 #include <sstream> // std::sstream
 #include <string> // std::string, ::getline
@@ -12,7 +12,7 @@
 
 #include "geometry_analysis.hxx" // ::fold_back, length
 
-#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, ::periodic_images
+#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, ::periodic_images, Invalid_Boundary
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
 #include "constants.hxx" // ::pi
@@ -53,13 +53,14 @@ namespace geometry_analysis {
           return 1; // error
       }
 
-      int natoms{0}, linenumber{2};
+      int64_t natoms{0}, linenumber{2};
       infile >> natoms; // read the number of atoms
+      if (natoms < 0) error("%s:1 indicates a negative number of atoms, %ld", filename, natoms);
       std::string line;
-      std::getline(infile, line);
-      std::getline(infile, line);
-      if (echo > 2) std::printf("# expect %d atoms, comment line in file \'%s\': %s\n", natoms, filename, line.c_str());
-      { // scope parse comment line
+      std::getline(infile, line); // read line #1 again
+      std::getline(infile, line); // read line #2
+      if (echo > 2) std::printf("# %s: expect %d atoms, cell parameters= \"%s\"\n", filename, natoms, line.c_str());
+      { // scope: parse line #2
           std::istringstream iss(line);
           std::string word;
           if ('%' == line[0]) {
@@ -82,31 +83,67 @@ namespace geometry_analysis {
               } // d
           } // cell == Basis
       } // scope
-      xyzZ = view2D<double>(natoms, 4);
-      int na{0}; // number of atoms
+
+      xyzZ = view2D<double>(natoms, 4, 0.0);
+      int64_t ia{0}; // global index of atoms
+      size_t ncommented_lines{0}, ncommented_atoms{0}, nignored_lines{0}, nempty_lines{0}, nignored_atoms{0}, ninvalid_atoms{0};
       while (std::getline(infile, line)) {
           ++linenumber;
           std::istringstream iss(line);
           std::string Symbol;
-          double pos[3]; // positions
-          if (!(iss >> Symbol >> pos[0] >> pos[1] >> pos[2])) {
-              if (na < natoms) // we expect more atom lines
-              std::printf("# failed parsing in %s:%d reads \"%s\", stop\n", filename, linenumber, line.c_str());
-              break; // error
-          }
-          char const *const Sy = Symbol.c_str();
-          char const S = Sy[0], y = (Sy[1])? Sy[1] : ' ';
-          if (echo > 7) std::printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, pos[0], pos[1], pos[2]);
-          int const iZ = chemical_symbol::decode(S, y);
-          set(xyzZ[na], 3, pos, Angstrom2Bohr);
-          xyzZ(na,3) = iZ;
-          ++na;
-          assert(na <= natoms);
-          // process pair
+          double pos[3]; // position vector
+          if (iss >> Symbol >> pos[0] >> pos[1] >> pos[2]) {
+              char const *const Sy = Symbol.c_str();
+              char const S = Sy[0];
+              assert('\0' != S); // Symbol should never be an empty string
+              if ('#' != S) {
+                  // add an atom
+                  char const y = (Sy[1]) ? Sy[1] : ' ';
+                  if (echo > 7) std::printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, pos[0], pos[1], pos[2]);
+                  int const iZ = chemical_symbol::decode(S, y);
+                  if (iZ >= 0) {
+                      if (ia < natoms) {
+                          // add atom to list
+                          set(xyzZ[ia], 3, pos, Angstrom2Bohr);
+                          xyzZ(ia,3) = iZ;
+                      } else {
+                          ++nignored_atoms;
+                          if (echo > 3) std::printf("# %s:%ld contains \"%s\" as atom #%ld but only %ld atoms expected!\n",
+                                                       filename, linenumber, line.c_str(), ia, natoms);
+                      }
+                      ++ia;
+                  } else {
+                      ++ninvalid_atoms;
+                      if (echo > 3) std::printf("# %s:%ld contains invalid atom entry \"%s\"!\n",
+                                                   filename, linenumber, line.c_str());
+                  }
+              } else {
+                  ++ncommented_atoms; // this is a comment line that could be interpreted as atom if it did not start from '#'
+                  if (echo > 4) std::printf("# %s:%ld \t commented atom=\"%s\"\n", filename, linenumber, line.c_str());
+              }
+          } else { // iss
+              if ('#' == Symbol[0]) {
+                  ++ncommented_lines; // all exected atoms have been found, maybe this is a comment
+                  if (echo > 1) std::printf("# %s:%ld \t comment=\"%s\"\n", filename, linenumber, line.c_str());
+              } else if ('\0' == Symbol[0]) {
+                  ++nempty_lines; // ignore empty lines silently
+              } else {
+                  ++nignored_lines;
+                  if (echo > 5) std::printf("# %s:%ld \t ignored line=\"%s\"\n", filename, linenumber, line.c_str());
+              }
+          } // iss
       } // parse file line by line
 
-      n_atoms = na;
-      return na - natoms; // returns 0 if the exact number of atoms has been found
+      // show irregularites
+      if (echo > 0 && ncommented_lines > 0) std::printf("# %s: found %ld commented lines\n", filename, ncommented_lines);
+      if (echo > 0 && ncommented_atoms > 0) std::printf("# %s: found %ld commented atoms\n", filename, ncommented_atoms);
+      if (echo > 0 && ninvalid_atoms   > 0) std::printf("# %s: found %ld invalid atoms\n",   filename, ninvalid_atoms);
+      if (echo > 0 && nignored_lines   > 0) std::printf("# %s: ignored %ld lines\n",         filename, nignored_lines);
+      if (echo > 0 && nignored_atoms   > 0) std::printf("# %s: ignored %ld valid atoms\n",   filename, nignored_atoms);
+      if (echo > 5 && nempty_lines     > 0) std::printf("# %s: found %ld blank lines\n",     filename, nempty_lines);
+
+      n_atoms = std::min(ia, natoms); // export the number of atoms
+      return status_t(ia - natoms); // returns 0 if the expected number of atoms has been found
   } // read_xyz_file
 
   float default_half_bond_length(int const Z1) {
@@ -595,6 +632,11 @@ namespace geometry_analysis {
       status_t stat(0);
       if (echo > 1) std::printf("\n# %s:%s\n", __FILE__, __func__);
 
+      {
+          int n_invalid_bc{0}; for (int d = 0; d < 3; ++d) n_invalid_bc += (Invalid_Boundary == bc[d]);
+          if (n_invalid_bc) warn("system has %d invalid boundary conditions", n_invalid_bc);
+      }
+
       float const elongation = control::get("geometry_analysis.elongation", 1.25); // a bond elongated by 25% over his default length is still counted
       if (echo > 3) std::printf("# Count interatomic distances up to %g %% of the default bond length as bond\n", elongation*100);
 
@@ -766,7 +808,7 @@ namespace geometry_analysis {
               //========================================================================================================
               vec3 const pos_ia = xyzZ[ia];
               int const is = ispecies[ia];
-              if (echo > 8) std::printf("# [ia=%i] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_of_species[is]);
+              if (echo > 24) std::printf("# [ia=%i] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_of_species[is]);
               //========================================================================================================
               vec3 const pos_ii_minus_ia = pos_ii - pos_ia;
 #ifdef    GEO_ORDER_N2
@@ -778,7 +820,7 @@ namespace geometry_analysis {
                   //========================================================================================================
                   vec3 const pos_ja = xyzZ[ja];
                   int const js = ispecies[ja];
-                  if (echo > 9) std::printf("# [ia=%i, ja=%i] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_of_species[js]);
+                  if (echo > 28) std::printf("# [ia=%i, ja=%i] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_of_species[js]);
                   //========================================================================================================
                   vec3 const diff = pos_ja + pos_ii_minus_ia;
                   auto const d2 = norm(diff);
@@ -1013,11 +1055,11 @@ namespace geometry_analysis {
                   if (echo > 3) {
                       for (int ab = 0; ab < 2; ++ab) {
                           auto const fac = ab ? Ang/per_length : 1;
-                          std::printf("\n## bond %s in %s for ", ab?"distances":"angles", ab?_Ang:"degree");
+                          std::printf("\n## bond %s for ", ab?"distances":"angles");
                           for (int is = 0; is < nspecies; ++is) {
                               std::printf(" %s", Sy_of_species_null[is]);
                           } // is
-                          std::printf("\n");
+                          std::printf("  in %s\n", ab?_Ang:"degree");
 
                           SparsifyPlot<int> spp(ab); // ab: always show the 0th entry for bond lengths, not for angles
                           for (int ih = 0; ih < nhist; ++ih) {
@@ -1201,7 +1243,7 @@ namespace geometry_analysis {
   status_t test_analysis(int const echo=9) {
       status_t stat(0);
       view2D<double> xyzZ;
-      int natoms{0};
+      int32_t natoms{0};
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
       int8_t bc[3] = {-7, -7, -7};

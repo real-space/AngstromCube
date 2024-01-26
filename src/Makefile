@@ -31,6 +31,7 @@ OBJ = \
 	geometry_analysis.o \
 	self_consistency.o \
 	iterative_poisson.o \
+	parallel_poisson.o \
 	bessel_transform.o \
 	dense_solver.o \
 	multi_grid.o \
