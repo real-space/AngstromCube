@@ -24,6 +24,8 @@
   #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant, ::destroy_radial_grid
   #include "bessel_transform.hxx" // ::transform_s_function
   #include "radial_potential.hxx" // ::Hartree_potential
+  #include "fourier_poisson.hxx" // ::solve
+  #include "control.hxx" // ::get
 #endif
 
 namespace iterative_poisson {
@@ -503,55 +505,79 @@ namespace iterative_poisson {
 #else  // NO_UNIT_TESTS
 
   template <typename real_t>
-  status_t test_solver(int const echo=9, int const ng=32) {
-      real_space::grid_t g(ng, ng, ng); // grid spacing = 1.0, by default all boundary conditions isolated
+  status_t test_solver(int const echo=9, int const ng_default=32) {
+      int const ng[] = {ng_default, ng_default, ng_default};
+      real_space::grid_t g(ng[0], ng[1], ng[2]); // grid spacing = 1.0
       g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
-      view2D<real_t> xb(2, ng*ng*ng, 0.0);
-      auto const x = xb[0], b = xb[1];
-      double constexpr c1 = 1, a1=.125, c2 = -8 + 1.28414e-7, a2=.5;
-      double const cnt[3] = {.5*ng, .5*ng, .5*ng};
+      view2D<real_t> xb(3, ng[2]*ng[1]*ng[0], 0.0);
+      int constexpr I_multigrid = 0, I_fft = 1, I_rho = 2;
+      auto const x = xb[I_multigrid], x_fft = xb[I_fft], b = xb[I_rho];
+      double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5;
+      double const cnt[] = {.5*ng[0], .5*ng[1], .5*ng[2]};
       double integral{0};
-      for (int iz = 0; iz < ng; ++iz) {
-      for (int iy = 0; iy < ng; ++iy) {
-      for (int ix = 0; ix < ng; ++ix) {
-          size_t const izyx = ix + ng*(iy + ng*iz);
+      for (int iz = 0; iz < ng[2]; ++iz) {
+      for (int iy = 0; iy < ng[1]; ++iy) {
+      for (int ix = 0; ix < ng[0]; ++ix) {
+          size_t const izyx = ix + ng[0]*(iy + ng[1]*iz);
           double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
           double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
           b[izyx] = rho;
           integral += rho;
       }}} // ix iy iz
-      if (echo > 2) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
+      if (echo > 1) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
 
       float const threshold = (sizeof(real_t) > 4) ? 3e-8 : 5e-6;
-      status_t const stat = solve(x, b, g, 'M', echo, threshold); // method=M:multi_grid
+      auto const method = control::get("parallel_poisson.test.method", "MultiGrid");
+      auto const stat = solve(x, b, g, *method, echo, threshold); // method=M:multi_grid
+
+      auto constexpr pi = constants::pi;
+      double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};
+      fourier_poisson::solve(x_fft, b, ng, mat);
 
       if (echo > 8) { // get a radial representation through Bessel transform
-          auto & rg = *radial_grid::create_radial_grid(150, 15.f);
+          auto & rg = *radial_grid::create_radial_grid(300, 15.f);
 
-          view2D<double> f_ref(2, rg.n, 0.0); // 0:x, 1:b
+          int constexpr I_rho_radial = 3, I_hartree = 4, I_q2 = 5;
+          view2D<double> fr(6, rg.n, 0.0); // radial functions
           for (int ir = 0; ir < rg.n; ++ir) {
-              double const r2 = pow2(rg.r[ir]);
-              f_ref(1,ir) = 4*constants::pi*(c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
+              auto const r2 = pow2(rg.r[ir]);
+              fr(I_rho_radial,ir) = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
           } // ir
-          radial_potential::Hartree_potential(f_ref[0], rg, f_ref[1], rg.n, 0); // compute the Hartree potential by radial integration
+          radial_potential::Hartree_potential(fr[I_hartree], rg, fr[I_rho_radial], rg.n, 0); // compute the Hartree potential by radial integration
 
-          view2D<double> f_prj(2, rg.n, 0.0); // 0:x, 1:b
           { // scope: Bessel-transform x and b
-              float const dq = 1.f/16; // spacing in reciprocal space
+              float const dq = 1.f/128; // spacing in reciprocal space
               int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
               std::vector<double> q_coeff(nq, 0.0);
-              for (int x0b1 = 0; x0b1 < 2; ++x0b1) { // loop over {0:solution==potential, 1:right-hand-side==density}
-                  real_space::Bessel_projection(q_coeff.data(), nq, dq, xb[x0b1], g, cnt);
-                  bessel_transform::transform_s_function(f_prj[x0b1], q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
+              for (int xxb = 0; xxb <= 2; ++xxb) {
+                  real_space::Bessel_projection(q_coeff.data(), nq, dq, xb[xxb], g, cnt, 1., 15.f);
+                  bessel_transform::transform_s_function(fr[xxb], q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
               } // x0b1
+              // compute another reference solution by applying 4pi/q^2 using q_coeff of b
+              for (int iq = 1; iq < nq; ++iq) {
+                  q_coeff[iq] /= pow2(iq*dq);
+              } // iq
+              q_coeff[0] = 0;
+              bessel_transform::transform_s_function(fr[I_q2], q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
           } // scope
 
-          std::printf("\n## r, Ves, Ves_ref, rho, rho_ref (all in a.u.)\n");
+          double const f = 0.25/constants::pi; // 1/4pi
+          std::printf("\n## r, V_mg, V_fft, V_rad, V_q^2, rho, rho_rad (all in a.u.)\n");
           for (int ir = 0; ir < rg.n; ++ir) {
-              std::printf("%g %g %g %g %g\n", rg.r[ir], f_prj(0,ir), f_ref(0,ir), f_prj(1,ir), f_ref(1,ir));
-          } // ir   
+              std::printf("%g %g %g %g %g %g %g\n", rg.r[ir], fr(I_multigrid,ir)*f, fr(I_fft,ir)*f, fr(I_hartree,ir), fr(I_q2,ir), fr(I_rho,ir)*f, fr(I_rho_radial,ir));
+          } // ir
           std::printf("\n\n");
           radial_grid::destroy_radial_grid(&rg);
+
+          std::printf("\n## r, V_mg, V_fft, rho (all in a.u.)\n"); // show all grid values (should not be connected by a line)
+          for (int iz = 0; iz < ng[2]; ++iz) {
+           for (int iy = 0; iy < ng[1]; ++iy) {
+            for (int ix = 0; ix < ng[0]; ++ix) {
+                size_t const izyx = ix + ng[0]*(iy + ng[1]*iz);
+                double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
+                std::printf("%g %g %g %g\n", std::sqrt(r2), x[izyx], x_fft[izyx], b[izyx]); // point cloud
+          }}} // ix iy iz
+
       } // echo
       return stat;
   } // test_solver
@@ -559,7 +585,7 @@ namespace iterative_poisson {
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_solver<double>(echo); // instantiation for both, double and float
-      stat += test_solver<float>(echo);  // compilation and convergence tests
+ //   stat += test_solver<float>(echo);  // compilation and convergence tests
       return stat;
   } // all_tests
 

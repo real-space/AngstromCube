@@ -102,7 +102,7 @@ namespace fourier_poisson {
       status_t stat(0);
       int const ng[3] = {32, 32, 32}, ngall = ng[2]*ng[1]*ng[0];
       double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};
-      double const alpha = 1./pow2(8.); // in units of h^-2
+      double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5;
       std::vector<double> rho(ngall), V(ngall);
       double charge{0};
       for (int i01 = 0; i01 <= 1; ++i01) {
@@ -112,9 +112,9 @@ namespace fourier_poisson {
           for (int x = 0; x < ng[0]; ++x) {
                       double const r2 = pow2(x - .5*ng[0]) + pow2(y - .5*ng[1]) + pow2(z - .5*ng[0]);
                       int const i = (z*ng[1] + y)*ng[0] + x;
-                      rho[i] = std::exp(-alpha*r2) - charge;
+                      rho[i] = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2) - charge;
                       q += rho[i];
-                      if (i01 && (echo > 6)) std::printf("%g %g %g\n", std::sqrt(r2), rho[i], V[i]);
+                      if (i01 && (echo > 6)) std::printf("%g %g %g\n", std::sqrt(r2), rho[i], V[i]); // point cloud
           }}} // zyx
           if (0 == i01) {
               stat += solve(V.data(), rho.data(), ng, mat);
@@ -129,7 +129,7 @@ namespace fourier_poisson {
           double q_rad{0};
           for (int ir = 0; ir < ng[0]/dr; ++ir) {
               auto const r = (ir + .125)*dr, r2 = r*r;
-              auto const rho_rad = std::exp(-alpha*r2) - charge;
+              auto const rho_rad = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2) - charge;
               // show density, (shifted) potential, integrated charge up to r
               if (i01 && (echo > 4)) std::printf("%g %g %g %g\n", r, rho_rad, V_rad + q_rad/r, q_rad);
               q_rad += rho_rad * r2 * pi4dr;

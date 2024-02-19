@@ -355,8 +355,7 @@ namespace real_space {
       , float const r_cut=10 // radial truncation, default 10 Bohr
   ) {
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
-      double const rcut = r_cut;
-      double const r2cut = rcut*rcut; // stop at 10 Bohr
+      double const rcut = r_cut, r2cut = rcut*rcut; // stop at 10 Bohr
       int imn[3], imx[3];
       for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));

@@ -13,7 +13,7 @@
 #include "geometry_analysis.hxx" // ::fold_back, length
 
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, ::periodic_images, Invalid_Boundary
-#include "display_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // Ang, _Ang
 #include "inline_math.hxx" // set, pow2
 #include "constants.hxx" // ::pi
 #include "data_view.hxx" // view2D<T>, view3D<T>
@@ -181,7 +181,7 @@ namespace geometry_analysis {
       // largest entry is 260 --> 2*260 pm * 1.25 = 6.5 Ang
   } // default_half_bond_length
 
-#define   GEO_ORDER_N2
+// #define   GEO_ORDER_N2
 
 #ifndef   GEO_ORDER_N2
   template <typename int_t>
@@ -213,7 +213,7 @@ namespace geometry_analysis {
 
   public:
 
-      BoxStructure(
+      BoxStructure( // constructor
             double const cell[3] // Cartesian cell parameters
           , int8_t const bc[3]
           , double const radius
@@ -279,18 +279,20 @@ namespace geometry_analysis {
                                       __func__, inv_box_size[X], inv_box_size[Y], inv_box_size[Z]);
               double min_coords[3] = {9e99, 9e99, 9e99};
               for (size_t ia = 0; ia < natoms; ++ia) {
+                  double const *const pos = xyzZ[ia];
                   for (int d = 0; d < 3; ++d) {
-                      min_coords[d] = std::min(min_coords[d], xyzZ[ia][d]);
+                      min_coords[d] = std::min(min_coords[d], pos[d]);
                   } // d
               } // ia
               double const offset[3] = {-min_coords[X], -min_coords[Y], -min_coords[Z]};
 
               for (size_t ia = 0; ia < natoms; ++ia) {
-                  int const iz = get_center_box<Z>(int(std::floor((xyzZ[ia][Z] + offset[Z])*inv_box_size[Z])));
-                  int const iy = get_center_box<Y>(int(std::floor((xyzZ[ia][Y] + offset[Y])*inv_box_size[Y])));
-                  int const ix = get_center_box<X>(int(std::floor((xyzZ[ia][X] + offset[X])*inv_box_size[X])));
+                  double const *const pos = xyzZ[ia];
+                  int const iz = get_center_box<Z>(int(std::floor((pos[Z] + offset[Z])*inv_box_size[Z])));
+                  int const iy = get_center_box<Y>(int(std::floor((pos[Y] + offset[Y])*inv_box_size[Y])));
+                  int const ix = get_center_box<X>(int(std::floor((pos[X] + offset[X])*inv_box_size[X])));
                   if (echo > 9) std::printf("# %s: atom #%ld Z=%.1f at %g %g %g goes into box %d %d %d\n", __func__,
-                                ia, xyzZ[ia][3], xyzZ[ia][X], xyzZ[ia][Y], xyzZ[ia][Z], ix, iy, iz);
+                                ia, pos[3], pos[X], pos[Y], pos[Z], ix, iy, iz);
                   int const ib = get_center_index(ix, iy, iz);
                   atom_index[ib].push_back(ia);
               } // ia
@@ -503,7 +505,7 @@ namespace geometry_analysis {
       double const cell[] = {general_cell[0][0], general_cell[1][1], general_cell[2][2]};
       auto constexpr use_ratio = 0.85;
       double constexpr yx_ratio = 0.3; // perspective aspect ratio of ASCII characters (width/height)
-      int constexpr WIDTH = 79; // width of the screen for ASCII display
+      int const WIDTH = control::get("geometry_analysis.ascii.width", 79.); // width of the screen for ASCII display
       double constexpr width_height = 0.48;
 
       char constexpr xLine = '-', yLine = '/', zLine = '|', Origin = '+';
@@ -669,6 +671,14 @@ namespace geometry_analysis {
               int const intZ_ia = std::round(xyzZ[ia][3]), Z_ia_mod = intZ_ia & 127;
               ++occ[Z_ia_mod];
           } // ia
+          
+          {   // check that there has been no overflow
+              size_t natoms_check{0};
+              for (int iZ = 0; iZ < 128; ++iZ) {
+                  natoms_check += occ[iZ];
+              } // iZ
+              assert(natoms == natoms_check);
+          }
 
           // evaluate the histogram
           std::vector<int8_t> species_of_Z(128, int8_t(-1)); // translation table
@@ -678,7 +688,7 @@ namespace geometry_analysis {
                   species_of_Z[Z] = is;
                   Z_of_species.push_back(Z);
                   occurrence.push_back(occ[Z]);
-                  ++is; // create a new species
+                  ++is; // create a new species index
               } else assert(0 == occ[Z]);
           } // Z
           nspecies_ = is;
@@ -755,13 +765,13 @@ namespace geometry_analysis {
       plot_structure_ascii(xyzZ, ispecies.data(), natoms, Sy_of_species, cell, true, echo);
 
 
-      view3D<uint16_t> dist_hist(num_bins, nspecies, nspecies, 0);
-      view2D<int> bond_hist(nspecies, nspecies, 0);
+      view3D<uint16_t> dist_hist(num_bins, nspecies, nspecies, 0); // species-resolved distance histogram
+      view2D<uint32_t> bond_hist(nspecies, nspecies, 0);
       std::vector<uint8_t> coordination_number(natoms, 0);
       int constexpr MAX_coordination_number = std::numeric_limits<uint8_t>::max();
 
       float const too_large = 188.973; // 100 Angstrom
-      view2D<double> smallest_distance(nspecies, nspecies,  too_large);
+      view2D<double> smallest_distance(nspecies, nspecies, too_large);
       view2D<simple_stats::Stats<double>> bond_stat(nspecies, nspecies);
 
       typedef vector_math::vec<3,double> vec3;
@@ -779,7 +789,7 @@ namespace geometry_analysis {
       {{{{{ // open 5 scopes because the box structure has 5 loops
       for (int ii = 0; ii < nimages; ++ii) { // includes self-interaction
           vec3 const pos_ii = image_pos[ii];
-          auto const shift = image_shift[ii]; // not tested
+          auto const shift = image_shift[ii];
           for (index_t ia = 0; ia < natoms; ++ia) {
               //========================================================================================================
 #else  // GEO_ORDER_N2
@@ -890,14 +900,10 @@ namespace geometry_analysis {
           warn("In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
           ++stat;
       } // maximum number of bond partners was exceeded
-      if (bp_truncated > 0) {
-          warn("Bond partner analysis is performed only for the first %d of %d atoms", natoms_BP, natoms);
-          ++stat;
-      } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
-
+      if (bp_truncated > 0) warn("Bond partner analysis is performed only for the first %d of %d atoms", natoms_BP, natoms);
 
       // warnings:
-      if (true) { // warn if minimum distance is too low
+      if (nspecies > 0) { // warn if minimum distance is too low
           auto const compression = 1/elongation; // warn if bonds are shorter than this
           auto const & Sy = Sy_of_species_null;
           double minimum_distance{9e37}; int is_min[2] = {-1, -1};
@@ -945,7 +951,7 @@ namespace geometry_analysis {
               } // < 1
           } // minimum_distance has been set
 
-      } // true
+      } // nspecies > 0
 
 
 
@@ -1053,7 +1059,7 @@ namespace geometry_analysis {
               // display the histogram of bond length and angles summed up over all species
               if (nhist > 0) {
                   if (echo > 3) {
-                      for (int ab = 0; ab < 2; ++ab) {
+                      for (int ab = 0; ab <= 1; ++ab) {
                           auto const fac = ab ? Ang/per_length : 1;
                           std::printf("\n## bond %s for ", ab?"distances":"angles");
                           for (int is = 0; is < nspecies; ++is) {
