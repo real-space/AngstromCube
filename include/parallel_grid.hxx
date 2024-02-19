@@ -26,7 +26,9 @@ namespace parallel_grid {
       distribution_t(uint32_t const nx=0, uint32_t const ny=0, uint32_t const nz=0)
        : dims{nx, ny, nz}
       {
-          std::printf("# distribution_t<int%ld_t>(%d, %d, %d)\n", sizeof(rank_t), nx, ny, nz);
+          std::printf("# distribution_t<int%ld_t>(%d, %d, %d)\n", sizeof(rank_t)*8, nx, ny, nz);
+          assert(1 == (rank_t(2)/2)) && "distribution_t needs a signed INTEGER type as rank_t");
+          assert(rank_t(-1) < 0      && "distribution_t needs a SIGNED integer type as rank_t");
       } // default constructor
 
       template <typename int_t>
@@ -50,6 +52,7 @@ namespace parallel_grid {
       int const dims[] = {10, 20, 30};
       auto gp = new distribution_t<>(dims); // construct
       gp->~distribution_t(); // explicity call the destructor
+      distribution_t<float> fails;
       return 0;
   } // test_create_and_destroy
 
