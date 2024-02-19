@@ -22,9 +22,9 @@ namespace green_parallel {
 
   status_t dyadic_exchange(                                    // here, nSHO is the global maximum of nsho[ia]
         double       *const mat_out // output effective atom matrices, data layout mat_out[nrows*Noco^2*2*nSHO^2]
-      , std::vector<int32_t> const & requests  // indices requested by this MPI process,  [nrows]
+      , std::vector<int64_t> const & requests  // indices requested by this MPI process,  [nrows]
       , double const *const mat_inp //  input effective atom matrices, data layout mat_inp[ncols*Noco^2*2*nSHO^2]
-      , std::vector<int32_t> const & offerings // indices offered   by this MPI process,  [ncols]
+      , std::vector<int64_t> const & offerings // indices offered   by this MPI process,  [ncols]
       , rank_int_t const owner_rank[] // where to find it, [nall]
       , uint32_t const nall // number of all atoms
       , int const count
@@ -43,6 +43,28 @@ namespace green_parallel {
       , bool const debug=true
       , int const echo=0 // log-level
   ); // declaration only
+
+  class RequestList_t {
+  public:
+
+      RequestList_t() : window_size{0} {}
+      RequestList_t(
+            std::vector<int64_t> const & requests
+          , std::vector<int64_t> const & offerings
+          , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
+          , uint32_t const nb[3] // global bounding box or {natoms,0,0}
+          , int const echo=0 // log-level
+      ); // declaration only
+
+  public:
+      std::vector<int32_t>  owner; // owner rank of the requested data item
+      std::vector<uint32_t> index; // local index in owning process
+      std::vector<int64_t>  requested_id; // original identifyer (for debug only)
+      std::size_t size() const { return owner.size(); }
+      std::size_t window() const { return window_size; }
+  private:
+      uint32_t window_size;
+  }; // RequestList_t
 
   status_t all_tests(int echo=0); // declaration only
 

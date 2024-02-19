@@ -265,7 +265,7 @@
 
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
-
+      mpi_parallel::allreduce(&stat); // make sure all processes return the same status
       mpi_parallel::finalize();
 
       return int(stat);

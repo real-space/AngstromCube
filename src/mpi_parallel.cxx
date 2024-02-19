@@ -26,13 +26,13 @@
  *
  */
 
-  #include <cassert> // assert
-  #include <cstdint> // int64_t
-  #include <cstring> // std::memcpy
+#include <cassert> // assert
+#include <cstdint> // int64_t
+#include <cstring> // std::memcpy
 
-  #include "mpi_parallel.hxx"
+#include "mpi_parallel.hxx"
 
-  #include "recorded_warnings.hxx" // warn, error
+#include "recorded_warnings.hxx" // warn, error
 
 
 namespace mpi_parallel {

@@ -110,22 +110,24 @@ namespace mpi_parallel {
 
   template <typename T> MPI_Datatype get(T t=0);
   template <> inline MPI_Datatype get<uint16_t>(uint16_t t) { return MPI_UINT16; }
+  template <> inline MPI_Datatype get<int>(int t) { return MPI_INTEGER; }
   template <> inline MPI_Datatype get<double>(double t) { return MPI_DOUBLE; }
   template <> inline MPI_Datatype get<size_t>(size_t t) { return MPI_UNSIGNED_LONG; }
 
   template <typename T>
   inline int allreduce(T *recv, MPI_Op const op=MPI_SUM, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, T const *send=nullptr) {
-      if (!send) send = (T const *)MPI_IN_PLACE;
-      return MPI_Allreduce(send, recv, count, get<T>(), op, comm);
+      return MPI_Allreduce(send ? send : MPI_IN_PLACE, recv, count, get<T>(), op, comm);
   } // allreduce
 
   template <typename T>
   inline int max(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
-      return allreduce(recv, MPI_MAX, comm, count); }
+      return allreduce(recv, MPI_MAX, comm, count);
+  } // max
 
   template <typename T>
   inline int sum(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
-      return allreduce(recv, MPI_SUM, comm, count); }
+      return allreduce(recv, MPI_SUM, comm, count);
+  } // sum
 
   inline int barrier(MPI_Comm const comm=MPI_COMM_WORLD) { 
       return MPI_Check(MPI_Barrier(comm));
