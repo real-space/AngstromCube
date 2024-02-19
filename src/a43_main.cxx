@@ -43,7 +43,6 @@
   #include "element_config.hxx" // ::all_tests
   #include "symmetry_group.hxx" // ::all_tests
   #include "complex_tools.hxx" // ::all_tests
-  #include "parallel_grid.hxx" // ::all_tests
   #include "vector_layout.hxx" // ::all_tests
   #include "sho_potential.hxx" // ::all_tests
   #include "pawxml_import.hxx" // ::all_tests
@@ -175,7 +174,6 @@
           add_module_test(parallel_domains);
           add_module_test(global_coordinates);
           add_module_test(load_balancer);
-          add_module_test(parallel_grid);
 
           start_a_chapter("electrostatics"); // *****************************************
           add_module_test(multi_grid);

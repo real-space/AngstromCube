@@ -43,7 +43,7 @@ namespace load_balancer {
 #endif // LOAD_BALANCER_DRAW_SVG
 
   int constexpr X=0, Y=1, Z=2, W=3;
-  uint16_t constexpr no_owner = (1 << 16) - 1; // 65535
+  uint16_t constexpr no_owner = (1ull << 16) - 1; // 65535
 
   template <typename real_t>
   double center_of_weight(

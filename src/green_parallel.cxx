@@ -4,7 +4,7 @@
 #include <cstdint> // uint16_t
 #include <vector> // std::vector<T>
 
-#include "green_parallel.hxx"
+#include "green_parallel.hxx" // rank_int_t
 
 #include "simple_stats.hxx" // ::Stats<double>
 #include "inline_math.hxx" // set
@@ -164,30 +164,36 @@ namespace green_parallel {
 
 #endif // HAS_NO_MPI
 
-          for (int spin = 0; spin < Noco*Noco; ++spin) {
-              auto const target_disp = iloc*Noco*Noco + spin;
-              if (me == owner) {
-                  if (echo > 7 + 5*spin) std::printf("# exchange: rank #%i local copy of potential at cube id o%llo%s\n", me, global_id, spin_name(Noco, spin));
-                  set(Veff[spin][row], 64, Vinp[target_disp]);
-                  ++stats[0];
-              } else { // me == owner
-                  ++stats[1];
+          // only these data are needed in production: owner, iloc, row, me
+
+          auto const target_disp = iloc*Noco*Noco;
+          if (me == owner) {
+              if (echo > 7) std::printf("# exchange: rank #%i local copy of potential at cube id o%llo\n", me, global_id);
+              for (int spin = 0; spin < Noco*Noco; ++spin) {
+                  set(Veff[spin][row], 64, Vinp[target_disp + spin]);
+              } // spin
+              ++stats[0];
+          } else { // me == owner
+              ++stats[1];
 #ifndef   HAS_NO_MPI
-                  if (echo > 9 + 5*spin) std::printf("# exchange: rank #%i get potential at cube id o%llo from rank #%i element %i%s\n", me, global_id, owner, iloc, spin_name(Noco, spin));
-                  status += MPI_Get(Veff[spin][row], 64, MPI_DOUBLE, owner, target_disp, 64, MPI_DOUBLE, window);
-                  /*
-                   *  Criticism for MPI_Get-solution:
-                   *    each time called it pushes a request into the remote process and receives an MPI_Put with the data from that process.
-                   *    After the construction of the Green function, the structure of requested potential elements does not change any more.
-                   *    Latencies would be lower if we separated it into two phases:
-                   *    a) communicate where to push, e.g. with MPI_Alltoall and MPI_Alltoallv before the loop over energy parameters.
-                   *    b) MPI_Put the data
-                   */
+              if (echo > 9) std::printf("# exchange: rank #%i get potential at cube id o%llo from rank #%i element %i\n", me, global_id, owner, iloc);
+              std::vector<double> Vget(Noco*Noco*64);
+              status += MPI_Get(Vget.data(), Noco*Noco*64, MPI_DOUBLE, owner, target_disp, Noco*Noco*64, MPI_DOUBLE, window);
+              for (int spin = 0; spin < Noco*Noco; ++spin) {
+                  set(Veff[spin][row], 64, &Vget[spin*64]);
+              } // spin
+               /*
+                *  Criticism for MPI_Get-solution:
+                *    each time called it pushes a request into the remote process and receives an MPI_Put with the data from that process.
+                *    After the construction of the Green function, the structure of requested potential elements does not change any more.
+                *    Latencies would be lower if we separated it into two phases:
+                *    a) communicate where to push, e.g. with MPI_Alltoall and MPI_Alltoallv before the loop over energy parameters.
+                *    b) MPI_Put the data
+                */
 #else  // HAS_NO_MPI
-                  error("Without MPI all potential elements must reside in the same process, me=%i, owner=%i", me, owner);
+              error("Without MPI all potential elements must reside in the same process, me=%i, owner=%i", me, owner);
 #endif // HAS_NO_MPI
-              } // me == owner
-          } // spin
+          } // me == owner
       } // row
 
 #ifndef   HAS_NO_MPI
@@ -197,7 +203,7 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
       if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
-      assert(stats[0] + stats[1] == Noco*Noco*nrows);
+      assert(stats[0] + stats[1] == nrows);
 
       return status;
   } // potential_exchange
