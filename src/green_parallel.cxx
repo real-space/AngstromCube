@@ -12,7 +12,6 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "global_coordinates.hxx" // ::get
 #include "print_tools.hxx" // printf_vector
-#include "green_memory.hxx" // get_memory
 #include "recorded_warnings.hxx" // warn
 
 namespace green_parallel {
@@ -638,7 +637,7 @@ namespace green_parallel {
       RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo); // test_new_structure
 
       double (*pot_out[2*2])[64];
-      for (int spin = 0; spin < 2*2; ++spin) pot_out[spin] = get_memory<double[64]>(nrows);
+      for (int spin = 0; spin < 2*2; ++spin) pot_out[spin] = (double(*)[64]) new double(nrows*64);
       for (int Noco = 1; Noco <= 2; ++Noco) {
           auto const pot_inp = new double[nrows*Noco*Noco][64];
           for (int row = 0; row < nrows; ++row) pot_inp[row*Noco*Noco][0] = 0.5 + me;
@@ -653,7 +652,7 @@ namespace green_parallel {
           stat += green_parallel::dyadic_exchange(mat_out.data(), mat_inp.data(), rlD, count, echo);
       } // Noco
 
-      for (int spin = 0; spin < 2*2; ++spin) free_memory(pot_out[spin]);
+      for (int spin = 0; spin < 2*2; ++spin) delete[] pot_out[spin];
       return stat;
   } // test_exchanges
 
