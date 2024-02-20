@@ -131,7 +131,7 @@ namespace green_parallel {
       status += MPI_Win_create((void*)Vinp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
 
       // synchronize processes
-      int const assertions = 0; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
+      int const assertions = MPI_MODE_NOPUT; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
       status += MPI_Win_fence(assertions, window);
 
 #endif // HAS_NO_MPI
@@ -359,7 +359,7 @@ namespace green_parallel {
       , int const echo // =0 // log-level
     ) {
         int constexpr X=0, Y=1, Z=2;
-        size_t const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
+        auto const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
         if (echo > 7) std::printf("# RequestList_t %d %d %d, nall= %ld\n", nb[X], nb[Y], nb[Z], nall);
         auto const ncols = offerings.size(); // number of offerings
@@ -427,14 +427,14 @@ namespace green_parallel {
 #ifndef   HAS_NO_MPI
 
             // translate global_id into an index iall
-            assert(global_id > -1);
+            assert(global_id > -1 && "invalid request id");
             size_t iall = global_id;
             if (grid) {
                 uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
-                for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d]);
+                for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d] && "requested coordinates exceed box");
                 iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
             } // grid
-            assert(iall < nall);
+            assert(iall < nall && "internal index exceeded");
 
             owner[row]      =  owner_rank[iall];
             auto const iloc = local_index[iall];
