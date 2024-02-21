@@ -1,12 +1,12 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-#ifndef HAS_NO_MPI
+#ifndef   HAS_NO_MPI
 
   #include <mpi.h> // MPI_*
   auto const MPI_UINT16 = MPI_UNSIGNED_SHORT;
 
-#else // HAS_NO_MPI
+#else  // HAS_NO_MPI
 
   // define MPI stubs
 
@@ -24,6 +24,7 @@
   MPI_Op constexpr MPI_SUM = '+', MPI_MAX = 'M', MPI_MIN = 'm', MPI_OP_NULL = 0;//, MPI_PROD = '*';
 
   typedef int MPI_Datatype;
+  MPI_Datatype constexpr MPI_INT = 4;
   MPI_Datatype constexpr MPI_UINT16 = 2;
   MPI_Datatype constexpr MPI_DOUBLE = -8;
   MPI_Datatype constexpr MPI_UNSIGNED_LONG = 8;
@@ -110,7 +111,7 @@ namespace mpi_parallel {
 
   template <typename T> MPI_Datatype get(T t=0);
   template <> inline MPI_Datatype get<uint16_t>(uint16_t t) { return MPI_UINT16; }
-  template <> inline MPI_Datatype get<int>(int t) { return MPI_INTEGER; }
+  template <> inline MPI_Datatype get<int>(int t) { return MPI_INT; }
   template <> inline MPI_Datatype get<double>(double t) { return MPI_DOUBLE; }
   template <> inline MPI_Datatype get<size_t>(size_t t) { return MPI_UNSIGNED_LONG; }
 

@@ -12,8 +12,8 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "global_coordinates.hxx" // ::get
 #include "print_tools.hxx" // printf_vector
-#include "green_memory.hxx" // get_memory
 #include "recorded_warnings.hxx" // warn
+#include "data_view.hxx" // view3D
 
 namespace green_parallel {
 
@@ -640,8 +640,9 @@ namespace green_parallel {
       uint32_t const nall[] = {nb[2]*nb[1]*nb[0], 0, 0};
       RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo);
 
-      double (*pot_out[2*2])[64];
-      for (int spin = 0; spin < 2*2; ++spin) pot_out[spin] = get_memory<double[64]>(nrows);
+      double (*pot_out[2*2])[64]; view3D<double> ptr(4,nrows,64);
+      for (int spin = 0; spin < 2*2; ++spin) { pot_out[spin] = (double(*)[64]) ptr(spin,0); }
+
       for (int Noco = 1; Noco <= 2; ++Noco) {
           auto const pot_inp = new double[nrows*Noco*Noco][64];
           for (int row = 0; row < nrows; ++row) pot_inp[row*Noco*Noco][0] = 0.5 + me; // ear-mark with owner rank
@@ -663,8 +664,6 @@ namespace green_parallel {
           for (int row = 0; row < nrows; ++row) stat += (mat_out[row*count] != 0.5 + row % np);
           if (echo > 0) std::printf("# new dyadic_exchange Noco= %d status= %d\n\n", Noco, int(stat));
       } // Noco
-
-      for (int spin = 0; spin < 2*2; ++spin) free_memory(pot_out[spin]);
       return stat;
   } // test_exchanges
 

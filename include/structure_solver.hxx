@@ -487,7 +487,7 @@ namespace structure_solver {
             auto const gd_all = gd.all();
             { // scope: correct Fermi level
                 double V_min{9e9}, V_max{-9e9};
-                #pragma omp parallel for reduction(max:V_max; min:V_min)
+                #pragma omp parallel for reduction(max:V_max) reduction(min:V_min)
                 for (size_t zyx = 0; zyx < gd_all; ++zyx) {
                     auto const V = Vtot[zyx];
                     V_max = std::max(V_max, V);
