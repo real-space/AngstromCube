@@ -194,9 +194,9 @@ namespace green_parallel {
 
 #ifndef   HAS_NO_MPI
       // synchronize processes
-      status += MPI_Barrier(comm); std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__);
+      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
       status += MPI_Win_fence(assertions, window);
-      // MPI_Win_free is only needed if we use MPI_Win_alloc above
+      status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
 
       if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
@@ -335,8 +335,9 @@ namespace green_parallel {
 
 #ifndef   HAS_NO_MPI
       // synchronize processes
+      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
       status += MPI_Win_fence(assertions, window);
-      // MPI_Win_free is only needed if we use MPI_Win_alloc above
+      status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
 
       if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
@@ -513,8 +514,8 @@ namespace green_parallel {
               ++stats[1];
 #ifndef   HAS_NO_MPI
               if (echo > 9) std::printf("# exchange: rank #%i get potential at cube id o%llo from rank #%i element %i\n", me, global_id, owner, iloc);
-              std::vector<double> Vget(Noco*Noco*64);
-              status += MPI_Get(Vget.data(), Noco*Noco*64, MPI_DOUBLE, owner, iloc, Noco*Noco*64, MPI_DOUBLE, window);
+              double Vget[2*2*64];
+              status += MPI_Get(Vget, Noco*Noco*64, MPI_DOUBLE, owner, iloc, Noco*Noco*64, MPI_DOUBLE, window);
               for (int spin = 0; spin < Noco*Noco; ++spin) {
                   set(Veff[spin][ireq], 64, &Vget[spin*64]);
               } // spin
@@ -526,8 +527,9 @@ namespace green_parallel {
 
 #ifndef   HAS_NO_MPI
       // synchronize processes
+      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
       status += MPI_Win_fence(assertions, window);
-      // MPI_Win_free is only needed if we use MPI_Win_alloc above
+      status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
 
       if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
@@ -594,8 +596,9 @@ namespace green_parallel {
 
 #ifndef   HAS_NO_MPI
       // synchronize processes
+      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
       status += MPI_Win_fence(assertions, window);
-      // MPI_Win_free is only needed if we use MPI_Win_alloc above
+      status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
 
       if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
@@ -633,24 +636,32 @@ namespace green_parallel {
           owner_rank[row] = rank;
           if (me == rank) offerings.push_back(row);
       } // row
-      RequestList_t rlV(requests, offerings, owner_rank.data(), nb, echo); // test_new_structure
+      RequestList_t rlV(requests, offerings, owner_rank.data(), nb, echo);
       uint32_t const nall[] = {nb[2]*nb[1]*nb[0], 0, 0};
-      RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo); // test_new_structure
+      RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo);
 
       double (*pot_out[2*2])[64];
       for (int spin = 0; spin < 2*2; ++spin) pot_out[spin] = get_memory<double[64]>(nrows);
       for (int Noco = 1; Noco <= 2; ++Noco) {
           auto const pot_inp = new double[nrows*Noco*Noco][64];
-          for (int row = 0; row < nrows; ++row) pot_inp[row*Noco*Noco][0] = 0.5 + me;
+          for (int row = 0; row < nrows; ++row) pot_inp[row*Noco*Noco][0] = 0.5 + me; // ear-mark with owner rank
           stat += green_parallel::potential_exchange(pot_out, requests, pot_inp, offerings, owner_rank.data(), nb, Noco, true, echo);
-          stat += green_parallel::potential_exchange(pot_out, pot_inp, rlV, Noco, echo);
-          delete[] pot_inp;
           for (int row = 0; row < nrows; ++row) stat += (pot_out[0][row][0] != 0.5 + row % np);
+          if (echo > 0) std::printf("# potential_exchange Noco= %d status= %d\n\n", Noco, int(stat));
+          stat += green_parallel::potential_exchange(pot_out, pot_inp, rlV, Noco, echo);
+          for (int row = 0; row < nrows; ++row) stat += (pot_out[0][row][0] != 0.5 + row % np);
+          if (echo > 0) std::printf("# new potential_exchange Noco= %d status= %d\n\n", Noco, int(stat));
+          delete[] pot_inp;
 
           int const count = Noco*Noco*2*nSHO*nSHO;
           std::vector<double> mat_out(nrows*count), mat_inp(nrows*count);
+          for (int row = 0; row < nrows; ++row) mat_inp[row*count] = 0.5 + me; // ear-mark with owner rank
           stat += green_parallel::dyadic_exchange(mat_out.data(), requests, mat_inp.data(), offerings, owner_rank.data(), nall[0], count, true, echo);
+          for (int row = 0; row < nrows; ++row) stat += (mat_out[row*count] != 0.5 + row % np);
+          if (echo > 0) std::printf("# dyadic_exchange Noco= %d status= %d\n\n", Noco, int(stat));
           stat += green_parallel::dyadic_exchange(mat_out.data(), mat_inp.data(), rlD, count, echo);
+          for (int row = 0; row < nrows; ++row) stat += (mat_out[row*count] != 0.5 + row % np);
+          if (echo > 0) std::printf("# new dyadic_exchange Noco= %d status= %d\n\n", Noco, int(stat));
       } // Noco
 
       for (int spin = 0; spin < 2*2; ++spin) free_memory(pot_out[spin]);
