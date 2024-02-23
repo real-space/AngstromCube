@@ -66,6 +66,23 @@ namespace green_parallel {
       uint32_t window_size;
   }; // RequestList_t
 
+   status_t exchange(
+        double       *const data_out // output data, data layout data_out[nrequests*count]
+      , double const *const data_inp //  input data, data layout data_inp[nwindow  *count]
+      , RequestList_t const & requests // contains info which ids are pulled from where
+      , int const count=1 // how many doubles per package
+      , int const echo=0 // log-level
+  ); // declaration only
+
+   status_t potential_exchange(
+        double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nrows][64]
+      , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2 ][64]
+      , RequestList_t const & requests // contains info which ids are pulled from where
+      , int const Noco=1 // 1:no spin, 2: (non-collinear) spin
+      , int const echo=0 // log-level
+  ); // declaration only
+
+
   status_t all_tests(int echo=0); // declaration only
 
 } // namespace green_parallel

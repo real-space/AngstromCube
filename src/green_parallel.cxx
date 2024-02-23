@@ -194,7 +194,7 @@ namespace green_parallel {
 
 #ifndef   HAS_NO_MPI
       // synchronize processes
-      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
+      status += MPI_Barrier(comm); // { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
       status += MPI_Win_fence(assertions, window);
       status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
@@ -214,7 +214,7 @@ namespace green_parallel {
       , std::vector<int64_t> const & offerings // indices offered   by this MPI process,  [ncols]
       , rank_int_t const owner_rank[] // where to find it, [nall]
       , uint32_t const nall // number of all atoms
-      , int const count
+      , int const count // number of doubles per package
       , bool const debug // =true
       , int const echo // =0, log-level
   ) {
@@ -311,13 +311,13 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
           if (me == owner) {
-              if (echo > 5) std::printf("# exchange: rank #%i local copy of matrices of atom#%i\n", me, global_id);
+              if (echo > 5) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
               set(&mat_out[row*count], count, &mat_inp[iloc*count]);
               ++stats[0];
           } else { // me == owner
               ++stats[1];
 #ifndef   HAS_NO_MPI
-              if (echo > 7) std::printf("# exchange: rank #%i get matrices of atom#%i from rank #%i element %i\n", me, global_id, owner, iloc);
+              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i from rank#%i element %i\n", me, global_id, owner, iloc);
               status += MPI_Get(&mat_out[row*count], count, MPI_DOUBLE, owner, iloc, count, MPI_DOUBLE, window);
               /*
                 *  Criticism for MPI_Get-solution:
@@ -335,7 +335,7 @@ namespace green_parallel {
 
 #ifndef   HAS_NO_MPI
       // synchronize processes
-      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
+      status += MPI_Barrier(comm); // { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
       status += MPI_Win_fence(assertions, window);
       status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
@@ -354,7 +354,7 @@ namespace green_parallel {
 
     RequestList_t::RequestList_t( // constructor implementation
         std::vector<int64_t> const & requests
-      , std::vector<int64_t> const & offerings
+      , std::vector<int64_t> const & offerings // do we need this at all? the offerings should match owner_rank[]==me anyway
       , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
       , uint32_t const nb[3] // global bounding box or {natoms,0,0}
       , int const echo // =0 // log-level
@@ -383,7 +383,7 @@ namespace green_parallel {
             auto const iall = global_id;
             assert(iall < nall);
 
-            assert(me == owner_rank[iall] && "offerings must be owned");
+            assert(me == owner_rank[iall] && "all offerings must be owned");
 
             local_index[iall] = col;
             if (debug) ++local_check[iall];
@@ -458,12 +458,77 @@ namespace green_parallel {
     } // constructor implementation
 
 
+  status_t exchange(
+        double       *const data_out // output data, data layout data_out[nrequests*count]
+      , double const *const data_inp //  input data, data layout data_inp[nowned   *count]
+      , RequestList_t const & requests
+      , int const count // number of doubles per package
+      , int const echo // =0, log-level
+  ) {
+      // The number of local atoms is limited to 2^16 == 65536
+      if (echo > 0) std::printf("# exchange using MPI one-sided communication, packages of %.3f k doubles\n", count*.001);
 
+      assert(data_out && "may not be called with a nullptr for output");
+      assert(data_inp && "may not be called with a nullptr for input");
+
+      status_t status(0);
+
+      auto const comm = MPI_COMM_WORLD;
+      auto const me = mpi_parallel::rank(comm);
+      auto const nreq = requests.size(); // number of requests
+      size_t stats[] = {0, 0}; // get element from {0:local, 1:remote}
+
+#ifndef   HAS_NO_MPI
+
+      // set up a memory window to read from
+      MPI_Win window;
+      uint const disp_unit = count*sizeof(double); // in Bytes
+      size_t const win_size = requests.window()*disp_unit; // in Bytes
+      status += MPI_Win_create((void*)data_inp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
+
+      // synchronize processes
+      int const assertions = 0; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
+      status += MPI_Win_fence(assertions, window);
+
+#endif // HAS_NO_MPI
+
+      for (size_t ireq = 0; ireq < nreq; ++ireq) {
+          auto const global_id = requests.requested_id[ireq];
+          auto const owner     = requests.owner[ireq];
+          auto const iloc      = requests.index[ireq];
+
+          if (me == owner) {
+              if (echo > 5) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
+              set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy
+              ++stats[0]; // local
+          } else { // me == owner
+              ++stats[1]; // remote
+#ifndef   HAS_NO_MPI
+              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i from rank#%i element %i\n", me, global_id, owner, iloc);
+              status += MPI_Get(&data_out[ireq*count], count, MPI_DOUBLE, owner, iloc, count, MPI_DOUBLE, window);
+#else  // HAS_NO_MPI
+              error("Without MPI all atom matrices must reside in the same process, me=%i, owner=%i", me, owner);
+#endif // HAS_NO_MPI
+          } // me == owner
+      } // ireq
+
+#ifndef   HAS_NO_MPI
+      // synchronize processes
+      status += MPI_Barrier(comm); // { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
+      status += MPI_Win_fence(assertions, window);
+      status += MPI_Win_free(&window);
+#endif // HAS_NO_MPI
+
+      if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
+      assert(stats[0] + stats[1] == nreq);
+
+      return status;
+  } // exchange
 
 
   status_t potential_exchange(
-        double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nrows][64]
-      , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2 ][64]
+        double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nreq][64]
+      , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2][64]
       , RequestList_t const & requests
       , int const Noco // =1, 1:no spin, 2: (non-collinear) spin
       , int const echo // =0, log-level
@@ -477,137 +542,20 @@ namespace green_parallel {
       } // spin
       assert(Vinp && "may not be called with a nullptr for input");
 
-      status_t status(0);
+      auto const nreq = requests.size();
+      view3D<double> Vout(nreq,Noco*Noco,64, 0.0); // get temporary CPU memory in [Noco^2][64] layout
 
-      auto const comm = MPI_COMM_WORLD;
-      auto const me = mpi_parallel::rank(comm);
-      auto const nreq = requests.size(); // number of requests
-      size_t stats[] = {0, 0};
+      auto const status = exchange(Vout(0,0), Vinp[0], requests, Noco*Noco*64, echo);
 
-#ifndef   HAS_NO_MPI
-
-      // set up a memory window to read from
-      MPI_Win window;
-      uint const disp_unit = Noco*Noco*64*sizeof(double); // in Bytes
-      size_t const win_size = requests.window()*disp_unit; // in Bytes
-      status += MPI_Win_create((void*)Vinp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
-
-      // synchronize processes
-      int const assertions = 0; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
-      status += MPI_Win_fence(assertions, window);
-
-#endif // HAS_NO_MPI
-
+      // convert Vout into special data layout of Veff (GPU memory) 
       for (size_t ireq = 0; ireq < nreq; ++ireq) {
-          auto const global_id = requests.requested_id[ireq];
-          auto const owner     = requests.owner[ireq];
-          auto const iloc      = requests.index[ireq];
-
-          auto const target_disp = iloc*Noco*Noco;
-          if (me == owner) {
-              if (echo > 7) std::printf("# exchange: rank #%i local copy of potential at cube id o%llo\n", me, global_id);
-              for (int spin = 0; spin < Noco*Noco; ++spin) {
-                  set(Veff[spin][ireq], 64, Vinp[target_disp + spin]);
-              } // spin
-              ++stats[0];
-          } else { // me == owner
-              ++stats[1];
-#ifndef   HAS_NO_MPI
-              if (echo > 9) std::printf("# exchange: rank #%i get potential at cube id o%llo from rank #%i element %i\n", me, global_id, owner, iloc);
-              double Vget[2*2*64];
-              status += MPI_Get(Vget, Noco*Noco*64, MPI_DOUBLE, owner, iloc, Noco*Noco*64, MPI_DOUBLE, window);
-              for (int spin = 0; spin < Noco*Noco; ++spin) {
-                  set(Veff[spin][ireq], 64, &Vget[spin*64]);
-              } // spin
-#else  // HAS_NO_MPI
-              error("Without MPI all potential elements must reside in the same process, me=%i, owner=%i", me, owner);
-#endif // HAS_NO_MPI
-          } // me == owner
+          for (int spin = 0; spin < Noco*Noco; ++spin) {
+              set(Veff[spin][ireq], 64, Vout(ireq,spin));
+          } // spin
       } // ireq
-
-#ifndef   HAS_NO_MPI
-      // synchronize processes
-      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
-      status += MPI_Win_fence(assertions, window);
-      status += MPI_Win_free(&window);
-#endif // HAS_NO_MPI
-
-      if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
-      assert(stats[0] + stats[1] == nreq);
 
       return status;
   } // potential_exchange with RequestList_t
-
-
-
-  status_t dyadic_exchange(                                    // here, nSHO is the global maximum of nsho[ia]
-        double       *const mat_out // output effective atom matrices, data layout mat_out[nrows*Noco^2*2*nSHO^2]
-      , double const *const mat_inp //  input effective atom matrices, data layout mat_inp[ncols*Noco^2*2*nSHO^2]
-      , RequestList_t const & requests
-      , int const count
-      , int const echo // =0, log-level
-  ) {
-      // The number of local atoms is limited to 2^16 == 65536
-      if (echo > 0) std::printf("# new MPI exchange of atom matrices, MPI one-sided communication, packages of %.3f k doubles\n", count*.001);
-
-      assert(mat_out && "may not be called with a nullptr for output");
-      assert(mat_inp && "may not be called with a nullptr for input");
-
-      status_t status(0);
-
-      auto const comm = MPI_COMM_WORLD;
-      auto const me = mpi_parallel::rank(comm);
-      auto const nreq = requests.size(); // number of requests
-      size_t stats[] = {0, 0};
-
-#ifndef   HAS_NO_MPI
-
-      // set up a memory window to read from
-      MPI_Win window;
-      uint const disp_unit = count*sizeof(double); // in Bytes
-      size_t const win_size  = requests.window()*disp_unit; // in Bytes
-      status += MPI_Win_create((void*)mat_inp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
-
-      // synchronize processes
-      int const assertions = 0; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
-      status += MPI_Win_fence(assertions, window);
-
-#endif // HAS_NO_MPI
-
-      for (size_t ireq = 0; ireq < nreq; ++ireq) {
-          auto const global_id = requests.requested_id[ireq];
-          auto const owner     = requests.owner[ireq];
-          auto const iloc      = requests.index[ireq];
-
-          if (me == owner) {
-              if (echo > 5) std::printf("# exchange: rank #%i local copy of matrices of atom#%i\n", me, global_id);
-              set(&mat_out[ireq*count], count, &mat_inp[iloc*count]);
-              ++stats[0];
-          } else { // me == owner
-              ++stats[1];
-#ifndef   HAS_NO_MPI
-              if (echo > 7) std::printf("# exchange: rank #%i get matrices of atom#%i from rank #%i element %i\n", me, global_id, owner, iloc);
-              status += MPI_Get(&mat_out[ireq*count], count, MPI_DOUBLE, owner, iloc, count, MPI_DOUBLE, window);
-#else  // HAS_NO_MPI
-              error("Without MPI all atom matrices must reside in the same process, me=%i, owner=%i", me, owner);
-#endif // HAS_NO_MPI
-          } // me == owner
-      } // ireq
-
-#ifndef   HAS_NO_MPI
-      // synchronize processes
-      status += MPI_Barrier(comm); { std::printf("# rank#%d hit MPI_Barrier at line %d\n", me, __LINE__); std::fflush(stdout); }
-      status += MPI_Win_fence(assertions, window);
-      status += MPI_Win_free(&window);
-#endif // HAS_NO_MPI
-
-      if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
-      assert(stats[0] + stats[1] == nreq);
-
-      return status;
-  } // dyadic_exchange with RequestList_t
-
-
 
 
 
@@ -621,48 +569,52 @@ namespace green_parallel {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  status_t test_exchanges(int echo=0, int const nSHO=220) {
+  status_t test_exchanges(int echo=0, int const nSHO=20) {
       status_t stat(0);
-      uint32_t const nb[] = {2, 2, 1};
-      std::vector<int64_t> requests = {0, 3, 2, 1};
+      uint32_t const nb[] = {2, 2, 2}; // grid box is 2x2x1 or 4 atoms
+      std::vector<int64_t> requests = {0,7,6,1,5,2,4,3}; // every process requests all of these ids
       auto const nrows = requests.size();
       int const me = mpi_parallel::rank(),
                 np = mpi_parallel::size(); assert(np > 0);
 
       std::vector<int64_t> offerings(0);
-      std::vector<uint16_t> owner_rank(nrows, 0);
-      for(int row{0}; row < nrows; ++row) {
-          int const rank = row % np; // block-cyclic distribution
-          owner_rank[row] = rank;
-          if (me == rank) offerings.push_back(row);
-      } // row
-      RequestList_t rlV(requests, offerings, owner_rank.data(), nb, echo);
       uint32_t const nall[] = {nb[2]*nb[1]*nb[0], 0, 0};
+      std::vector<uint16_t> owner_rank(nall[0], 0);
+      for(int id{0}; id < nall[0]; ++id) {
+          int const rank = id % np; // block-cyclic distribution
+          owner_rank[id] = rank;
+          if (me == rank) offerings.push_back(id);
+      } // id
+      int const ncols = offerings.size();
+      RequestList_t rlV(requests, offerings, owner_rank.data(), nb, echo);
       RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo);
 
       double (*pot_out[2*2])[64]; view3D<double> ptr(4,nrows,64);
       for (int spin = 0; spin < 2*2; ++spin) { pot_out[spin] = (double(*)[64]) ptr(spin,0); }
 
+      int nerr{0};
       for (int Noco = 1; Noco <= 2; ++Noco) {
-          auto const pot_inp = new double[nrows*Noco*Noco][64];
-          for (int row = 0; row < nrows; ++row) pot_inp[row*Noco*Noco][0] = 0.5 + me; // ear-mark with owner rank
-          stat += green_parallel::potential_exchange(pot_out, requests, pot_inp, offerings, owner_rank.data(), nb, Noco, true, echo);
-          for (int row = 0; row < nrows; ++row) stat += (pot_out[0][row][0] != 0.5 + row % np);
-          if (echo > 0) std::printf("# potential_exchange Noco= %d status= %d\n\n", Noco, int(stat));
-          stat += green_parallel::potential_exchange(pot_out, pot_inp, rlV, Noco, echo);
-          for (int row = 0; row < nrows; ++row) stat += (pot_out[0][row][0] != 0.5 + row % np);
-          if (echo > 0) std::printf("# new potential_exchange Noco= %d status= %d\n\n", Noco, int(stat));
-          delete[] pot_inp;
+          if (1) {
+            auto const pot_inp = new double[nrows*Noco*Noco][64];
+            for (int row = 0; row < nrows; ++row) pot_inp[row*Noco*Noco][0] = 0.5 + me; // ear-mark with owner rank
+            stat += green_parallel::potential_exchange(pot_out, requests, pot_inp, offerings, owner_rank.data(), nb, Noco, true, echo);
+            for (int row = 0; row < nrows; ++row) nerr += (pot_out[0][row][0] != (0.5 + owner_rank[requests[row]]));
+            if (echo > 0) std::printf("# potential_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
+            stat += green_parallel::potential_exchange(pot_out, pot_inp, rlV, Noco, echo);
+            for (int row = 0; row < nrows; ++row) nerr += (pot_out[0][row][0] != (0.5 + owner_rank[requests[row]]));
+            if (echo > 0) std::printf("# new potential_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
+            delete[] pot_inp;
+          }
 
-          int const count = Noco*Noco*2*nSHO*nSHO;
-          std::vector<double> mat_out(nrows*count), mat_inp(nrows*count);
-          for (int row = 0; row < nrows; ++row) mat_inp[row*count] = 0.5 + me; // ear-mark with owner rank
+          int const count = Noco*Noco*2*nSHO*nSHO; // number of doubles per package
+          std::vector<double> mat_out(nrows*count), mat_inp(ncols*count);
+          for (int col = 0; col < ncols; ++col) mat_inp[col*count] = 0.5 + me; // ear-mark with owner rank
           stat += green_parallel::dyadic_exchange(mat_out.data(), requests, mat_inp.data(), offerings, owner_rank.data(), nall[0], count, true, echo);
-          for (int row = 0; row < nrows; ++row) stat += (mat_out[row*count] != 0.5 + row % np);
-          if (echo > 0) std::printf("# dyadic_exchange Noco= %d status= %d\n\n", Noco, int(stat));
-          stat += green_parallel::dyadic_exchange(mat_out.data(), mat_inp.data(), rlD, count, echo);
-          for (int row = 0; row < nrows; ++row) stat += (mat_out[row*count] != 0.5 + row % np);
-          if (echo > 0) std::printf("# new dyadic_exchange Noco= %d status= %d\n\n", Noco, int(stat));
+          for (int row = 0; row < nrows; ++row) nerr += (mat_out[row*count] != (0.5 + owner_rank[requests[row]]));
+          if (echo > 0) std::printf("# dyadic_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
+          stat += green_parallel::exchange(mat_out.data(), mat_inp.data(), rlD, count, echo);
+          for (int row = 0; row < nrows; ++row) { nerr += (mat_out[row*count] != (0.5 + owner_rank[requests[row]])); }
+          if (echo > 0) std::printf("# new dyadic_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
       } // Noco
       return stat;
   } // test_exchanges

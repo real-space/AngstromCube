@@ -35,7 +35,7 @@
 
 #include <cstdlib> // std::abs, ::abort
 
-#include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::size, MPI_Comm
+#include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::allreduce
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
 #include "unit_system.hxx" // ::set_output_units
