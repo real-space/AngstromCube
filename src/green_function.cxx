@@ -1297,10 +1297,19 @@ namespace green_function {
           auto const default_exchange = 1.; // do the exchange of potential blocks
 #endif // HAS_NO_MPI
           if (1. == control::get("green_function.potential.exchange", default_exchange)) {
-              green_parallel::potential_exchange(p.Veff, p.global_target_indices, // requests
+              if (1) {
+                  // new version separating setup from communication
+                  green_parallel::RequestList_t const requests(p.global_target_indices,  // requests
+                                                               p.global_source_indices, // offerings
+                                                               owner_rank.data(), n_blocks, echo);
+                  green_parallel::potential_exchange(p.Veff, Vinp, requests, Noco, echo);
+              } else {
+                  // old version including setup and communication
+                  green_parallel::potential_exchange(p.Veff, p.global_target_indices, // requests
                                         Vinp, p.global_source_indices, // offerings
                                         owner_rank.data(),
                                         n_blocks, Noco, true, echo);
+              } // new or old
           } else {
               if (echo > 0) std::printf("# skip green_function.potential.exchange\n");
               for (int mag = 0; mag < Noco*Noco; ++mag) {

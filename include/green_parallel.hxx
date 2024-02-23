@@ -68,7 +68,7 @@ namespace green_parallel {
 
    status_t exchange(
         double       *const data_out // output data, data layout data_out[nrequests*count]
-      , double const *const data_inp //  input data, data layout data_inp[nwindow  *count]
+      , double const *const data_inp //  input data, data layout data_inp[nowned   *count]
       , RequestList_t const & requests // contains info which ids are pulled from where
       , int const count=1 // how many doubles per package
       , int const echo=0 // log-level
