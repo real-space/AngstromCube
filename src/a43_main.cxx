@@ -291,8 +291,8 @@
 #endif // NO_UNIT_TESTS
   } // run_unit_tests
 
-  int show_help(char const *executable) {
-      std::printf("Usage %s [OPTION]\n"
+  int show_help(char const *executable, int const echo=1) {
+      if (echo > 0) std::printf("Usage %s [OPTION]\n"
         "   --help           [-h]\tThis help message\n"
         "   --version            \tShow version number\n"
 #ifndef  NO_UNIT_TESTS
@@ -304,7 +304,7 @@
       return 0;
   } // show_help
 
-  int show_version(char const *executable="#", int const echo=0) {
+  int show_version(char const *executable="#") {
 #ifdef    _GIT_KEY
       // stringify the value of a macro, two expansion levels needed
       #define macro2string(a) stringify(a)
@@ -344,7 +344,7 @@
                       return show_help(argv[0]);
                   } else
                   if ("version" == option) {
-                      return show_version(argv[0], 1);
+                      return show_version(argv[0]);
                   } else
                   if ("verbose" == option) {
                       verbosity = 6; // set verbosity high

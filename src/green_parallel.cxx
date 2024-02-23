@@ -64,7 +64,7 @@ namespace green_parallel {
       , bool const debug // =true
       , int const echo // =0, log-level
   ) {
-      if (echo > 0) std::printf("# MPI exchange of potential, MPI one-sided communication, Noco=%d\n", Noco);
+      if (echo > 0) std::printf("# old MPI exchange of potential, MPI one-sided communication, Noco=%d\n", Noco);
       assert(1 == Noco || 2 == Noco);
 
       assert(Veff && "may not be called with a nullptr for output");
@@ -175,7 +175,7 @@ namespace green_parallel {
               } else { // me == owner
                   ++stats[1];
 #ifndef   HAS_NO_MPI
-                  if (echo > 9 + 5*spin) { std::printf("# exchange: rank#%i get potential at cube id o%llo from rank#%i element %i\n", me, global_id, owner, iloc); std::fflush(stdout); }
+                  if (echo > 7 + 5*spin) { std::printf("# exchange: rank#%i get potential at cube id o%llo from rank#%i element %i\n", me, global_id, owner, iloc); std::fflush(stdout); }
                   status += MPI_Get(Veff[spin][row], 64, MPI_DOUBLE, owner, target_disp, 64, MPI_DOUBLE, window);
                   /*
                    *  Criticism for MPI_Get-solution:
@@ -203,7 +203,7 @@ namespace green_parallel {
       assert(stats[0] + stats[1] == Noco*Noco*nrows);
 
       return status;
-  } // potential_exchange
+  } // potential_exchange (deprecated)
 
 
   // For MPI parallel calculations the atom matrix values need to be exchanged
@@ -219,7 +219,7 @@ namespace green_parallel {
       , int const echo // =0, log-level
   ) {
       // The number of local atoms is limited to 2^16 == 65536
-      if (echo > 0) std::printf("# MPI exchange of atom matrices, MPI one-sided communication, packages of %.3f k doubles\n", count*.001);
+      if (echo > 0) std::printf("# old MPI exchange of atom matrices, MPI one-sided communication, packages of %.3f k doubles\n", count*.001);
 
       assert(mat_out && "may not be called with a nullptr for output");
       assert(mat_inp && "may not be called with a nullptr for input");
@@ -311,7 +311,7 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
           if (me == owner) {
-              if (echo > 5) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
+              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
               set(&mat_out[row*count], count, &mat_inp[iloc*count]);
               ++stats[0];
           } else { // me == owner
@@ -344,7 +344,7 @@ namespace green_parallel {
       assert(stats[0] + stats[1] == nrows);
 
       return status;
-  } // dyadic_exchange
+  } // dyadic_exchange (deprecated)
 
 
 
@@ -363,8 +363,8 @@ namespace green_parallel {
         auto const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
         if (echo > 7) std::printf("# RequestList_t %d %d %d, nall= %ld\n", nb[X], nb[Y], nb[Z], nall);
-        auto const ncols = offerings.size(); // number of offerings
-        auto const nrows =  requests.size(); // number of requests
+        auto const nown = offerings.size(); // number of offerings
+        auto const nreq = requests.size(); // number of requests
 
 #ifndef   HAS_NO_MPI
         int constexpr debug = 1;
@@ -374,20 +374,25 @@ namespace green_parallel {
         std::vector<uint16_t> local_index(nall, 0);
         std::vector<uint16_t> local_check(nall*int(debug), 0);
 
-        assert(ncols <= (1ul << 16) && "each process can hold max 2^16 locally owner atoms");
-        for (size_t col = 0; col < ncols; ++col) {
-            auto const global_id = offerings[col];
+        assert(nown <= (1ul << 16) && "each process can hold max 2^16 locally owned items");
+        for (size_t iown = 0; iown < nown; ++iown) {
+            auto const global_id = offerings[iown];
 
             // translate global_id into an index iall
             assert(global_id > -1);
-            auto const iall = global_id;
+            size_t iall = global_id;
+            if (grid) {
+                uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
+                for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d] && "requested coordinates exceed box");
+                iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
+            } // grid
             assert(iall < nall);
 
             assert(me == owner_rank[iall] && "all offerings must be owned");
 
-            local_index[iall] = col;
+            local_index[iall] = iown;
             if (debug) ++local_check[iall];
-        } // col
+        } // iown
 
         if (debug) {
             if (echo > 7) { std::printf("# local_check before "); printf_vector(" %i", local_check); }
@@ -417,13 +422,13 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
         // initialize member fields
-        owner = std::vector<int32_t>(nrows, 0);
-        index = std::vector<uint32_t>(nrows, 0);
-        requested_id = std::vector<int64_t>(nrows, 0);
-        window_size = ncols;
+        owner = std::vector<int32_t>(nreq, 0); // initialize with master rank for the serial version
+        index = std::vector<uint32_t>(nreq, 0);
+        requested_id = std::vector<int64_t>(nreq, 0);
+        window_size = nown; // number of owned data items
 
-        for (size_t row = 0; row < nrows; ++row) {
-            auto const global_id = requests[row];
+        for (size_t ireq = 0; ireq < nreq; ++ireq) {
+            auto const global_id = requests[ireq];
 
 #ifndef   HAS_NO_MPI
 
@@ -437,23 +442,23 @@ namespace green_parallel {
             } // grid
             assert(iall < nall && "internal index exceeded");
 
-            owner[row]      =  owner_rank[iall];
+            owner[ireq]     =  owner_rank[iall];
             auto const iloc = local_index[iall];
 
 #else  // HAS_NO_MPI
 
             // without MPI search global_id in offerings
             int64_t iloc{-1};
-            for (size_t col = 0; col < ncols && iloc < 0; ++col) {
-                if (global_id == offerings[col]) iloc = col;
+            for (size_t iown = 0; iown < nown && iloc < 0; ++iown) {
+                if (global_id == offerings[iown]) iloc = iown;
             } // col
             assert(iloc > -1 && "index not found in local offerings");
 
 #endif // HAS_NO_MPI
 
-            index[row] = iloc;
-            requested_id[row] = global_id; // copy the array of requests
-        } // row
+            index[ireq] = iloc;
+            requested_id[ireq] = global_id; // copy the array of requests
+        } // ireq
 
     } // constructor implementation
 
@@ -475,8 +480,6 @@ namespace green_parallel {
 
       auto const comm = MPI_COMM_WORLD;
       auto const me = mpi_parallel::rank(comm);
-      auto const nreq = requests.size(); // number of requests
-      size_t stats[] = {0, 0}; // get element from {0:local, 1:remote}
 
 #ifndef   HAS_NO_MPI
 
@@ -492,13 +495,15 @@ namespace green_parallel {
 
 #endif // HAS_NO_MPI
 
+      size_t stats[] = {0, 0}; // get element from {0:local, 1:remote}
+      auto const nreq = requests.size(); // number of requests
       for (size_t ireq = 0; ireq < nreq; ++ireq) {
           auto const global_id = requests.requested_id[ireq];
           auto const owner     = requests.owner[ireq];
           auto const iloc      = requests.index[ireq];
 
           if (me == owner) {
-              if (echo > 5) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
+              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
               set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy
               ++stats[0]; // local
           } else { // me == owner
@@ -571,8 +576,9 @@ namespace green_parallel {
 
   status_t test_exchanges(int echo=0, int const nSHO=20) {
       status_t stat(0);
-      uint32_t const nb[] = {2, 2, 2}; // grid box is 2x2x1 or 4 atoms
+      uint32_t const nb[] = {2, 2, 2}; // grid box is 2x2x2 or 8 atoms
       std::vector<int64_t> requests = {0,7,6,1,5,2,4,3}; // every process requests all of these ids
+
       auto const nrows = requests.size();
       int const me = mpi_parallel::rank(),
                 np = mpi_parallel::size(); assert(np > 0);
@@ -596,7 +602,7 @@ namespace green_parallel {
       for (int Noco = 1; Noco <= 2; ++Noco) {
           if (1) {
             auto const pot_inp = new double[nrows*Noco*Noco][64];
-            for (int row = 0; row < nrows; ++row) pot_inp[row*Noco*Noco][0] = 0.5 + me; // ear-mark with owner rank
+            for (int col = 0; col < ncols; ++col) pot_inp[col*Noco*Noco][0] = 0.5 + me; // ear-mark with owner rank
             stat += green_parallel::potential_exchange(pot_out, requests, pot_inp, offerings, owner_rank.data(), nb, Noco, true, echo);
             for (int row = 0; row < nrows; ++row) nerr += (pot_out[0][row][0] != (0.5 + owner_rank[requests[row]]));
             if (echo > 0) std::printf("# potential_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
@@ -614,7 +620,7 @@ namespace green_parallel {
           if (echo > 0) std::printf("# dyadic_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
           stat += green_parallel::exchange(mat_out.data(), mat_inp.data(), rlD, count, echo);
           for (int row = 0; row < nrows; ++row) { nerr += (mat_out[row*count] != (0.5 + owner_rank[requests[row]])); }
-          if (echo > 0) std::printf("# new dyadic_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
+          if (echo > 0) std::printf("# new exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
       } // Noco
       return stat;
   } // test_exchanges

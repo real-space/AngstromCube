@@ -54,7 +54,7 @@
 
       assert(unit_name);
       std::string const input_name(unit_name ? unit_name : "");
-      std::printf("\n# module tests \"%s\" --> \"%s\"\n", unit_name, input_name.c_str());
+      if (echo > 0) std::printf("\n# module tests \"%s\" --> \"%s\"\n", unit_name, input_name.c_str());
       bool const show = ('?' == input_name[0]);
       bool const all  = ( 0  == input_name[0]) || show;
       if (echo > 0) {
@@ -130,8 +130,8 @@
 #endif // NO_UNIT_TESTS
   } // run_unit_tests
 
-  int show_help(char const *executable) {
-      std::printf("Usage %s [OPTION]\n"
+  int show_help(char const *executable, int const echo=1) {
+      if (echo > 0) std::printf("Usage %s [OPTION]\n"
         "   --help           [-h]\tThis help message\n"
         "   --version            \tShow version number\n"
 #ifndef   NO_UNIT_TESTS
@@ -143,7 +143,7 @@
       return 0;
   } // show_help
 
-  int show_version(char const *executable="#", int const echo=0) {
+  int show_version(char const *executable="#", int const echo=1) {
 #ifdef    _GIT_KEY
       // stringify the value of a macro, two expansion levels needed
       #define macro2string(a) stringify(a)
@@ -173,7 +173,7 @@
       status_t stat(0);
       char const *test_unit = ""; // the name of the unit to be tested
       int run_tests{0};
-      int verbosity{3}; // set default verbosity low
+      int verbosity{3*(0 == myrank)}; // set default verbosity low for master, zero for other ranks
       if (argc < 2) {
           if (0 == myrank) std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
           return -1;
@@ -191,7 +191,7 @@
                   // long options with "--"
                   std::string option(argv[iarg] + 2); // + 2 to remove "--" in front
                   if ("help" == option) {
-                      return show_help(argv[0]);
+                      return show_help(argv[0], verbosity);
                   } else
                   if ("version" == option) {
                       return show_version(argv[0], verbosity);
