@@ -518,7 +518,7 @@ namespace iterative_poisson {
       for (int iz = 0; iz < ng[2]; ++iz) {
       for (int iy = 0; iy < ng[1]; ++iy) {
       for (int ix = 0; ix < ng[0]; ++ix) {
-          size_t const izyx = ix + ng[0]*(iy + ng[1]*iz);
+          size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
           double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
           double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
           b[izyx] = rho;
@@ -569,11 +569,11 @@ namespace iterative_poisson {
           std::printf("\n\n");
           radial_grid::destroy_radial_grid(&rg);
 
-          std::printf("\n## r, V_mg, V_fft, rho (all in a.u.)\n"); // show all grid values (should not be connected by a line)
+          std::printf("\n## r, V_mg, V_fft, rho (all in a.u.)\n"); // show all grid values (dots should not be connected by a line)
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
-                size_t const izyx = ix + ng[0]*(iy + ng[1]*iz);
+                size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
                 std::printf("%g %g %g %g\n", std::sqrt(r2), x[izyx], x_fft[izyx], b[izyx]); // point cloud
           }}} // ix iy iz

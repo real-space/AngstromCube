@@ -304,7 +304,7 @@
       return 0;
   } // show_help
 
-  int show_version(char const *executable="#") {
+  int show_version(char const *executable="#", int const echo=1) {
 #ifdef    _GIT_KEY
       // stringify the value of a macro, two expansion levels needed
       #define macro2string(a) stringify(a)
