@@ -158,7 +158,7 @@ namespace green_parallel {
           // version without MPI
           auto const owner = me;
           // search global_id in offerings
-          int64_t iloc{-1};
+          int32_t iloc{-1};
           for (size_t col = 0; col < ncols && iloc < 0; ++col) {
               if (global_id == offerings[col]) iloc = col;
           } // col
@@ -302,7 +302,7 @@ namespace green_parallel {
           // version without MPI
           auto const owner = me;
           // search global_id in offerings
-          int64_t iloc{-1};
+          int32_t iloc{-1};
           for (size_t col = 0; col < ncols && iloc < 0; ++col) {
               if (global_id == offerings[col]) iloc = col;
           } // col
@@ -311,13 +311,13 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
           if (me == owner) {
-              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
+              if (echo > 7) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
               set(&mat_out[row*count], count, &mat_inp[iloc*count]);
               ++stats[0];
           } else { // me == owner
               ++stats[1];
 #ifndef   HAS_NO_MPI
-              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i from rank#%i element %i\n", me, global_id, owner, iloc);
+              if (echo > 7) std::printf("# exchange: rank#%i get data of item#%i from rank#%i element %i\n", me, global_id, owner, iloc);
               status += MPI_Get(&mat_out[row*count], count, MPI_DOUBLE, owner, iloc, count, MPI_DOUBLE, window);
               /*
                 *  Criticism for MPI_Get-solution:
@@ -362,14 +362,15 @@ namespace green_parallel {
         int constexpr X=0, Y=1, Z=2;
         auto const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
-        if (echo > 7) std::printf("# RequestList_t %d %d %d, nall= %ld\n", nb[X], nb[Y], nb[Z], nall);
+        if (echo > 7) std::printf("# RequestList_t [%d %d %d], nall= %ld\n", nb[X], nb[Y], nb[Z], nall);
         auto const nown = offerings.size(); // number of offerings
         auto const nreq = requests.size(); // number of requests
 
-#ifndef   HAS_NO_MPI
-        int constexpr debug = 1;
         auto const comm = MPI_COMM_WORLD;
         auto const me = mpi_parallel::rank(comm);
+
+#ifndef   HAS_NO_MPI
+        int constexpr debug = 1;
 
         std::vector<uint16_t> local_index(nall, 0);
         std::vector<uint16_t> local_check(nall*int(debug), 0);
@@ -423,56 +424,64 @@ namespace green_parallel {
 
         // initialize member fields
         owner = std::vector<int32_t>(nreq, 0); // initialize with master rank for the serial version
-        index = std::vector<uint32_t>(nreq, 0);
+        index = std::vector<int32_t>(nreq, -1);
         requested_id = std::vector<int64_t>(nreq, 0);
         window_size = nown; // number of owned data items
 
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
             auto const global_id = requests[ireq];
 
+            if (global_id > -1) {
 #ifndef   HAS_NO_MPI
 
-            // translate global_id into an index iall
-            assert(global_id > -1 && "invalid request id");
-            size_t iall = global_id;
-            if (grid) {
-                uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
-                for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d] && "requested coordinates exceed box");
-                iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
-            } // grid
-            assert(iall < nall && "internal index exceeded");
+                // translate global_id into an index iall
+                size_t iall = global_id;
+                if (grid) {
+                    uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
+                    for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d] && "requested coordinates exceed box");
+                    iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
+                } // grid
+                assert(iall < nall && "internal index exceeded");
 
-            owner[ireq]     =  owner_rank[iall];
-            auto const iloc = local_index[iall];
+                owner[ireq]     =  owner_rank[iall];
+             // std::printf("# rank#%i request#%i owner=rank#%i\n", me, ireq, owner[ireq]);
+                auto const iloc = local_index[iall];
 
 #else  // HAS_NO_MPI
 
-            // without MPI search global_id in offerings
-            int64_t iloc{-1};
-            for (size_t iown = 0; iown < nown && iloc < 0; ++iown) {
-                if (global_id == offerings[iown]) iloc = iown;
-            } // col
-            assert(iloc > -1 && "index not found in local offerings");
+                // without MPI search global_id in offerings
+                int64_t iloc{-1};
+                for (size_t iown = 0; iown < nown && iloc < 0; ++iown) {
+                    if (global_id == offerings[iown]) iloc = iown;
+                } // iown
+                if (-1 == iloc) error("failed to find global_id= %li in offerings", global_id);
+                assert(iloc > -1 && "index not found in local offerings");
+                owner[ireq] = me;
 
 #endif // HAS_NO_MPI
+                index[ireq] = iloc;
+            } else { // global_id > -1
+                index[ireq] = -1;
+                owner[ireq] = me;
+            } // global_id > -1
 
-            index[ireq] = iloc;
             requested_id[ireq] = global_id; // copy the array of requests
         } // ireq
 
     } // constructor implementation
 
 
+  template <typename real_t>
   status_t exchange(
-        double       *const data_out // output data, data layout data_out[nrequests*count]
-      , double const *const data_inp //  input data, data layout data_inp[nowned   *count]
+        real_t       *const data_out // output data, data layout data_out[nrequests*count]
+      , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
       , RequestList_t const & requests
-      , int const count // number of doubles per package
+      , int const count // number of real_t per package
       , int const echo // =0, log-level
   ) {
       // The number of local atoms is limited to 2^16 == 65536
-      if (echo > 0) std::printf("# exchange using MPI one-sided communication, packages of %.3f k doubles\n", count*.001);
-
+      if (echo > 0) std::printf("# exchange using MPI one-sided communication, packages of %.3f k numbers, %.3f kByte\n",
+                                                                                    count*.001, count*sizeof(real_t)*.001);
       assert(data_out && "may not be called with a nullptr for output");
       assert(data_inp && "may not be called with a nullptr for input");
 
@@ -483,11 +492,13 @@ namespace green_parallel {
 
 #ifndef   HAS_NO_MPI
 
+      auto const np = mpi_parallel::size(comm); // number of processes
       // set up a memory window to read from
       MPI_Win window;
-      uint const disp_unit = count*sizeof(double); // in Bytes
+      uint const disp_unit = count*sizeof(real_t); // in Bytes
       size_t const win_size = requests.window()*disp_unit; // in Bytes
       status += MPI_Win_create((void*)data_inp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
+      auto const data_type = (8 == sizeof(real_t)) ? MPI_DOUBLE : MPI_FLOAT;
 
       // synchronize processes
       int const assertions = 0; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
@@ -495,26 +506,35 @@ namespace green_parallel {
 
 #endif // HAS_NO_MPI
 
-      size_t stats[] = {0, 0}; // get element from {0:local, 1:remote}
+      size_t stats[] = {0, 0, 0}; // get element from {0:local, 1:remote, 2:clear}
       auto const nreq = requests.size(); // number of requests
       for (size_t ireq = 0; ireq < nreq; ++ireq) {
           auto const global_id = requests.requested_id[ireq];
           auto const owner     = requests.owner[ireq];
           auto const iloc      = requests.index[ireq];
 
-          if (me == owner) {
-              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i  copy local element %i\n", me, global_id, iloc);
-              set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy
-              ++stats[0]; // local
-          } else { // me == owner
-              ++stats[1]; // remote
+          if (iloc >= 0) {
+              if (me == owner) {
+                  if (echo > 7) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
+                  set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy
+                  ++stats[0]; // local
+              } else { // me == owner
+                  ++stats[1]; // remote
 #ifndef   HAS_NO_MPI
-              if (echo > 7) std::printf("# exchange: rank#%i get matrices of atom#%i from rank#%i element %i\n", me, global_id, owner, iloc);
-              status += MPI_Get(&data_out[ireq*count], count, MPI_DOUBLE, owner, iloc, count, MPI_DOUBLE, window);
+                  if (echo > 7) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i element %i\n", me, global_id, owner, iloc);
+                  assert(owner >= 0);
+                  if (owner >= np) error("rank#%i tries to MPI_Get %.3f kByte from rank#%i but only %d processes running, global_id=%li", me, count*sizeof(real_t)*.001, owner, np, global_id);
+                  status += MPI_Get(&data_out[ireq*count], count, data_type, owner, iloc, count, data_type, window);
 #else  // HAS_NO_MPI
-              error("Without MPI all atom matrices must reside in the same process, me=%i, owner=%i", me, owner);
+                  error("Without MPI all atom matrices must reside in the same process, me=%i, owner=%i", me, owner);
 #endif // HAS_NO_MPI
-          } // me == owner
+              } // me == owner
+          } else {
+              ++stats[2]; // clear
+              assert(-1 == iloc);
+              assert(-1 == global_id);
+              set(&data_out[ireq*count], count, real_t(0)); // clear
+          }
       } // ireq
 
 #ifndef   HAS_NO_MPI
@@ -524,12 +544,18 @@ namespace green_parallel {
       status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
 
-      if (echo > 7) std::printf("# rank #%i copied %.3f k and pulled %.3f k elements\n", me, stats[0]*.001, stats[1]*.001);
-      assert(stats[0] + stats[1] == nreq);
+      if (echo > 7) std::printf("# rank #%i copied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
+                                        me, stats[0]*.001, stats[1]*.001, stats[2]*.001);
+      assert(stats[0] + stats[1] + stats[2] == nreq);
 
       return status;
   } // exchange
 
+  template // explicit template instantiation for real_t=double
+  status_t exchange(double*, double const*, RequestList_t const &, int, int);
+
+  template // explicit template instantiation for real_t=float
+  status_t exchange(float* , float  const*, RequestList_t const &, int, int);
 
   status_t potential_exchange(
         double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nreq][64]

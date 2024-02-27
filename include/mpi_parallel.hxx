@@ -126,6 +126,11 @@ namespace mpi_parallel {
   } // max
 
   template <typename T>
+  inline int min(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
+      return allreduce(recv, MPI_MIN, comm, count);
+  } // min
+
+  template <typename T>
   inline int sum(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
       return allreduce(recv, MPI_SUM, comm, count);
   } // sum

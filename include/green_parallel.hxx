@@ -33,20 +33,21 @@ namespace green_parallel {
       ); // declaration only
 
   public:
-      std::vector<int32_t>  owner; // owner rank of the requested data item
-      std::vector<uint32_t> index; // local index in owning process
-      std::vector<int64_t>  requested_id; // original identifyer (for debug only)
+      std::vector<int32_t> owner; // owner rank of the requested data item
+      std::vector<int32_t> index; // local index in owning process
+      std::vector<int64_t> requested_id; // original identifyer (for debug only)
       std::size_t size() const { return owner.size(); }
       std::size_t window() const { return window_size; }
   private:
       uint32_t window_size;
   }; // RequestList_t
 
+  template <typename real_t=double>
   status_t exchange(
-        double       *const data_out // output data, data layout data_out[nrequests*count]
-      , double const *const data_inp //  input data, data layout data_inp[nowned   *count]
+        real_t       *const data_out // output data, data layout data_out[nrequests*count]
+      , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
       , RequestList_t const & requests // contains info which ids are pulled from where
-      , int const count=1 // how many doubles per package
+      , int const count=1 // how many real_t per package
       , int const echo=0 // log-level
   ); // declaration only
 

@@ -15,10 +15,10 @@
 #include <utility> // std::pair
 #include <cmath> // std::ceil, ::pow, ::cbrt
 #include <numeric> // std::iota
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include <cstdlib> // rand, RAND_MAX
   #include "progress_report.hxx" // ProgressReport
-#endif
+#endif // NO_UNIT_TESTS
 
 #include "load_balancer.hxx"
 
@@ -28,12 +28,13 @@
 #include "recorded_warnings.hxx" // warn
 #include "constants.hxx" // ::pi
 #include "print_tools.hxx" // printf_vector
-#include "control.hxx" // ::get
 
-#ifdef    HAS_BITMAP_EXPORT
-  #include "bitmap.hxx" // ::write_bmp_file
-#endif // HAS_BITMAP_EXPORT
-
+#ifndef   NO_UNIT_TESTS
+  #include "control.hxx" // ::get
+  #ifdef    HAS_BITMAP_EXPORT
+    #include "bitmap.hxx" // ::write_bmp_file
+  #endif // HAS_BITMAP_EXPORT
+#endif // NO_UNIT_TESTS
 
 namespace load_balancer {
 
@@ -90,7 +91,7 @@ namespace load_balancer {
       , double const w8sum_all=1. // denominator of all weights
       , int const echo=0 // verbosity
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
-      , uint16_t *const owner_rank=nullptr // export the rank of each task
+      , uint16_t *const owner_rank=nullptr // export the rank of each task, [nall]
   ) {
       // complexity is order(N^2) as each processes loops over all tasks in the first iteration
 
@@ -214,8 +215,6 @@ namespace load_balancer {
               if (echo > 19) std::printf("# rank#%i assign %g of %g (%.2f %%, target %.2f %%) to %d processes\n",
                                             rank, load_now, w8sum, load_now*100./w8sum, nhalf[i01]*100./np, nhalf[0]);
 
-
-
               // prepare for the next iteration
               rank_offset += i01*nhalf[0];
               np = nhalf[i01];
@@ -260,10 +259,10 @@ namespace load_balancer {
               } // unassigned
           } // iall
           // Beware: only the owned entries of owner_rank have been modified, so
-          //         an MPI_MAX-Allreduce needs to be performed later. This is skipped here
+          //         an MPI_MIN-Allreduce needs to be performed later. This is skipped here
           //         to maintain serial executability of this routine.
           if (echo > 99) {
-              std::printf("# rank#%i owner_rank before MPI_MAX ", rank);
+              std::printf("# rank#%i owner_rank before MPI_MIN ", rank);
               printf_vector(" %i", owner_rank, nall);
           } // echo
       } // owner_rank
@@ -360,7 +359,7 @@ namespace load_balancer {
           xy[0] = (v2[1]*d1 - v1[1]*d2)*denom;
           xy[1] = (v1[0]*d2 - v2[0]*d1)*denom;
 //        std::printf("# line1 (%g,%g)*(x,y) == %g intersects with line2 (%g,%g)*(x,y) == %g at (%g,%g)\n", v1[0],v1[1], d1, v2[0],v2[1], d2, xy[0],xy[1]);
-      }
+      } // denom is not NaN
       return std::abs(det2x2);
   } // intersect
 
@@ -422,7 +421,7 @@ namespace load_balancer {
       } // rank
 
 #ifdef    LOAD_BALANCER_DRAW_SVG
-      {
+      { // scope: SVG
           // assume that draw2D is an array of sets of 4 doubles which results from a depth-first traversal of the bisection tree
           int const nplanes = draw2D.size()/4;
           assert(4*nplanes + 2 == draw2D.size());
@@ -477,7 +476,7 @@ namespace load_balancer {
           } // ip
           if (echo > 2) std::printf("  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"grey\" />\n", nx, ny, 0, 0);
           if (echo > 2) std::printf("</svg>\n\n");
-      }
+      } // scope: SVG
 #endif // LOAD_BALANCER_DRAW_SVG
 
 

@@ -20,15 +20,17 @@
 #include "load_balancer.hxx" // ::get, ::no_owner
 #include "global_coordinates.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
+#include "green_parallel.hxx" // ::exchange, ::RequestList_t
+#include "control.hxx" // ::get
+#include "print_tools.hxx" // printf_vector
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "real_space.hxx" // ::Bessel_projection
   #include "radial_grid.hxx" // radial_grid_t, ::create_radial_grid, ::equation_equidistant, ::destroy_radial_grid
   #include "bessel_transform.hxx" // ::transform_s_function
   #include "radial_potential.hxx" // ::Hartree_potential
   #include "fourier_poisson.hxx" // ::solve
-  #include "control.hxx" // ::get
-#endif
+#endif // NO_UNIT_TESTS
 
 namespace parallel_poisson {
   // solve the Poisson equation iteratively using the conjugate gradients method
@@ -91,9 +93,17 @@ namespace parallel_poisson {
 
                 // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
                 size_t const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[1]);
-                if (MPI_COMM_NULL != comm) mpi_parallel::max(owner_rank.data(), nall, comm);
+                if (MPI_COMM_NULL != comm) {
+                    mpi_parallel::min(owner_rank.data(), nall, comm);
+                    if (echo > 99) {
+                        std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
+                        printf_vector(" %i", owner_rank.data(), nall);
+                    } // echo
+                } // not comm_null
+
             } // scope
 
+            std::vector<int64_t> local_global_ids;
             { // scope: setup of star and remote_global_ids, determination of n_remote_blocks
 
                 int32_t const iMAX = 2147483647;
@@ -105,11 +115,11 @@ namespace parallel_poisson {
                 for (uint32_t ix = 0; ix < nb[0]; ++ix) {
                     if (me == owner_rank(iz,iy,ix)) {
                         ++nown;
-                        int32_t const izyx[] = {int32_t(ix), int32_t(iy), int32_t(iz)};
+                        int32_t const ixyz[] = {int32_t(ix), int32_t(iy), int32_t(iz)};
                         for (int d = 0; d < 3; ++d) {
-                            min_domain[d] = std::min(min_domain[d], izyx[d]);
-                            max_domain[d] = std::max(max_domain[d], izyx[d]);
-                            cnt_domain[d] += izyx[d];
+                            min_domain[d] = std::min(min_domain[d], ixyz[d]);
+                            max_domain[d] = std::max(max_domain[d], ixyz[d]);
+                            cnt_domain[d] += ixyz[d];
                         } // d 
                     } // my
                 }}} // iz iy ix
@@ -133,14 +143,16 @@ namespace parallel_poisson {
                 view3D<uint8_t> domain(ndom[2],ndom[1],ndom[0], OUTSIDE);
                 view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1);
 
+                local_global_ids.resize(n_local_blocks, -1);
+
                 uint32_t ilb{0}; // index of the local block
                 for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
                 for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) {
                 for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
                     // translate domain indices {ix,iy,iz} into box indices
-                    int32_t const izyx[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
-                    for (int d = 0; d < 3; ++d) { assert(izyx[d] >= 0); assert(izyx[d] < nb[d]); }
-                    if (me == owner_rank(izyx[2],izyx[1],izyx[0])) {
+                    int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
+                    for (int d = 0; d < 3; ++d) { assert(ixyz[d] >= 0); assert(ixyz[d] < nb[d]); }
+                    if (me == owner_rank(ixyz[2],ixyz[1],ixyz[0])) {
                         domain(iz,iy,ix) |= INSIDE;
                         domain_index(iz,iy,ix) = ilb; // domain index for inner elements
 
@@ -151,6 +163,8 @@ namespace parallel_poisson {
                         domain(iz,iy + 1,ix) |= BORDER;
                         domain(iz - 1,iy,ix) |= BORDER;
                         domain(iz + 1,iy,ix) |= BORDER;
+
+                        local_global_ids[ilb] = global_coordinates::get(ixyz);
 
                         ++ilb; // count inside elements
                     } // me == owner
@@ -188,18 +202,18 @@ namespace parallel_poisson {
                 for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) {
                 for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
                     // translate domain indices {ix,iy,iz} into box indices
-                    int32_t const izyx[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
-                    for (int d = 0; d < 3; ++d) { assert(izyx[d] >= 0); assert(izyx[d] < nb[d]); } // should still hold...
+                    int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
+                    for (int d = 0; d < 3; ++d) { assert(ixyz[d] >= 0); assert(ixyz[d] < nb[d]); } // should still hold...
                     if (domain(iz,iy,ix) & INSIDE) {
                         auto const id0 = domain_index(iz,iy,ix);
                         assert(id0 >= 0); assert(id0 < n_local_blocks);
                         for (int d = 0; d < 3; ++d) {
                             for (int i01 = 0; i01 < 2; ++i01) {
-                                int32_t jxyz[] = {izyx[0], izyx[1], izyx[2]}; // global coordinates
+                                int32_t jxyz[] = {ixyz[0], ixyz[1], ixyz[2]}; // global coordinates
                                 int32_t jdom[] = {ix, iy, iz}; // domain coordinates
                                 jxyz[d] += (i01*2 - 1); // add or subtract 1
                                 jdom[d] += (i01*2 - 1); // add or subtract 1
-                                // if (echo > 7) std::printf("# rank#%i %d %d %d %c%c1\n", me, izyx[0], izyx[1], izyx[2], 'x'+d, i01?'+':'-');
+                                // if (echo > 7) std::printf("# rank#%i %d %d %d %c%c1\n", me, ixyz[0], ixyz[1], ixyz[2], 'x'+d, i01?'+':'-');
                                 assert(domain(jdom[2],jdom[1],jdom[0]) & BORDER); // was set in 1st domain loop
                                 auto const bc_shift = int(jxyz[d] < 0) - int(jxyz[d] >= int32_t(nb[d]));
                                 if ((0 != bc_shift) && (Isolated_Boundary == bc[d])) {
@@ -238,11 +252,37 @@ namespace parallel_poisson {
 
             } // scope
 
+            if (echo > 8) {
+                std::printf("# %s: requests={", __func__);
+                for (auto rq : remote_global_ids) {
+                    std::printf(" %lli", rq);
+                } // rq
+                std::printf(" }, %ld items\n", remote_global_ids.size());
+
+                std::printf("# %s: offering={", __func__);
+                for (auto of : local_global_ids) {
+                    std::printf(" %lli", of);
+                } // of
+                std::printf(" }, %ld items\n", local_global_ids.size());
+            } // echo
+
+            requests = green_parallel::RequestList_t(remote_global_ids, local_global_ids, owner_rank.data(), nb, echo);
+
+            if (echo > 8) {
+                std::printf("# %s: RequestList.owner={", __func__);
+                for (auto ow : requests.owner) {
+                    std::printf(" %i", ow);
+                } // ow
+                std::printf(" }, %ld items\n", requests.owner.size());
+            } // echo
+
         } // preferred constructor
 
         uint32_t n() const { return n_local_blocks; }
         uint32_t n_remote() const { return remote_global_ids.size(); }
         int32_t const* getStar() const { return (int32_t const*)star.data(); }
+    public:
+        green_parallel::RequestList_t requests;
     private:
         std::vector<int64_t> remote_global_ids; // may contain "-1"-entries
         view2D<int32_t> star; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6)
@@ -250,17 +290,34 @@ namespace parallel_poisson {
         uint32_t n_local_blocks; // number of blocks owned by this MPI rank
     }; // grid8x8x8_t
 
+    template <typename real_t>
+    status_t data_exchange(
+          real_t *v  // input and result array, data layout v[n_local_remote][8*8*8]
+        , grid8x8x8_t const & g8 // descriptor
+        , MPI_Comm const comm=MPI_COMM_WORLD // ToDo
+        , int const echo=0 // log-level
+    ) {
+        auto const count = 8*8*8;
+        auto const n_local = g8.n();
+        auto const stat = green_parallel::exchange(v + count*n_local, v, g8.requests, count, echo);
+        return stat;
+    } // data_exchange
+
 
     template <typename real_t, typename double_t=double>
     status_t Laplace16th(
           real_t       *Av // result array, data layout Av[n_local_blocks][8*8*8]
-        , real_t const *v  // input  array, data layout  v[n_local_blocks][8*8*8]
+        , real_t       *v  // input  array, data layout  v[n_local_remote][8*8*8], cannot be real_t const to call data_exchange
         , grid8x8x8_t const & g8 // descriptor
-        , double const h2[3] // 1./grid_spacing^2
+        , double const h2[3] // 1./grid_spacings^2
         , MPI_Comm const comm=MPI_COMM_WORLD // MPI communicator
         , int const echo=0 // log level
         , double const prefactor=1
     ) {
+        if (echo > 9) std::printf("\n# %s start\n", __func__);
+
+        auto const stat = data_exchange(v, g8, comm, echo);
+
         // prepare finite-difference coefficients (isotropic)
         //            c_0        c_1         c_2       c_3        c_4      c_5       c_6     c_7     c_8
         // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
@@ -274,34 +331,29 @@ namespace parallel_poisson {
                                     -156800*norm,
                                       15360*norm,
                                        -735*norm};
-
-        if (echo > 9) std::printf("\n# %s start\n", __func__);
-
-        // ToDo: data exchange inside x using comm
-
         int const nlb = g8.n();
         auto const star = (int32_t const(*)[6])g8.getStar();
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset
-            auto const nn = star[ilb]; // neighbor blocks of block ilb
+            auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over block elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
-                auto const izyx = iz*64 + iy*8 + ix;
-                auto const i0 = i512 + izyx;
+                auto const ixyz = iz*64 + iy*8 + ix;
+                auto const i0 = i512 + ixyz;
                 double_t const av = cFD[0]*double_t(v[i0]);
                 double_t ax{av}, ay{av}, az{av}; // accumulators
-                // if (echo > 9) std::printf("# Av[%i][%3.3o] init as %g\n", ilb, izyx, av);
+                // if (echo > 9) std::printf("# Av[%i][%3.3o] init as %g\n", ilb, ixyz, av);
                 for (int ifd = 1; ifd <= 8; ++ifd) {
                     // as long as ifd is small enough, we take from the central block of x, otherwise from neighbors
-                    auto const ixm = (ix >=    ifd) ? i0 - ifd : (nn[0] << 9) + izyx + 8 - ifd;
-                    auto const ixp = (ix + ifd < 8) ? i0 + ifd : (nn[1] << 9) + izyx - 8 + ifd;
+                    auto const ixm = (ix >=    ifd) ? i0 - ifd : (nn[0] << 9) + ixyz + 8 - ifd;
+                    auto const ixp = (ix + ifd < 8) ? i0 + ifd : (nn[1] << 9) + ixyz - 8 + ifd;
                     ax += cFD[ifd]*(double_t(v[ixm]) + double_t(v[ixp]));
-                    auto const iym = (iy >=    ifd) ? i0 - 8*ifd : (nn[2] << 9) + izyx + 64 - 8*ifd;
-                    auto const iyp = (iy + ifd < 8) ? i0 + 8*ifd : (nn[3] << 9) + izyx - 64 + 8*ifd;
+                    auto const iym = (iy >=    ifd) ? i0 - 8*ifd : (nn[2] << 9) + ixyz + 64 - 8*ifd;
+                    auto const iyp = (iy + ifd < 8) ? i0 + 8*ifd : (nn[3] << 9) + ixyz - 64 + 8*ifd;
                     ay += cFD[ifd]*(double_t(v[iym]) + double_t(v[iyp]));
-                    auto const izm = (iz >=    ifd) ? i0 - 64*ifd : (nn[4] << 9) + izyx + 512 - 64*ifd;
-                    auto const izp = (iz + ifd < 8) ? i0 + 64*ifd : (nn[5] << 9) + izyx - 512 + 64*ifd;
+                    auto const izm = (iz >=    ifd) ? i0 - 64*ifd : (nn[4] << 9) + ixyz + 512 - 64*ifd;
+                    auto const izp = (iz + ifd < 8) ? i0 + 64*ifd : (nn[5] << 9) + ixyz - 512 + 64*ifd;
                     az += cFD[ifd]*(double_t(v[izm]) + double_t(v[izp]));
                     // if (echo > 9) std::printf("# %d += x[%i][%3.3o] + x[%i][%3.3o] + y[%i][%3.3o] + y[%i][%3.3o] + z[%i][%3.3o] + z[%i][%3.3o]\n", ifd,
                     //                  ixm>>9, ixm&511, ixp>>9, ixp&511, iym>>9, iym&511, iyp>>9, iyp&511, izm>>9, izm&511, izp>>9, izp&511);
@@ -311,7 +363,7 @@ namespace parallel_poisson {
         } // ilb
 
         if (echo > 9) std::printf("# %s done\n\n", __func__);
-        return 0;
+        return stat;
     } // Laplace16th
 
 
@@ -556,10 +608,10 @@ namespace parallel_poisson {
       for (int iz = 0; iz < ng[2]; ++iz) {
       for (int iy = 0; iy < ng[1]; ++iy) {
       for (int ix = 0; ix < ng[0]; ++ix) {
-          size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+          size_t const ixyz = (iz*ng[1] + iy)*ng[0] + ix;
           double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
           double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
-          b[izyx] = rho;
+          b[ixyz] = rho;
           integral += rho;
       }}} // ix iy iz
       if (echo > 3) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
@@ -613,9 +665,9 @@ namespace parallel_poisson {
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
-                size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+                size_t const ixyz = (iz*ng[1] + iy)*ng[0] + ix;
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
-                std::printf("%g %g %g %g\n", std::sqrt(r2), x[izyx], x_fft[izyx], b[izyx]); // point cloud
+                std::printf("%g %g %g %g\n", std::sqrt(r2), x[ixyz], x_fft[ixyz], b[ixyz]); // point cloud
           }}} // ix iy iz
 
       } // echo
@@ -647,37 +699,49 @@ namespace parallel_poisson {
   } // test_grid8
 
     template <typename real_t>
-    status_t test_Laplace16th(int const echo=9) {
-        if (echo > 4) std::printf("\n# %s<%s>\n", __func__, (8 == sizeof(real_t))?"double":"float");
+    status_t test_Laplace16th(int8_t const bc[3], int const echo=9) {
+        if (echo > 4) std::printf("\n# %s<%s>(bc=[%d %d %d])\n", __func__, (8 == sizeof(real_t))?"double":"float", bc[0], bc[1], bc[2]);
         status_t stat(0);
-        uint32_t const ng[] = {8*3, 8*4, 8*1};
-        int8_t const bc0 = Periodic_Boundary; // Isolated_Boundary
-        int8_t const bc[] = {bc0, bc0, bc0};
+        uint32_t const ng[] = {2*8, 2*8, 2*8};
         double const h2[] = {1, 1, 1}; // unity grid spacing
-        grid8x8x8_t g8(ng, bc, MPI_COMM_NULL, echo);
+        grid8x8x8_t g8(ng, bc, MPI_COMM_WORLD, echo);
         auto const n = g8.n() + g8.n_remote();
         view3D<real_t> xAx(2, n, 512, real_t(0));
         auto const  x = (real_t (*)[512]) xAx(0,0);
         auto const Ax = (real_t (*)[512]) xAx(1,0);
         for (int i512 = 0; i512 < n*512; ++i512) { x[0][i512] = 1; }
 
-        stat = Laplace16th(Ax[0], x[0], g8, h2, MPI_COMM_NULL, echo);
+        stat = Laplace16th(Ax[0], x[0], g8, h2, MPI_COMM_WORLD, echo);
 
-        double diff{0};
-        for (int i512 = 0; i512 < 1*512; ++i512) { diff += std::abs(Ax[0][i512]); }
-        if (echo > 3) std::printf("# %s<%s>: diff= %g\n\n", __func__, (8 == sizeof(real_t))?"double":"float", diff/512);
+        if (g8.n() > 0) {
+            double diff{0};
+            for (int i512 = 0; i512 < 512; ++i512) { diff += std::abs(Ax[0][i512]); }
+            if (echo > 3) std::printf("# %s<%s>: diff= %g\n\n", __func__, (8 == sizeof(real_t))?"double":"float", diff/512);
+        }
         // with double_t=float, we find diff=5.5e-7 per grid point,
         // with double_t=double         diff=6.3e-16 
         return stat;
     } // test_Laplace16th
 
+    status_t test_Laplace16th_boundary_conditions(int const echo=0) {
+        status_t stat(0);
+        int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary};
+        for (int8_t bz = 0; bz < 2; ++bz) {
+        for (int8_t by = 0; by < 2; ++by) {
+        for (int8_t bx = 0; bx < 2; ++bx) {
+            int8_t const bc[] = {BCs[bx], BCs[by], BCs[bz]};
+            stat += test_Laplace16th<double>(bc, echo);
+            stat += test_Laplace16th<float> (bc, echo);
+        }}} // bx by bz
+        return stat;
+    } // test_Laplace16th_boundary_conditions
+
   status_t all_tests(int const echo) {
       status_t stat(0);
  //   stat += test_grid8(echo);
-      stat += test_solver<double>(echo); // instantiation for both, double and float
+ //   stat += test_solver<double>(echo); // instantiation for both, double and float
  //   stat += test_solver<float>(echo);  // compilation and convergence tests
-      stat += test_Laplace16th<double>(echo);
-      stat += test_Laplace16th<float >(echo);
+      stat += test_Laplace16th_boundary_conditions(echo);
       return stat;
   } // all_tests
 

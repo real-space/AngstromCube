@@ -132,6 +132,7 @@ set(green_headers
     ../include/global_coordinates.hxx
     ../include/green_parallel.hxx
     ../include/green_input.hxx
+    ../include/parallel_poisson.hxx
     ../include/load_balancer.hxx
     ../include/green_kinetic.hxx
     ../include/green_function.hxx
@@ -144,6 +145,7 @@ set(green_sources
     recorded_warnings.cxx
     display_units.cxx
     mpi_parallel.cxx
+    parallel_poisson.cxx
     green_parallel.cxx
     green_input.cxx
     load_balancer.cxx

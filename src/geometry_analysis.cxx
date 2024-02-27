@@ -59,7 +59,7 @@ namespace geometry_analysis {
       std::string line;
       std::getline(infile, line); // read line #1 again
       std::getline(infile, line); // read line #2
-      if (echo > 2) std::printf("# %s: expect %d atoms, cell parameters= \"%s\"\n", filename, natoms, line.c_str());
+      if (echo > 2) std::printf("# %s: expect %lld atoms, cell parameters= \"%s\"\n", filename, natoms, line.c_str());
       { // scope: parse line #2
           std::istringstream iss(line);
           std::string word;
@@ -108,28 +108,28 @@ namespace geometry_analysis {
                           xyzZ(ia,3) = iZ;
                       } else {
                           ++nignored_atoms;
-                          if (echo > 3) std::printf("# %s:%ld contains \"%s\" as atom #%ld but only %ld atoms expected!\n",
+                          if (echo > 3) std::printf("# %s:%lli contains \"%s\" as atom #%lli but only %lld atoms expected!\n",
                                                        filename, linenumber, line.c_str(), ia, natoms);
                       }
                       ++ia;
                   } else {
                       ++ninvalid_atoms;
-                      if (echo > 3) std::printf("# %s:%ld contains invalid atom entry \"%s\"!\n",
+                      if (echo > 3) std::printf("# %s:%lli contains invalid atom entry \"%s\"!\n",
                                                    filename, linenumber, line.c_str());
                   }
               } else {
                   ++ncommented_atoms; // this is a comment line that could be interpreted as atom if it did not start from '#'
-                  if (echo > 4) std::printf("# %s:%ld \t commented atom=\"%s\"\n", filename, linenumber, line.c_str());
+                  if (echo > 4) std::printf("# %s:%lli \t commented atom=\"%s\"\n", filename, linenumber, line.c_str());
               }
           } else { // iss
               if ('#' == Symbol[0]) {
                   ++ncommented_lines; // all exected atoms have been found, maybe this is a comment
-                  if (echo > 1) std::printf("# %s:%ld \t comment=\"%s\"\n", filename, linenumber, line.c_str());
+                  if (echo > 1) std::printf("# %s:%lli \t comment=\"%s\"\n", filename, linenumber, line.c_str());
               } else if ('\0' == Symbol[0]) {
                   ++nempty_lines; // ignore empty lines silently
               } else {
                   ++nignored_lines;
-                  if (echo > 5) std::printf("# %s:%ld \t ignored line=\"%s\"\n", filename, linenumber, line.c_str());
+                  if (echo > 5) std::printf("# %s:%lli \t ignored line=\"%s\"\n", filename, linenumber, line.c_str());
               }
           } // iss
       } // parse file line by line

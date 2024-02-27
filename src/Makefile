@@ -1,5 +1,7 @@
 # This file is part of AngstromCube under MIT License
 
+### This makefile should only be used if CMake fails!
+
 HOSTNAME := $(shell hostname)
 
 # NO_UNIT_TESTS=1
