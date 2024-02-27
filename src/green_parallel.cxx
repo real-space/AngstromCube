@@ -8,7 +8,7 @@
 
 #include "simple_stats.hxx" // ::Stats<double>
 #include "inline_math.hxx" // set
-#include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::max, ::allreduce
+#include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::max, ::allreduce, MPI_COMM_WORLD,  MPI_IN_PLACE
 #include "sho_tools.hxx" // ::nSHO
 #include "global_coordinates.hxx" // ::get
 #include "print_tools.hxx" // printf_vector

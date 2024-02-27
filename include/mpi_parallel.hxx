@@ -17,7 +17,7 @@
   #include "recorded_warnings.hxx" // warn, error
 
   typedef int64_t MPI_Comm;
-  MPI_Comm constexpr MPI_COMM_WORLD = -1;
+  MPI_Comm constexpr MPI_COMM_WORLD = -1, MPI_COMM_NULL = 0;
   int constexpr MPI_SUCCESS = 0;
 
   typedef char MPI_Op;
