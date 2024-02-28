@@ -24,6 +24,8 @@
 #include "control.hxx" // ::get
 
 #ifndef   NO_UNIT_TESTS
+  #include <array> // std::array<T,N>
+  #include <algorithm> // std::stable_sort
   #include "fourier_poisson.hxx" // ::solve
 #endif // NO_UNIT_TESTS
 
@@ -33,7 +35,7 @@ namespace parallel_poisson {
   double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
 
   template <typename real_t>
-  double norm2(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_WORLD) {
+  double norm2(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL) {
       double s{0};
       for (size_t i{0}; i < n; ++i) { 
           s += pow2(v[i]);
@@ -43,7 +45,7 @@ namespace parallel_poisson {
   } // norm2
 
   template <typename real_t>
-  double norm1(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_WORLD) {
+  double norm1(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL) {
       double s{0};
       for (size_t i{0}; i < n; ++i) {
           s += v[i];
@@ -53,7 +55,7 @@ namespace parallel_poisson {
   } // norm1
 
   template <typename real_t>
-  double scalar_product(real_t const v[], real_t const w[], size_t const n, MPI_Comm const comm=MPI_COMM_WORLD) {
+  double scalar_product(real_t const v[], real_t const w[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL) {
       double dot{0};
       for (size_t i = 0; i < n; ++i) {
           dot += double(v[i])*double(w[i]); // conversion to double is different from dot_product define in inline_math.hxx
@@ -334,21 +336,21 @@ namespace parallel_poisson {
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over block elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
-                auto const ixyz = iz*64 + iy*8 + ix;
-                auto const i0 = i512 + ixyz;
+                auto const izyx = iz*64 + iy*8 + ix;
+                auto const i0 = i512 + izyx;
                 double_t const av = cFD[0]*double_t(v[i0]);
                 double_t ax{av}, ay{av}, az{av}; // accumulators
-                // if (echo > 9) std::printf("# Av[%i][%3.3o] init as %g\n", ilb, ixyz, av);
+                // if (echo > 9) std::printf("# Av[%i][%3.3o] init as %g\n", ilb, izyx, av);
                 for (int ifd = 1; ifd <= 8; ++ifd) {
                     // as long as ifd is small enough, we take from the central block of x, otherwise from neighbors
-                    auto const ixm = (ix >=    ifd) ? i0 - ifd : (nn[0] << 9) + ixyz + 8 - ifd;
-                    auto const ixp = (ix + ifd < 8) ? i0 + ifd : (nn[1] << 9) + ixyz - 8 + ifd;
+                    auto const ixm = (ix >=    ifd) ? i0 - ifd : (nn[0] << 9) + izyx + 8 - ifd;
+                    auto const ixp = (ix + ifd < 8) ? i0 + ifd : (nn[1] << 9) + izyx - 8 + ifd;
                     ax += cFD[ifd]*(double_t(v[ixm]) + double_t(v[ixp]));
-                    auto const iym = (iy >=    ifd) ? i0 - 8*ifd : (nn[2] << 9) + ixyz + 64 - 8*ifd;
-                    auto const iyp = (iy + ifd < 8) ? i0 + 8*ifd : (nn[3] << 9) + ixyz - 64 + 8*ifd;
+                    auto const iym = (iy >=    ifd) ? i0 - 8*ifd : (nn[2] << 9) + izyx + 64 - 8*ifd;
+                    auto const iyp = (iy + ifd < 8) ? i0 + 8*ifd : (nn[3] << 9) + izyx - 64 + 8*ifd;
                     ay += cFD[ifd]*(double_t(v[iym]) + double_t(v[iyp]));
-                    auto const izm = (iz >=    ifd) ? i0 - 64*ifd : (nn[4] << 9) + ixyz + 512 - 64*ifd;
-                    auto const izp = (iz + ifd < 8) ? i0 + 64*ifd : (nn[5] << 9) + ixyz - 512 + 64*ifd;
+                    auto const izm = (iz >=    ifd) ? i0 - 64*ifd : (nn[4] << 9) + izyx + 512 - 64*ifd;
+                    auto const izp = (iz + ifd < 8) ? i0 + 64*ifd : (nn[5] << 9) + izyx - 512 + 64*ifd;
                     az += cFD[ifd]*(double_t(v[izm]) + double_t(v[izp]));
                     // if (echo > 9) std::printf("# %d += x[%i][%3.3o] + x[%i][%3.3o] + y[%i][%3.3o] + y[%i][%3.3o] + z[%i][%3.3o] + z[%i][%3.3o]\n", ifd,
                     //                  ixm>>9, ixm&511, ixp>>9, ixp&511, iym>>9, iym&511, iyp>>9, iyp&511, izm>>9, izm&511, izp>>9, izp&511);
@@ -375,11 +377,13 @@ namespace parallel_poisson {
                 , int restart // =4096 // number of iterations before restart, 1:steepest descent
                 ) {
 
-    // auto const comm = MPI_COMM_WORLD; // green_parallel::comm();
+    auto const comm = MPI_COMM_WORLD; // green_parallel::comm();
     // uint32_t const ng[] = {uint(g[0]), uint(g[1]), uint(g[2])};
     // grid8x8x8_t g8(ng, g.boundary_conditions(), comm, echo);
 
-    size_t const nall = size_t(g[2])*size_t(g[1])*size_t(g[0]);
+    size_t const n_all_grid_points = size_t(g[2])*size_t(g[1])*size_t(g[0]);
+    auto const nall = n_all_grid_points;
+
     // when parallel, we also need to define nloc, the number of grid elements in this local process
     // also, we want to group the grid into cubes of 8x8x8 grid points
 
@@ -400,8 +404,7 @@ namespace parallel_poisson {
 
     // we use CG + order-16 FD
 
-    int const nn_precond = 0; // 0:none, >0:range-1-stencil, <0:multi_grid (does not work properly yet)
-    bool const use_precond = (0 != nn_precond);
+    bool constexpr use_precond = false;
 
     // find memory aligned nloc
     view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
@@ -409,28 +412,7 @@ namespace parallel_poisson {
 
     finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil
 
-    finite_difference::stencil_t<real_t> precond;
-    if (nn_precond > 0) {
-        precond = finite_difference::stencil_t<real_t>(g.h, nn_precond);
-        auto const nn = precond.nearest_neighbors();
-        double nrm{0};
-        for (int d = 0; d < 3; ++d) {
-            for (int i = 0; i < nn[d]; ++i) {
-                precond.c2nd[d][i] = std::abs(precond.c2nd[d][i]);
-                nrm += precond.c2nd[d][i] * (1 + (i > 0));
-            } // i
-        } // d
-        nrm = 1./nrm;
-        for (int d = 0; d < 3; ++d) {
-            for (int i = 0; i < nn[d]; ++i) {
-                precond.c2nd[d][i] *= nrm;
-            } // i
-        } // d
-        if (echo > 6) std::printf("# %s use a diffusion preconditioner with %d %d %d neighbors\n", 
-                                __FILE__, nn[0], nn[1], nn[2]);
-    } // use_precond
-
-    double const cell_volume = nall*g.dV();
+    double const cell_volume = n_all_grid_points * g.dV();
     double const threshold2 = cell_volume * pow2(threshold);
     double constexpr RZ_TINY = 1e-14, RS_TINY = 1e-10;
 
@@ -463,7 +445,7 @@ namespace parallel_poisson {
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
     
     if (g.number_of_boundary_conditions(Periodic_Boundary) == 3) {
-        double const bnorm = norm1(b, nall)/nall * g.dV(); // g.comm
+        double const bnorm = norm1(b, nall, comm)/nall * g.dV();
         if (echo > 8) std::printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", __FILE__, bnorm);
     } // all_boundary_conditions_periodic
 
@@ -471,18 +453,17 @@ namespace parallel_poisson {
     set(r, nall, b); add_product(r, nall, ax, real_t(-1));
 
     // res^2 = <r|r>
-    double res2 = norm2(r, nall) * g.dV(); // g.comm
+    double res2 = norm2(r, nall, comm) * g.dV();
     double const res_start = std::sqrt(res2/cell_volume); // store staring residual
     if (echo > 8) std::printf("# %s start residual=%.1e\n", __FILE__, res_start);
 
     // |z> = |Pr> = P|r>
     if (use_precond) {
-        ist = finite_difference::apply(z, r, g, precond);
-        if (ist) error("CG_solve: Preconditioner failed with status %i", int(ist));
+        error("CG_solve: Preconditioner deactivated in line %i", __LINE__);
     } else assert(z == r);
 
     // rz_old = <r|z>
-    double rz_old = scalar_product(r, z, nall) * g.dV(); // g.comm 
+    double rz_old = scalar_product(r, z, nall, comm) * g.dV();
 
     // |p> = |z>
     set(p, nall, z);
@@ -501,7 +482,7 @@ namespace parallel_poisson {
         ist = finite_difference::apply(ap, p, g, Laplacian);
         if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
 
-        double const pAp = scalar_product(p, ap, nall) * g.dV(); // g.comm
+        double const pAp = scalar_product(p, ap, nall, comm) * g.dV();
 
         // alpha = rz_old / pAp
         double const alpha = (std::abs(pAp) < RZ_TINY) ? RZ_TINY : rz_old / pAp;
@@ -513,15 +494,14 @@ namespace parallel_poisson {
 //       ! special treatment of completely periodic case
 //       !============================================================
         if (g.number_of_boundary_conditions(Periodic_Boundary) == 3) {
-            double const xnorm = norm1(x, nall)/nall; // g.comm
-  //        xnorm = xnorm/real( g%ng_all(1)*g%ng_all(2)*g%ng_all(3) )
+            double const xnorm = norm1(x, nall, comm)/n_all_grid_points;
             // subtract the average potential
-            for (size_t i{0}; i < nall; ++i) x[i] -= xnorm;
+            for (size_t i{0}; i < nall; ++i) { x[i] -= xnorm; }
         } // 3 periodic BCs
 //       !============================================================
 
-        if (0 == it % restart) {
-            // |Ax> = A|x>
+        if (0 == (it % restart)) {
+            // |Ax> = A|x> for restart
             ist = finite_difference::apply(ax, x, g, Laplacian);
             if (ist) error("CG_solve: Laplacian failed with status %i", int(ist))
             // |r> = |b> - A|x> = |b> - |ax>
@@ -529,34 +509,33 @@ namespace parallel_poisson {
         } else {
             // |r> = |r> - alpha |ap>
             add_product(r, nall, ap, real_t(-alpha));
-        } // restart?
+        } // restart
 
         // res = <r|r>
-        res2 = norm2(r, nall) * g.dV(); // g.comm
+        res2 = norm2(r, nall, comm) * g.dV();
 
         // |z> = |Pr> = P|r>
         if (use_precond) {
-            ist = finite_difference::apply(z, r, g, precond);
-            if (ist) error("CG_solve: Preconditioner failed with status %i", int(ist));
+            error("CG_solve: Preconditioner deactivated in line %i", __LINE__);
         } else assert(z == r);
 
         // rz_new = <r|z>
-        double const rz_new = scalar_product(r, z, nall) * g.dV(); // g.comm
+        double const rz_new = scalar_product(r, z, nall, comm) * g.dV();
 
         // beta = rz_new / rz_old
-        double beta = rz_new / rz_old;
+        double beta{0};
         if (rz_old < RS_TINY) {
-            beta = 0;
-            set(p, nall, z);
+            set(p, nall, z); // beta == 0
         } else {
+            beta = rz_new / rz_old;
             // |p> = |z> + beta |p>
             scale(p, nall, real_t(beta));
             add_product(p, nall, z, real_t(1));
         } // rz_old < tiny
 
         if (echo > 9) std::printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
-        if (echo > 7) std::printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, 
-            std::sqrt(res2/cell_volume), scalar_product(x, b, nall)*g.dV());
+        auto const inner = scalar_product(x, b, nall, comm) * g.dV();
+        if (echo > 7) std::printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, std::sqrt(res2/cell_volume), inner);
 
         // rz_old = rz_new
         rz_old = rz_new;
@@ -576,7 +555,9 @@ namespace parallel_poisson {
     // show the result
     if (echo > 2) std::printf("# %s %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n", __FILE__,
         res_start, res, (res < threshold)?" converged":"", it, (it < maxiter)?"":" (maximum)");
-    if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", __FILE__, scalar_product(x, b, nall)*g.dV());
+
+    auto const inner = scalar_product(x, b, nall, comm) * g.dV();
+    if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", __FILE__, inner);
 
     return (res > threshold);
   } // solve
@@ -592,25 +573,25 @@ namespace parallel_poisson {
   status_t test_solver(int const echo=9, int const ng_default=32) {
       int const ng[] = {ng_default, ng_default, ng_default};
       if (echo > 2) std::printf("\n# %s<%s> ng=[%d %d %d]\n", __func__, (8 == sizeof(real_t))?"double":"float", ng[0], ng[1], ng[2]);
-      real_space::grid_t g(ng[0], ng[1], ng[2]); // grid spacing = 1.0
+      real_space::grid_t g(ng[0], ng[1], ng[2]); // grid spacing == 1.0
       g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
       view2D<real_t> xb(3, ng[2]*ng[1]*ng[0], 0.0); // get memory
       auto const x = xb[0], x_fft = xb[1], b = xb[2];
       double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5; // parameters for two Gaussians, in total close to neutral
       double const cnt[] = {.5*ng[0], .5*ng[1], .5*ng[2]};
-      {
-        double integral{0};
-        for (int iz = 0; iz < ng[2]; ++iz) {
-        for (int iy = 0; iy < ng[1]; ++iy) {
-        for (int ix = 0; ix < ng[0]; ++ix) {
-            size_t const ixyz = (iz*ng[1] + iy)*ng[0] + ix;
-            double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
-            double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
-            b[ixyz] = rho;
-            integral += rho;
-        }}} // ix iy iz
-        if (echo > 3) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
-      }
+      { // scope: prepare the charge density (right-hand-side) rho
+          double integral{0};
+          for (int iz = 0; iz < ng[2]; ++iz) {
+          for (int iy = 0; iy < ng[1]; ++iy) {
+          for (int ix = 0; ix < ng[0]; ++ix) {
+              size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+              double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
+              double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
+              b[izyx] = rho;
+              integral += rho;
+          }}} // ix iy iz
+          if (echo > 3) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
+      } // scope
 
       float const threshold = (sizeof(real_t) > 4) ? 3e-8 : 5e-6;
       auto const method = control::get("parallel_poisson.test.method", "mix");
@@ -624,17 +605,32 @@ namespace parallel_poisson {
           fourier_poisson::solve(x_fft, b, ng, mat);
       } // scope
 
-      if (echo > 7) { // get a radial representation through Bessel transform
+      if (echo > 7) { // get a radial representation from a point cloud plot
+          int constexpr sorted = 1; // 0: cloud plot, 1: lines
+          auto const ng_all = size_t(ng[2])*size_t(ng[1])*size_t(ng[0]);
+          std::vector<std::array<float,4>> vec(sorted*ng_all);
           std::printf("\n## r, V_fd, V_fft, rho (all in a.u.)\n"); // show all grid values (dots should not be connected by a line)
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
-                size_t const ixyz = (iz*ng[1] + iy)*ng[0] + ix;
-                double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
-                std::printf("%g %g %g %g\n", std::sqrt(r2), x[ixyz], x_fft[ixyz], b[ixyz]); // point cloud
+                size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+                double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]), r = std::sqrt(r2);
+                if (sorted) {
+                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[izyx]), float(b[izyx])}; // store
+                } else {
+                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[izyx], b[izyx]); // point cloud
+                }
           }}} // ix iy iz
-          // also plot the radial function of the right-hand-side
-          std::printf("\n# r, rho\n");
+          if (vec.size() == ng_all) {
+              auto lambda = [](std::array<float,4> const & left, std::array<float,4> const & right) { return left[0] < right[0]; };
+              std::stable_sort(vec.begin(), vec.end(), lambda);
+              for (size_t izyx = 0; izyx < ng_all; ++izyx) {
+                  auto const & v = vec[izyx];
+                  std::printf("%g %g %g %g\n", v[0], v[1], v[2], v[3]); // lines
+              } // izyx
+          } // sorted
+
+          std::printf("\n# r, rho\n"); // also plot the radial function of rho
           for (int ir{0}; ir <= 10*ng_default; ++ir) {
               auto const r = 0.1*ir, r2 = r*r;
               std::printf("%g %g\n", r, c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));

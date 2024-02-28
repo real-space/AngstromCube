@@ -312,9 +312,9 @@ namespace iterative_poisson {
         return ist + multi_grid_solve(x, b, g, echo, threshold, residual, maxiter);
     }
     
-    int const nn_precond = -1; // 0:none, >0:stencil, <0:multi_grid
+    int const nn_precond = 0; // -1; // 0:none, >0:stencil, <0:multi_grid (MG-precond does not work right...)
     bool const use_precond = (0 != nn_precond);
-    
+
     view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
     auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
 
@@ -528,7 +528,7 @@ namespace iterative_poisson {
 
       float const threshold = (sizeof(real_t) > 4) ? 3e-8 : 5e-6;
       auto const method = control::get("parallel_poisson.test.method", "MultiGrid");
-      auto const stat = solve(x, b, g, *method, echo, threshold); // method=M:multi_grid
+      auto const stat = solve(x, b, g, *method, echo, threshold); // method=M:multi_grid, 
 
       auto constexpr pi = constants::pi;
       double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};
