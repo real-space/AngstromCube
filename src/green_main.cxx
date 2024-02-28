@@ -167,6 +167,8 @@
       return 0;
   } // show_version
 
+
+
   int main(int const argc, char *argv[]) {
 
       mpi_parallel::init(argc, argv);
@@ -239,7 +241,10 @@
       // in addition to command_line_interface, we can modify the control environment by a file
       stat += control::read_control_file(control::get("control.file", ""), (0 == myrank)*verbosity);
       //
-      int const echo = (0 == myrank)*control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
+      int64_t const echo_mask = control::get("verbosity.mpi.mask", 1.); // -1:all, 0:no_one, 1:master only, 5:rank#0 and rank#2, ...
+      int const verbose_rank = (-1 == echo_mask) ? 1 : ((echo_mask >> myrank) & 1);
+      verbosity = control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
+      int const echo = verbose_rank*verbosity;
       //
       show_version(argv[0], echo);
       //
@@ -260,7 +265,7 @@
 
       // finalize
       {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show all, 4:show usage
-          if (control_show && echo > 0) {
+          if (control_show && verbosity > 0 && 0 == myrank) {
               stat += control::show_variables(control_show);
           }
       } // show all variable names defined in the control environment

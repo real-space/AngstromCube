@@ -247,8 +247,8 @@ namespace load_balancer {
           } // load_now > 0
       } // rank_center
 
-      if (echo > 9) std::printf("# rank#%i assign %.3f %%, target %.3f %%\n\n",
-                                   rank, load_now*100/w8sum_all, 100./nprocs);
+      if (echo > 9) std::printf("# rank#%i load target %.3f %%, assign %.3f %%\n",
+                                   rank, 100./nprocs, load_now*100/w8sum_all);
 
       if (nullptr != owner_rank) {
           for (size_t iall = 0; iall < nall; ++iall) {

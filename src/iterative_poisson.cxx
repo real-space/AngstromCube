@@ -386,7 +386,7 @@ namespace iterative_poisson {
 
     // res^2 = <r|r>
     double res2 = norm2(r, nall) * g.dV(); // g.comm
-    double const res_start = std::sqrt(res2/cell_volume); // store staring residual
+    double const res_start = std::sqrt(res2/cell_volume); // store starting residual
     if (echo > 8) std::printf("# %s start residual=%.1e\n", __FILE__, res_start);
 
     // |z> = |Pr> = P|r>

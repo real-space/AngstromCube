@@ -359,15 +359,19 @@ namespace green_parallel {
       , uint32_t const nb[3] // global bounding box or {natoms,0,0}
       , int const echo // =0 // log-level
     ) {
+        auto const comm = MPI_COMM_WORLD;
+        auto const me = mpi_parallel::rank(comm);
+
+        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, __FILE__, __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
+        mpi_parallel::barrier(comm);
+
+
         int constexpr X=0, Y=1, Z=2;
         auto const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
-        if (echo > 7) std::printf("# RequestList_t [%d %d %d], nall= %ld\n", nb[X], nb[Y], nb[Z], nall);
+        if (echo > 7) std::printf("# rank#%i RequestList_t [%d %d %d], nall= %ld\n", me, nb[X], nb[Y], nb[Z], nall);
         auto const nown = offerings.size(); // number of offerings
         auto const nreq = requests.size(); // number of requests
-
-        auto const comm = MPI_COMM_WORLD;
-        auto const me = mpi_parallel::rank(comm);
 
 #ifndef   HAS_NO_MPI
         int constexpr debug = 1;
@@ -396,24 +400,24 @@ namespace green_parallel {
         } // iown
 
         if (debug) {
-            if (echo > 7) { std::printf("# local_check before "); printf_vector(" %i", local_check); }
+            if (echo > 7) { std::printf("# rank#%i local_check before ", me); printf_vector(" %i", local_check); }
             for (size_t iall = 0; iall < nall; ++iall) {
                 assert(local_check[iall] <= 1 && "duplicates found");
             } // iall
 
             auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_check.data(), nall, MPI_UINT16, MPI_SUM, comm);
-            if (stat) warn("MPI_Allreduce failed with status= %d", int(stat));
+            if (stat) warn("MPI_Allreduce(local_check) failed with status= %d", int(stat));
 
-            if (echo > 7) { std::printf("# local_check after  "); printf_vector(" %i", local_check); }
+            if (echo > 7) { std::printf("# rank#%i local_check after  ", me); printf_vector(" %i", local_check); }
             for (size_t iall = 0; iall < nall; ++iall) {
                 assert(1 == local_check[iall] && "not all covered");
             } // iall
-            local_check.resize(0); // DEBUG
+            local_check.resize(0);
         } // debug
 
         // get a global list of which local index is where
         auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_index.data(), nall, MPI_UINT16, MPI_MAX, comm);
-        if (stat) warn("MPI_Allreduce failed with status= %d", int(stat));
+        if (stat) warn("MPI_Allreduce(local_index) failed with status= %d", int(stat));
         // if this is too expensive see ALTERNATIVE
         //
         // ALTERNATIVE:
@@ -479,6 +483,9 @@ namespace green_parallel {
       , int const count // number of real_t per package
       , int const echo // =0, log-level
   ) {
+      auto const comm = MPI_COMM_WORLD;
+      auto const me = mpi_parallel::rank(comm);
+
       // The number of local atoms is limited to 2^16 == 65536
       if (echo > 0) std::printf("# exchange using MPI one-sided communication, packages of %.3f k numbers, %.3f kByte\n",
                                                                                     count*.001, count*sizeof(real_t)*.001);
@@ -486,9 +493,6 @@ namespace green_parallel {
       assert(data_inp && "may not be called with a nullptr for input");
 
       status_t status(0);
-
-      auto const comm = MPI_COMM_WORLD;
-      auto const me = mpi_parallel::rank(comm);
 
 #ifndef   HAS_NO_MPI
 

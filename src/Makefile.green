@@ -98,8 +98,8 @@ FEAFLAGS += -DDEVEL
 # normal mode
 # OPTFLAGS += -Ofast
 # OPTFLAGS += -O2
-# OPTFLAGS += -O0
-OPTFLAGS += -g -Wall
+OPTFLAGS += -O0
+OPTFLAGS += -g1 -Wall
 CXXOPTFLAGS += -pedantic
 # gcc-options
 # OPTFLAGS += -Wno-format-security
