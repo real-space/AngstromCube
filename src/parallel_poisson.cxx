@@ -1,10 +1,10 @@
 // This file is part of AngstromCube under MIT License
 
-#include <cstdio> // std::printf, ::snprintf
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <algorithm> // std::swap<T>
-#include <cmath> // std::sqrt
+#include <algorithm> // std::swap<T>, ::min, ::max
+#include <cmath> // std::sqrt, ::abs, ::exp
 #include <type_traits> // std::is_same
 
 #include "parallel_poisson.hxx"
@@ -15,7 +15,7 @@
 #include "finite_difference.hxx" // ::stencil_t, ::apply
 #include "constants.hxx" // ::pi
 #include "boundary_condition.hxx" // Periodic_Boundary
-#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD, MPI_COMM_NULL
+#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD, MPI_COMM_NULL, ::sum, ::rank, ::size, ::min, ::barrier
 #include "load_balancer.hxx" // ::get, ::no_owner
 #include "global_coordinates.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
@@ -387,7 +387,7 @@ namespace parallel_poisson {
                 double_t ax{av}, ay{av}, az{av}; // accumulators
                 // if (echo > 9) std::printf("# Av[%i][%3.3o] init as %g\n", ilb, izyx, av);
                 for (int ifd = 1; ifd <= 8; ++ifd) {
-                    // as long as ifd is small enough, we take from the central block of x, otherwise from neighbors
+                    // as long as ifd is small enough, we take from the central block of v, otherwise from neighbor blocks
                     auto const ixm = (ix >=    ifd) ? i0 - ifd : (nn[0] << 9) + izyx + 8 - ifd;
                     auto const ixp = (ix + ifd < 8) ? i0 + ifd : (nn[1] << 9) + izyx - 8 + ifd;
                     ax += cFD[ifd]*(double_t(v[ixm]) + double_t(v[ixp]));
@@ -458,7 +458,7 @@ namespace parallel_poisson {
 
     set(x, nall, xx); // copy input
 
-    finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil
+    finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil for the entire grid
 
     double const cell_volume = n_all_grid_points * g.dV();
     double const threshold2 = cell_volume * pow2(threshold);
@@ -624,7 +624,7 @@ namespace parallel_poisson {
       uint32_t const i888 = ((iz & 0x7)*8 + (iy & 0x7))*8 + (ix & 0x7);
       uint64_t const i512 = ((iz >> 3)*nb[1] + (iy >> 3))*nb[0] + (ix >> 3);
       return (i512 << 9) + i888;
-  } // g8_index
+  } // g8_index (non-parallel)
 
   template <typename real_t>
   status_t test_solver(int const echo=9, uint32_t const nb_default=4) {
@@ -658,12 +658,14 @@ namespace parallel_poisson {
       auto const method = control::get("parallel_poisson.test.method", "mix");
       int  const max_it = control::get("parallel_poisson.test.maxiter", 999.);
       float residual_reached{0};
+
       auto const stat = solve(x, b, g, *method, echo, threshold, &residual_reached, max_it);
 
       { // scope: create a reference solution by FFT (not MPI parallel)
           auto constexpr pi = constants::pi;
           double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};
-          fourier_poisson::solve(x_fft, b_fft, ng, mat);
+          auto const stat_fft = fourier_poisson::solve(x_fft, b_fft, ng, mat);
+          if (0 != stat_fft) warn("fourier_poisson::solve returned status= %i", int(stat_fft));
       } // scope
 
       if (echo > 7) { // get a radial representation from a point cloud plot
