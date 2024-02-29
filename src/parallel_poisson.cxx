@@ -404,14 +404,10 @@ namespace parallel_poisson {
                 ) {
 
     auto const comm = MPI_COMM_WORLD; // green_parallel::comm();
-    // uint32_t const ng[] = {uint(g[0]), uint(g[1]), uint(g[2])};
-    // grid8x8x8_t g8(ng, g.boundary_conditions(), comm, echo);
+    // grid8x8x8_t g8(g.grid_points(), g.boundary_conditions(), comm, echo);
 
     size_t const n_all_grid_points = size_t(g[2])*size_t(g[1])*size_t(g[0]);
-    auto const nall = n_all_grid_points;
-
-    // when parallel, we also need to define nloc, the number of grid elements in this local process
-    // also, we want to group the grid into cubes of 8x8x8 grid points
+    auto const nall = n_all_grid_points; // = g8.n_local()*size_t(512);
 
     status_t ist(0);
 
@@ -531,7 +527,8 @@ namespace parallel_poisson {
             ist = finite_difference::apply(ax, x, g, Laplacian);
             if (ist) error("CG_solve: Laplacian failed with status %i", int(ist))
             // |r> = |b> - A|x> = |b> - |ax>
-            set(r, nall, b); add_product(r, nall, ax, real_t(-1));
+            set(r, nall, b);
+            add_product(r, nall, ax, real_t(-1));
         } else {
             // |r> = |r> - alpha |ap>
             add_product(r, nall, ap, real_t(-alpha));
@@ -668,7 +665,7 @@ namespace parallel_poisson {
   status_t test_grid8(int const echo=0) {
       // test all combinations of isolated and periodic boundary conditions
       uint32_t const gm = control::get("parallel_poisson.grid.max", 9.); // and grids up to this number^3
-      int8_t constexpr nBCs = 1; // can be used to limit it to one
+      int8_t constexpr nBCs = 2; // can be used to limit it to one
       int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary}; 
       for (int8_t bz = 0; bz < nBCs; ++bz) {
       for (int8_t by = 0; by < nBCs; ++by) {
@@ -700,11 +697,11 @@ namespace parallel_poisson {
         uint32_t const ng[] = {2*8, 2*8, 2*8};
         double const h2[] = {1, 1, 1}; // unity grid spacing
         grid8x8x8_t g8(ng, bc, MPI_COMM_WORLD, echo);
-        auto const n = g8.n_local() + g8.n_remote();
-        view3D<real_t> xAx(2, n + 1, 512, real_t(0));
+        auto const nl = g8.n_local(), nr = g8.n_remote();
+        view3D<real_t> xAx(2, nl + nr + 1, 512, real_t(0));
         auto const  x = (real_t (*)[512]) xAx(0,0);
         auto const Ax = (real_t (*)[512]) xAx(1,0);
-        for (int i512 = 0; i512 < n*512; ++i512) { x[0][i512] = 1; }
+        for (int i512 = 0; i512 < nl*512; ++i512) { x[0][i512] = 1; }
         if (echo > 3) std::printf("# %s array prepared\n", __func__);
 
         stat = Laplace16th(Ax[0], x[0], g8, h2, MPI_COMM_WORLD, echo);
