@@ -148,7 +148,7 @@ namespace parallel_poisson {
                 view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1);
 
                 if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
-                if (echo > 7) std::printf("# rank#%i local_global_ids.size=%lld\n", me, local_global_ids.size());
+                if (echo > 7) std::printf("# rank#%i local_global_ids.size=%ld\n", me, local_global_ids.size());
                 if (echo > 7) std::printf("# rank#%i n_local_blocks=%d\n", me, n_local_blocks);
 
                 local_global_ids.resize(n_local_blocks, -1); // WHY DO WE DIE HERE?
@@ -308,6 +308,7 @@ namespace parallel_poisson {
         view2D<int32_t> star; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6). Should be backed with GPU memory in the future
         uint32_t nb[3]; // box of blocks
         uint32_t n_local_blocks; // number of blocks owned by this MPI rank
+        // std::vector<bool> inner_cell; // mark those of the n_local cells, i.e. cells than can start to execute a stencil without waiting for remote data
     }; // grid8x8x8_t
 
     template <typename real_t>
@@ -336,6 +337,8 @@ namespace parallel_poisson {
     ) {
         if (echo > 9) std::printf("\n# %s start\n", __func__);
 
+        // to reduce the latencies, we could start to apply the stencil to inner cells that do not depend on remote data
+
         auto const stat = data_exchange(v, g8, comm, echo);
 
         // prepare finite-difference coefficients (isotropic)
@@ -355,7 +358,7 @@ namespace parallel_poisson {
         auto const star = (int32_t const(*)[6])g8.getStar();
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset
-            auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb
+            auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over block elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
