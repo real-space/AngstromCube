@@ -633,8 +633,8 @@ namespace parallel_poisson {
       if (echo > 2) std::printf("\n# %s<%s> ng=[%d %d %d]\n", __func__, (8 == sizeof(real_t))?"double":"float", ng[0], ng[1], ng[2]);
       real_space::grid_t g(ng[0], ng[1], ng[2]); // grid spacing == 1.0
       g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
-      view2D<real_t> xb(3, ng[2]*ng[1]*ng[0], 0.0); // get memory
-      auto const x = xb[0], x_fft = xb[1], b = xb[2];
+      view2D<real_t> xb(4, ng[2]*ng[1]*ng[0], 0.0); // get memory
+      auto const x = xb[0], x_fft = xb[1], b = xb[2], b_fft = xb[3];
       double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5; // parameters for two Gaussians, in total close to neutral
       double const cnt[] = {.5*ng[0], .5*ng[1], .5*ng[2]};
       bool const use_g8 = (control::get("parallel_poisson.use.g8", 0.) > 0);
@@ -643,10 +643,12 @@ namespace parallel_poisson {
           for (int iz = 0; iz < ng[2]; ++iz) {
           for (int iy = 0; iy < ng[1]; ++iy) {
           for (int ix = 0; ix < ng[0]; ++ix) {
-              size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : (iz*ng[1] + iy)*ng[0] + ix;
+              size_t const jzyx = (iz*ng[1] + iy)*ng[0] + ix;
+              size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : jzyx;
               double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
               double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
               b[izyx] = rho;
+              b_fft[jzyx] = rho;
               integral += rho;
           }}} // ix iy iz
           if (echo > 3) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
@@ -661,7 +663,7 @@ namespace parallel_poisson {
       { // scope: create a reference solution by FFT (not MPI parallel)
           auto constexpr pi = constants::pi;
           double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};
-          fourier_poisson::solve(x_fft, b, ng, mat);
+          fourier_poisson::solve(x_fft, b_fft, ng, mat);
       } // scope
 
       if (echo > 7) { // get a radial representation from a point cloud plot
@@ -672,12 +674,13 @@ namespace parallel_poisson {
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
-                size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : (iz*ng[1] + iy)*ng[0] + ix;
+                size_t const jzyx = (iz*ng[1] + iy)*ng[0] + ix;
+                size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : jzyx;
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]), r = std::sqrt(r2);
                 if (sorted) {
-                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[izyx]), float(b[izyx])}; // store
+                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[jzyx]), float(b[izyx])}; // store
                 } else {
-                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[izyx], b[izyx]); // point cloud
+                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[jzyx], b[izyx]); // point cloud
                 }
           }}} // ix iy iz
           if (vec.size() == ng_all) {
@@ -687,7 +690,6 @@ namespace parallel_poisson {
                   auto const & v = vec[izyx];
                   std::printf("%g %g %g %g\n", v[0], v[1], v[2], v[3]); // lines
               } // izyx
-              if (use_g8) warn("FFT data is wrong: data layout of result and input misinterpreted due to use_g8=%d", int(use_g8));
           } // sorted
 
           std::printf("\n# r, rho\n"); // also plot the radial function of rho
