@@ -67,7 +67,12 @@ namespace parallel_poisson {
     class grid8x8x8_t {
     public:
         grid8x8x8_t() { n_local_blocks = 0; nb[0] = 0; nb[1] = 0; nb[2] = 0; } // default constructor
-        grid8x8x8_t(uint32_t const ng[3], int8_t const bc[3], MPI_Comm const comm, int const echo=0) { // constructor
+        grid8x8x8_t(
+              uint32_t const ng[3] // number of grid points (entire grid)
+            , int8_t const bc[3] // boundary condition
+            , MPI_Comm const comm // MPI communicator
+            , int const echo=0 // log-level
+        ) { // constructor
             int32_t const me = mpi_parallel::rank(comm);
             if (echo > 3) std::printf("# rank#%i %s(ng=[%d %d %d], bc=[%d %d %d])\n", me, __func__, ng[0], ng[1], ng[2], bc[0], bc[1], bc[2]);
 
@@ -341,6 +346,20 @@ namespace parallel_poisson {
 
         auto const stat = data_exchange(v, g8, comm, echo);
 
+        // from finite_difference.hxx
+        // case 8: // use 17 points
+        //     c[8] = -1./(411840.*h2);
+        //     c[7] = 16./(315315.*h2);
+        //     c[6] = -2./(3861.*h2);
+        //     c[5] = 112./(32175.*h2);
+        //     c[4] = -7./(396.*h2);
+        //     c[3] = 112./(1485.*h2);
+        //     c[2] = -14./(45.*h2);
+        //     c[1] = 16./(9.*h2);
+        //     c[0] = -1077749./(352800.*h2);
+        // break;
+
+
         // prepare finite-difference coefficients (isotropic)
         //            c_0        c_1         c_2       c_3        c_4      c_5       c_6     c_7     c_8
         // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
@@ -391,7 +410,7 @@ namespace parallel_poisson {
 
 
   template <typename real_t>
-  status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
+  status_t solve(real_t xx[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
                 , real_space::grid_t const & g // grid descriptor
                 , char const method // use mixed precision as preconditioner
@@ -404,24 +423,29 @@ namespace parallel_poisson {
                 ) {
 
     auto const comm = MPI_COMM_WORLD; // green_parallel::comm();
-    // grid8x8x8_t g8(g.grid_points(), g.boundary_conditions(), comm, echo);
+    bool const use_g8 = (mpi_parallel::size(comm) > 1) || (control::get("parallel_poisson.use.g8", 0.) > 0);
+    grid8x8x8_t g8;
+    if (use_g8) g8 = grid8x8x8_t(g.grid_points(), g.boundary_conditions(), comm, echo);
+    int const echo_L = echo >> 3; // verbosity of Lapacian16th
 
     size_t const n_all_grid_points = size_t(g[2])*size_t(g[1])*size_t(g[0]);
-    auto const nall = n_all_grid_points; // = g8.n_local()*size_t(512);
+    auto const nall = use_g8 ? g8.n_local()*size_t(512) : n_all_grid_points;
+    auto const nrem = use_g8 ? g8.n_remote()*size_t(512) : 0;
+    double const h2[] = {1./pow2(g.h[0]), 1./pow2(g.h[1]), 1./pow2(g.h[2])};
 
     status_t ist(0);
 
     restart = ('s' == method) ? 1 : std::max(1, restart);
 
     if (std::is_same<real_t, double>::value) {
-        view2D<float> xb(2, nall, 0.0); // get memory
-        auto const x32 = xb[0], b32 = xb[1];
-        set(b32, nall, b); // convert to float
-        set(x32, nall, x); // convert to float
+        view2D<float> xb(2, nall); // get memory
+        auto const x32=xb[0], b32=xb[1];
+        set(b32, nall, b);  // convert to float
+        set(x32, nall, xx); // convert to float
         if (echo > 5) std::printf("# %s solve in <float> precision first\n", __FILE__);
         ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter, miniter, restart);
         if (echo > 5) std::printf("# %s switch back to <double> precision\n", __FILE__);
-        set(x, nall, x32); // convert to double
+        set(xx, nall, x32); // convert to double
     } // real_t == double
 
     // we use CG + order-16 FD
@@ -429,8 +453,10 @@ namespace parallel_poisson {
     bool constexpr use_precond = false;
 
     // find memory aligned nloc
-    view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
-    auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
+    view2D<real_t> mem(5 + use_precond, nall + nrem, 0.0); // get memory
+    auto const x=mem[0], r=mem[1], p=mem[2], ax=mem[3], ap=mem[4], z=use_precond?mem[5]:r; 
+
+    set(x, nall, xx); // copy input
 
     finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil
 
@@ -461,7 +487,7 @@ namespace parallel_poisson {
 
 
     // |Ax> := A|x>
-    ist = finite_difference::apply(ax, x, g, Laplacian);
+    ist = use_g8 ? Laplace16th(ax, x, g8, h2, comm, echo_L, m1over4pi) : finite_difference::apply(ax, x, g, Laplacian);
     if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
 
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
@@ -501,7 +527,7 @@ namespace parallel_poisson {
 //       !--------------------------------------
 
         // |ap> = A|p>
-        ist = finite_difference::apply(ap, p, g, Laplacian);
+        ist = use_g8 ? Laplace16th(ap, p, g8, h2, comm, echo_L, m1over4pi) : finite_difference::apply(ap, p, g, Laplacian);
         if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
 
         double const pAp = scalar_product(p, ap, nall, comm) * g.dV();
@@ -524,7 +550,7 @@ namespace parallel_poisson {
 
         if (0 == (it % restart)) {
             // |Ax> = A|x> for restart
-            ist = finite_difference::apply(ax, x, g, Laplacian);
+            ist = use_g8 ? Laplace16th(ax, x, g8, h2, comm, echo_L, m1over4pi) : finite_difference::apply(ax, x, g, Laplacian);
             if (ist) error("CG_solve: Laplacian failed with status %i", int(ist))
             // |r> = |b> - A|x> = |b> - |ax>
             set(r, nall, b);
@@ -582,6 +608,8 @@ namespace parallel_poisson {
     auto const inner = scalar_product(x, b, nall, comm) * g.dV();
     if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", __FILE__, inner);
 
+    set(xx, nall, x); // copy output
+
     return (res > threshold);
   } // solve
 
@@ -592,9 +620,16 @@ namespace parallel_poisson {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
+  inline size_t g8_index(uint32_t const nb[3], int const ix, int const iy, int const iz) {
+      uint32_t const i888 = ((iz & 0x7)*8 + (iy & 0x7))*8 + (ix & 0x7);
+      uint64_t const i512 = ((iz >> 3)*nb[1] + (iy >> 3))*nb[0] + (ix >> 3);
+      return (i512 << 9) + i888;
+  } // g8_index
+
   template <typename real_t>
-  status_t test_solver(int const echo=9, int const ng_default=32) {
-      int const ng[] = {ng_default, ng_default, ng_default};
+  status_t test_solver(int const echo=9, uint32_t const nb_default=4) {
+      uint32_t const nb[] = {nb_default, nb_default, nb_default}; // number of blocks for the g8 case
+      int const ng[] = {int(nb[0]*8), int(nb[1]*8), int(nb[2]*8)};
       if (echo > 2) std::printf("\n# %s<%s> ng=[%d %d %d]\n", __func__, (8 == sizeof(real_t))?"double":"float", ng[0], ng[1], ng[2]);
       real_space::grid_t g(ng[0], ng[1], ng[2]); // grid spacing == 1.0
       g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
@@ -602,12 +637,13 @@ namespace parallel_poisson {
       auto const x = xb[0], x_fft = xb[1], b = xb[2];
       double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5; // parameters for two Gaussians, in total close to neutral
       double const cnt[] = {.5*ng[0], .5*ng[1], .5*ng[2]};
+      bool const use_g8 = (control::get("parallel_poisson.use.g8", 0.) > 0);
       { // scope: prepare the charge density (right-hand-side) rho
           double integral{0};
           for (int iz = 0; iz < ng[2]; ++iz) {
           for (int iy = 0; iy < ng[1]; ++iy) {
           for (int ix = 0; ix < ng[0]; ++ix) {
-              size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+              size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : (iz*ng[1] + iy)*ng[0] + ix;
               double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
               double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
               b[izyx] = rho;
@@ -636,7 +672,7 @@ namespace parallel_poisson {
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
-                size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+                size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : (iz*ng[1] + iy)*ng[0] + ix;
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]), r = std::sqrt(r2);
                 if (sorted) {
                     vec[izyx] = {float(r), float(x[izyx]), float(x_fft[izyx]), float(b[izyx])}; // store
@@ -651,10 +687,11 @@ namespace parallel_poisson {
                   auto const & v = vec[izyx];
                   std::printf("%g %g %g %g\n", v[0], v[1], v[2], v[3]); // lines
               } // izyx
+              if (use_g8) warn("FFT data is wrong: data layout of result and input misinterpreted due to use_g8=%d", int(use_g8));
           } // sorted
 
           std::printf("\n# r, rho\n"); // also plot the radial function of rho
-          for (int ir{0}; ir <= 10*ng_default; ++ir) {
+          for (int ir{0}; ir <= 80*nb_default; ++ir) {
               auto const r = 0.1*ir, r2 = r*r;
               std::printf("%g %g\n", r, c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
           } // ir
