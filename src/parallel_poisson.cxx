@@ -46,12 +46,14 @@ namespace parallel_poisson {
   } // norm2
 
   template <typename real_t>
-  double norm1(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL) {
+  double norm1(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL, int const echo=0) {
       double s{0};
       for (size_t i{0}; i < n; ++i) {
           s += v[i];
       } // i
+      auto const norm1_local = s;
       if (MPI_COMM_NULL != comm) mpi_parallel::sum(&s, 1, comm);
+      if (echo > 0) std::printf("# norm1_local= %g, norm1= %g\n", norm1_local, s);
       return s;
   } // norm1
 
@@ -411,7 +413,7 @@ namespace parallel_poisson {
                 , int restart // =4096 // number of iterations before restart, 1:steepest descent
                 ) {
 
-    auto const comm = MPI_COMM_WORLD; // green_parallel::comm();
+    auto const comm = MPI_COMM_WORLD;
     bool const use_g8 = (mpi_parallel::size(comm) > 1) || (control::get("parallel_poisson.use.g8", 1.) > 0);
     grid8x8x8_t g8;
     if (use_g8) g8 = grid8x8x8_t(g.grid_points(), g.boundary_conditions(), comm, echo);
@@ -482,7 +484,7 @@ namespace parallel_poisson {
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
     
     if (g.number_of_boundary_conditions(Periodic_Boundary) == 3) {
-        double const bnorm = norm1(b, nall, comm)/nall * g.dV();
+        double const bnorm = norm1(b, nall, comm) * g.dV();
         if (echo > 8) std::printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", __FILE__, bnorm);
     } // all_boundary_conditions_periodic
 
@@ -531,7 +533,7 @@ namespace parallel_poisson {
 //       ! special treatment of completely periodic case
 //       !============================================================
         if (g.number_of_boundary_conditions(Periodic_Boundary) == 3) {
-            double const xnorm = norm1(x, nall, comm)/n_all_grid_points;
+            real_t const xnorm = norm1(x, nall, comm)/n_all_grid_points;
             // subtract the average potential
             for (size_t i{0}; i < nall; ++i) { x[i] -= xnorm; }
         } // 3 periodic BCs
@@ -657,7 +659,7 @@ namespace parallel_poisson {
           if (0 != stat_fft) warn("fourier_poisson::solve returned status= %i", int(stat_fft));
       } // scope
 
-      if (echo > 7) { // get a radial representation from a point cloud plot
+      if (0 == stat && echo > 7) { // get a radial representation from a point cloud plot
           int constexpr sorted = 1; // 0: cloud plot, 1: lines
           auto const ng_all = size_t(ng[2])*size_t(ng[1])*size_t(ng[0]);
           std::vector<std::array<float,4>> vec(sorted*ng_all);
@@ -728,11 +730,11 @@ namespace parallel_poisson {
         double const h2[] = {1, 1, 1}; // unity grid spacing
         grid8x8x8_t g8(ng, bc, MPI_COMM_WORLD, echo);
         auto const nl = g8.n_local(), nr = g8.n_remote();
-        view3D<real_t> xAx(2, nl + nr + 1, 512, real_t(0));
+        view3D<real_t> xAx(2, std::max(1, int(nl + nr)), 512, real_t(0));
         auto const  x = (real_t (*)[512]) xAx(0,0);
         auto const Ax = (real_t (*)[512]) xAx(1,0);
         for (int i512 = 0; i512 < nl*512; ++i512) { x[0][i512] = 1; }
-        if (echo > 3) std::printf("# %s array prepared: x[%d][512]\n", __func__, nl + nr + 1);
+        if (echo > 3) std::printf("# %s array prepared: x[%d][512]\n", __func__, std::max(1, int(nl + nr)));
 
         stat = Laplace16th(Ax[0], x[0], g8, h2, MPI_COMM_WORLD, echo);
 
