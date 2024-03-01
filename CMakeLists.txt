@@ -8,7 +8,7 @@ project(AngstromCube VERSION 0.9)
 # Options
 option(HAS_MKL          "Using the Intel Math Kernel Library MKL"       ON )
 option(HAS_UNIT_TESTS   "All modules offer self-tests (recommended)"    ON )
-option(HAS_MPI          "Using the Message Passing Interface MPI"       OFF)
+option(HAS_MPI          "Using the Message Passing Interface MPI"       ON )
 option(HAS_DEVEL        "Include experimental features"                 ON )
 option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     OFF)
 option(HAS_RAPIDXML     "Using the 3rd party XML parser RapidXML"       ON )
