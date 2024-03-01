@@ -109,7 +109,7 @@ namespace parallel_poisson {
             } // scope
 
             remote_global_ids.resize(0);
-            std::vector<int64_t> local_global_ids;
+            local_global_ids.resize(0);
 
             if (n_local_blocks > 0) { // scope: setup of star and remote_global_ids, determination of n_remote_blocks
 
@@ -159,8 +159,7 @@ namespace parallel_poisson {
                 if (echo > 7) std::printf("# rank#%i local_global_ids.size=%ld\n", me, local_global_ids.size());
                 if (echo > 7) std::printf("# rank#%i n_local_blocks=%d\n", me, n_local_blocks);
 
-                local_global_ids.resize(n_local_blocks, -1); // WHY DO WE DIE HERE?
-                // local_global_ids = std::vector<int64_t>(n_local_blocks, int64_t(-1)); // WHY DO WE DIE HERE?
+                local_global_ids.resize(n_local_blocks, int64_t(-1));
 
                 if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
 
@@ -306,13 +305,17 @@ namespace parallel_poisson {
 
         } // preferred constructor
 
-        uint32_t n_local()  const { return n_local_blocks; }
+        uint32_t n_local()  const { assert(local_global_ids.size() == n_local_blocks); return n_local_blocks; }
         uint32_t n_remote() const { return remote_global_ids.size(); }
         int32_t const* getStar() const { return (int32_t const*)star.data(); }
+        uint32_t const * grid_blocks() const { return nb; }
+        std::vector<int64_t> const & local_ids() const { return local_global_ids; }
+        std::vector<int64_t> const & remote_ids() const { return remote_global_ids; }
     public:
         green_parallel::RequestList_t requests;
     private:
         std::vector<int64_t> remote_global_ids; // may contain "-1"-entries, could be removed after setup keeping only a uint32_t n_remote_blocks;
+        std::vector<int64_t> local_global_ids;  // may not contain "-1"-entries
         view2D<int32_t> star; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6). Should be backed with GPU memory in the future
         uint32_t nb[3]; // box of blocks
         uint32_t n_local_blocks; // number of blocks owned by this MPI rank
@@ -402,7 +405,7 @@ namespace parallel_poisson {
 
   template <typename real_t>
   status_t solve(real_t xx[] // result to Laplace(x)/(-4*pi) == b
-                , real_t const b[] // right hand side b
+                , real_t const bb[] // right hand side b
                 , real_space::grid_t const & g // grid descriptor
                 , char const method // use mixed precision as preconditioner
                 , int const echo // =0 // log level
@@ -428,10 +431,10 @@ namespace parallel_poisson {
 
     restart = ('s' == method) ? 1 : std::max(1, restart);
 
-    if (std::is_same<real_t, double>::value) {
+    if (std::is_same<real_t,double>::value && (!use_g8)) {
         view2D<float> xb(2, nall); // get memory
         auto const x32=xb[0], b32=xb[1];
-        set(b32, nall, b);  // convert to float
+        set(b32, nall, bb);  // convert to float
         set(x32, nall, xx); // convert to float
         if (echo > 5) std::printf("# %s solve in <float> precision first\n", __FILE__);
         ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter, miniter, restart);
@@ -439,15 +442,27 @@ namespace parallel_poisson {
         set(xx, nall, x32); // convert to double
     } // real_t == double
 
-    // we use CG + order-16 FD
+    // we use CG + order-16 FD Laplace operator
 
     bool constexpr use_precond = false;
 
     // find memory aligned nloc
-    view2D<real_t> mem(5 + use_precond, nall + nrem, 0.0); // get memory
-    auto const x=mem[0], r=mem[1], p=mem[2], ax=mem[3], ap=mem[4], z=use_precond?mem[5]:r; 
+    view2D<real_t> mem(6 + use_precond, nall + nrem, 0.0); // get memory
+    auto const x=mem[0], r=mem[1], p=mem[2], ax=mem[3], ap=mem[4], b=mem[5], z=use_precond?mem[6]:r; 
 
-    set(x, nall, xx); // copy input
+    // copy b-values in
+    if (use_g8) {
+        auto const nb = g8.grid_blocks();
+        auto const local_ids = g8.local_ids();
+        for (int ilb = 0; ilb < g8.n_local(); ++ilb) {
+            uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
+            size_t const jzyx = (ixyz[2]*nb[1] + ixyz[1])*nb[0] + ixyz[0];
+            set(b + ilb*512, 512, bb + jzyx*512); // copy one block
+        } // ilb
+    } else {
+        set(b, nall, bb); // copy input
+    }
+
 
     finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil for the entire grid
 
@@ -599,7 +614,18 @@ namespace parallel_poisson {
     auto const inner = scalar_product(x, b, nall, comm) * g.dV();
     if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", __FILE__, inner);
 
-    set(xx, nall, x); // copy output
+    // copy x-values out
+    if (use_g8) {
+        auto const nb = g8.grid_blocks();
+        auto const local_ids = g8.local_ids();
+        for (int ilb = 0; ilb < g8.n_local(); ++ilb) {
+            uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
+            size_t const jzyx = (ixyz[2]*nb[1] + ixyz[1])*nb[0] + ixyz[0];
+            set(xx + jzyx*512, 512, x + ilb*512); // copy one block
+        } // ilb
+    } else {
+        set(xx, nall, x); // copy output
+    }
 
     return (res > threshold); // returns 0 when converged
   } // solve
@@ -624,7 +650,8 @@ namespace parallel_poisson {
       if (echo > 2) std::printf("\n# %s<%s> ng=[%d %d %d]\n", __func__, (8 == sizeof(real_t))?"double":"float", ng[0], ng[1], ng[2]);
       real_space::grid_t g(ng[0], ng[1], ng[2]); // grid spacing == 1.0
       g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
-      view2D<real_t> xb(4, ng[2]*ng[1]*ng[0], 0.0); // get memory
+      auto const ng_all = size_t(ng[2])*size_t(ng[1])*size_t(ng[0]);
+      view2D<real_t> xb(4, ng_all, 0.0); // get memory
       auto const x = xb[0], x_fft = xb[1], b = xb[2], b_fft = xb[3];
       double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5; // parameters for two Gaussians, in total close to neutral
       double const cnt[] = {.5*ng[0], .5*ng[1], .5*ng[2]};
@@ -651,6 +678,7 @@ namespace parallel_poisson {
       float residual_reached{0};
 
       auto const stat = solve(x, b, g, *method, echo, threshold, &residual_reached, max_it);
+      if (use_g8 && mpi_parallel::size() > 1) mpi_parallel::sum(x, ng_all);
 
       { // scope: create a reference solution by FFT (not MPI parallel)
           auto constexpr pi = constants::pi;

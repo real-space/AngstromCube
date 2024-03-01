@@ -114,6 +114,7 @@ namespace mpi_parallel {
   template <> inline MPI_Datatype get<int>(int t) { return MPI_INT; }
   template <> inline MPI_Datatype get<double>(double t) { return MPI_DOUBLE; }
   template <> inline MPI_Datatype get<size_t>(size_t t) { return MPI_UNSIGNED_LONG; }
+  template <> inline MPI_Datatype get<float>(float t) { return MPI_FLOAT; }
 
   template <typename T>
   inline int allreduce(T *recv, MPI_Op const op=MPI_SUM, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, T const *send=nullptr) {
