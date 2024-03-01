@@ -3,16 +3,16 @@
 #include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <algorithm> // std::swap<T>, ::min, ::max
+#include <algorithm> // std::min, ::max
 #include <cmath> // std::sqrt, ::abs, ::exp
 #include <type_traits> // std::is_same
 
 #include "parallel_poisson.hxx"
 
 #include "real_space.hxx" // ::grid_t
-#include "data_view.hxx" // view2D<T>
-#include "inline_math.hxx" // set, dot_product, pow2
-#include "finite_difference.hxx" // ::stencil_t, ::apply
+#include "data_view.hxx" // view2D<T>, view3D<T>
+#include "inline_math.hxx" // set, dot_product, pow2, add_product
+#include "finite_difference.hxx" // ::stencil_t, ::apply (this dependency will go away)
 #include "constants.hxx" // ::pi
 #include "boundary_condition.hxx" // Periodic_Boundary
 #include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD, MPI_COMM_NULL, ::sum, ::rank, ::size, ::min, ::barrier
@@ -30,8 +30,9 @@
 #endif // NO_UNIT_TESTS
 
 namespace parallel_poisson {
-  // solve the Poisson equation iteratively using the conjugate gradients method
-  
+  // solve the Poisson equation iteratively using the conjugate gradients method,
+  //   16th-order finite differences and MPI data exchange
+
   double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
 
   template <typename real_t>
@@ -610,11 +611,11 @@ namespace parallel_poisson {
 
     set(xx, nall, x); // copy output
 
-    return (res > threshold);
+    return (res > threshold); // returns 0 when converged
   } // solve
 
 #ifdef    NO_UNIT_TESTS
-  template // explicit template instantiation for double
+  template // explicit template instantiation for double (and float implicitly)
   status_t solve(double*, double const*, real_space::grid_t const &, char, int, float, float*, int, int, int);
 
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

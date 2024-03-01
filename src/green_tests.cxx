@@ -1,4 +1,5 @@
 // This file is part of AngstromCube under MIT License
+
 /*
  *    Green function code, unit tests
  *    for the real-space grid based single-particle Hamiltonians
@@ -61,7 +62,7 @@ namespace green_tests {
   } // add_tests
 
   status_t all_tests(int const echo) {
-      warn("Please use green_tests::add_tests to augment tests in main.cxx or green.cxx by CUDA modules", 0);
+      warn("Please use green_tests::add_tests to augment tests in a43_main.cxx or green_main.cxx by CUDA modules", 0);
       return 0;
   } // all_tests
 
