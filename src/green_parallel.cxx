@@ -113,6 +113,21 @@ namespace green_parallel {
                 assert(1 == local_check[iall] && "not all covered");
             } // iall
             local_check.resize(0);
+            
+            if (std::is_same<rank_int_t,uint16_t>()) {
+                std::vector<rank_int_t> owner_check(nall, 0);
+                MPI_Allreduce(owner_rank, owner_check.data(), nall, MPI_UINT16, MPI_MAX, comm);
+                if (stat) warn("MPI_Allmax(owner_rank) failed with status= %d", int(stat));
+                for (size_t iall = 0; iall < nall; ++iall) {
+                    assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MAX");
+                } // iall
+                MPI_Allreduce(owner_rank, owner_check.data(), nall, MPI_UINT16, MPI_MIN, comm);
+                for (size_t iall = 0; iall < nall; ++iall) {
+                    assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MIN");
+                } // iall
+            } else {
+                warn("cannot check owner_rank, needs rank_int_t=uint16_t but sizeof(rank_int_t)=%ld", sizeof(rank_int_t));
+            }
         } // debug
 
         // get a global list of which local index is where
@@ -249,7 +264,7 @@ namespace green_parallel {
       status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
 
-      if (echo > 7) std::printf("# rank #%i copied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
+      if (echo > 7) std::printf("# rank#%i copied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
                                         me, stats[0]*.001, stats[1]*.001, stats[2]*.001);
       assert(stats[0] + stats[1] + stats[2] == nreq);
 
@@ -345,7 +360,7 @@ namespace green_parallel {
           for (int col = 0; col < ncols; ++col) mat_inp[col*count] = 0.5 + me; // ear-mark with owner rank
           stat += green_parallel::exchange(mat_out.data(), mat_inp.data(), rlD, count, echo);
           for (int row = 0; row < nrows; ++row) { nerr += (mat_out[row*count] != (0.5 + owner_rank[requests[row]])); }
-          if (echo > 0) std::printf("# exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
+          if (echo > 0) std::printf("# rank#%i exchange Noco= %d status= %d errors= %d\n\n", me, Noco, int(stat), nerr);
       } // Noco
       return stat;
   } // test_exchanges

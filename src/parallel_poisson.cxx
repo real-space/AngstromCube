@@ -379,6 +379,8 @@ namespace parallel_poisson {
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset
             auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
+            if (echo > 5) std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i %i %i %i %i}\n",
+                                                          ilb, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5]);
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over block elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
@@ -424,7 +426,7 @@ namespace parallel_poisson {
                 ) {
 
     auto const comm = MPI_COMM_WORLD; // green_parallel::comm();
-    bool const use_g8 = (mpi_parallel::size(comm) > 1) || (control::get("parallel_poisson.use.g8", 0.) > 0);
+    bool const use_g8 = (mpi_parallel::size(comm) > 1) || (control::get("parallel_poisson.use.g8", 1.) > 0);
     grid8x8x8_t g8;
     if (use_g8) g8 = grid8x8x8_t(g.grid_points(), g.boundary_conditions(), comm, echo);
     int const echo_L = echo >> 3; // verbosity of Lapacian16th
@@ -638,7 +640,7 @@ namespace parallel_poisson {
       auto const x = xb[0], x_fft = xb[1], b = xb[2], b_fft = xb[3];
       double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5; // parameters for two Gaussians, in total close to neutral
       double const cnt[] = {.5*ng[0], .5*ng[1], .5*ng[2]};
-      bool const use_g8 = (control::get("parallel_poisson.use.g8", 0.) > 0);
+      bool const use_g8 = (control::get("parallel_poisson.use.g8", mpi_parallel::size() - 1.) > 0);
       { // scope: prepare the charge density (right-hand-side) rho
           double integral{0};
           for (int iz = 0; iz < ng[2]; ++iz) {
@@ -744,7 +746,7 @@ namespace parallel_poisson {
         auto const  x = (real_t (*)[512]) xAx(0,0);
         auto const Ax = (real_t (*)[512]) xAx(1,0);
         for (int i512 = 0; i512 < nl*512; ++i512) { x[0][i512] = 1; }
-        if (echo > 3) std::printf("# %s array prepared\n", __func__);
+        if (echo > 3) std::printf("# %s array prepared: x[%d][512]\n", __func__, nl + nr + 1);
 
         stat = Laplace16th(Ax[0], x[0], g8, h2, MPI_COMM_WORLD, echo);
 
@@ -773,10 +775,11 @@ namespace parallel_poisson {
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_grid8(echo);
-      stat += test_solver<double>(echo); // instantiation for both, double and float
-      stat += test_solver<float>(echo);  // compilation and convergence tests
-      stat += test_Laplace16th_boundary_conditions(echo);
+      int n{0}; auto const t = int(control::get("parallel_poisson.select.test", -1.)); // -1:all
+      if (t & (1 << n++)) stat += test_grid8(echo);
+      if (t & (1 << n++)) stat += test_solver<double>(echo); // instantiation for both, double and float
+      if (t & (1 << n++)) stat += test_solver<float>(echo);  // compilation and convergence tests
+      if (t & (1 << n++)) stat += test_Laplace16th_boundary_conditions(echo);
       return stat;
   } // all_tests
 
