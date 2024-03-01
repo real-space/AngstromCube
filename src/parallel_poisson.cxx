@@ -164,7 +164,7 @@ namespace parallel_poisson {
 
                 uint32_t ilb{0}; // index of the local block
                 for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
-                for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) {
+                for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) { // 1st domain loop
                 for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
                     // translate domain indices {ix,iy,iz} into box indices
                     int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
@@ -196,13 +196,12 @@ namespace parallel_poisson {
                 uint32_t jrb{0}; // index for border-only blocks
                 size_t st[4] = {0, 0, 0}; // statistics for display
                 for (int32_t iz = 0; iz < ndom[2]; ++iz) {
-                for (int32_t iy = 0; iy < ndom[1]; ++iy) {
+                for (int32_t iy = 0; iy < ndom[1]; ++iy) { // 2nd domain loop
                 for (int32_t ix = 0; ix < ndom[0]; ++ix) {
                     auto const dom = domain(iz,iy,ix);
                     if (BORDER == dom) { // is border-only
+                        domain_index(iz,iy,ix) = n_local_blocks + jrb; // domain index for border elements
                         ++jrb; // count remote elements
-                        domain_index(iz,iy,ix) = ilb; // domain index for border elements
-                        ++ilb; // continue counter for all elements
                     } // border
                     ++st[dom & 0x3]; // dom should be in [0, 3] anyway but better safe than sorry
                 }}} // iz iy ix
@@ -218,7 +217,7 @@ namespace parallel_poisson {
                 size_t vacuum_assigned{0};
                 // loop over domain again (3rd time), with halos
                 for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
-                for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) {
+                for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) { // 3rd domain loop
                 for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
                     // translate domain indices {ix,iy,iz} into box indices
                     int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
@@ -233,24 +232,24 @@ namespace parallel_poisson {
                                 jxyz[d] += (i01*2 - 1); // add or subtract 1
                                 jdom[d] += (i01*2 - 1); // add or subtract 1
                                 // if (echo > 7) std::printf("# rank#%i %d %d %d %c%c1\n", me, ixyz[0], ixyz[1], ixyz[2], 'x'+d, i01?'+':'-');
-                                assert(domain(jdom[2],jdom[1],jdom[0]) & BORDER); // was set in 1st domain loop
+                                assert( BORDER & domain(jdom[2],jdom[1],jdom[0]) ); // consistent with 1st domain loop
+                                auto const klb = domain_index(jdom[2],jdom[1],jdom[0]);
+                                assert(klb >= 0);
+                                star(id0,2*d + i01) = klb;
                                 auto const bc_shift = int(jxyz[d] < 0) - int(jxyz[d] >= int32_t(nb[d]));
                                 if ((0 != bc_shift) && (Isolated_Boundary == bc[d])) {
                                     // id = -1; // not existing
                                     assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be border-only
-                                    domain(jdom[2],jdom[1],jdom[0]) = VACUUM; // correct the mask
+                                    domain(jdom[2],jdom[1],jdom[0]) = VACUUM; // mark in the mask
                                     ++vacuum_assigned;
                                 } else {
-                                    jxyz[d] += bc_shift*int32_t(nb[d]); // fold back into [0, nb)
-                                    for (int d = 0; d < 3; ++d) { assert(jxyz[d] >= 0); assert(jxyz[d] < nb[d]); }
-                                    auto const gid = global_coordinates::get(jxyz);
-                                    auto const klb = domain_index(jdom[2],jdom[1],jdom[0]);
-                                    star(id0,2*d + i01) = klb;
-                                    assert(-1 != klb);
                                     if (klb >= n_local_blocks) {
                                         assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be a border-only element
                                         auto const irb = klb - n_local_blocks;
                                         assert(irb >= 0);
+                                        jxyz[d] += bc_shift*int32_t(nb[d]); // fold back into [0, nb)
+                                        for (int d = 0; d < 3; ++d) { assert(jxyz[d] >= 0); assert(jxyz[d] < nb[d]); }
+                                        auto const gid = global_coordinates::get(jxyz);
                                         assert((gid == remote_global_ids[irb]) || (-1 == remote_global_ids[irb])); // either unassigned(-1) or the same value
                                         remote_global_ids[irb] = gid;
                                     } // add to remote list
@@ -261,6 +260,7 @@ namespace parallel_poisson {
                                         star(id0,0), star(id0,1), star(id0,2), star(id0,3), star(id0,4), star(id0,5));
                     } // is inside
                 }}} // iz iy ix
+
 
                 if (echo > 8) std::printf("# rank#%i star list generated\n", me); std::fflush(stdout);
 
@@ -346,20 +346,6 @@ namespace parallel_poisson {
         // to reduce the latencies, we could start to apply the stencil to inner cells that do not depend on remote data
 
         auto const stat = data_exchange(v, g8, comm, echo);
-
-        // from finite_difference.hxx
-        // case 8: // use 17 points
-        //     c[8] = -1./(411840.*h2);
-        //     c[7] = 16./(315315.*h2);
-        //     c[6] = -2./(3861.*h2);
-        //     c[5] = 112./(32175.*h2);
-        //     c[4] = -7./(396.*h2);
-        //     c[3] = 112./(1485.*h2);
-        //     c[2] = -14./(45.*h2);
-        //     c[1] = 16./(9.*h2);
-        //     c[0] = -1077749./(352800.*h2);
-        // break;
-
 
         // prepare finite-difference coefficients (isotropic)
         //            c_0        c_1         c_2       c_3        c_4      c_5       c_6     c_7     c_8
