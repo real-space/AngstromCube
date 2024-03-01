@@ -202,6 +202,7 @@ namespace real_space {
       inline int8_t boundary_condition(int  const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
       inline int8_t boundary_condition(char const c) const { return boundary_condition((c|32) - 120); }
       inline int8_t const * boundary_conditions() const { return bc; }
+      inline uint32_t const * grid_points() const { return dims; }
       inline int number_of_boundary_conditions(int const bc_ref=Periodic_Boundary) const { 
                     return (bc_ref == bc[0]) + (bc_ref == bc[1]) + (bc_ref == bc[2]); };
   }; // class grid_t

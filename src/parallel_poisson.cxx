@@ -1,21 +1,21 @@
 // This file is part of AngstromCube under MIT License
 
-#include <cstdio> // std::printf, ::snprintf
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <algorithm> // std::swap<T>
-#include <cmath> // std::sqrt
+#include <algorithm> // std::min, ::max
+#include <cmath> // std::sqrt, ::abs, ::exp
 #include <type_traits> // std::is_same
 
 #include "parallel_poisson.hxx"
 
 #include "real_space.hxx" // ::grid_t
-#include "data_view.hxx" // view2D<T>
-#include "inline_math.hxx" // set, dot_product, pow2
-#include "finite_difference.hxx" // ::stencil_t, ::apply
+#include "data_view.hxx" // view2D<T>, view3D<T>
+#include "inline_math.hxx" // set, dot_product, pow2, add_product
+#include "finite_difference.hxx" // ::stencil_t, ::apply (this dependency will go away)
 #include "constants.hxx" // ::pi
 #include "boundary_condition.hxx" // Periodic_Boundary
-#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD, MPI_COMM_NULL
+#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD, MPI_COMM_NULL, ::sum, ::rank, ::size, ::min, ::barrier
 #include "load_balancer.hxx" // ::get, ::no_owner
 #include "global_coordinates.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
@@ -30,8 +30,9 @@
 #endif // NO_UNIT_TESTS
 
 namespace parallel_poisson {
-  // solve the Poisson equation iteratively using the conjugate gradients method
-  
+  // solve the Poisson equation iteratively using the conjugate gradients method,
+  //   16th-order finite differences and MPI data exchange
+
   double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
 
   template <typename real_t>
@@ -67,7 +68,12 @@ namespace parallel_poisson {
     class grid8x8x8_t {
     public:
         grid8x8x8_t() { n_local_blocks = 0; nb[0] = 0; nb[1] = 0; nb[2] = 0; } // default constructor
-        grid8x8x8_t(uint32_t const ng[3], int8_t const bc[3], MPI_Comm const comm, int const echo=0) { // constructor
+        grid8x8x8_t(
+              uint32_t const ng[3] // number of grid points (entire grid)
+            , int8_t const bc[3] // boundary condition
+            , MPI_Comm const comm // MPI communicator
+            , int const echo=0 // log-level
+        ) { // constructor
             int32_t const me = mpi_parallel::rank(comm);
             if (echo > 3) std::printf("# rank#%i %s(ng=[%d %d %d], bc=[%d %d %d])\n", me, __func__, ng[0], ng[1], ng[2], bc[0], bc[1], bc[2]);
 
@@ -148,7 +154,7 @@ namespace parallel_poisson {
                 view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1);
 
                 if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
-                if (echo > 7) std::printf("# rank#%i local_global_ids.size=%lld\n", me, local_global_ids.size());
+                if (echo > 7) std::printf("# rank#%i local_global_ids.size=%ld\n", me, local_global_ids.size());
                 if (echo > 7) std::printf("# rank#%i n_local_blocks=%d\n", me, n_local_blocks);
 
                 local_global_ids.resize(n_local_blocks, -1); // WHY DO WE DIE HERE?
@@ -308,6 +314,7 @@ namespace parallel_poisson {
         view2D<int32_t> star; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6). Should be backed with GPU memory in the future
         uint32_t nb[3]; // box of blocks
         uint32_t n_local_blocks; // number of blocks owned by this MPI rank
+        // std::vector<bool> inner_cell; // mark those of the n_local cells, i.e. cells than can start to execute a stencil without waiting for remote data
     }; // grid8x8x8_t
 
     template <typename real_t>
@@ -336,7 +343,23 @@ namespace parallel_poisson {
     ) {
         if (echo > 9) std::printf("\n# %s start\n", __func__);
 
+        // to reduce the latencies, we could start to apply the stencil to inner cells that do not depend on remote data
+
         auto const stat = data_exchange(v, g8, comm, echo);
+
+        // from finite_difference.hxx
+        // case 8: // use 17 points
+        //     c[8] = -1./(411840.*h2);
+        //     c[7] = 16./(315315.*h2);
+        //     c[6] = -2./(3861.*h2);
+        //     c[5] = 112./(32175.*h2);
+        //     c[4] = -7./(396.*h2);
+        //     c[3] = 112./(1485.*h2);
+        //     c[2] = -14./(45.*h2);
+        //     c[1] = 16./(9.*h2);
+        //     c[0] = -1077749./(352800.*h2);
+        // break;
+
 
         // prepare finite-difference coefficients (isotropic)
         //            c_0        c_1         c_2       c_3        c_4      c_5       c_6     c_7     c_8
@@ -355,7 +378,7 @@ namespace parallel_poisson {
         auto const star = (int32_t const(*)[6])g8.getStar();
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset
-            auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb
+            auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over block elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
@@ -365,7 +388,7 @@ namespace parallel_poisson {
                 double_t ax{av}, ay{av}, az{av}; // accumulators
                 // if (echo > 9) std::printf("# Av[%i][%3.3o] init as %g\n", ilb, izyx, av);
                 for (int ifd = 1; ifd <= 8; ++ifd) {
-                    // as long as ifd is small enough, we take from the central block of x, otherwise from neighbors
+                    // as long as ifd is small enough, we take from the central block of v, otherwise from neighbor blocks
                     auto const ixm = (ix >=    ifd) ? i0 - ifd : (nn[0] << 9) + izyx + 8 - ifd;
                     auto const ixp = (ix + ifd < 8) ? i0 + ifd : (nn[1] << 9) + izyx - 8 + ifd;
                     ax += cFD[ifd]*(double_t(v[ixm]) + double_t(v[ixp]));
@@ -388,7 +411,7 @@ namespace parallel_poisson {
 
 
   template <typename real_t>
-  status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
+  status_t solve(real_t xx[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
                 , real_space::grid_t const & g // grid descriptor
                 , char const method // use mixed precision as preconditioner
@@ -401,28 +424,29 @@ namespace parallel_poisson {
                 ) {
 
     auto const comm = MPI_COMM_WORLD; // green_parallel::comm();
-    // uint32_t const ng[] = {uint(g[0]), uint(g[1]), uint(g[2])};
-    // grid8x8x8_t g8(ng, g.boundary_conditions(), comm, echo);
+    bool const use_g8 = (mpi_parallel::size(comm) > 1) || (control::get("parallel_poisson.use.g8", 0.) > 0);
+    grid8x8x8_t g8;
+    if (use_g8) g8 = grid8x8x8_t(g.grid_points(), g.boundary_conditions(), comm, echo);
+    int const echo_L = echo >> 3; // verbosity of Lapacian16th
 
     size_t const n_all_grid_points = size_t(g[2])*size_t(g[1])*size_t(g[0]);
-    auto const nall = n_all_grid_points;
-
-    // when parallel, we also need to define nloc, the number of grid elements in this local process
-    // also, we want to group the grid into cubes of 8x8x8 grid points
+    auto const nall = use_g8 ? g8.n_local()*size_t(512) : n_all_grid_points;
+    auto const nrem = use_g8 ? g8.n_remote()*size_t(512) : 0;
+    double const h2[] = {1./pow2(g.h[0]), 1./pow2(g.h[1]), 1./pow2(g.h[2])};
 
     status_t ist(0);
 
     restart = ('s' == method) ? 1 : std::max(1, restart);
 
     if (std::is_same<real_t, double>::value) {
-        view2D<float> xb(2, nall, 0.0); // get memory
-        auto const x32 = xb[0], b32 = xb[1];
-        set(b32, nall, b); // convert to float
-        set(x32, nall, x); // convert to float
+        view2D<float> xb(2, nall); // get memory
+        auto const x32=xb[0], b32=xb[1];
+        set(b32, nall, b);  // convert to float
+        set(x32, nall, xx); // convert to float
         if (echo > 5) std::printf("# %s solve in <float> precision first\n", __FILE__);
         ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter, miniter, restart);
         if (echo > 5) std::printf("# %s switch back to <double> precision\n", __FILE__);
-        set(x, nall, x32); // convert to double
+        set(xx, nall, x32); // convert to double
     } // real_t == double
 
     // we use CG + order-16 FD
@@ -430,10 +454,12 @@ namespace parallel_poisson {
     bool constexpr use_precond = false;
 
     // find memory aligned nloc
-    view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
-    auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
+    view2D<real_t> mem(5 + use_precond, nall + nrem, 0.0); // get memory
+    auto const x=mem[0], r=mem[1], p=mem[2], ax=mem[3], ap=mem[4], z=use_precond?mem[5]:r; 
 
-    finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil
+    set(x, nall, xx); // copy input
+
+    finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil for the entire grid
 
     double const cell_volume = n_all_grid_points * g.dV();
     double const threshold2 = cell_volume * pow2(threshold);
@@ -462,7 +488,7 @@ namespace parallel_poisson {
 
 
     // |Ax> := A|x>
-    ist = finite_difference::apply(ax, x, g, Laplacian);
+    ist = use_g8 ? Laplace16th(ax, x, g8, h2, comm, echo_L, m1over4pi) : finite_difference::apply(ax, x, g, Laplacian);
     if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
 
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
@@ -502,7 +528,7 @@ namespace parallel_poisson {
 //       !--------------------------------------
 
         // |ap> = A|p>
-        ist = finite_difference::apply(ap, p, g, Laplacian);
+        ist = use_g8 ? Laplace16th(ap, p, g8, h2, comm, echo_L, m1over4pi) : finite_difference::apply(ap, p, g, Laplacian);
         if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
 
         double const pAp = scalar_product(p, ap, nall, comm) * g.dV();
@@ -525,10 +551,11 @@ namespace parallel_poisson {
 
         if (0 == (it % restart)) {
             // |Ax> = A|x> for restart
-            ist = finite_difference::apply(ax, x, g, Laplacian);
+            ist = use_g8 ? Laplace16th(ax, x, g8, h2, comm, echo_L, m1over4pi) : finite_difference::apply(ax, x, g, Laplacian);
             if (ist) error("CG_solve: Laplacian failed with status %i", int(ist))
             // |r> = |b> - A|x> = |b> - |ax>
-            set(r, nall, b); add_product(r, nall, ax, real_t(-1));
+            set(r, nall, b);
+            add_product(r, nall, ax, real_t(-1));
         } else {
             // |r> = |r> - alpha |ap>
             add_product(r, nall, ap, real_t(-alpha));
@@ -582,35 +609,47 @@ namespace parallel_poisson {
     auto const inner = scalar_product(x, b, nall, comm) * g.dV();
     if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", __FILE__, inner);
 
-    return (res > threshold);
+    set(xx, nall, x); // copy output
+
+    return (res > threshold); // returns 0 when converged
   } // solve
 
 #ifdef    NO_UNIT_TESTS
-  template // explicit template instantiation for double
+  template // explicit template instantiation for double (and float implicitly)
   status_t solve(double*, double const*, real_space::grid_t const &, char, int, float, float*, int, int, int);
 
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
+  inline size_t g8_index(uint32_t const nb[3], int const ix, int const iy, int const iz) {
+      uint32_t const i888 = ((iz & 0x7)*8 + (iy & 0x7))*8 + (ix & 0x7);
+      uint64_t const i512 = ((iz >> 3)*nb[1] + (iy >> 3))*nb[0] + (ix >> 3);
+      return (i512 << 9) + i888;
+  } // g8_index (non-parallel)
+
   template <typename real_t>
-  status_t test_solver(int const echo=9, int const ng_default=32) {
-      int const ng[] = {ng_default, ng_default, ng_default};
+  status_t test_solver(int const echo=9, uint32_t const nb_default=4) {
+      uint32_t const nb[] = {nb_default, nb_default, nb_default}; // number of blocks for the g8 case
+      int const ng[] = {int(nb[0]*8), int(nb[1]*8), int(nb[2]*8)};
       if (echo > 2) std::printf("\n# %s<%s> ng=[%d %d %d]\n", __func__, (8 == sizeof(real_t))?"double":"float", ng[0], ng[1], ng[2]);
       real_space::grid_t g(ng[0], ng[1], ng[2]); // grid spacing == 1.0
       g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
-      view2D<real_t> xb(3, ng[2]*ng[1]*ng[0], 0.0); // get memory
-      auto const x = xb[0], x_fft = xb[1], b = xb[2];
+      view2D<real_t> xb(4, ng[2]*ng[1]*ng[0], 0.0); // get memory
+      auto const x = xb[0], x_fft = xb[1], b = xb[2], b_fft = xb[3];
       double constexpr c1 = 1, a1=.125, c2 = -8 + 1.284139e-7, a2=.5; // parameters for two Gaussians, in total close to neutral
       double const cnt[] = {.5*ng[0], .5*ng[1], .5*ng[2]};
+      bool const use_g8 = (control::get("parallel_poisson.use.g8", 0.) > 0);
       { // scope: prepare the charge density (right-hand-side) rho
           double integral{0};
           for (int iz = 0; iz < ng[2]; ++iz) {
           for (int iy = 0; iy < ng[1]; ++iy) {
           for (int ix = 0; ix < ng[0]; ++ix) {
-              size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+              size_t const jzyx = (iz*ng[1] + iy)*ng[0] + ix;
+              size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : jzyx;
               double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
               double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
               b[izyx] = rho;
+              b_fft[jzyx] = rho;
               integral += rho;
           }}} // ix iy iz
           if (echo > 3) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
@@ -620,12 +659,14 @@ namespace parallel_poisson {
       auto const method = control::get("parallel_poisson.test.method", "mix");
       int  const max_it = control::get("parallel_poisson.test.maxiter", 999.);
       float residual_reached{0};
+
       auto const stat = solve(x, b, g, *method, echo, threshold, &residual_reached, max_it);
 
       { // scope: create a reference solution by FFT (not MPI parallel)
           auto constexpr pi = constants::pi;
           double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};
-          fourier_poisson::solve(x_fft, b, ng, mat);
+          auto const stat_fft = fourier_poisson::solve(x_fft, b_fft, ng, mat);
+          if (0 != stat_fft) warn("fourier_poisson::solve returned status= %i", int(stat_fft));
       } // scope
 
       if (echo > 7) { // get a radial representation from a point cloud plot
@@ -636,12 +677,13 @@ namespace parallel_poisson {
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
-                size_t const izyx = (iz*ng[1] + iy)*ng[0] + ix;
+                size_t const jzyx = (iz*ng[1] + iy)*ng[0] + ix;
+                size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : jzyx;
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]), r = std::sqrt(r2);
                 if (sorted) {
-                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[izyx]), float(b[izyx])}; // store
+                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[jzyx]), float(b[izyx])}; // store
                 } else {
-                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[izyx], b[izyx]); // point cloud
+                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[jzyx], b[izyx]); // point cloud
                 }
           }}} // ix iy iz
           if (vec.size() == ng_all) {
@@ -654,7 +696,7 @@ namespace parallel_poisson {
           } // sorted
 
           std::printf("\n# r, rho\n"); // also plot the radial function of rho
-          for (int ir{0}; ir <= 10*ng_default; ++ir) {
+          for (int ir{0}; ir <= 80*nb_default; ++ir) {
               auto const r = 0.1*ir, r2 = r*r;
               std::printf("%g %g\n", r, c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
           } // ir
@@ -697,11 +739,11 @@ namespace parallel_poisson {
         uint32_t const ng[] = {2*8, 2*8, 2*8};
         double const h2[] = {1, 1, 1}; // unity grid spacing
         grid8x8x8_t g8(ng, bc, MPI_COMM_WORLD, echo);
-        auto const n = g8.n_local() + g8.n_remote();
-        view3D<real_t> xAx(2, n + 1, 512, real_t(0));
+        auto const nl = g8.n_local(), nr = g8.n_remote();
+        view3D<real_t> xAx(2, nl + nr + 1, 512, real_t(0));
         auto const  x = (real_t (*)[512]) xAx(0,0);
         auto const Ax = (real_t (*)[512]) xAx(1,0);
-        for (int i512 = 0; i512 < n*512; ++i512) { x[0][i512] = 1; }
+        for (int i512 = 0; i512 < nl*512; ++i512) { x[0][i512] = 1; }
         if (echo > 3) std::printf("# %s array prepared\n", __func__);
 
         stat = Laplace16th(Ax[0], x[0], g8, h2, MPI_COMM_WORLD, echo);

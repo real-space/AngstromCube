@@ -40,7 +40,7 @@ namespace load_balancer {
 
 // #define   LOAD_BALANCER_DRAW_SVG
 #ifdef    LOAD_BALANCER_DRAW_SVG
-  static std::vector<double> draw2D;
+  static std::vector<double> draw2D; // global field
 #endif // LOAD_BALANCER_DRAW_SVG
 
   int constexpr X=0, Y=1, Z=2, W=3;
@@ -206,8 +206,8 @@ namespace load_balancer {
                               draw2D[s + 1] = vec[Y];
                               draw2D[s + 2] = pd/den;
                               draw2D[s + 3] = tree_level;
-                          }
-                      }
+                          } // s > 0
+                      } // rank == rank_offset
                   } // echo
 #endif // LOAD_BALANCER_DRAW_SVG
               } // scope
@@ -444,9 +444,9 @@ namespace load_balancer {
                 std::printf("  <!-- I am plane #%i, level=%d, my ancestors are", ip, tree_level);
                 for (int jp = 0; jp < tree_level; ++jp) {
                     std::printf(" %i", ancestor[jp]);
-                } // 
+                } // jp 
                 std::printf(" -->\n");
-              }
+              } // 0
 
               double points[99][2];
               int npoints{0}; int ipoint[99];
@@ -613,7 +613,7 @@ namespace load_balancer {
   //  take    2/3         2/3         1/3         1/2         1/2
   //  take    1/2         1/2
 
-  double random_between_0_and_1() {
+  inline double random_between_0_and_1() {
       double constexpr rand_denom = 1./RAND_MAX;
       return rand()*rand_denom;
   } // random_between_0_and_1

@@ -1105,7 +1105,7 @@ namespace green_dyadic {
     )
         // Other than SHOprj, this version of Spherical Harmonic Oscillator projects onto the Green functions right index
     {
-        SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+        // SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
         assert(1 == Noco || 2 == Noco);
 
         if (echo > 0) std::printf("# %s for %d atoms, %d atom images\n", __func__, nAtoms, nAtomImages);

@@ -15,6 +15,7 @@
 #include "display_units.h" // eV, _eV
 #include "print_tools.hxx" // printf_vector
 #include "recorded_warnings.hxx" // warn, error
+#include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms, ::kpoint_t
 
 #ifndef NO_UNIT_TESTS
 //  // additional includes needed by test_eigensolve in particle_in_box.hxx
@@ -22,7 +23,6 @@
 //  #include <complex> // std::complex
 //  #include "complex_tools.hxx" // complex_name
     #include "simple_math.hxx" // ::random
-    #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms, ::kpoint_t
 #endif
 
 namespace davidson_solver {

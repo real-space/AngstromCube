@@ -196,8 +196,8 @@ namespace self_consistency {
 
       std::vector<float> ionization(na, 0.f);
       { // scope: ionization between first and last atom
-#ifdef    DEVEL
           auto const ion = control::get("self_consistency.test.ion", 0.0);
+#ifdef    DEVEL
           if (0 != ion && na > 0) {
               if (echo > 2) std::printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
               ionization[na - 1] = -ionization[0];
@@ -208,7 +208,7 @@ namespace self_consistency {
               } // echo
           } // na
 #else  // DEVEL
-        error("need to activate ionizations with -D DEVEL, requested ion= %g electrons", ion);
+        if (0 != ion) error("need to activate ionizations with -D DEVEL, requested ion= %g electrons", ion);
 #endif // DEVEL
       } // ion
 

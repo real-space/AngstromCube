@@ -8,7 +8,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "boundary_condition.hxx" // *_Boundary
 #include "recorded_warnings.hxx" // warn
-#include "inline_math.hxx" // intpow
+#include "inline_math.hxx" // intpow, pow2
 
 #include "status.hxx" // status_t
 
@@ -21,7 +21,7 @@ namespace finite_difference {
             int const nn=1, // returns nn on success
             double const grid_spacing=1,
             char const direction='?') {
-    double const h2 = grid_spacing*grid_spacing;
+    double const h2 = pow2(grid_spacing);
     int constexpr nnMaxImplemented = 13;
     switch (std::min(nn, nnMaxImplemented)) {
         // regular cases first

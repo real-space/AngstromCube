@@ -11,7 +11,7 @@
 
 #include "real_space.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
-#include "inline_math.hxx" // set, dot_product, pow2
+#include "inline_math.hxx" // set, dot_product, pow2, add_product
 #include "finite_difference.hxx" // ::stencil_t, ::apply
 #include "constants.hxx" // ::pi
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D, ::analyze_grid_sizes
@@ -29,7 +29,8 @@
 #endif
 
 namespace iterative_poisson {
-  // solve the Poisson equation iteratively using the conjugate gradients method
+  // solve the Poisson equation iteratively using the conjugate gradients method + finite difference
+  // or using a multi grid approach, all serial implementation
   
   double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
 
