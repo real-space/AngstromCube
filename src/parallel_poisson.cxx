@@ -654,7 +654,7 @@ namespace parallel_poisson {
 
       grid8x8x8_t g8(g, MPI_COMM_WORLD, echo);
 
-      view3D<real_t> xb_local(2, g8.n_local(), 512, real_t(0)); // create parallelized memory load
+      view3D<real_t> xb_local(2, std::max(g8.n_local(), 1u), 512, real_t(0)); // create parallelized memory load
       { // scope: copy in
           auto const local_ids = g8.local_ids();
           for (int ilb = 0; ilb < g8.n_local(); ++ilb) {
