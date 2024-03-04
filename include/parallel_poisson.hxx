@@ -10,10 +10,10 @@
 
 namespace parallel_poisson {
 
-    class grid8x8x8_t {
+    class parallel_grid_t {
     public:
-        grid8x8x8_t() { set(nb_, 3, 0u); set(bc_, 3, int8_t(0)); nperiodic_ = 0; comm_ = MPI_COMM_NULL; set(h2_, 3, 1.); dVol_ = 1; } // default constructor
-        grid8x8x8_t(
+        parallel_grid_t() { set(nb_, 3, 0u); set(bc_, 3, int8_t(0)); nperiodic_ = 0; comm_ = MPI_COMM_NULL; set(h2_, 3, 1.); dVol_ = 1; } // default constructor
+        parallel_grid_t(
               real_space::grid_t const & g
             , MPI_Comm const comm // MPI communicator
             , int const echo=0 // log-level
@@ -42,13 +42,13 @@ namespace parallel_poisson {
         bool all_periodic_boundary_conditions() const { return 3 == nperiodic_; }
         MPI_Comm get_comm() const { return comm_; }
         double dV() const { return dVol_; }
-    }; // class grid8x8x8_t
+    }; // class parallel_grid_t
 
     template <typename real_t>
     status_t solve(
           real_t x[] // result to Laplace(x)/(-4*pi) == b, only rank-local blocks, data layout x[][8*8*8]
         , real_t const b[] // right hand side b          , only rank-local blocks, data layout x[][8*8*8]
-        , grid8x8x8_t const & g8 // parallel grid descriptor
+        , parallel_grid_t const & g8 // parallel grid descriptor
         , char const method='c' // solver method c:conjugate-gradient, s:steepest-descent
         , int const echo=0 // log level
         , float const threshold=3e-8 // convergence criterion
