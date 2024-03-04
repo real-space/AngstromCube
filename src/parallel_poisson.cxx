@@ -691,7 +691,7 @@ namespace parallel_poisson {
           int constexpr sorted = 1; // 0: cloud plot, 1: lines
           auto const ng_all = size_t(ng[2])*size_t(ng[1])*size_t(ng[0]);
           std::vector<std::array<float,4>> vec(sorted*ng_all);
-          std::printf("\n## r, V_fd, V_fft, rho (all in a.u.)\n"); // show all grid values (dots should not be connected by a line)
+          std::printf("\n\n## r, V_fd, V_fft, rho (all in a.u.)\n"); // show all grid values (dots should not be connected by a line)
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
@@ -712,12 +712,14 @@ namespace parallel_poisson {
                   std::printf("%g %g %g %g\n", v[0], v[1], v[2], v[3]); // lines
               } // izyx
           } // sorted
-
-          std::printf("\n# r, rho\n"); // also plot the radial function of rho
-          for (int ir{0}; ir <= 80*nb_default; ++ir) {
-              auto const r = 0.1*ir, r2 = r*r;
-              std::printf("%g %g\n", r, c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
-          } // ir
+          std::printf("\n"); // empty line to separate plots from other data
+          if (echo > 8) {
+              std::printf("\n\n# r, rho\n"); // also plot the radial function of rho
+              for (int ir{0}; ir <= 80*nb_default; ++ir) {
+                  auto const r = 0.1*ir, r2 = r*r;
+                  std::printf("%g %g\n", r, c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
+              } // ir
+          } // echo
       } // echo
       return stat;
   } // test_solver
