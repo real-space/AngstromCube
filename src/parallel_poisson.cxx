@@ -623,7 +623,7 @@ namespace parallel_poisson {
       uint32_t const i888 = ((iz & 0x7)*8 + (iy & 0x7))*8 + (ix & 0x7);
       uint64_t const i512 = ((iz >> 3)*nb[1] + (iy >> 3))*nb[0] + (ix >> 3);
       return (i512 << 9) + i888;
-  } // g8_index (non-parallel)
+  } // g8_index
 
   template <typename real_t>
   status_t test_solver(int const echo=9, uint32_t const nb_default=4) {
@@ -641,13 +641,13 @@ namespace parallel_poisson {
           for (int iz = 0; iz < g[2]; ++iz) {
           for (int iy = 0; iy < g[1]; ++iy) {
           for (int ix = 0; ix < g[0]; ++ix) {
-              size_t const jzyx = (iz*g[1] + iy)*g[0] + ix;
-              size_t const izyx = g8_index(nb, ix, iy, iz);
               double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
               double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
-              b[izyx] = rho;
-              b_fft[jzyx] = rho;
               integral += rho;
+              size_t const izyx = g8_index(nb, ix, iy, iz);
+              b[izyx] = rho;
+              size_t const ifft = (iz*g[1] + iy)*g[0] + ix;
+              b_fft[ifft] = rho;
           }}} // ix iy iz
           if (echo > 3) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
       } // scope
@@ -696,15 +696,15 @@ namespace parallel_poisson {
           std::vector<std::array<float,4>> vec(sorted*ng_all);
           if (0 == compressed) std::printf("\n\n## r, V_fd, V_fft, rho (all in a.u.)\n"); // show all grid values
           for (int iz = 0; iz < g[2]; ++iz) {
-           for (int iy = 0; iy < g[1]; ++iy) {
-            for (int ix = 0; ix < g[0]; ++ix) {
-                size_t const jzyx = (iz*g[1] + iy)*g[0] + ix;
+          for (int iy = 0; iy < g[1]; ++iy) {
+          for (int ix = 0; ix < g[0]; ++ix) {
+                size_t const ifft = (iz*g[1] + iy)*g[0] + ix;
                 size_t const izyx = g8_index(nb, ix, iy, iz);
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]), r = std::sqrt(r2);
                 if (0 == sorted) {
-                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[jzyx], b[izyx]); // point cloud (dots should not be connected by a line)
+                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[ifft], b[izyx]); // point cloud (dots should not be connected by a line)
                 } else {
-                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[jzyx]), float(b[izyx])}; // store
+                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[ifft]), float(b[izyx])}; // store
                 }
           }}} // ix iy iz
           if (sorted) {
