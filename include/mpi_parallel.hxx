@@ -27,6 +27,7 @@
   MPI_Datatype constexpr MPI_INT = 4;
   MPI_Datatype constexpr MPI_UINT16 = 2;
   MPI_Datatype constexpr MPI_DOUBLE = -8;
+  MPI_Datatype constexpr MPI_FLOAT = -4;
   MPI_Datatype constexpr MPI_UNSIGNED_LONG = 8;
   void const * const MPI_IN_PLACE = nullptr;
 

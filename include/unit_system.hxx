@@ -71,7 +71,7 @@ namespace unit_system {
               char const *_si;
               auto const f = le ? energy_unit(sy[le][iu], &_si)
                                 : length_unit(sy[le][iu], &_si);
-              if (echo > 2) std::printf("# %s unit factor %.12f for %s\n", le_name, f, _si);
+              if (echo > 2) std::printf("# %s unit factor %.15g for %s\n", le_name, f, _si);
               auto const fi = 1./f; // compute inverse factor
               for (int ou = 0; ou < 4; ++ou) { // output unit
                   char const *_so;
