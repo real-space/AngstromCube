@@ -725,7 +725,7 @@ namespace parallel_poisson {
         return stat;
     } // test_solver
 
-    status_t test_grid8(int const echo=0) {
+    status_t test_parallel_grid(int const echo=0) {
         // test all combinations of isolated and periodic boundary conditions
         uint32_t const gm = control::get("parallel_poisson.grid.max", 9.); // and grids up to this number^3
         int8_t constexpr nBCs = 2; // can be used to limit it to one
@@ -752,13 +752,13 @@ namespace parallel_poisson {
             }}} // gx gy gz
         }}} // bx by bz
         return 0;
-    } // test_grid8
+    } // test_parallel_grid
 
     template <typename real_t>
     status_t test_Laplace16th(int8_t const bc[3], int const echo=9) {
         if (echo > 4) std::printf("\n# %s<%s>(bc=[%d %d %d])\n", __func__, (8 == sizeof(real_t))?"double":"float", bc[0], bc[1], bc[2]);
         status_t stat(0);
-        real_space::grid_t g(2*8, 2*8, 2*8);
+        real_space::grid_t g(4*8, 4*8, 4*8);
         g.set_boundary_conditions(bc);
         parallel_grid_t pg(g, MPI_COMM_WORLD, echo);
         auto const nl = pg.n_local(), nr = pg.n_remote();
@@ -780,7 +780,7 @@ namespace parallel_poisson {
         return stat;
     } // test_Laplace16th
 
-    status_t test_Laplace16th_boundary_conditions(int const echo=0) {
+    status_t test_Laplace16th_bc(int const echo=0) { // test a single iteration
         status_t stat(0);
         int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary};
         for (int8_t bz = 0; bz < 2; ++bz) {
@@ -791,16 +791,16 @@ namespace parallel_poisson {
             stat += test_Laplace16th<float> (bc, echo);
         }}} // bx by bz
         return stat;
-    } // test_Laplace16th_boundary_conditions
+    } // test_Laplace16th_bc
 
     status_t all_tests(int const echo) {
         auto const already_initialized = mpi_parallel::init();
         status_t stat(0);
         int n{0}; auto const t = int(control::get("parallel_poisson.select.test", -1.)); // -1:all
-        if (t & (1 << n++)) stat += std::abs(test_grid8(echo));
+        if (t & (1 << n++)) stat += std::abs(test_parallel_grid(echo));
         if (t & (1 << n++)) stat += std::abs(test_solver<double>(echo)); // instantiation for both, double and float
         if (t & (1 << n++)) stat += std::abs(test_solver<float> (echo)); // compilation and convergence tests
-        if (t & (1 << n++)) stat += std::abs(test_Laplace16th_boundary_conditions(echo));
+        if (t & (1 << n++)) stat += std::abs(test_Laplace16th_bc(echo));
         if (!already_initialized) mpi_parallel::finalize();
         return stat;
     } // all_tests
