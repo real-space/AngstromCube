@@ -737,6 +737,7 @@ namespace parallel_poisson {
           } // echo
           std::fflush(stdout);
       } // echo
+      mpi_parallel::barrier();
       return stat;
   } // test_solver
 
