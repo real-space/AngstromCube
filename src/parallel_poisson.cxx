@@ -370,8 +370,8 @@ namespace parallel_poisson {
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset
             auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
-            if (echo > 5) std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i %i %i %i %i}\n",
-                                                          ilb, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5]);
+            if (echo > 11) std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i %i %i %i %i}\n",
+                                                           ilb, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5]);
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over block elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
@@ -792,10 +792,10 @@ namespace parallel_poisson {
   status_t all_tests(int const echo) {
       status_t stat(0);
       int n{0}; auto const t = int(control::get("parallel_poisson.select.test", -1.)); // -1:all
-      if (t & (1 << n++)) stat += test_grid8(echo);
-      if (t & (1 << n++)) stat += test_solver<double>(echo); // instantiation for both, double and float
-      if (t & (1 << n++)) stat += test_solver<float>(echo);  // compilation and convergence tests
-      if (t & (1 << n++)) stat += test_Laplace16th_boundary_conditions(echo);
+      if (t & (1 << n++)) stat += std::abs(test_grid8(echo));
+      if (t & (1 << n++)) stat += std::abs(test_solver<double>(echo)); // instantiation for both, double and float
+      if (t & (1 << n++)) stat += std::abs(test_solver<float> (echo));  // compilation and convergence tests
+      if (t & (1 << n++)) stat += std::abs(test_Laplace16th_boundary_conditions(echo));
       return stat;
   } // all_tests
 
