@@ -242,7 +242,7 @@
       stat += control::read_control_file(control::get("control.file", ""), (0 == myrank)*verbosity);
       //
       int64_t const echo_mask = control::get("verbosity.mpi.mask", 1.); // -1:all, 0:no_one, 1:master only, 5:rank#0 and rank#2, ...
-      int const verbose_rank = (-1 == echo_mask) ? 1 : ((echo_mask >> myrank) & 1);
+      int const verbose_rank = (-1 == echo_mask) ? 1 : ((myrank < 53)*((echo_mask >> myrank) & 1));
       verbosity = control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
       int const echo = verbose_rank*verbosity;
       //

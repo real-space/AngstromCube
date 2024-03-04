@@ -27,6 +27,7 @@
   #include <array> // std::array<T,N>
   #include <algorithm> // std::stable_sort
   #include "fourier_poisson.hxx" // ::solve
+  #include "lossful_compression.hxx" // print_compressed
 #endif // NO_UNIT_TESTS
 
 namespace parallel_poisson {
@@ -434,7 +435,7 @@ namespace parallel_poisson {
     if (std::is_same<real_t,double>::value && (!use_g8)) {
         view2D<float> xb(2, nall); // get memory
         auto const x32=xb[0], b32=xb[1];
-        set(b32, nall, bb);  // convert to float
+        set(b32, nall, bb); // convert to float
         set(x32, nall, xx); // convert to float
         if (echo > 5) std::printf("# %s solve in <float> precision first\n", __FILE__);
         ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter, miniter, restart);
@@ -688,38 +689,53 @@ namespace parallel_poisson {
       } // scope
 
       if (0 == stat && echo > 7) { // get a radial representation from a point cloud plot
-          int constexpr sorted = 1; // 0: cloud plot, 1: lines
+          float const compressed = control::get("parallel_poisson.plot.compressed", 1e-9); // 0: do not even sort, <0: plot all points, >0: use RDP compression
+          int  const sorted = (0 != compressed);
           auto const ng_all = size_t(ng[2])*size_t(ng[1])*size_t(ng[0]);
           std::vector<std::array<float,4>> vec(sorted*ng_all);
-          std::printf("\n\n## r, V_fd, V_fft, rho (all in a.u.)\n"); // show all grid values (dots should not be connected by a line)
+          if (0 == compressed) std::printf("\n\n## r, V_fd, V_fft, rho (all in a.u.)\n"); // show all grid values
           for (int iz = 0; iz < ng[2]; ++iz) {
            for (int iy = 0; iy < ng[1]; ++iy) {
             for (int ix = 0; ix < ng[0]; ++ix) {
                 size_t const jzyx = (iz*ng[1] + iy)*ng[0] + ix;
                 size_t const izyx = use_g8 ? g8_index(nb, ix, iy, iz) : jzyx;
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]), r = std::sqrt(r2);
-                if (sorted) {
-                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[jzyx]), float(b[izyx])}; // store
+                if (0 == sorted) {
+                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[jzyx], b[izyx]); // point cloud (dots should not be connected by a line)
                 } else {
-                    std::printf("%g %g %g %g\n", r, x[izyx], x_fft[jzyx], b[izyx]); // point cloud
+                    vec[izyx] = {float(r), float(x[izyx]), float(x_fft[jzyx]), float(b[izyx])}; // store
                 }
           }}} // ix iy iz
-          if (vec.size() == ng_all) {
+          if (sorted) {
               auto lambda = [](std::array<float,4> const & left, std::array<float,4> const & right) { return left[0] < right[0]; };
               std::stable_sort(vec.begin(), vec.end(), lambda);
+              view2D<float> columns(4*(compressed > 0), ng_all, 0.f);
               for (size_t izyx = 0; izyx < ng_all; ++izyx) {
                   auto const & v = vec[izyx];
-                  std::printf("%g %g %g %g\n", v[0], v[1], v[2], v[3]); // lines
+                  if (0 == compressed) {
+                      std::printf("%g %g %g %g\n", v[0], v[1], v[2], v[3]); // V_fd, V_fft and rho as lines
+                  } else {
+                      for (int ic = 0; ic < 4; ++ic) { columns(ic,izyx) = v[ic]; } // store
+                  }
               } // izyx
+              for (int ic = 1; ic < 4*(compressed > 0); ++ic) {
+                  if (echo > 6 + ic) {
+                      auto const *const label = (1==ic)?"V_fd":((2==ic)?"V_fft":"rho");
+                      std::printf("\n# r, %s (in a.u.):\n", label);
+                      auto const n_printed = print_compressed(columns[0], columns[ic], ng_all, compressed);
+                      std::printf("# %s lossfully compressed from %ld to %ld points at threshold= %.1e\n\n", label, ng_all, n_printed, compressed);
+                  } // echo
+              } // ic
           } // sorted
           std::printf("\n"); // empty line to separate plots from other data
-          if (echo > 8) {
+          if (echo > 9) {
               std::printf("\n\n# r, rho\n"); // also plot the radial function of rho
               for (int ir{0}; ir <= 80*nb_default; ++ir) {
                   auto const r = 0.1*ir, r2 = r*r;
                   std::printf("%g %g\n", r, c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
               } // ir
           } // echo
+          std::fflush(stdout);
       } // echo
       return stat;
   } // test_solver

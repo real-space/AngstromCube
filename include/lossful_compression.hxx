@@ -3,7 +3,7 @@
 
 #include <cstdio> // std::printf, ::fprintf, stdout, FILE
 #include <cassert> // assert
-#include <vector> // std::vector<T>
+#include <vector> // std::vector<bool>
 
   template <typename real_t, typename real_y_t>
   int RamerDouglasPeucker(
@@ -100,7 +100,7 @@
 
 
   template <typename real_t, typename real_y_t>
-  void print_compressed(
+  size_t print_compressed(
         real_t const x[]
       , real_y_t const y[]
       , int const n
@@ -108,8 +108,10 @@
       , FILE* os=stdout
   ) {
       auto const mask = RDP_lossful_compression(x, y, n, epsilon);
+      size_t printed{0};
       for (int i = 0; i < n; ++i) {
-          if (mask[i]) std::fprintf(os, "%g %g\n", x[i], y[i]);
+          if (mask[i]) { std::fprintf(os, "%g %g\n", double(x[i]), double(y[i])); ++printed; }
       } // i
       std::fprintf(os, "\n");
+      return printed; // returns how many entries have been printed
   } // print_compressed
