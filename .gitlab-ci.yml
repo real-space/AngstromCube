@@ -29,7 +29,7 @@ interfaces_on_JUSUF:
   stage: test
   script:
     - echo "Set module environment"
-    - module --force purge && module load Stages/2023  GCC/11.3.0 CMake Julia
+    - module --force purge && module load Stages/2023 GCC/11.3.0 ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 Julia
     - ls ~/a43/lib64 # libliveatom.so needs to be here
     - echo "Test Python interface"
     - cd interfaces/Python
