@@ -5,7 +5,7 @@
 ### when running for the first time you may need to activate the following line
 # import Pkg; Pkg.add("Formatting")
 
-const LA = "libliveatom.so"
+const LA = "./libliveatom.so"
 
 plot = false
 
