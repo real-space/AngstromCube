@@ -31,7 +31,7 @@
 namespace iterative_poisson {
   // solve the Poisson equation iteratively using the conjugate gradients method + finite difference
   // or using a multi grid approach, all serial implementation
-  
+
   double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
 
   template <typename real_t>
@@ -65,7 +65,7 @@ namespace iterative_poisson {
   // then, we can also in advance decide if we have to use the general restrict3D and interpolate3D
   // methods which are xyz --> Xyz --> XYz --> XYZ or specific interpolations routines
   // that do it in one step (e.g. for the case when all 3 grid dimensions are divisible by 2)
-  
+
   template <typename real_t>
   double multi_grid_smoothen( 
         real_t x[] // on entry x, on exit slightly better to fullfil A*x == b
@@ -160,7 +160,7 @@ namespace iterative_poisson {
               } // ix
           } // iy
       } // iz
-      
+
       // solve
 //       auto const info = linear_algebra::linear_solve(n - peri, a88.data(), a88.stride(), b8, 8); // if(peri) we solve for one degrees of freedom less
       auto const info = linear_algebra::linear_solve(n, a88.data(), a88.stride(), b8, 8);
@@ -194,7 +194,7 @@ namespace iterative_poisson {
       } // solver success
       return info;
   } // multi_grid_exact
-  
+
   template <typename real_t>
   status_t multi_grid_cycle(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
                             , real_t const b[] //
@@ -210,7 +210,7 @@ namespace iterative_poisson {
       char label[96]; multi_grid_level_label(label, g);
 
       if (g.all() <= 8) return multi_grid_exact(x, b, g, echo);
-      
+
       std::vector<real_t> residual_vector(g.all()); // get memory
       auto const r = residual_vector.data();
       real_t const *rd = r;
@@ -270,7 +270,7 @@ namespace iterative_poisson {
       if (residual) *residual = res;
       return stat;
   } // multi_grid_solve
-  
+
   template <typename real_t>
   status_t multi_grid_precond(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
                             , real_t const b[] //
@@ -278,7 +278,7 @@ namespace iterative_poisson {
                             , int const echo=0) {
       return multi_grid_cycle(x, b, g, echo, false);
   } // multi_grid_precond
-  
+
   template <typename real_t>
   status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b

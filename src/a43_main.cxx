@@ -319,6 +319,7 @@
   } // show_version
 
   int main(int const argc, char const *argv[]) {
+      mpi_parallel::init(argc, argv);
       if (argc < 2) {
           std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
           return -1;
@@ -418,5 +419,7 @@
 
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
+      mpi_parallel::finalize();
+
       return int(stat);
   } // main
