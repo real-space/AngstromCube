@@ -318,7 +318,7 @@
       return 0;
   } // show_version
 
-  int main(int const argc, char const *argv[]) {
+  int main(int const argc, char *argv[]) {
       mpi_parallel::init(argc, argv);
       if (argc < 2) {
           std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
