@@ -7,6 +7,7 @@
 #include "status.hxx" // status_t
 
 namespace parallel_domains {
+  // this module has so far not been used by any other code of AngstromCube, safe to be removed
 
   inline status_t decompose_grid(unsigned const ng, int const echo=0, int const min_ng_per_pe=4) {
       status_t stat(0);
