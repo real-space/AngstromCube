@@ -59,13 +59,14 @@ namespace self_consistency {
   // Their wave functions do not hybridize but they
   // feel the effect of the density of neighboring atoms
 
-  inline int even(int const any) { return align<1>(any); }
-  inline int n_grid_points(double const suggest) { return even(int(std::ceil(suggest))); }
+  inline int even(int const any, unsigned const n_even=2) { return ((any - 1 + n_even)/n_even)*n_even; }
+  inline int n_grid_points(double const suggest, unsigned const n_even=2) { return even(int(std::ceil(suggest)), n_even); }
 
   status_t init_geometry_and_grid(
         real_space::grid_t & g // output grid descriptor
       , view2D<double> & xyzZ // output atom coordinates and core charges Z
-      , int & natoms // output number of atoms found
+      , int32_t & natoms // output number of atoms found
+      , unsigned const n_even // =2
       , int const echo // =0 log-level
   ) {
       status_t stat(0);
@@ -76,6 +77,8 @@ namespace self_consistency {
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
 
+      auto const keyword_ng = "grid.points";
+      auto const keyword_hg = "grid.spacing";
       { // scope: determine grid spacings and number of grid points
 
           // precedence:
@@ -90,16 +93,13 @@ namespace self_consistency {
           auto const in_lu = 1./lu;
 
           auto const default_grid_spacing = 0.23621577; // == 0.125 Angstrom
-          auto const keyword_ng = "grid.points";
-          auto const keyword_hg = "grid.spacing";
           auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
           auto const hg_iso = std::abs(control::get(keyword_hg, -default_grid_spacing*lu));
 
           int default_grid_spacing_used{0};
           int ng[3] = {0, 0, 0};
           for (int d = 0; d < 3; ++d) { // directions x, y, z
-              char keyword[32];
-              std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
+              char keyword[32]; std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
               ng[d] = int(control::get(keyword, ng_iso)); // "grid.points.x", ".y", ".z"
               if (ng[d] < 1) {
                   // try to initialize the grid via "grid.spacing"
@@ -111,10 +111,10 @@ namespace self_consistency {
                       'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
                   default_grid_spacing_used += is_default_grid_spacing;
                   if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-                  ng[d] = n_grid_points(std::abs(cell[d][d])/hg);
+                  ng[d] = n_grid_points(std::abs(cell[d][d])/hg, n_even);
                   if (ng[d] < 1) error("grid spacings too large, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
               } // ng < 1
-              ng[d] = even(ng[d]); // if odd, increment to nearest higher even number
+              ng[d] = even(ng[d], n_even); // if odd, increment to nearest higher even number
               if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
           } // d
           if (default_grid_spacing_used > 0) {
@@ -122,6 +122,7 @@ namespace self_consistency {
                                 default_grid_spacing*Ang, _Ang, default_grid_spacing_used);
           } // default_grid_spacing_used
           g = real_space::grid_t(ng[0], ng[1], ng[2]);
+
       } // scope
 
       if (echo > 1) std::printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
@@ -149,6 +150,19 @@ namespace self_consistency {
               std::printf("# cell is  %15.9f %15.9f %15.9f  %s\n", g.cell[d][0]*Ang, g.cell[d][1]*Ang, g.cell[d][2]*Ang, _Ang);
           } // d
       } // is_Cartesian
+
+      { // scope: correct the global variables, suppress warnings
+          int constexpr no_warning = -1;
+          for (int d = 0; d < 3; ++d) { // directions x, y, z
+              char keyword[32];
+              std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
+              control::set(keyword, g[d], no_warning);
+              std::snprintf(keyword, 32, "%s.%c", keyword_hg, 'x'+d);
+              control::set(keyword, g.h[d], no_warning);
+          } // d
+          control::set(keyword_hg, std::cbrt(g.dV()), no_warning);
+          control::set(keyword_ng, std::cbrt(g[2]*size_t(g[1])*size_t(g[0])), no_warning);
+      } // scope
 
       return stat;
   } // init_geometry_and_grid
@@ -191,7 +205,7 @@ namespace self_consistency {
       view2D<double> xyzZ;
       real_space::grid_t g;
       int na_noconst{0};
-      stat += init_geometry_and_grid(g, xyzZ, na_noconst, echo);
+      stat += init_geometry_and_grid(g, xyzZ, na_noconst, 2, echo);
       int const na{na_noconst}; // total number of atoms
 
       std::vector<float> ionization(na, 0.f);

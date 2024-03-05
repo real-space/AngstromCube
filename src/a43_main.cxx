@@ -5,6 +5,7 @@
   #include "spherical_harmonics.hxx" // ::all_tests
   #include "conjugate_gradients.hxx" // ::all_tests
   #include "potential_generator.hxx" // ::all_tests
+  #include "parallel_potential.hxx" // ::all_tests
   #include "hermite_polynomial.hxx" // ::all_tests
   #include "global_coordinates.hxx" // ::all_tests
   #include "radial_eigensolver.hxx" // ::all_tests
@@ -238,6 +239,7 @@
           add_module_test(potential_generator);
           add_module_test(density_generator);
           add_module_test(self_consistency);
+          add_module_test(parallel_potential);
 
           start_a_chapter("================"); // last separator
 #undef    start_a_chapter

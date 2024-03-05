@@ -39,6 +39,7 @@ OBJ = \
 	multi_grid.o \
 	mpi_parallel.o \
 	potential_generator.o \
+	parallel_potential.o \
 	poisson_solver.o \
 	plane_wave.o \
 	sho_basis.o \

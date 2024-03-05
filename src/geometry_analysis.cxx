@@ -40,7 +40,7 @@ namespace geometry_analysis {
 
   status_t read_xyz_file(
         view2D<double> & xyzZ
-      , int & n_atoms
+      , int32_t & n_atoms
       , double cell[3][4]
       , int8_t bc[] // =nullptr
       , char const *filename // ="atoms.xyz"

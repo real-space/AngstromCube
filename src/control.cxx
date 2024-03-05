@@ -42,7 +42,6 @@ namespace control {
       , char const *const value=nullptr
       , int const linenumber=0
   ) {
-      bool constexpr warn_about_redefinitons = true;
 
       static std::map<std::string, std::tuple<std::string,uint32_t,int32_t>> _map; // hidden archive
       // the hidden archive is sorted by the name string and contains the value string,
@@ -56,6 +55,7 @@ namespace control {
           if (nullptr != value) {
 
               // set
+              bool const warn_about_redefinitons = (echo >= 0); // use a negative echo to suppress re-definition warnings
               if (warn_about_redefinitons) {
                   auto const oldvalue = std::get<0>(tuple).c_str();
                   assert(nullptr != oldvalue);

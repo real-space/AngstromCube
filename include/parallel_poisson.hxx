@@ -16,6 +16,7 @@ namespace parallel_poisson {
         parallel_grid_t(
               real_space::grid_t const & g
             , MPI_Comm const comm // MPI communicator
+            , unsigned const n8=8 // number of grid points per block edge
             , int const echo=0 // log-level
         ); // declaration only
     private:

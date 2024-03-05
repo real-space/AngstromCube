@@ -1,7 +1,7 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-#include <cstdint> // int8_t
+#include <cstdint> // int8_t, int32_t
 
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>
@@ -14,7 +14,7 @@ namespace geometry_analysis {
 
   status_t read_xyz_file(
         view2D<double> & xyzZ // result: atom info, x,y,z,Z,...
-      , int & n_atoms // result: number of atoms
+      , int32_t & n_atoms // result: number of atoms
       , double cell[3][4] // result: cell shape
       , int8_t bc[3]=nullptr // result: boundary conditions
       , char const *filename="atoms.xyz" // filename

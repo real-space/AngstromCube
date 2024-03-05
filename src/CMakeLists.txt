@@ -81,6 +81,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/green_experiments.hxx
     ../include/green_input.hxx
     ../include/parallel_poisson.hxx
+    ../include/parallel_potential.hxx
     ../include/load_balancer.hxx
     ../include/green_tests.hxx
     ../include/add_module_test.h
@@ -96,6 +97,7 @@ set(a43_sources ${a43_atom_sources}
     mpi_parallel.cxx
     potential_generator.cxx
     parallel_poisson.cxx
+    parallel_potential.cxx
     poisson_solver.cxx
     plane_wave.cxx
     sho_basis.cxx
