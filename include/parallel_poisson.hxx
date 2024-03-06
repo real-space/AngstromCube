@@ -36,12 +36,12 @@ namespace parallel_poisson {
         uint32_t const * grid_blocks() const { return nb_; }
         uint32_t n_local()  const { return local_global_ids_.size();  } // number of blocks owned by this MPI rank
         uint32_t n_remote() const { return remote_global_ids_.size(); } // number of blocks requested by this MPI rank
-        int32_t const* getStar() const { return (int32_t const*)star_.data(); }
+        int32_t const* star() const { return (int32_t const*)star_.data(); }
         std::vector<int64_t> const & local_ids() const { return local_global_ids_; }
         std::vector<int64_t> const & remote_ids() const { return remote_global_ids_; }
-        green_parallel::RequestList_t const & get_requests() const { return requests_; }
+        green_parallel::RequestList_t const & requests() const { return requests_; }
         bool all_periodic_boundary_conditions() const { return 3 == nperiodic_; }
-        MPI_Comm get_comm() const { return comm_; }
+        MPI_Comm comm() const { return comm_; }
         double dV() const { return dVol_; }
     }; // class parallel_grid_t
 

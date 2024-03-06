@@ -11,7 +11,7 @@ namespace chemical_symbol {
 
   int8_t get(char Sy[4], double const Z, char const blank) {
       if (nullptr == Sy) return -1; // error code -1: result pointer is null
-      auto const iZ = int(std::round(Z));
+      auto const iZ = get(Z);
       auto const z7 = static_cast<int8_t>(iZ & 127); // Z % (2^7)
       char const S = element_symbols[z7*2 + 0],
                  y = element_symbols[z7*2 + 1];

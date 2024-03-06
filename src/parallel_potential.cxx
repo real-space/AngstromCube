@@ -28,6 +28,8 @@
 #include "data_list.hxx" // data_list<T>
 #include "sho_tools.hxx" // ::nSHO
 #include "solid_harmonics.hxx" // ::Y00
+#include "boundary_condition.hxx" // ::periodic_images
+#include "chemical_symbol.hxx" // ::get
 
 namespace parallel_potential {
 
@@ -125,7 +127,7 @@ namespace parallel_potential {
 
 
     template<typename real_t>
-    void block_average(real_t v4[4*4*4], real_t const v8[8*8*8], simple_stats::Stats<double> & s) {
+    void block_average(real_t v4[4*4*4], real_t const v8[8*8*8], simple_stats::Stats<double> *s=nullptr) {
         for (int iz{0}; iz < 4; ++iz) {
         for (int iy{0}; iy < 4; ++iy) {
         for (int ix{0}; ix < 4; ++ix) {
@@ -139,7 +141,7 @@ namespace parallel_potential {
                             + v8[((iz*2 + 1)*8 + iy*2 + 1)*8 + ix*2 + 1];
             auto const average = sum*0.125; // divide by 2*2*2
             v4[(iz*4 + iy)*4 + ix] = average;
-            s.add(average);
+            if (s) s->add(average);
         }}} // ix iy iz
     } // block_average
 
@@ -211,6 +213,126 @@ namespace parallel_potential {
     } // integrate_r2grid
 
 
+    template <typename real_t>
+    double print_stats( // similar to print_stat in print_tools.hxx
+          real_t const values[] // input values
+        , size_t const all // how many local values
+        , MPI_Comm const comm // MPI communicator for reduction
+        , bool const echo // only true for the master rank
+        , double const dV=1 // volume element for the integration
+        , char const *prefix="" // leading printf messages
+        , double const unit=1 // unit conversion factor
+        , char const *_unit="" // unit indicator
+    ) {
+        simple_stats::Stats<double> s(0);
+        for (size_t i = 0; i < all; ++i) {
+            s.add(values[i]);
+        } // i
+        mpi_parallel::allreduce(s, comm);
+        if (echo) {
+         // std::printf("%s grid stats min %g max %g avg %g", prefix, s.min()*unit, s.max()*unit, s.mean()*unit);
+            std::printf("%s grid stats [%g , %g +/- %g, %g]", prefix, s.min()*unit, s.mean()*unit, s.dev()*unit, s.max()*unit);
+            if (dV > 0) std::printf(" %g electrons", s.sum()*dV*unit);
+            std::printf(" %s\n", _unit);
+        } // echo
+        return s.sum()*dV;
+    } // print_stats
+
+
+    class atom_image_t {
+    public:
+        atom_image_t() {}
+        atom_image_t(double const pos[3], double const Z, int32_t const atom_id=-1, int8_t const shifts[3]=nullptr) {
+            set(pos_, 3, pos);
+            atom_id_ = atom_id;
+            set(shifts_, 3, int8_t(0)); if (shifts) set(shifts_, 3, shifts);
+            iZ_ = chemical_symbol::get(Z);
+        } // constructor
+    public:
+        double pos_[3]; // atom image position
+        int32_t atom_id_; // global index
+        int8_t shifts_[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
+        int8_t iZ_; // atomic number
+    }; // class atom_image_t, 32 Byte
+
+
+    status_t get_neighborhood( // determine which atoms are relevant for my block
+          int32_t const n_all_atoms
+        , view2D<double> const & xyzZ_all // [n_all_atoms][4] all atomic coordinates and atomic numbers
+        , parallel_poisson::parallel_grid_t const & pg
+        , real_space::grid_t const & g
+        , double const grid_center[3]
+        , int const echo=0
+        , float const r_cut=16.f // truncation radius of atom-cube interactions
+    ) {
+        status_t stat(0);
+
+        if (pg.n_local() < 1) return 0;
+
+        // determine the sphere around an 8x8x8 cube
+        auto const h = g.grid_spacings();
+        auto const r_circum = 4*std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
+
+        // determine the center of weight of all local 8x8x8 cubes
+        double cow[] = {0, 0, 0};
+        auto const local_ids = pg.local_ids();
+        for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) {
+            uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
+            for (int d{0}; d < 3; ++d) { cow[d] += h[d]*(ixyz[d]*8. + 4.); }
+        } // ilb
+        assert(pg.n_local() > 0);
+        scale(cow, 3, 1./pg.n_local());
+
+        // determine the largest distance of a cube from the center of mass
+        double max_dist2{0};
+        for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) {
+            uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
+            double dist2{0}; for (int d{0}; d < 3; ++d) { dist2 += pow2(h[d]*(ixyz[d]*8. + 4.) - cow[d]); }
+            max_dist2 = std::max(max_dist2, dist2);
+        } // ilb
+        auto const max_dist = std::sqrt(max_dist2);
+
+        auto const me = mpi_parallel::rank(pg.comm());
+        if (echo > 2) std::printf("# rank#%i all grid points within %g + %g = %g %s around %g %g %g %s\n",
+            me, max_dist*Ang, r_circum*Ang, (max_dist + r_circum)*Ang, _Ang, cow[0]*Ang, cow[1]*Ang, cow[2]*Ang, _Ang);
+
+        auto const r_search = max_dist + r_circum + r_cut, r2search = pow2(r_search);
+
+
+        view2D<double> periodic_images;
+        view2D<int8_t> periodic_shift;
+        auto const n_periodic_images = boundary_condition::periodic_images(periodic_images,
+                            g.cell, g.boundary_conditions(), r_cut, echo, &periodic_shift);
+
+        double const cow_center[] = {cow[0] - grid_center[0], cow[1] - grid_center[1], cow[2] - grid_center[2]};
+     // double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]}; // Cartesian cell parameters
+
+
+        std::vector<atom_image_t> atom_images(0); // list of all atoms relevant for this MPI rank
+
+        // this should be the only loop over all atoms in the entire code, keep it free of I/O and only minimum number of operations
+        for (int32_t ia{0}; ia < n_all_atoms; ++ia) {
+            auto const *const pos = xyzZ_all[ia];
+            for (int ip{0}; ip < n_periodic_images; ++ip) {
+                auto const *const img = periodic_images[ip];
+                auto const dist2 = pow2(pos[0] + img[0] - cow_center[0])
+                                 + pow2(pos[1] + img[1] - cow_center[1])
+                                 + pow2(pos[2] + img[2] - cow_center[2]);
+                if (dist2 < r2search) {
+                    double const img_pos[] = {pos[0] + img[0], pos[1] + img[1], pos[2] + img[2]};
+                    atom_images.push_back(atom_image_t(img_pos, pos[3], ia, periodic_shift[ip]));
+                } // inside search radius
+            } // ip
+        } // ia
+        if (echo > 2) std::printf("# rank#%i finds %lld atom images inside a %g %s search radius\n",
+                                          me, atom_images.size(), r_search*Ang, _Ang);
+
+        if (stat) warn("%s returned status= %i", __func__, int(stat));
+        return stat;
+    } // get_neigborhood
+
+
+
     status_t SCF(int const echo=0) {
         status_t stat(0);
 
@@ -237,10 +359,14 @@ namespace parallel_potential {
             if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
                       gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
         }
-        double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5};
+        double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 
         // distribute the dense grid in 8x8x8 grid blocks to parallel owners
         parallel_poisson::parallel_grid_t pg(g, comm, 8, echo);
+
+        stat += get_neighborhood(n_all_atoms, xyzZ, pg, g, grid_center, echo);
+        // return 0; // DEBUG
+
 
         // distribute the atom ownership TODO
         // simple distribution model: owner_rank == atom_id % nprocs, advantage: every rank can compute the owner
@@ -373,16 +499,6 @@ namespace parallel_potential {
             ++scf_iteration;
             if (echo > 3) std::printf("#\n# Start SCF iteration #%i\n#\n", scf_iteration);
 
-            { // scope: show statistics of augmented_density
-                simple_stats::Stats<double> s(0);
-                for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) { // local blocks
-                    auto const *const v8 = augmented_density[ilb];
-                    for (int i9{0}; i9 < 512; ++i9) { s.add(v8[i9]); }
-                } // ilb
-                mpi_parallel::allreduce(s, comm);
-                if (echo > 1) std::printf("# smooth augmented_density min %g max %g avg %g, %g electrons\n", s.min(), s.max(), s.mean(), s.sum()*g.dV());
-            } // scope
-
             view2D<double> V_xc(pg.n_local(), 8*8*8, 0.0);
             { // scope: eval the XC potential and energy
                 double E_xc{0}, E_dc{0};
@@ -405,10 +521,13 @@ namespace parallel_potential {
                 // grid_xc_energy = E_xc;
             } // scope
 
+            print_stats(V_xc[0], pg.n_local()*size_t(8*8*8), comm, echo > 1, 0, "# smooth exchange-correlation potential", eV, _eV);
 
 
             // ToDo: add compensation charges
 
+
+            print_stats(augmented_density[0], pg.n_local()*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth augmented_density");
 
 
             { // scope: Poisson equation
@@ -422,19 +541,13 @@ namespace parallel_potential {
                 if (es_stat) warn("parallel_poisson::solve returned status= %i", int(es_stat));
             } // scope
 
-            { // scope: show statistics of V_electrostatic
-                simple_stats::Stats<double> s(0);
-                for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) { // local blocks
-                    auto const *const v8 = V_electrostatic[ilb];
-                    for (int i9{0}; i9 < 512; ++i9) { s.add(v8[i9]); }
-                } // ilb
-                mpi_parallel::allreduce(s, comm);
-                if (echo > 1) std::printf("# smooth electrostatic potential min %g max %g avg %g %s\n", s.min()*eV, s.max()*eV, s.mean()*eV, _eV);
-            } // scope
+            print_stats(V_electrostatic[0], pg.n_local()*size_t(8*8*8), comm, echo > 0, 0, "# smooth electrostatic potential", eV, _eV);
 
 
             // ToDo: project electrostatic potential
 
+
+            // compose and coarsen total effective potential
 
             view2D<double> V_effective(pg.n_local(), 8*8*8, 0.0);
             view2D<double> V_coarse(pg.n_local(), 4*4*4, 0.0);
@@ -444,11 +557,11 @@ namespace parallel_potential {
                     set(V_effective[ilb], 512, V_electrostatic[ilb]);
                     add_product(V_effective[ilb], 512, V_xc[ilb], 1.);
                     // reduce from blocks of 8x8x8 to 4x4x4
-                    block_average(V_coarse[ilb], V_effective[ilb], s);
+                    block_average(V_coarse[ilb], V_effective[ilb]);
                 } // ilb
-                mpi_parallel::allreduce(s, comm);
-                if (echo > 1) std::printf("# smooth effective potential min %g max %g avg %g %s\n", s.min()*eV, s.max()*eV, s.mean()*eV, _eV);
             } // scope
+            print_stats(V_effective[0], pg.n_local()*size_t(8*8*8), comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
+            print_stats(V_coarse[0],    pg.n_local()*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
 
             // ToDo: call energy-contour integration to find a new density
             view2D<double> new_density(pg.n_local(), 8*8*8, 0.0);
@@ -457,13 +570,7 @@ namespace parallel_potential {
                                 pg.n_local()*size_t(512), comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_TF;
                 if (stat_TF) warn("# new_density_Thomas_Fermi returned status= %i", int(stat_TF));
-                simple_stats::Stats<double> s(0);
-                for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) { // local blocks
-                    for (int i9{0}; i9 < 512; ++i9) { s.add(new_density(ilb,i9)); }
-                } // ilb
-                mpi_parallel::allreduce(s, comm);
-                if (echo > 1) std::printf("# new density after Thomas-Fermi min %g max %g avg %g a.u. sum %g electrons\n", 
-                                            s.min(), s.max(), s.mean(), s.sum()*g.dV());
+                print_stats(new_density[0], pg.n_local()*size_t(8*8*8), comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
             } // scope
 
 

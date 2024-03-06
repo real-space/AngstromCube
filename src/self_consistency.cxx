@@ -452,7 +452,7 @@ namespace self_consistency {
                   if (echo > 6) std::printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
                   std::vector<double> coeff;
                   if ('f' == compensator_method) { // "factorizable"
-                      coeff = std::vector<double>(sho_tools::nSHO(ellmax), 0.0);
+                      coeff.resize(sho_tools::nSHO(ellmax), 0.0);
                       stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
 #ifdef    DEVEL
 //                    if (echo > 7) std::printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);

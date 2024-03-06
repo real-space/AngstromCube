@@ -322,7 +322,7 @@ namespace parallel_poisson {
         , int const echo=0 // log-level
     ) {
         auto const n_local = pg.n_local();
-        auto const stat = green_parallel::exchange(v + count*n_local, v, pg.get_requests(), count, echo); // ToDo: inser communicator
+        auto const stat = green_parallel::exchange(v + count*n_local, v, pg.requests(), count, echo); // ToDo: inser communicator
         return stat;
     } // data_exchange
 
@@ -356,7 +356,7 @@ namespace parallel_poisson {
                                       15360*norm,
                                        -735*norm};
         int const nlb = pg.n_local();
-        auto const star = (int32_t const(*)[6])pg.getStar();
+        auto const star = (int32_t const(*)[6])pg.star();
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset
             auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
@@ -407,7 +407,7 @@ namespace parallel_poisson {
         , int restart // =4096 // number of iterations before restart, 1:steepest descent
     ) {
 
-        auto const comm = pg.get_comm();
+        auto const comm = pg.comm();
         int const echo_L = echo >> 3; // verbosity of Lapacian16th
 
         auto const nb = pg.grid_blocks();
