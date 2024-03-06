@@ -37,15 +37,21 @@ namespace parallel_potential {
 
     inline status_t live_atom_update(
         char const *const what    // selector string
-      , int const natoms          // number of atoms
+      , int32_t  const natoms     // number of atoms
       , double  *const dp=nullptr // quantities (input/output) double  dp[natoms]
       , int32_t *const ip=nullptr // quantities (input/output) integer ip[natoms]
       , float   *const fp=nullptr // quantities (input)        float   fp[natoms or less]
       , double  *const *const dpp=nullptr // quantities (input/output) double* dpp[natoms]
     ) {
         auto const use = control::get("use.live.atom", 1.);
-        return use ? single_atom::atom_update(what, natoms, dp, ip, fp, dpp) : 0;
-        // warn("single_atom::atom_update deactivated", 0); return 0; // no effect
+        if (0 == use) {
+         // warn("single_atom::atom_update deactivated", 0); 
+            return 0;
+        } else {
+            auto const stat = single_atom::atom_update(what, natoms, dp, ip, fp, dpp);
+            if (stat) warn("single_atom::atom_update(%s, natoms=%d, ...) returned status= %i", what, natoms, int(stat));
+            return stat;
+        }
     } // live_atom_update
 
     inline double rho_Thomas_Fermi(double const Ekin, double & derivative) {
@@ -216,15 +222,20 @@ namespace parallel_potential {
         real_space::grid_t g; // entire grid descriptor
         view2D<double> xyzZ;  // coordinates for all atoms
         int32_t n_all_atoms;  // number of all atoms
-        stat += self_consistency::init_geometry_and_grid(g, xyzZ, n_all_atoms, 8, echo);
+        auto const stat_init = self_consistency::init_geometry_and_grid(g, xyzZ, n_all_atoms, 8, echo);
+        stat += stat_init;
+        if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
 
         // create a coarse grid descriptor
         real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2);
         {
             gc.set_boundary_conditions(g.boundary_conditions());
-            gc.set_cell_shape(g.cell, echo);
+            gc.set_cell_shape(g.cell, echo*0); // muted
             gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2);
             for (int d{0}; d < 3; ++d) { assert(0 == (gc[d] & 0x3)); } // all grid numbers must be a multiple of 4
+            auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
+            if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
+                      gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
         }
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5};
 
@@ -283,7 +294,7 @@ namespace parallel_potential {
 
 
 
-        // allocate CPU memory
+        // allocate CPU memory for grid arrays
         view2D<double> augmented_density(pg.n_local(), 8*8*8, 0.0);
         view2D<double> V_electrostatic(pg.n_local(), 8*8*8, 0.0);
 
@@ -310,14 +321,14 @@ namespace parallel_potential {
             double rho_total{0};
             for (int32_t ia{0}; ia < n_all_atoms; ++ia) { // TODO reduce loop to relevant periodic images
                 double pos[3]; set(pos, 3, xyzZ[ia]);
-                if (echo > 6) std::printf("# rank#%i adds start density for atom#%i at position %g %g %g %s\n", me, ia, pos[0]*Ang, pos[1]*Ang, pos[2]*Ang, _Ang);
+                if (echo > 12) std::printf("# rank#%i adds start density for atom#%i at position %g %g %g %s\n", me, ia, pos[0]*Ang, pos[1]*Ang, pos[2]*Ang, _Ang);
                 add_product(pos, 3, grid_center, 1.);
                 double added_charge{0};
                 for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) { // local blocks
                     uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
                     added_charge += add_r2grid_to_block(augmented_density[ilb], ixyz, g.grid_spacings(), pos, atom_rhoc[ia], Y00sq, echo);
                 } // ilb
-                if (echo > 0) std::printf("# rank#%i atom#%i %g electrons added\n", me, ia, added_charge*g.dV());
+                if (echo > 13) std::printf("# rank#%i atom#%i %g electrons added\n", me, ia, added_charge*g.dV());
                 rho_total += added_charge;
             } // ia
             rho_total = mpi_parallel::sum(rho_total, comm)*g.dV();
@@ -333,6 +344,7 @@ namespace parallel_potential {
         int   const es_miniter   = control::get("poisson.miniter", 3.);
         int   const es_restart   = control::get("poisson.restart", 4096.);
 
+        // configure the self-consistency loop
         int   const scf_maxiter   = control::get("scf.maxiter", 1.);
 
         double E_Fermi{0}; // Fermi level
@@ -359,6 +371,7 @@ namespace parallel_potential {
 
             mpi_parallel::barrier(comm);
             ++scf_iteration;
+            if (echo > 3) std::printf("#\n# Start SCF iteration #%i\n#\n", scf_iteration);
 
             { // scope: show statistics of augmented_density
                 simple_stats::Stats<double> s(0);
@@ -393,21 +406,20 @@ namespace parallel_potential {
             } // scope
 
 
-            return 0; // early return (DEBUG)
-
 
             // ToDo: add compensation charges
 
 
 
             { // scope: Poisson equation
-                if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks\n#\n", nprocs);
+                if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF iteration #%i\n#\n", nprocs, scf_iteration);
                 float es_residual{0};
                 auto const es_stat = parallel_poisson::solve(V_electrostatic[0], augmented_density[0],
                                                 pg, *es_method, es_echo, es_threshold,
                                                 &es_residual, es_maxiter, es_miniter, es_restart);
                 if (echo > 2) std::printf("# Poisson equation %s, residual= %.2e a.u.\n#\n", es_stat?"failed":"converged", es_residual);
                 stat += es_stat;
+                if (es_stat) warn("parallel_poisson::solve returned status= %i", int(es_stat));
             } // scope
 
             { // scope: show statistics of V_electrostatic
@@ -444,12 +456,14 @@ namespace parallel_potential {
                 auto const stat_TF = new_density_Thomas_Fermi(new_density[0], E_Fermi, V_effective[0],
                                 pg.n_local()*size_t(512), comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_TF;
+                if (stat_TF) warn("# new_density_Thomas_Fermi returned status= %i", int(stat_TF));
                 simple_stats::Stats<double> s(0);
                 for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) { // local blocks
                     for (int i9{0}; i9 < 512; ++i9) { s.add(new_density(ilb,i9)); }
                 } // ilb
                 mpi_parallel::allreduce(s, comm);
-                if (echo > 1) std::printf("# new density after Thomas-Fermi min %g max %g avg %g a.u. sum %g electrons\n", s.min(), s.max(), s.mean(), s.sum()*g.dV());
+                if (echo > 1) std::printf("# new density after Thomas-Fermi min %g max %g avg %g a.u. sum %g electrons\n", 
+                                            s.min(), s.max(), s.mean(), s.sum()*g.dV());
             } // scope
 
 
@@ -466,14 +480,14 @@ namespace parallel_potential {
         { // integrate 1.0 with r^2*dr up to the outer max radius R
             auto const R = std::sqrt((nr2 - 1.)/ar2);
             auto const vol = integrate_r2grid(vec.data(), ar2, nr2), ref = pow3(R)/3, dev = vol - ref;
-            if (echo > 3) std::printf("# %s: found %g expect %g dev= %.3f %%\n", __func__, vol, ref, dev/(ref*.001));
-            stat += (std::abs(dev) < ref*2e-4);
+            if (echo > 3) std::printf("# %s: found %g expect %g dev= %.3f %%\n", __func__, vol, ref, dev/ref*100);
+            stat += (std::abs(dev) > ref*2e-4);
         }
         { // prepare a Gaussian
             for (int ir2{0}; ir2 < nr2; ++ir2) { vec[ir2] = std::exp(-ir2*(.125/ar2)); }
             auto const vol = integrate_r2grid(vec.data(), ar2, nr2), ref = std::sqrt(constants::pi*32), dev = vol - ref;
-            if (echo > 3) std::printf("# %s: found %g expect %g dev= %.3f %%\n", __func__, vol, ref, dev/(ref*.001));
-            stat += (std::abs(dev) < ref*2e-4);
+            if (echo > 3) std::printf("# %s: found %g expect %g dev= %.3f %%\n", __func__, vol, ref, dev/ref*100);
+            stat += (std::abs(dev) > ref*2e-4);
         }
         return stat;
     } // test_r2grid_integrator
