@@ -30,6 +30,7 @@
 #include "solid_harmonics.hxx" // ::Y00
 #include "boundary_condition.hxx" // ::periodic_images
 #include "chemical_symbol.hxx" // ::get
+#include "simple_timer.hxx" // SimpleTimer
 
 namespace parallel_potential {
 
@@ -251,12 +252,12 @@ namespace parallel_potential {
     public:
         double pos_[3]; // atom image position
         int32_t atom_id_; // global index
-        int8_t shifts_[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
-        int8_t iZ_; // atomic number
+        int8_t shifts_[3]; // periodic image shifts in [-127, 127]
+        int8_t iZ_; // atomic number hint, the true atomic number can be retrieved from the full list
     }; // class atom_image_t, 32 Byte
 
 
-    status_t get_neighborhood( // determine which atoms are relevant for my block
+    status_t get_neighborhood( // determine which atoms are relevant for my blocks
           int32_t const n_all_atoms
         , view2D<double> const & xyzZ_all // [n_all_atoms][4] all atomic coordinates and atomic numbers
         , parallel_poisson::parallel_grid_t const & pg
@@ -267,27 +268,38 @@ namespace parallel_potential {
     ) {
         status_t stat(0);
 
-        if (pg.n_local() < 1) return 0;
+        auto const n_blocks = pg.n_local();
+        if (n_blocks < 1) return 0;
 
         // determine the sphere around an 8x8x8 cube
         auto const h = g.grid_spacings();
         auto const r_circum = 4*std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
 
+        view2D<double> block_coords(n_blocks, 4, 0.0);
+
         // determine the center of weight of all local 8x8x8 cubes
         double cow[] = {0, 0, 0};
         auto const local_ids = pg.local_ids();
-        for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) {
+        for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) {
             uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
-            for (int d{0}; d < 3; ++d) { cow[d] += h[d]*(ixyz[d]*8. + 4.); }
+            auto *const block_pos = block_coords[ilb]; 
+            for (int d{0}; d < 3; ++d) {
+                auto const p = h[d]*(ixyz[d]*8. + 4.) - grid_center[d];
+                block_pos[d] = p;
+                cow[d] += p;
+            } // d
         } // ilb
-        assert(pg.n_local() > 0);
-        scale(cow, 3, 1./pg.n_local());
+        assert(n_blocks > 0);
+        scale(cow, 3, 1./n_blocks);
 
         // determine the largest distance of a cube from the center of mass
         double max_dist2{0};
-        for (uint32_t ilb{0}; ilb < pg.n_local(); ++ilb) {
-            uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
-            double dist2{0}; for (int d{0}; d < 3; ++d) { dist2 += pow2(h[d]*(ixyz[d]*8. + 4.) - cow[d]); }
+        for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) {
+            auto const *const block_pos = block_coords[ilb];
+            double dist2{0};
+            for (int d{0}; d < 3; ++d) {
+                dist2 += pow2(block_pos[d] - cow[d]);
+            } // d
             max_dist2 = std::max(max_dist2, dist2);
         } // ilb
         auto const max_dist = std::sqrt(max_dist2);
@@ -296,36 +308,112 @@ namespace parallel_potential {
         if (echo > 2) std::printf("# rank#%i all grid points within %g + %g = %g %s around %g %g %g %s\n",
             me, max_dist*Ang, r_circum*Ang, (max_dist + r_circum)*Ang, _Ang, cow[0]*Ang, cow[1]*Ang, cow[2]*Ang, _Ang);
 
-        auto const r_search = max_dist + r_circum + r_cut, r2search = pow2(r_search);
+
+        std::vector<atom_image_t> atom_images(0); // list of candidates of atomic images relevant for this MPI rank
+
+        { // scope: construct periodic images, gather candidates
+            auto const r_search = max_dist + r_circum + r_cut, r2search = pow2(r_search);
+
+            view2D<double> periodic_images;
+            view2D<int8_t> periodic_shift;
+            auto const n_periodic_images = boundary_condition::periodic_images(periodic_images,
+                             g.cell, g.boundary_conditions(), r_search, echo, &periodic_shift);
+
+            // this should be the only loop over all atoms in the entire code, keep it free of I/O and only minimum number of operations
+{ SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances of all atoms", echo);
+            for (int32_t ia{0}; ia < n_all_atoms; ++ia) {
+                auto const *const pos = xyzZ_all[ia];
+                for (int ip{0}; ip < n_periodic_images; ++ip) {
+                    auto const *const img = periodic_images[ip];
+                    auto const dist2 = pow2(pos[0] + img[0] - cow[0])
+                                    + pow2(pos[1] + img[1] - cow[1])
+                                    + pow2(pos[2] + img[2] - cow[2]);
+                    if (dist2 < r2search) {
+                        double const img_pos[] = {pos[0] + img[0], pos[1] + img[1], pos[2] + img[2]};
+                        double const Z = pos[3]; // pos points into xyzZ array
+                        atom_images.push_back(atom_image_t(img_pos, Z, ia, periodic_shift[ip]));
+                    } // inside search radius
+                } // ip
+            } // ia
+} // timer
+            if (echo > 2) std::printf("# rank#%i finds %lld atom images inside a %g %s search radius\n",
+                                              me, atom_images.size(), r_search*Ang, _Ang);
+        } // scope
 
 
-        view2D<double> periodic_images;
-        view2D<int8_t> periodic_shift;
-        auto const n_periodic_images = boundary_condition::periodic_images(periodic_images,
-                            g.cell, g.boundary_conditions(), r_cut, echo, &periodic_shift);
+        // now refine the search checking the proximity
+        auto const r_close = r_cut + r_circum, r2close = pow2(r_close);
 
-        double const cow_center[] = {cow[0] - grid_center[0], cow[1] - grid_center[1], cow[2] - grid_center[2]};
-     // double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]}; // Cartesian cell parameters
+        view2D<float> atom_block_distance2(atom_images.size(), n_blocks, 9e9);
+        std::vector<uint32_t> n_close_blocks(atom_images.size(), 0),
+                              n_close_atoms(n_blocks, 0);
+        size_t distances_close{0}; // how many atom images are close to the domain
 
+{ SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances", echo);
+        for (size_t ja{0}; ja < atom_images.size(); ++ja) { // OMP PARALLEL
+            auto const *const atom_pos = atom_images[ja].pos_;
+            uint32_t n_blocks_close{0};
+            for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) {
+                auto const *const block_pos = block_coords[ilb];
 
-        std::vector<atom_image_t> atom_images(0); // list of all atoms relevant for this MPI rank
+                double dist2{0};
+                for (int d{0}; d < 3; ++d) {
+                    dist2 += pow2(block_pos[d] - atom_pos[d]);
+                } // d
+                atom_block_distance2(ja,ilb) = dist2; // store
+                if (dist2 < r2close) {
+                    ++n_close_atoms[ilb];
+                    ++n_blocks_close;
+                }
+            } // ilb
+            n_close_blocks[ja] = n_blocks_close;
+            distances_close   += n_blocks_close;
+        } // ja
+} // timer
+        auto const distances_checked = n_blocks*atom_images.size();
+        if (echo > 2) std::printf("# rank#%i finds %.6f M of %.6f M atom-block distances inside a %g %s search radius\n",
+                                          me, distances_close*1e-6, distances_checked*1e-6, r_close*Ang, _Ang);
 
-        // this should be the only loop over all atoms in the entire code, keep it free of I/O and only minimum number of operations
-        for (int32_t ia{0}; ia < n_all_atoms; ++ia) {
-            auto const *const pos = xyzZ_all[ia];
-            for (int ip{0}; ip < n_periodic_images; ++ip) {
-                auto const *const img = periodic_images[ip];
-                auto const dist2 = pow2(pos[0] + img[0] - cow_center[0])
-                                 + pow2(pos[1] + img[1] - cow_center[1])
-                                 + pow2(pos[2] + img[2] - cow_center[2]);
-                if (dist2 < r2search) {
-                    double const img_pos[] = {pos[0] + img[0], pos[1] + img[1], pos[2] + img[2]};
-                    atom_images.push_back(atom_image_t(img_pos, pos[3], ia, periodic_shift[ip]));
-                } // inside search radius
-            } // ip
-        } // ia
-        if (echo > 2) std::printf("# rank#%i finds %lld atom images inside a %g %s search radius\n",
-                                          me, atom_images.size(), r_search*Ang, _Ang);
+        // check if any atom images can be removed from the list
+        uint32_t n_relevance{0};
+        std::vector<int32_t> new_index(atom_images.size(), -1);
+        for (size_t ja{0}; ja < atom_images.size(); ++ja) {
+            if (n_close_blocks[ja] > 0) {
+                new_index[n_relevance] = ja;
+                ++n_relevance;
+            }
+        } // ja
+        auto const n_relevant_atoms = n_relevance;
+        if (echo > 2) std::printf("# rank#%i %.3f k of %.3f k atom images are relevant\n",
+                                      me, n_relevant_atoms*1e-3, atom_images.size()*1e-3);
+
+        if (n_relevant_atoms < atom_images.size()) {
+            SimpleTimer timer(strip_path(__FILE__), __LINE__, "removing irrelevant atom images", echo);
+            // there are irrelevant atoms, delete them from the list
+            std::vector<uint32_t>  n_close_blocks_(n_relevant_atoms);
+            std::vector<atom_image_t> atom_images_(n_relevant_atoms);
+            view2D<float> atom_block_distance2_(n_blocks, n_relevant_atoms);
+            for (uint32_t ka{0}; ka < n_relevant_atoms; ++ka) {
+                auto const ja = new_index[ka];
+                assert(ja >= 0);
+                atom_images_[ka]    = atom_images[ja];
+                n_close_blocks_[ka] = n_close_blocks[ja];
+                set(atom_block_distance2_[ka], n_blocks, atom_block_distance2[ja]);
+            } // ka
+            n_close_blocks = n_close_blocks_; // overwrite
+            atom_images    = atom_images_;    // overwrite
+            // atom_block_distance2 = atom_block_distance2_; // this does not compile since the move operators are deleted on purpose
+            atom_block_distance2 = view2D<float>(n_relevant_atoms, n_blocks);
+            for (uint32_t ka{0}; ka < n_relevant_atoms; ++ka) {
+                set(atom_block_distance2[ka], n_blocks, atom_block_distance2_[ka]); // copy
+            } // ka
+        } // delete irrelevant atoms
+        new_index.clear(); // not needed any longer
+        assert(atom_images.size() == n_relevant_atoms);
+        auto const distances_stored = n_blocks*n_relevant_atoms;
+        if (echo > 2) std::printf("# rank#%i %d x %.3f k = %.6f M atom-block distances stored, %.3f MByte\n",
+                          me, n_blocks, n_relevant_atoms*1e-3, distances_stored*1e-6, distances_stored*4e-6);
+        // if we knew the radii of compensation charges, core densities, valence densities, vbar, we could reduce this data item to a single bit, i.e. by 32x
 
         if (stat) warn("%s returned status= %i", __func__, int(stat));
         return stat;
@@ -363,6 +451,7 @@ namespace parallel_potential {
 
         // distribute the dense grid in 8x8x8 grid blocks to parallel owners
         parallel_poisson::parallel_grid_t pg(g, comm, 8, echo);
+        if (echo > 1) { auto const nb = pg.grid_blocks(); std::printf("# use  %d %d %d  grid blocks\n", nb[0], nb[1], nb[2]); }
 
         stat += get_neighborhood(n_all_atoms, xyzZ, pg, g, grid_center, echo);
         // return 0; // DEBUG
