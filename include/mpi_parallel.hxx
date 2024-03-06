@@ -137,6 +137,21 @@ namespace mpi_parallel {
       return allreduce(recv, MPI_SUM, comm, count);
   } // sum
 
+  template <typename T>
+  inline T max(T const in, MPI_Comm const comm=MPI_COMM_WORLD) {
+      T out{in}; allreduce(&out, MPI_MAX, comm, 1); return out;
+  } // max (scalars)
+
+  template <typename T>
+  inline T min(T const in, MPI_Comm const comm=MPI_COMM_WORLD) {
+      T out{in}; allreduce(&out, MPI_MIN, comm, 1); return out;
+  } // min (scalars)
+
+  template <typename T>
+  inline T sum(T const in, MPI_Comm const comm=MPI_COMM_WORLD) {
+      T out{in}; allreduce(&out, MPI_SUM, comm, 1); return out;
+  } // sum (scalars)
+
   inline int barrier(MPI_Comm const comm=MPI_COMM_WORLD) { 
       return MPI_Check(MPI_Barrier(comm));
   } // barrier
@@ -149,7 +164,7 @@ namespace mpi_parallel {
   inline int allreduce(simple_stats::Stats<double> & stats, MPI_Comm const comm=MPI_COMM_WORLD) {
       double v[8];
       stats.get(v);
-      auto const status_sum = sum(v, 5, comm);
+      auto const status_sum = sum(v, 5, comm); // MPI_SUM on {v[0], v[1], v[2], v[3], v[4]}
       auto const status_max = max(v + 6, 2, comm); // MPI_MAX on {v[6], v[7]}
       stats.set(v);
       return status_sum + status_max;

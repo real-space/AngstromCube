@@ -14,45 +14,45 @@ template <typename T>
 class data_list // a container for matrices with a variable number of columns per row
 {
 private:
-  std::vector<T> _data;
-  std::vector<T*> _ptrs;
-  std::vector<uint32_t> _m;
-  size_t _mem;
-  uint32_t _n;
-  uint32_t _max_m;
+  std::vector<T> data_;
+  std::vector<T*> ptrs_;
+  std::vector<uint32_t> m_;
+  size_t mem_;
+  uint32_t n_;
+  uint32_t max_m_;
 public:
 
   template <typename int_t>
   data_list(uint32_t const n, int_t const ms[], T const init_value=T(0)) 
-      : _ptrs(n, nullptr), _m(n), _mem(0), _n(n), _max_m(0) {
-      assert(n == _n); // safety checks on upper limit of n
+      : ptrs_(n, nullptr), m_(n), mem_(0), n_(n), max_m_(0) {
+      assert(n == n_); // safety checks on upper limit of n
       size_t num{0}; // total number of elements
       for (uint32_t i = 0; i < n; ++i) {
           auto const m = uint32_t(std::max(ms[i], int_t(0)));
-          _m[i] = m;
-          assert(ms[i] == _m[i]); // safety checks on upper limit of ms[i]
-          _max_m = std::max(_max_m, m);
-          num += _m[i];
+          m_[i] = m;
+          assert(ms[i] == m_[i]); // safety checks on upper limit of ms[i]
+          max_m_ = std::max(max_m_, m);
+          num += m_[i];
       } // i
-      _mem = num*sizeof(T);
-      debug_printf("# data_list() constructor tries to allocate %.6f MByte\n", _mem*1e-6);
-      _data = std::vector<T>(num, init_value);
+      mem_ = num*sizeof(T);
+      debug_printf("# data_list() constructor tries to allocate %.6f MByte\n", mem_*1e-6);
+      data_ = std::vector<T>(num, init_value);
       num = 0;
       for (uint32_t i = 0; i < n; ++i) {
-          _ptrs[i] = &_data[num];
-          num += _m[i];
+          ptrs_[i] = &data_[num];
+          num += m_[i];
       } // i
-      assert(num*sizeof(T) == _mem); // consistency check
+      assert(num*sizeof(T) == mem_); // consistency check
   } // constructor
 
   template <typename int_t>
   data_list(std::vector<int_t> const & ms, T const init_value=T(0)) 
     : data_list(ms.size(), ms.data(), init_value) {} // delegating constructor
 
-  data_list(void) : _data(0), _ptrs(0), _m(0), _mem(0), _n(0), _max_m(0) {} // default constructor
+  data_list(void) : data_(0), ptrs_(0), m_(0), mem_(0), n_(0), max_m_(0) {} // default constructor
 
   ~data_list() {
-      debug_printf("# ~data_list() destructor tries to free %.6f MByte\n", _mem*1e-6);
+      debug_printf("# ~data_list() destructor tries to free %.6f MByte\n", mem_*1e-6);
   } // destructor
 
   data_list(data_list<T> && rhs) = delete; // move constructor
@@ -67,34 +67,34 @@ public:
   // move assignment is needed in many situations
 //   data_list& operator= (data_list<T> && rhs) = delete; // move assignment
   data_list& operator= (data_list<T> && rhs) {
-      debug_printf("# data_list& operator= (data_list<T> && rhs) transfers %.6f MByte\n", rhs._mem*1e-6);
-      _data.swap(rhs._data);
-      _ptrs.swap(rhs._ptrs);
-      _m.swap(rhs._m);
-      _mem   = rhs._mem;    rhs._mem   = 0;
-      _n     = rhs._n;      rhs._n     = 0;
-      _max_m = rhs._max_m;  rhs._max_m = 0;
+      debug_printf("# data_list& operator= (data_list<T> && rhs) transfers %.6f MByte\n", rhs.mem_*1e-6);
+      data_.swap(rhs.data_);
+      ptrs_.swap(rhs.ptrs_);
+      m_.swap(rhs.m_);
+      mem_   = rhs.mem_;    rhs.mem_   = 0;
+      n_     = rhs.n_;      rhs.n_     = 0;
+      max_m_ = rhs.max_m_;  rhs.max_m_ = 0;
       return *this;
   } // move assignment  
 
 
   // access operators
-  T const & operator () (uint32_t const i, uint32_t const j) const { return _ptrs[i][j]; } // (i,j)
-  T       & operator () (uint32_t const i, uint32_t const j)       { return _ptrs[i][j]; } // (i,j)
+  T const & operator () (uint32_t const i, uint32_t const j) const { return ptrs_[i][j]; } // (i,j)
+  T       & operator () (uint32_t const i, uint32_t const j)       { return ptrs_[i][j]; } // (i,j)
 
-  T const & at(uint32_t const i, uint32_t const j) const { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
-  T       & at(uint32_t const i, uint32_t const j)       { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
+  T const & at(uint32_t const i, uint32_t const j) const { assert(i < n_); assert(j < m_[i]); return ptrs_[i][j]; }
+  T       & at(uint32_t const i, uint32_t const j)       { assert(i < n_); assert(j < m_[i]); return ptrs_[i][j]; }
 
-  T* operator[] (uint32_t const i) const { assert(i < _n); return _ptrs[i]; }
+  T* operator[] (uint32_t const i) const { assert(i < n_); return ptrs_[i]; }
 
   // member access functions
-  T const *const * data() const { return _ptrs.data(); } // read-only
-  T       *const * data()       { return _ptrs.data(); }
+  T const *const * data() const { return ptrs_.data(); } // read-only
+  T       *const * data()       { return ptrs_.data(); }
 
-  uint32_t nrows() const { return _n; } // number of rows
-  uint32_t mcols() const { return _max_m; } // max. number of cols
-  uint32_t const * m() const { return _m.data(); } // numbers of cols
-  size_t fill(T const value={0}) { std::fill(_data.begin(), _data.end(), value); return _data.size(); } // set value
+  uint32_t nrows() const { return n_; } // number of rows
+  uint32_t mcols() const { return max_m_; } // max. number of cols
+  uint32_t const * m() const { return m_.data(); } // numbers of cols
+  size_t fill(T const value={0}) { std::fill(data_.begin(), data_.end(), value); return data_.size(); } // set value
 
 }; // data_list
 

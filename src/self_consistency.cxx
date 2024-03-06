@@ -23,7 +23,7 @@
 
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back, length
 #include "simple_timer.hxx" // SimpleTimer
-#include "control.hxx" // ::get, ::set
+#include "control.hxx" // ::get, ::set, ::echo_set_without_warning
 
 #include "print_tools.hxx" // print_stats, printf_vector
 #include "debug_tools.hxx" // ::manage_stop_file
@@ -152,16 +152,15 @@ namespace self_consistency {
       } // is_Cartesian
 
       { // scope: correct the global variables, suppress warnings
-          int constexpr no_warning = -1;
           for (int d = 0; d < 3; ++d) { // directions x, y, z
               char keyword[32];
               std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
-              control::set(keyword, g[d], no_warning);
+              control::set(keyword, g[d], control::echo_set_without_warning);
               std::snprintf(keyword, 32, "%s.%c", keyword_hg, 'x'+d);
-              control::set(keyword, g.h[d], no_warning);
+              control::set(keyword, g.h[d], control::echo_set_without_warning);
           } // d
-          control::set(keyword_hg, std::cbrt(g.dV()), no_warning);
-          control::set(keyword_ng, std::cbrt(g[2]*size_t(g[1])*size_t(g[0])), no_warning);
+          control::set(keyword_hg, std::cbrt(g.dV()), control::echo_set_without_warning);
+          control::set(keyword_ng, std::cbrt(g[2]*size_t(g[1])*size_t(g[0])), control::echo_set_without_warning);
       } // scope
 
       return stat;
@@ -277,7 +276,7 @@ namespace self_consistency {
 
 
       std::vector<double> sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
-      char const pawdata_from = *control::get("pawdata.from", "auto"); // 'a': auto, 'f': pawxml_import
+      char const pawdata_from = (*control::get("pawdata.from", "auto")) | 32; // 'a': auto, 'f': pawxml_import
       std::vector<int32_t> numax(na, ('f' == pawdata_from)?-9:-1); // -1: LivePAW, -9: load from pawxml files
       std::vector<int32_t> lmax_qlm(na, -1);
       std::vector<int32_t> lmax_vlm(na, -1);
@@ -288,16 +287,20 @@ namespace self_consistency {
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
 
-      double nve{0}; // determine the total number of valence electrons
-      if ('a' == (*control::get("valence.electrons", "auto") | 32)) {
-          std::vector<double> n_electrons_a(na, 0.); // number of valence electrons added by each atom
-          stat += single_atom::atom_update("#valence electrons", na, n_electrons_a.data());
-          nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
-          if (echo > 0) std::printf("\n# valence.electrons=auto --> %g valence electrons\n\n", nve);
-      } else {
-          nve = control::get("valence.electrons", 0.0);
-          if (echo > 0) std::printf("\n# valence.electrons=%g\n\n", nve);
-      } // auto
+      double nve{0}; // non-const total number of valence electrons
+      { // scope: determine the number of valence electrons
+          auto const keyword_valence_electrons = "valence.electrons";
+          if ('a' == (*control::get(keyword_valence_electrons, "auto") | 32)) {
+              std::vector<double> n_electrons_a(na, 0.); // number of valence electrons added by each atom
+              stat += single_atom::atom_update("#valence electrons", na, n_electrons_a.data());
+              nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
+              if (echo > 0) std::printf("\n# %s=auto --> %g valence electrons\n\n", keyword_valence_electrons, nve);
+              control::set(keyword_valence_electrons, nve, control::echo_set_without_warning);
+          } else {
+              nve = control::get(keyword_valence_electrons, 0.0);
+              if (echo > 0) std::printf("\n# %s=%g\n\n", keyword_valence_electrons, nve);
+          } // auto
+      } // scope
       double const n_valence_electrons = nve; // do not use nve beyond this point
 
       std::vector<int32_t> n_atom_rho(na, 0);

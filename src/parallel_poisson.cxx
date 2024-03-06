@@ -563,7 +563,7 @@ namespace parallel_poisson {
             } // rz_old < tiny
 
             if (echo > 9) std::printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
-            auto const inner = scalar_product(x, b, nall, comm) * pg.dV();
+            auto const inner = scalar_product(x, b, nall, comm) * pg.dV(); // this synchronization point is for display only
             if (echo > 7) std::printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, std::sqrt(res2/cell_volume), inner);
 
             // rz_old = rz_new
