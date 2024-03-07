@@ -432,7 +432,7 @@ namespace structure_solver {
             // restrict the local effective potential to the coarse grid
             view2D<double> Veff(1, gc.all());
             multi_grid::restrict3D(Veff[0], gc, Vtot, gd, 0); // mute
-            if (echo > 1) print_stats(Veff[0], gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
+            if (echo > 1) print_stats(Veff[0], gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV, _eV);
 
             view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
 

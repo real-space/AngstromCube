@@ -4449,7 +4449,7 @@ namespace single_atom {
               auto const bmask = int64_t(control::get("single_atom.echo.mask", -1.)); // log-level mask, -1:all
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
-                  echo_mask[ia] = (-1 == bmask) ? 1 : ((bmask >> ia) & 0x1);
+                  echo_mask[ia] = (-1 == bmask) ? 1 : ((ia < 53) ? ((bmask >> ia) & 0x1) : 0);
                   int type{0}; if (ip) type = (-9 == ip[ia]);
                   if (0 == type) {
                       a[ia] = new LiveAtom(Za[ia], atomic_valence_density, int32_t(ia), echo_mask[ia]*echo_init, ion);

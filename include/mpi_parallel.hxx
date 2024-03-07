@@ -28,15 +28,18 @@
   MPI_Datatype constexpr MPI_UINT16 = 2;
   MPI_Datatype constexpr MPI_DOUBLE = -8;
   MPI_Datatype constexpr MPI_FLOAT = -4;
+  MPI_Datatype constexpr MPI_CHAR = -1;
   MPI_Datatype constexpr MPI_UNSIGNED_LONG = 8;
   void const * const MPI_IN_PLACE = nullptr;
 
   inline size_t const size_of(MPI_Datatype const datatype) {
      switch (datatype) {
        case 0:          return 1; // 1 Byte
+       case MPI_CHAR:   return 1; // 1 Byte
        case MPI_UINT16: return 2; // 2 Byte
        case MPI_DOUBLE: return 8; // 8 Byte
        case MPI_UNSIGNED_LONG: return 8; // 8 Byte
+       case MPI_INT:    return sizeof(int); // usually 4 Byte
      }
      warn("unknown MPI_Datatype %d", int(datatype));
      return 0;
@@ -50,6 +53,7 @@
   inline int MPI_Comm_size(MPI_Comm comm, int *size) { assert(size); *size = 1; ok; }
   inline int MPI_Allreduce(void const *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
       if (sendbuf) { std::memcpy(recvbuf, sendbuf, count*size_of(datatype)); } ok; }
+  inline int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm) { ok; }
   inline int MPI_Barrier(MPI_Comm comm) { ok; }
   inline double MPI_Wtime(void) { return 0; } // ToDo
   // add more MPI_ replacement functions here ...
@@ -116,11 +120,17 @@ namespace mpi_parallel {
   template <> inline MPI_Datatype get<double>(double t) { return MPI_DOUBLE; }
   template <> inline MPI_Datatype get<size_t>(size_t t) { return MPI_UNSIGNED_LONG; }
   template <> inline MPI_Datatype get<float>(float t) { return MPI_FLOAT; }
+  template <> inline MPI_Datatype get<char>(char t) { return MPI_CHAR; }
 
   template <typename T>
   inline int allreduce(T *recv, MPI_Op const op=MPI_SUM, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, T const *send=nullptr) {
       return MPI_Allreduce(send ? send : MPI_IN_PLACE, recv, count, get<T>(), op, comm);
   } // allreduce
+
+  template <typename T>
+  inline int broadcast(T *buffer, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, int const root=0) {
+      return MPI_Bcast(buffer, count, get<T>(), root, comm);
+  } // broadcast
 
   template <typename T>
   inline int max(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
