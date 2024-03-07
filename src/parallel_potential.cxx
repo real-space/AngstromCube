@@ -180,7 +180,7 @@ namespace parallel_potential {
         mpi_parallel::allreduce(s, comm);
         if (echo) {
          // std::printf("%s grid stats min %g max %g avg %g", prefix, s.min()*unit, s.max()*unit, s.mean()*unit);
-            std::printf("%s grid stats [%g , %g +/- %g, %g]", prefix, s.min()*unit, s.mean()*unit, s.dev()*unit, s.max()*unit);
+            std::printf("%s grid stats [%g, %g +/- %g, %g]", prefix, s.min()*unit, s.mean()*unit, s.dev()*unit, s.max()*unit);
             if (dV > 0) std::printf(" %g electrons", s.sum()*dV*unit);
             std::printf(" %s\n", _unit);
         } // echo
@@ -883,6 +883,8 @@ namespace parallel_potential {
 
         } // scope
 
+        // These data items are needed for the Kohn-Sham Hamiltonian
+        // stat += live_atom_update("projectors", na, sigma_prj.data(), numax.data());
 
         // configure the Poisson solver
         auto  const es_method    = control::get("poisson.method", "cg"); // {cg, sd}
@@ -924,9 +926,8 @@ namespace parallel_potential {
             if (echo > 3) std::printf("#\n# Start SCF iteration #%i\n#\n", scf_iteration);
 
 
-            auto const total_charge_added = add_r2grid_quantity(
-                core_density, "smooth core density", atom_rhoc, atom_images, natoms,
-                block_coords, n_blocks, g, comm, echo, Y00sq);
+            auto const total_charge_added = add_r2grid_quantity(core_density, "smooth core density", atom_rhoc,
+                                            atom_images, natoms, block_coords, n_blocks, g, comm, echo, Y00sq);
             if (echo > 0) std::printf("# %g electrons added as smooth core density\n", total_charge_added);
 
             // compose density
@@ -1028,8 +1029,8 @@ namespace parallel_potential {
             stat += live_atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
             stat += live_atom_update("zero potentials", na, 0, nr2.data(), 0, atom_vbar.data());
 
-            add_r2grid_quantity(V_effective, "smooth effective potential", atom_vbar, atom_images, natoms,
-                                block_coords, n_blocks, g, comm, echo*0, Y00);
+            add_r2grid_quantity(V_effective, "smooth effective potential", atom_vbar,
+                                atom_images, natoms, block_coords, n_blocks, g, comm, echo*0, Y00);
 
             print_stats(V_effective[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
 
@@ -1044,13 +1045,13 @@ namespace parallel_potential {
 
 
             // ToDo: call energy-contour integration to find a new density
-            view2D<double> new_density(n_blocks, 8*8*8, 0.0);
+            view2D<double> new_valence_density(n_blocks, 8*8*8, 0.0);
             { // scope: apply Thomas-Fermi approximation
-                auto const stat_TF = new_density_Thomas_Fermi(new_density[0], E_Fermi, V_effective[0],
+                auto const stat_TF = new_density_Thomas_Fermi(new_valence_density[0], E_Fermi, V_effective[0],
                                 n_blocks*size_t(512), comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_TF;
                 if (stat_TF) warn("# new_density_Thomas_Fermi returned status= %i", int(stat_TF));
-                print_stats(new_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
+                print_stats(new_valence_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
             } // scope
 
 

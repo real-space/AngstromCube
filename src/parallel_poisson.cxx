@@ -80,7 +80,7 @@ namespace parallel_poisson {
         auto nb = nb_;
         auto const ng = g.grid_points();
         auto const bc = g.boundary_conditions();
-        if (echo > 3) std::printf("# rank#%i %s(ng=[%d %d %d], bc=[%d %d %d])\n", me, __func__, ng[0], ng[1], ng[2], bc[0], bc[1], bc[2]);
+        if (echo > 3) std::printf("# %s(ng=[%d %d %d], bc=[%d %d %d])\n", __func__, ng[0], ng[1], ng[2], bc[0], bc[1], bc[2]);
         assert(n8 > 0);
         for (int d{0}; d < 3; ++d) {
             nb[d] = ng[d]/n8; // divide by n8
@@ -104,7 +104,7 @@ namespace parallel_poisson {
             auto const load = load_balancer::get(np, me, nb, echo, rank_center, owner_rank.data());
             n_local_blocks = rank_center[3]; // the 4th component contains the number of items
             if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %d local blocks\n",
-                                            me, __func__, load, n_local_blocks);
+                                              me, __func__, load, n_local_blocks);
 
             // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
             size_t const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[1]);
