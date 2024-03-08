@@ -6,6 +6,7 @@
 
 #include "green_parallel.hxx" // rank_int_t
 
+#include "status.hxx" // status_t
 #include "simple_stats.hxx" // ::Stats<double>
 #include "inline_math.hxx" // set
 #include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::max, ::allreduce, MPI_COMM_WORLD,  MPI_IN_PLACE
@@ -309,12 +310,6 @@ namespace green_parallel {
   } // potential_exchange with RequestList_t
 
 
-
-} // namespace green_parallel
-
-#include "status.hxx" // status_t
-
-namespace green_parallel {
 
 #ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
