@@ -12,7 +12,9 @@ GITKEY=$(shell git log | head -1 | sed -e 's/commit //g')
 EXECUTABLE = a43
 all: ${EXECUTABLE}
 
-OBJATOM = \
+OBJDIR=obj_a43
+
+OBJATOM = $(addprefix $(OBJDIR)/, \
 	control.o \
 	recorded_warnings.o \
 	radial_grid.o \
@@ -27,9 +29,9 @@ OBJATOM = \
 	atom_core.o \
 	sho_unitary.o \
 	angular_grid.o \
-	single_atom.o
+	single_atom.o )
 
-OBJ = \
+OBJ = $(addprefix $(OBJDIR)/, \
 	geometry_analysis.o \
 	self_consistency.o \
 	iterative_poisson.o \
@@ -55,7 +57,7 @@ OBJ = \
 	green_input.o \
 	load_balancer.o \
 	green_tests.o \
-	a43_main.o
+	a43_main.o)
 
 .PHONY: clean allclean
 clean:
@@ -144,7 +146,8 @@ FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 CXXFLAGS = -std=c++11 ${FLAGS}
 
 
-DEP=$(OBJ:%.o=%.d) $(OBJATOM:%.o=%.d)
+
+DEP=$(OBJ:$(OBJDIR)/%.o=$(OBJDIR)/%.d) $(OBJATOM:$(OBJDIR)/%.o=$(OBJDIR)/%.d)
 
 ${EXECUTABLE}: ${OBJATOM} ${OBJ}
 	${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
@@ -155,14 +158,14 @@ libliveatom.a: ${OBJATOM}
 libliveatom.so: ${OBJATOM}
 	${CXX} ${CXXFLAGS} -fPIC -shared $^ ${LDFLAGS} -o $@
 
-%.o:%.c %.d
-	${CC} ${CCFLAGS} ${INC} -c $<
-%.o:%.cxx %.d
-	${CXX} ${CXXFLAGS} ${INC} -c $<
+$(OBJDIR)/%.o:%.c $(OBJDIR)/%.d
+	${CC} ${CCFLAGS} ${INC} -c $< -o $@
+$(OBJDIR)/%.o:%.cxx $(OBJDIR)/%.d
+	${CXX} ${CXXFLAGS} ${INC} -c $< -o $@
 
-%.d:%.c
+$(OBJDIR)/%.d:%.c
 	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:%.cxx
+$(OBJDIR)/%.d:%.cxx
 	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 
 -include ${DEP}

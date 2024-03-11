@@ -16,7 +16,9 @@ HOSTNAME := $(shell hostname)
 EXECUTABLE = green
 all: ${EXECUTABLE}
 
-OBJECTS = \
+OBJDIR=obj_green
+
+OBJECTS = $(addprefix $(OBJDIR)/, \
 	control.o \
 	recorded_warnings.o \
 	display_units.o \
@@ -29,7 +31,7 @@ OBJECTS = \
 	green_kinetic.o \
 	green_input.o \
 	green_tests.o \
-	green_main.o
+	green_main.o )
 
 
 .PHONY: clean allclean
@@ -158,23 +160,23 @@ else
 endif
 
 
-DEP=$(OBJECTS:%.o=%.d)
+DEP=$(OBJECTS:$(OBJDIR)/%.o=$(OBJDIR)/%.d)
 
 ${EXECUTABLE}: ${OBJECTS}
 	${CU} ${CUFLAGS} $^ ${LDFLAGS}  -o $@
 
-%.o:%.c %.d
-	${CC} ${CCFLAGS} ${INC} -c $<
-%.o:%.cxx %.d
-	${CXX} ${CXXFLAGS} ${INC} -c $<
-%.o:%.cu %.d
-	${CU} ${CUFLAGS} ${INC} -c $<
+$(OBJDIR)/%.o:%.c $(OBJDIR)/%.d
+	${CC} ${CCFLAGS} ${INC} -c $< -o $@
+$(OBJDIR)/%.o:%.cxx $(OBJDIR)/%.d
+	${CXX} ${CXXFLAGS} ${INC} -c $< -o $@
+$(OBJDIR)/%.o:%.cu $(OBJDIR)/%.d
+	${CU} ${CUFLAGS} ${INC} -c $< -o $@
 
-%.d:%.c
+$(OBJDIR)/%.d:%.c
 	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:%.cxx
+$(OBJDIR)/%.d:%.cxx
 	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
-%.d:%.cu
+$(OBJDIR)/%.d:%.cu
 	${CU} ${CUFLAGS} ${INC} -MM $^ -MF $@
 
 -include ${DEP}

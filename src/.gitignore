@@ -1,8 +1,10 @@
 ### executable
 a43
+green
 
-### objects
-*.o
+
+### object folders
+obj_*/*
 
 ### shared objects
 *.so

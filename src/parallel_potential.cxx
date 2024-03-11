@@ -38,10 +38,6 @@
 
 namespace parallel_potential {
 
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
-
     inline status_t live_atom_update(
         char const *const what    // selector string
       , int32_t  const natoms     // number of atoms
@@ -838,7 +834,7 @@ namespace parallel_potential {
 
 
 
-    status_t SCF(int const echo=0) {
+    status_t SCF(int const echo) {
         status_t stat(0);
 
         auto const comm = MPI_COMM_WORLD;
@@ -1062,17 +1058,18 @@ namespace parallel_potential {
             if (take_atomic_valence_densities > 0) {
                 auto & atom_rhov = atom_vbar; // use memory of vbar for the moment
                 stat += live_atom_update("valence densities", na, 0, nr2.data(), 0, atom_rhov.data());
-                for (int32_t ia{0}; ia < na; ++ia) {
+                for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
                     // add valence density to r^2-gridded core density
                     if (echo > 15) std::printf("# rank#%i atom#%i wants to add %g core electrons\n",         me, ia, integrate_r2grid(atom_rhoc[ia], nr2[ia]));
                     add_product(atom_rhoc[ia], nr2[ia], atom_rhov[ia], take_atomic_valence_densities*1.);
                     if (echo > 15) std::printf("# rank#%i atom#%i wants to add %g core+valence electrons\n", me, ia, integrate_r2grid(atom_rhoc[ia], nr2[ia]));
                 } // ia
             } // take_atomic_valence_densities > 0
+            stat += atom_data_broadcast(atoms_rhoc, atom_rhoc, "core densities", global_atom_ids, comm, echo);
 
             // ToDo: broadcast atom_rhoc among those processes contributing
 
-            auto const total_charge_added = add_r2grid_quantity(core_density, "smooth core density", atom_rhoc,
+            auto const total_charge_added = add_r2grid_quantity(core_density, "smooth core density", atoms_rhoc,
                                             atom_images, natoms, block_coords, n_blocks, g, comm, echo, Y00sq);
             if (echo > 0) std::printf("# %g electrons added as smooth core density\n", total_charge_added);
 
@@ -1174,9 +1171,9 @@ namespace parallel_potential {
             stat += live_atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
             stat += live_atom_update("zero potentials", na, 0, nr2.data(), 0, atom_vbar.data());
 
-            // ToDo: broadcast atom_vbar among those processes contributing (assume vbar is updated every scf-iteration)
+            stat += atom_data_broadcast(atoms_vbar, atom_vbar, "zero potentials", global_atom_ids, comm, echo); // assume vbar is updated every scf-iteration
 
-            add_r2grid_quantity(V_effective, "smooth effective potential", atom_vbar,
+            add_r2grid_quantity(V_effective, "smooth effective potential", atoms_vbar,
                                 atom_images, natoms, block_coords, n_blocks, g, comm, echo*0, Y00);
 
             print_stats(V_effective[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
@@ -1216,6 +1213,11 @@ namespace parallel_potential {
         stat += live_atom_update("memory cleanup", na);
         return stat;
     } // SCF
+
+
+#ifdef  NO_UNIT_TESTS
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
 
     status_t test_r2grid_integrator(int const echo=0, int const nr2=4096, float const ar2=16) {
         status_t stat(0);

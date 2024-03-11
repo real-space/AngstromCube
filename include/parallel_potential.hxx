@@ -5,6 +5,8 @@
 
 namespace parallel_potential {
 
+    status_t SCF(int const echo=0); // decalaration only
+
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace parallel_potential
