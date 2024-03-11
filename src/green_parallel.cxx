@@ -18,39 +18,18 @@
 
 namespace green_parallel {
 
-  int init(int argc, char **argv) {
-      return mpi_parallel::init(argc, argv);
-  } // init
-
-  MPI_Comm comm() { return MPI_COMM_WORLD; }
-
-  unsigned size(void) {
-      return mpi_parallel::size(); }
-
-  int rank(void) {
-      return mpi_parallel::rank(); }
-
-  int finalize(void) {
-      return mpi_parallel::finalize(); }
-
-  int max(uint16_t data[], size_t const n) {
-      return mpi_parallel::max(data, n); }
-
-  int allreduce(simple_stats::Stats<double> & stats) {
-      return mpi_parallel::allreduce(stats, comm()); }
-
-  inline char const * spin_name(int const Noco, int const spin) {
-      if (1 == Noco && 0 == spin) return "";
-      if (2 == Noco) {
-          switch (spin) {
-            case 0: return " V_down";
-            case 1: return " V_up";
-            case 2: return " V_x";
-            case 3: return " V_y";
-          } // spin
-      } // 2 == Noco
-      return " ???";
-  } // spin_name
+    inline char const * spin_name(int const Noco, int const spin) {
+        if (1 == Noco && 0 == spin) return "";
+        if (2 == Noco) {
+            switch (spin) {
+                case 0: return " V_down";
+                case 1: return " V_up";
+                case 2: return " V_x";
+                case 3: return " V_y";
+            } // spin
+        } // 2 == Noco
+        return " ???";
+    } // spin_name
 
 
     RequestList_t::RequestList_t( // constructor implementation
@@ -106,7 +85,8 @@ namespace green_parallel {
                 assert(local_check[iall] <= 1 && "duplicates found");
             } // iall
 
-            auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_check.data(), nall, MPI_UINT16, MPI_SUM, comm);
+            // auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_check.data(), nall, MPI_UINT16_T, MPI_SUM, comm);
+            auto const stat = mpi_parallel::sum(local_check.data(), nall, comm);
             if (stat) warn("MPI_Allreduce(local_check) failed with status= %d", int(stat));
 
             if (echo > 7) { std::printf("# rank#%i local_check after  ", me); printf_vector(" %i", local_check); }
@@ -114,25 +94,21 @@ namespace green_parallel {
                 assert(1 == local_check[iall] && "not all covered");
             } // iall
             local_check.resize(0);
-            
-            if (std::is_same<rank_int_t,uint16_t>()) {
-                std::vector<rank_int_t> owner_check(nall, 0);
-                MPI_Allreduce(owner_rank, owner_check.data(), nall, MPI_UINT16, MPI_MAX, comm);
-                if (stat) warn("MPI_Allmax(owner_rank) failed with status= %d", int(stat));
-                for (size_t iall = 0; iall < nall; ++iall) {
-                    assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MAX");
-                } // iall
-                MPI_Allreduce(owner_rank, owner_check.data(), nall, MPI_UINT16, MPI_MIN, comm);
-                for (size_t iall = 0; iall < nall; ++iall) {
-                    assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MIN");
-                } // iall
-            } else {
-                warn("cannot check owner_rank, needs rank_int_t=uint16_t but sizeof(rank_int_t)=%ld", sizeof(rank_int_t));
-            }
+
+            std::vector<rank_int_t> owner_check(nall, 0);
+            mpi_parallel::allreduce(owner_check.data(), MPI_MAX, comm, nall, owner_rank);
+            if (stat) warn("MPI_Allmax(owner_rank) failed with status= %d", int(stat));
+            for (size_t iall = 0; iall < nall; ++iall) {
+                assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MAX");
+            } // iall
+            mpi_parallel::allreduce(owner_check.data(), MPI_MIN, comm, nall, owner_rank);
+            for (size_t iall = 0; iall < nall; ++iall) {
+                assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MIN");
+            } // iall
         } // debug
 
         // get a global list of which local index is where
-        auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_index.data(), nall, MPI_UINT16, MPI_MAX, comm);
+        auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_index.data(), nall, MPI_UINT16_T, MPI_MAX, comm);
         if (stat) warn("MPI_Allreduce(local_index) failed with status= %d", int(stat));
         // if this is too expensive see ALTERNATIVE
         //

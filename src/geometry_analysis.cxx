@@ -25,6 +25,7 @@
 #include "print_tools.hxx" // SparsifyPlot<>
 #include "control.hxx" // ::get
 // #include "print_tools.hxx" // printf_vector
+#include "mpi_parallel.hxx" // ::comm, ::rank, ::broadcast
 
 #ifndef NO_UNIT_TESTS
   #include <fstream> // std::ofstream
@@ -42,16 +43,18 @@ namespace geometry_analysis {
         view2D<double> & xyzZ
       , int32_t & n_atoms
       , double cell[3][4]
-      , int8_t bc[] // =nullptr
+      , int8_t bc[3] // =nullptr
       , char const *filename // ="atoms.xyz"
       , int const echo // =5 log-level
   ) {
 
+    auto const comm = mpi_parallel::comm(); // default_communicator
+    auto const me = mpi_parallel::rank(comm);
+    int return_status{0};
+    if (0 == me) { // MPI master task
+
       std::ifstream infile(filename, std::ifstream::in);
-      if (infile.fail()) {
-          warn("unable to open file '%s' for reading coordinates", filename);
-          return 1; // error
-      }
+      if (infile.fail()) { error("unable to open file '%s' for reading coordinates", filename); }
 
       int64_t natoms{0}, linenumber{2};
       infile >> natoms; // read the number of atoms
@@ -143,7 +146,25 @@ namespace geometry_analysis {
       if (echo > 5 && nempty_lines     > 0) std::printf("# %s: found %ld blank lines\n",     filename, nempty_lines);
 
       n_atoms = std::min(ia, natoms); // export the number of atoms
-      return status_t(ia - natoms); // returns 0 if the expected number of atoms has been found
+      return_status = ia - natoms;
+
+    } // end MPI master task
+
+      mpi_parallel::broadcast(&n_atoms, comm);
+      mpi_parallel::broadcast(bc, comm, 3);
+      mpi_parallel::broadcast(cell[0], comm, 3*4);
+      mpi_parallel::broadcast(&return_status, comm);
+
+      if (0 != me) {
+          if (echo > 0) std::printf("# rank#%i received n_atoms= %d, bc= %d %d %d, status= %i from master\n",
+                                            me,         n_atoms,     bc[0], bc[1], bc[2],  return_status);
+          xyzZ = view2D<double>(n_atoms, 4, 0.0);
+      } // not MPI master
+
+      // send the atomic positions and atomic numbers from master to all others
+      mpi_parallel::broadcast(xyzZ.data(), comm, n_atoms*4);
+
+      return return_status; // returns 0 if the expected number of atoms has been found
   } // read_xyz_file
 
   float default_half_bond_length(int const Z1) {

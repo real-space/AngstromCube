@@ -26,7 +26,7 @@
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 
 #ifndef NO_UNIT_TESTS
-  #include "green_parallel.hxx" // ::init, ::finalize, ::rank
+  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
 
   #ifdef HAS_TFQMRGPU
 
@@ -553,7 +553,8 @@ namespace green_function {
   ) {
       std::vector<int64_t> global_source_indices; // result array
 
-      int const true_comm_size = green_parallel::size(); // MPI_Comm_size
+      auto const comm = mpi_parallel::comm();
+      int const true_comm_size = mpi_parallel::size(comm);
       int const fake_comm = (true_comm_size > 1) ? 0 : control::get("green_function.fake.comm", 0.);
       auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
       auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
@@ -563,11 +564,11 @@ namespace green_function {
           if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
           assert(nall > 0);
           int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
-                                                : green_parallel::rank(); // MPI_Comm_rank
+                                                : mpi_parallel::rank(comm);
           double rank_center[4]; // rank_center[0/1/2] are the coordinates of the center of weight of the RHSs assigned to this rank
                                  // rank_center[3] is the number of tasks with nonzero weight
           load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
-          if (fake_comm < 1) green_parallel::max(owner_rank.data(), nall); // MPI_Allreduce(MPI_MAX)
+          if (fake_comm < 1) mpi_parallel::max(owner_rank.data(), nall); // MPI_Allreduce(MPI_MAX)
           if (echo > 9) {
               std::printf("# rank#%i owner_rank after  MPI_MAX ", comm_rank);
               printf_vector(" %i", owner_rank);
@@ -577,7 +578,7 @@ namespace green_function {
           {
               simple_stats::Stats<> nt; // number of tasks
               nt.add(nrhs);
-              green_parallel::allreduce(nt);
+              mpi_parallel::allreduce(nt, comm);
               if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
           }
 
@@ -868,9 +869,11 @@ namespace green_function {
           std::vector<std::vector<uint16_t>> column_indices(product_target_blocks);
 
           double const r2trunc        = pow2(rtrunc),
-                       r2trunc_plus   = pow2(rtrunc_plus),
-                       r2trunc_minus  = pow2(rtrunc_minus),
+                       r2trunc_plus   = pow2(rtrunc_plus);
+#ifndef   USE_SIMPLE_RANGE_TRUNCATION
+          double const r2trunc_minus  = pow2(rtrunc_minus),
                        r2block_circum = pow2(r_block_circumscribing_sphere*3); // Maybe this can be reduced to *2
+#endif // USE_SIMPLE_RANGE_TRUNCATION
 
           std::vector<int32_t> tag_diagonal(product_target_blocks, -1);
           assert(nrhs < (1ul << 16) && "the integer type of ColIndex is uint16_t!");
@@ -1416,7 +1419,7 @@ namespace green_function {
           tfqmrgpu::solve(action); // compute GPU memory requirements
 
           {
-              simple_stats::Stats<> mem; mem.add(p.gpu_mem); green_parallel::allreduce(mem);
+              simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem); // uses MPI_COMM_WORLD
               if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                 mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
           }
@@ -1482,7 +1485,7 @@ namespace green_function {
 
   status_t test_Green_function(int const echo=0) {
 
-      bool const already_initialized = green_parallel::init();
+      bool const already_initialized = mpi_parallel::init();
 
       uint32_t ng[3] = {0, 0, 0}; // grid sizes
       int8_t   bc[3] = {0, 0, 0}; // boundary conditions
@@ -1496,7 +1499,7 @@ namespace green_function {
       auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
-          if (!already_initialized) green_parallel::finalize();
+          if (!already_initialized) mpi_parallel::finalize();
           return stat;
       } // stat
 
@@ -1534,7 +1537,7 @@ namespace green_function {
                    ++stat;
       } // switch action
 
-      if (!already_initialized) green_parallel::finalize();
+      if (!already_initialized) mpi_parallel::finalize();
       return stat;
   } // test_Green_function
 

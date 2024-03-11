@@ -39,14 +39,10 @@
 #include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
 
 
-#ifdef    debug_printf
-  #undef  debug_printf
-#endif // debug_printf
-
 #ifdef    DEBUG
-  #define debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
+  #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
 #else  // DEBUG
-  #define debug_printf(...)
+  #define green_debug_printf(...)
 #endif // DEBUG
 
 namespace green_action {
@@ -134,12 +130,12 @@ namespace green_action {
       green_dyadic::dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
       plan_t() {
-          debug_printf("# default constructor for %s\n", __func__);
+          green_debug_printf("# default constructor for %s\n", __func__);
           // please see construct_Green_function in green_function.hxx for the construction of the plan_t
       } // constructor
 
       ~plan_t() {
-          debug_printf("# destruct %s\n", __func__);
+          green_debug_printf("# destruct %s\n", __func__);
           free_memory(RowStart);
           free_memory(rowindx);
           free_memory(source_coords);
@@ -180,14 +176,14 @@ namespace green_action {
         : p(plan), apc(nullptr), aac(nullptr)
       {
           assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
-          debug_printf("# construct %s\n", __func__);
+          green_debug_printf("# construct %s\n", __func__);
           char* buffer{nullptr};
           take_memory(buffer);
           assert(nullptr != plan);
       } // constructor
 
       ~action_t() {
-          debug_printf("# destruct %s\n", __func__);
+          green_debug_printf("# destruct %s\n", __func__);
           free_memory(apc);
 //        free_memory(aac); // currently not used
       } // destructor

@@ -4,7 +4,6 @@
 #ifndef   HAS_NO_MPI
 
   #include <mpi.h> // MPI_*
-  auto const MPI_UINT16 = MPI_UNSIGNED_SHORT;
 
 #else  // HAS_NO_MPI
 
@@ -24,22 +23,27 @@
   MPI_Op constexpr MPI_SUM = '+', MPI_MAX = 'M', MPI_MIN = 'm', MPI_OP_NULL = 0;//, MPI_PROD = '*';
 
   typedef int MPI_Datatype;
-  MPI_Datatype constexpr MPI_INT = 4;
-  MPI_Datatype constexpr MPI_UINT16 = 2;
-  MPI_Datatype constexpr MPI_DOUBLE = -8;
-  MPI_Datatype constexpr MPI_FLOAT = -4;
-  MPI_Datatype constexpr MPI_CHAR = -1;
-  MPI_Datatype constexpr MPI_UNSIGNED_LONG = 8;
+    MPI_Datatype constexpr MPI_DOUBLE   = 53,
+                           MPI_FLOAT    = 24,
+                           MPI_INT8_T   =  7,
+                           MPI_UINT8_T  =  8,
+                           MPI_INT16_T  = 15,
+                           MPI_UINT16_T = 16,
+                           MPI_INT32_T  = 31,
+                           MPI_UINT32_T = 32,
+                           MPI_INT64_T  = 63,
+                           MPI_UINT64_T = 64;
   void const * const MPI_IN_PLACE = nullptr;
 
   inline size_t const size_of(MPI_Datatype const datatype) {
      switch (datatype) {
-       case 0:          return 1; // 1 Byte
-       case MPI_CHAR:   return 1; // 1 Byte
-       case MPI_UINT16: return 2; // 2 Byte
-       case MPI_DOUBLE: return 8; // 8 Byte
-       case MPI_UNSIGNED_LONG: return 8; // 8 Byte
-       case MPI_INT:    return sizeof(int); // usually 4 Byte
+       case 0:                                      return 1; // 1 Byte
+       case MPI_INT8_T : case MPI_UINT8_T :         return 1; // 1 Byte
+       case MPI_INT16_T: case MPI_UINT16_T:         return 2; // 2 Byte
+       case MPI_INT32_T: case MPI_UINT32_T:         return 4; // 4 Byte
+       case MPI_INT64_T: case MPI_UINT64_T:         return 8; // 8 Byte
+       case MPI_FLOAT:                  return sizeof(float); // 4 Byte
+       case MPI_DOUBLE:                return sizeof(double); // 8 Byte
      }
      warn("unknown MPI_Datatype %d", int(datatype));
      return 0;
@@ -115,12 +119,18 @@ namespace mpi_parallel {
   } // rank
 
   template <typename T> MPI_Datatype get(T t=0);
-  template <> inline MPI_Datatype get<uint16_t>(uint16_t t) { return MPI_UINT16; }
-  template <> inline MPI_Datatype get<int>(int t) { return MPI_INT; }
-  template <> inline MPI_Datatype get<double>(double t) { return MPI_DOUBLE; }
-  template <> inline MPI_Datatype get<size_t>(size_t t) { return MPI_UNSIGNED_LONG; }
-  template <> inline MPI_Datatype get<float>(float t) { return MPI_FLOAT; }
-  template <> inline MPI_Datatype get<char>(char t) { return MPI_CHAR; }
+  template <> inline MPI_Datatype get<char>    (char     t) { return MPI_UINT8_T;  }
+  template <> inline MPI_Datatype get<int8_t>  (int8_t   t) { return MPI_INT8_T;   }
+  template <> inline MPI_Datatype get<uint8_t> (uint8_t  t) { return MPI_UINT8_T;  }
+  template <> inline MPI_Datatype get<int16_t> (int16_t  t) { return MPI_INT16_T;  }
+  template <> inline MPI_Datatype get<uint16_t>(uint16_t t) { return MPI_UINT16_T; }
+  template <> inline MPI_Datatype get<int32_t> (int32_t  t) { return MPI_INT32_T;  }
+  template <> inline MPI_Datatype get<uint32_t>(uint32_t t) { return MPI_UINT32_T; }
+  template <> inline MPI_Datatype get<int64_t> (int64_t  t) { return MPI_INT64_T;  }
+  template <> inline MPI_Datatype get<uint64_t>(uint64_t t) { return MPI_UINT64_T; }
+  template <> inline MPI_Datatype get<size_t>  (size_t   t) { return MPI_UINT64_T; }
+  template <> inline MPI_Datatype get<float>   (float    t) { return MPI_FLOAT;    }
+  template <> inline MPI_Datatype get<double>  (double   t) { return MPI_DOUBLE;   }
 
   template <typename T>
   inline int allreduce(T *recv, MPI_Op const op=MPI_SUM, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, T const *send=nullptr) {

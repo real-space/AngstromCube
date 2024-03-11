@@ -112,7 +112,7 @@ namespace self_consistency {
                   default_grid_spacing_used += is_default_grid_spacing;
                   if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
                   ng[d] = n_grid_points(std::abs(cell[d][d])/hg, n_even);
-                  if (ng[d] < 1) error("grid spacings too large, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
+                  if (ng[d] < 1) error("no grid points with grid spacings %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
               } // ng < 1
               ng[d] = even(ng[d], n_even); // if odd, increment to nearest higher even number
               if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
