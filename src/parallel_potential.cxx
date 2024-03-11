@@ -539,6 +539,9 @@ namespace parallel_potential {
         , double const h[3] // == g.grid_spacings()
         , int const echo=0
     ) {
+        auto const natoms = sigma.size();
+        assert(natoms == lmax.size());
+        assert(natoms == atom_coeff.nrows());
         auto const r_circum = std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
         std::vector<size_t> hits_per_atom(sigma.size(), 0);
         for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) { // OMP PARALLEL
@@ -577,8 +580,10 @@ namespace parallel_potential {
         , double const h[3] // == g.grid_spacings()
         , int const echo=0
     ) {
-        auto const r_circum = std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
         auto const natoms = sigma.size();
+        assert(natoms == lmax.size());
+        assert(natoms == atom_coeff.nrows());
+        auto const r_circum = std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
         for (size_t iatom{0}; iatom < natoms; ++iatom) {
             auto const nSHO = sho_tools::nSHO(lmax[iatom]);
             set(atom_coeff[iatom], nSHO, 0.0); // clear
@@ -746,9 +751,10 @@ namespace parallel_potential {
             auto const me     = mpi_parallel::rank(comm);
             auto const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner rank = global_atom_id % nprocs
             auto const na_max =  (n_all_atoms + nprocs - 1)/nprocs;
-            if (echo > 9) std::printf("# rank#%i has %d (max %d) owned atoms\n", me, __func__, na, na_max);
+            auto const na_min =               (n_all_atoms)/nprocs;
+            if (echo > 9) std::printf("# rank#%i has %d (min %d max %d) owned atoms\n", me, na, na_min, na_max);
             auto const na_max8 = (na_max + 7) >> 3;
-            if (echo > 5) std::printf("# %s: use MPI_Alltoall with %d Byte\n", __func__, na_max8);
+            if (echo > 5) std::printf("# %s: use MPI_Alltoall with %d--%d bits in %d Byte\n", __func__, na_min, na_max, na_max8);
             list_.resize(na);
             natoms_ = global_atom_ids.size();
 #ifndef   HAS_NO_MPI
@@ -774,7 +780,7 @@ namespace parallel_potential {
                     }
                 } // ia
                 // all other bits must be unset
-                for (int ia{na}; ia < na_max8*8; ++ia) {
+                for (int ia = na; ia < na_max8*8; ++ia) {
                     bool const atom_contributes = (bits_recv(rank,ia >> 3) >> (ia & 7)) & 1;
                     assert(!atom_contributes);
                 } // ia
@@ -826,8 +832,9 @@ namespace parallel_potential {
 
         // contributing atoms listen
         uint32_t const natoms = global_atom_ids.size();
+        if (echo > 8) std::printf("# %s of %s, %d owned atoms to %d atoms\n", __func__, what, na, natoms);
         assert(natoms == atom_comm_list.natoms());
-        std::vector<MPI_Request> recv_requests(natoms);
+        std::vector<MPI_Request> recv_requests(natoms, MPI_REQUEST_NULL); // ToDo: add to MPI Stubs
         for (uint32_t iatom{0}; iatom < natoms; ++iatom) { // loop over contributing atoms
             auto const global_atom_id = global_atom_ids[iatom];
             auto const atom_owner = global_atom_id % nprocs;
@@ -848,10 +855,8 @@ namespace parallel_potential {
         } // iatom
 
 #ifndef   HAS_NO_MPI
-        for (auto & request : recv_requests) {
-            MPI_Status status;
-            MPI_Wait(&request, &status);
-        } // request
+        std::vector<MPI_Status> statuses(natoms);
+        stat += MPI_Waitall(natoms, recv_requests.data(), statuses.data());
 #endif // HAS_NO_MPI
 
         if (stat) warn("failed for %s with status= %i", what, int(stat));
@@ -881,6 +886,7 @@ namespace parallel_potential {
 
         // contributing atoms
         uint32_t const natoms = global_atom_ids.size();
+        if (echo > 8) std::printf("# %s of %s, %d atoms to %d owned atoms\n", __func__, what, natoms, na);
         assert(natoms == atom_comm_list.natoms());
         for (uint32_t iatom{0}; iatom < natoms; ++iatom) { // loop over contributing atoms
             auto const global_atom_id = global_atom_ids[iatom];
@@ -909,19 +915,17 @@ namespace parallel_potential {
         std::vector<MPI_Request> recv_requests(1);
         for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
             auto const list_ia = list.at(ia);
-            auto const count == owner_data.ncols(ia);
+            auto const count = owner_data.ncols(ia);
             std::vector<double> contrib(count);
             for (auto const rank : list_ia) {
                 if (rank != me) {
-                    // Mind that this is a blocking communication routine
-                    stat += MPI_Recv(contrib.data(), count, MPI_DOUBLE, rank, ia, comm);
+                    MPI_Status status;     // Mind that this is a blocking communication routine
+                    stat += MPI_Recv(contrib.data(), count, MPI_DOUBLE, rank, ia, comm, &status);
                     add_product(owner_data[ia], count, contrib.data(), factor); // accumulation
                 } // remote
             } // rank
         } // ia
 #endif // HAS_NO_MPI
-
-
 
         if (stat) warn("failed with status= %i", int(stat));
         return stat;
@@ -1065,7 +1069,6 @@ namespace parallel_potential {
                 num.resize(natoms, m8);
                 data_list<double> atoms_recv(num, 0.0);
 
-//              stat += atom_data_broadcast(atoms_recv, atom_send, "eight atom scalars", global_atom_ids, comm, echo);
                 stat += atom_data_broadcast(atoms_recv, atom_send, "eight atom scalars", atom_comm_list, global_atom_ids, echo);
 
                 for (uint32_t iatom{0}; iatom < natoms; ++iatom) {
@@ -1168,7 +1171,6 @@ namespace parallel_potential {
                     if (echo > 15) std::printf("# rank#%i atom#%i wants to add %g core+valence electrons\n", me, ia, integrate_r2grid(atom_rhoc[ia], nr2[ia]));
                 } // ia
             } // take_atomic_valence_densities > 0
-//          stat += atom_data_broadcast(atoms_rhoc, atom_rhoc, "core densities", global_atom_ids, comm, echo);
             stat += atom_data_broadcast(atoms_rhoc, atom_rhoc, "core densities", atom_comm_list, global_atom_ids, echo);
 
             // ToDo: broadcast atom_rhoc among those processes contributing
@@ -1215,10 +1217,9 @@ namespace parallel_potential {
                 if (stat_den) warn("denormalize_electrostatics failed with status= %i for owned atom#%i", int(stat_den), ia);
                 stat += stat_den;
             } // ia
-//          stat += atom_data_broadcast(atoms_qzyx, atom_qzyx, "compensator multipole moments", global_atom_ids, comm, echo);
             stat += atom_data_broadcast(atoms_qzyx, atom_qzyx, "compensator multipole moments", atom_comm_list, global_atom_ids, echo);
 
-            add_to_grid(augmented_density, block_coords, n_blocks, atoms_qzyx, lmax_qlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
+            add_to_grid(augmented_density, block_coords, n_blocks, atoms_qzyx, lmaxs_qlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
             print_stats(augmented_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth augmented_density");
 
@@ -1239,7 +1240,6 @@ namespace parallel_potential {
             // project the electrostatic grid onto the localized compensation charges
             project_grid(atoms_vzyx, V_electrostatic, block_coords, n_blocks, lmaxs_vlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
-//          stat += atom_data_allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", global_atom_ids, comm, g.dV(), echo);
             stat += atom_data_allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", atom_comm_list, global_atom_ids, g.dV(), echo);
             for (int ia{0}; ia < na; ++ia) {
                 auto const stat_ren = sho_projection::renormalize_electrostatics(atom_vlm[ia], atom_vzyx[ia], lmax_vlm[ia], sigma_cmp[ia], unitary, echo);
@@ -1277,7 +1277,6 @@ namespace parallel_potential {
             stat += live_atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
             stat += live_atom_update("zero potentials", na, 0, nr2.data(), 0, atom_vbar.data());
 
-//          stat += atom_data_broadcast(atoms_vbar, atom_vbar, "zero potentials", global_atom_ids, comm, echo); // assume vbar is updated every scf-iteration
             stat += atom_data_broadcast(atoms_vbar, atom_vbar, "zero potentials", atom_comm_list, global_atom_ids, echo); // assume vbar is updated every scf-iteration
 
             add_r2grid_quantity(V_effective, "smooth effective potential", atoms_vbar,
