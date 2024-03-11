@@ -25,7 +25,7 @@
 #include "print_tools.hxx" // SparsifyPlot<>
 #include "control.hxx" // ::get
 // #include "print_tools.hxx" // printf_vector
-#include "mpi_parallel.hxx" // ::comm, ::rank, ::broadcast
+#include "mpi_parallel.hxx" // ::comm, ::rank, ::broadcast, ::barrier
 
 #ifndef NO_UNIT_TESTS
   #include <fstream> // std::ofstream
@@ -44,7 +44,7 @@ namespace geometry_analysis {
       , int32_t & n_atoms
       , double cell[3][4]
       , int8_t bc[3] // =nullptr
-      , char const *filename // ="atoms.xyz"
+      , char const *const filename // ="atoms.xyz"
       , int const echo // =5 log-level
   ) {
 
@@ -150,10 +150,16 @@ namespace geometry_analysis {
 
     } // end MPI master task
 
+      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
+      mpi_parallel::barrier(comm);
+
       mpi_parallel::broadcast(&n_atoms, comm);
       mpi_parallel::broadcast(bc, comm, 3);
       mpi_parallel::broadcast(cell[0], comm, 3*4);
       mpi_parallel::broadcast(&return_status, comm);
+
+      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
+      mpi_parallel::barrier(comm);
 
       if (0 != me) {
           if (echo > 0) std::printf("# rank#%i received n_atoms= %d, bc= %d %d %d, status= %i from master\n",
@@ -161,8 +167,14 @@ namespace geometry_analysis {
           xyzZ = view2D<double>(n_atoms, 4, 0.0);
       } // not MPI master
 
+      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
+      mpi_parallel::barrier(comm);
+
       // send the atomic positions and atomic numbers from master to all others
       mpi_parallel::broadcast(xyzZ.data(), comm, n_atoms*4);
+
+      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
+      mpi_parallel::barrier(comm);
 
       return return_status; // returns 0 if the expected number of atoms has been found
   } // read_xyz_file

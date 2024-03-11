@@ -846,15 +846,15 @@ namespace parallel_potential {
         view2D<double> xyzZ_all;  // coordinates for all atoms
         int32_t n_all_atoms;  // number of all atoms
 
-        if (0 == me) { // MPI master task
+        { // MPI master task
             auto const stat_init = self_consistency::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
             if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
             stat += stat_init;
         } // master
-        mpi_parallel::broadcast(&n_all_atoms, comm);
-        if (0 != me) { xyzZ_all = view2D<double>(n_all_atoms, 4); }
-        mpi_parallel::broadcast(xyzZ_all.data(), comm, n_all_atoms*4);
-        mpi_parallel::broadcast((char*)&g, comm, sizeof(g));
+        // mpi_parallel::broadcast(&n_all_atoms, comm);
+        // if (0 != me) { xyzZ_all = view2D<double>(n_all_atoms, 4); }
+        // mpi_parallel::broadcast(xyzZ_all.data(), comm, n_all_atoms*4);
+        // mpi_parallel::broadcast((char*)&g, comm, sizeof(g));
 
         // create a coarse grid descriptor
         real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2);

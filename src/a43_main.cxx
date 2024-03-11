@@ -95,6 +95,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "unit_system.hxx" // ::set_output_units
 #include "control.hxx" // ::command_line_interface, ::get
+#include "mpi_parallel.hxx" // ::init, ::rank, ::finalize
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
@@ -322,8 +323,9 @@
 
   int main(int const argc, char *argv[]) {
       mpi_parallel::init(argc, argv);
+      auto const me = mpi_parallel::rank();
       if (argc < 2) {
-          std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
+          if (0 == me) std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
           return -1;
       } // no argument passed to executable
       status_t stat(0);
@@ -387,7 +389,7 @@
 
       } // iarg
       //
-      if (verbosity > 0) {
+      if (0 == me && verbosity > 0) {
           std::printf("\n#");
           for (int iarg = 0; iarg < argc; ++iarg) {
               std::printf(" %s", argv[iarg]); // repeat all command line arguments for completeness of the log file
@@ -396,9 +398,9 @@
       } // verbosity
       //
       // in addition to command_line_interface, we can modify the control environment by a file
-      stat += control::read_control_file(control::get("control.file", ""), verbosity);
+      stat += control::read_control_file(control::get("control.file", ""), (0 == me)*verbosity);
       //
-      int const echo = control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
+      int const echo = (0 == me)*control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
       //
       stat += show_version(argv[0], echo);
       //
