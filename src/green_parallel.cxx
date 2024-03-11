@@ -7,10 +7,8 @@
 #include "green_parallel.hxx" // rank_int_t
 
 #include "status.hxx" // status_t
-#include "simple_stats.hxx" // ::Stats<double>
 #include "inline_math.hxx" // set
-#include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::max, ::allreduce, MPI_COMM_WORLD,  MPI_IN_PLACE
-#include "sho_tools.hxx" // ::nSHO
+#include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::min, ::max, ::sum, ::allreduce, ::comm, ::barrier
 #include "global_coordinates.hxx" // ::get
 #include "print_tools.hxx" // printf_vector
 #include "recorded_warnings.hxx" // warn
@@ -39,8 +37,8 @@ namespace green_parallel {
       , uint32_t const nb[3] // global bounding box or {natoms,0,0}
       , int const echo // =0 // log-level
     ) {
-        auto const comm = MPI_COMM_WORLD;
-        auto const me = mpi_parallel::rank(comm);
+        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
+        auto const me   = mpi_parallel::rank(comm);
 
         if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, __FILE__, __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
         mpi_parallel::barrier(comm);
@@ -85,7 +83,6 @@ namespace green_parallel {
                 assert(local_check[iall] <= 1 && "duplicates found");
             } // iall
 
-            // auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_check.data(), nall, MPI_UINT16_T, MPI_SUM, comm);
             auto const stat = mpi_parallel::sum(local_check.data(), nall, comm);
             if (stat) warn("MPI_Allreduce(local_check) failed with status= %d", int(stat));
 

@@ -18,6 +18,7 @@
   typedef int64_t MPI_Comm;
   MPI_Comm constexpr MPI_COMM_WORLD = -1, MPI_COMM_NULL = 0;
   int constexpr MPI_SUCCESS = 0;
+  typedef int64_t MPI_Request;
 
   typedef char MPI_Op;
   MPI_Op constexpr MPI_SUM = '+', MPI_MAX = 'M', MPI_MIN = 'm', MPI_OP_NULL = 0;//, MPI_PROD = '*';

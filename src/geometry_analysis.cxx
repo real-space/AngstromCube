@@ -36,148 +36,135 @@
 
 namespace geometry_analysis {
 
-  double constexpr Bohr2Angstrom = 0.52917724924;
-  double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
+    double constexpr Bohr2Angstrom = 0.52917724924;
+    double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
 
-  status_t read_xyz_file(
-        view2D<double> & xyzZ
-      , int32_t & n_atoms
-      , double cell[3][4]
-      , int8_t bc[3] // =nullptr
-      , char const *const filename // ="atoms.xyz"
-      , int const echo // =5 log-level
-  ) {
+    status_t read_xyz_file(
+            view2D<double> & xyzZ
+        , int32_t & n_atoms
+        , double cell[3][4]
+        , int8_t bc[3] // =nullptr
+        , char const *const filename // ="atoms.xyz"
+        , int const echo // =5 log-level
+    ) {
+        auto const comm = mpi_parallel::comm(); // default_communicator
+        auto const me = mpi_parallel::rank(comm);
+        int return_status{0};
+        if (0 == me) { // MPI master task
 
-    auto const comm = mpi_parallel::comm(); // default_communicator
-    auto const me = mpi_parallel::rank(comm);
-    int return_status{0};
-    if (0 == me) { // MPI master task
+            std::ifstream infile(filename, std::ifstream::in);
+            if (infile.fail()) { error("unable to open file '%s' for reading coordinates", filename); }
 
-      std::ifstream infile(filename, std::ifstream::in);
-      if (infile.fail()) { error("unable to open file '%s' for reading coordinates", filename); }
+            int64_t natoms{0}, linenumber{2};
+            infile >> natoms; // read the number of atoms
+            if (natoms < 0) error("%s:1 indicates a negative number of atoms, %ld", filename, natoms);
+            std::string line;
+            std::getline(infile, line); // read line #1 again
+            std::getline(infile, line); // read line #2
+            if (echo > 2) std::printf("# %s: expect %lld atoms, cell parameters= \"%s\"\n", filename, natoms, line.c_str());
+            { // scope: parse line #2
+                std::istringstream iss(line);
+                std::string word;
+                if ('%' == line[0]) {
+                    double L[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
+                    if (echo > 0) std::printf("# 1st char in 2nd line is %%, read periodic unit cell in file \'%s\': %s\n", filename, line.c_str());
+                    iss >> word >> L[0][0] >> L[0][1] >> L[0][2] >> L[1][0] >> L[1][1] >> L[1][2] >> L[2][0] >> L[2][1] >> L[2][2];
+                    if (nullptr != cell) set(cell[0], 12, L[0], Angstrom2Bohr);
+                    if (nullptr != bc) set(bc, 3, Periodic_Boundary);
+                } else {
+                    double L[3] = {0,0,0};
+                    std::string B[3];
+                    iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2]; // Cartesian mode
+                    if (nullptr != cell) set(cell[0], 12, 0.0); // clear
+                    for (int d = 0; d < 3; ++d) {
+                        if (nullptr != cell) {
+                            cell[d][d] = L[d] * Angstrom2Bohr;
+                            assert(cell[d][d] > 0);
+                        }
+                        if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 'x' + d);
+                    } // d
+                } // cell == Basis
+            } // scope
 
-      int64_t natoms{0}, linenumber{2};
-      infile >> natoms; // read the number of atoms
-      if (natoms < 0) error("%s:1 indicates a negative number of atoms, %ld", filename, natoms);
-      std::string line;
-      std::getline(infile, line); // read line #1 again
-      std::getline(infile, line); // read line #2
-      if (echo > 2) std::printf("# %s: expect %lld atoms, cell parameters= \"%s\"\n", filename, natoms, line.c_str());
-      { // scope: parse line #2
-          std::istringstream iss(line);
-          std::string word;
-          if ('%' == line[0]) {
-              double L[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
-              if (echo > 0) std::printf("# 1st char in 2nd line is %%, read periodic unit cell in file \'%s\': %s\n", filename, line.c_str());
-              iss >> word >> L[0][0] >> L[0][1] >> L[0][2] >> L[1][0] >> L[1][1] >> L[1][2] >> L[2][0] >> L[2][1] >> L[2][2];
-              if (nullptr != cell) set(cell[0], 12, L[0], Angstrom2Bohr);
-              if (nullptr != bc) set(bc, 3, Periodic_Boundary);
-          } else {
-              double L[3] = {0,0,0};
-              std::string B[3];
-              iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2]; // Cartesian mode
-              if (nullptr != cell) set(cell[0], 12, 0.0); // clear
-              for (int d = 0; d < 3; ++d) {
-                  if (nullptr != cell) {
-                      cell[d][d] = L[d] * Angstrom2Bohr;
-                      assert(cell[d][d] > 0);
-                  }
-                  if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 'x' + d);
-              } // d
-          } // cell == Basis
-      } // scope
+            xyzZ = view2D<double>(natoms, 4, 0.0);
+            int64_t ia{0}; // global index of atoms
+            size_t ncommented_lines{0}, ncommented_atoms{0}, nignored_lines{0}, nempty_lines{0}, nignored_atoms{0}, ninvalid_atoms{0};
+            while (std::getline(infile, line)) {
+                ++linenumber;
+                std::istringstream iss(line);
+                std::string Symbol;
+                double pos[3]; // position vector
+                if (iss >> Symbol >> pos[0] >> pos[1] >> pos[2]) {
+                    char const *const Sy = Symbol.c_str();
+                    char const S = Sy[0];
+                    assert('\0' != S); // Symbol should never be an empty string
+                    if ('#' != S) {
+                        // add an atom
+                        char const y = (Sy[1]) ? Sy[1] : ' ';
+                        if (echo > 7) std::printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, pos[0], pos[1], pos[2]);
+                        int const iZ = chemical_symbol::decode(S, y);
+                        if (iZ >= 0) {
+                            if (ia < natoms) {
+                                // add atom to list
+                                set(xyzZ[ia], 3, pos, Angstrom2Bohr);
+                                xyzZ(ia,3) = iZ;
+                            } else {
+                                ++nignored_atoms;
+                                if (echo > 3) std::printf("# %s:%lli contains \"%s\" as atom #%lli but only %lld atoms expected!\n",
+                                                            filename, linenumber, line.c_str(), ia, natoms);
+                            }
+                            ++ia;
+                        } else {
+                            ++ninvalid_atoms;
+                            if (echo > 3) std::printf("# %s:%lli contains invalid atom entry \"%s\"!\n",
+                                                        filename, linenumber, line.c_str());
+                        }
+                    } else {
+                        ++ncommented_atoms; // this is a comment line that could be interpreted as atom if it did not start from '#'
+                        if (echo > 4) std::printf("# %s:%lli \t commented atom=\"%s\"\n", filename, linenumber, line.c_str());
+                    }
+                } else { // iss
+                    if ('#' == Symbol[0]) {
+                        ++ncommented_lines; // all exected atoms have been found, maybe this is a comment
+                        if (echo > 1) std::printf("# %s:%lli \t comment=\"%s\"\n", filename, linenumber, line.c_str());
+                    } else if ('\0' == Symbol[0]) {
+                        ++nempty_lines; // ignore empty lines silently
+                    } else {
+                        ++nignored_lines;
+                        if (echo > 5) std::printf("# %s:%lli \t ignored line=\"%s\"\n", filename, linenumber, line.c_str());
+                    }
+                } // iss
+            } // parse file line by line
 
-      xyzZ = view2D<double>(natoms, 4, 0.0);
-      int64_t ia{0}; // global index of atoms
-      size_t ncommented_lines{0}, ncommented_atoms{0}, nignored_lines{0}, nempty_lines{0}, nignored_atoms{0}, ninvalid_atoms{0};
-      while (std::getline(infile, line)) {
-          ++linenumber;
-          std::istringstream iss(line);
-          std::string Symbol;
-          double pos[3]; // position vector
-          if (iss >> Symbol >> pos[0] >> pos[1] >> pos[2]) {
-              char const *const Sy = Symbol.c_str();
-              char const S = Sy[0];
-              assert('\0' != S); // Symbol should never be an empty string
-              if ('#' != S) {
-                  // add an atom
-                  char const y = (Sy[1]) ? Sy[1] : ' ';
-                  if (echo > 7) std::printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, pos[0], pos[1], pos[2]);
-                  int const iZ = chemical_symbol::decode(S, y);
-                  if (iZ >= 0) {
-                      if (ia < natoms) {
-                          // add atom to list
-                          set(xyzZ[ia], 3, pos, Angstrom2Bohr);
-                          xyzZ(ia,3) = iZ;
-                      } else {
-                          ++nignored_atoms;
-                          if (echo > 3) std::printf("# %s:%lli contains \"%s\" as atom #%lli but only %lld atoms expected!\n",
-                                                       filename, linenumber, line.c_str(), ia, natoms);
-                      }
-                      ++ia;
-                  } else {
-                      ++ninvalid_atoms;
-                      if (echo > 3) std::printf("# %s:%lli contains invalid atom entry \"%s\"!\n",
-                                                   filename, linenumber, line.c_str());
-                  }
-              } else {
-                  ++ncommented_atoms; // this is a comment line that could be interpreted as atom if it did not start from '#'
-                  if (echo > 4) std::printf("# %s:%lli \t commented atom=\"%s\"\n", filename, linenumber, line.c_str());
-              }
-          } else { // iss
-              if ('#' == Symbol[0]) {
-                  ++ncommented_lines; // all exected atoms have been found, maybe this is a comment
-                  if (echo > 1) std::printf("# %s:%lli \t comment=\"%s\"\n", filename, linenumber, line.c_str());
-              } else if ('\0' == Symbol[0]) {
-                  ++nempty_lines; // ignore empty lines silently
-              } else {
-                  ++nignored_lines;
-                  if (echo > 5) std::printf("# %s:%lli \t ignored line=\"%s\"\n", filename, linenumber, line.c_str());
-              }
-          } // iss
-      } // parse file line by line
+            // show irregularites
+            if (echo > 0 && ncommented_lines > 0) std::printf("# %s: found %ld commented lines\n", filename, ncommented_lines);
+            if (echo > 0 && ncommented_atoms > 0) std::printf("# %s: found %ld commented atoms\n", filename, ncommented_atoms);
+            if (echo > 0 && ninvalid_atoms   > 0) std::printf("# %s: found %ld invalid atoms\n",   filename, ninvalid_atoms);
+            if (echo > 0 && nignored_lines   > 0) std::printf("# %s: ignored %ld lines\n",         filename, nignored_lines);
+            if (echo > 0 && nignored_atoms   > 0) std::printf("# %s: ignored %ld valid atoms\n",   filename, nignored_atoms);
+            if (echo > 5 && nempty_lines     > 0) std::printf("# %s: found %ld blank lines\n",     filename, nempty_lines);
 
-      // show irregularites
-      if (echo > 0 && ncommented_lines > 0) std::printf("# %s: found %ld commented lines\n", filename, ncommented_lines);
-      if (echo > 0 && ncommented_atoms > 0) std::printf("# %s: found %ld commented atoms\n", filename, ncommented_atoms);
-      if (echo > 0 && ninvalid_atoms   > 0) std::printf("# %s: found %ld invalid atoms\n",   filename, ninvalid_atoms);
-      if (echo > 0 && nignored_lines   > 0) std::printf("# %s: ignored %ld lines\n",         filename, nignored_lines);
-      if (echo > 0 && nignored_atoms   > 0) std::printf("# %s: ignored %ld valid atoms\n",   filename, nignored_atoms);
-      if (echo > 5 && nempty_lines     > 0) std::printf("# %s: found %ld blank lines\n",     filename, nempty_lines);
+            n_atoms = std::min(ia, natoms); // export the number of atoms
+            return_status = ia - natoms;
 
-      n_atoms = std::min(ia, natoms); // export the number of atoms
-      return_status = ia - natoms;
+        } // end MPI master task
 
-    } // end MPI master task
+        mpi_parallel::broadcast(&n_atoms, comm);
+        mpi_parallel::broadcast(bc, comm, 3);
+        mpi_parallel::broadcast(cell[0], comm, 3*4);
+        mpi_parallel::broadcast(&return_status, comm);
 
-      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
-      mpi_parallel::barrier(comm);
+        if (0 != me) {
+            if (echo > 0) std::printf("# rank#%i received n_atoms= %d, bc= %d %d %d, status= %i from master\n",
+                                                me,         n_atoms,     bc[0], bc[1], bc[2],  return_status);
+            xyzZ = view2D<double>(n_atoms, 4, 0.0);
+        } // not MPI master
 
-      mpi_parallel::broadcast(&n_atoms, comm);
-      mpi_parallel::broadcast(bc, comm, 3);
-      mpi_parallel::broadcast(cell[0], comm, 3*4);
-      mpi_parallel::broadcast(&return_status, comm);
+        // send the atomic positions and atomic numbers from master to all others
+        mpi_parallel::broadcast(xyzZ.data(), comm, n_atoms*4);
 
-      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
-      mpi_parallel::barrier(comm);
-
-      if (0 != me) {
-          if (echo > 0) std::printf("# rank#%i received n_atoms= %d, bc= %d %d %d, status= %i from master\n",
-                                            me,         n_atoms,     bc[0], bc[1], bc[2],  return_status);
-          xyzZ = view2D<double>(n_atoms, 4, 0.0);
-      } // not MPI master
-
-      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
-      mpi_parallel::barrier(comm);
-
-      // send the atomic positions and atomic numbers from master to all others
-      mpi_parallel::broadcast(xyzZ.data(), comm, n_atoms*4);
-
-      std::printf("# rank#%i waits in MPI_Barrier at %s:%d\n", me, __FILE__, __LINE__);
-      mpi_parallel::barrier(comm);
-
-      return return_status; // returns 0 if the expected number of atoms has been found
-  } // read_xyz_file
+        return return_status; // returns 0 if the expected number of atoms has been found
+    } // read_xyz_file
 
   float default_half_bond_length(int const Z1) {
     // data originally from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
