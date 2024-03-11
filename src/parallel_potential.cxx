@@ -281,7 +281,7 @@ namespace parallel_potential {
                 } // ip
             } // ia
 } // timer
-            if (echo > 2) std::printf("# rank#%i finds %lld atom images inside a %g %s search radius\n",
+            if (echo > 2) std::printf("# rank#%i finds %ld atom images inside a %g %s search radius\n",
                                               me, atom_images.size(), r_search*Ang, _Ang);
         } // scope
 
@@ -563,7 +563,7 @@ namespace parallel_potential {
 #ifdef    DEVEL
         if (echo > 3) {
             for (size_t iatom{0}; iatom < sigma.size()*(echo > 0); ++iatom) {
-                if (hits_per_atom[iatom]) std::printf("# %s: atom #%i has %.3f k hits\n", __func__, iatom, hits_per_atom[iatom]*1e-3);
+                if (hits_per_atom[iatom]) std::printf("# %s: atom #%li has %.3f k hits\n", __func__, iatom, hits_per_atom[iatom]*1e-3);
             } // iatom
         } // echo
 #endif // DEVEL
@@ -662,7 +662,7 @@ namespace parallel_potential {
             } // inside
         }}} // ix iy iz
 #ifdef    DEVEL
-        if (grid_points_inside && echo > 11) std::printf("# %lld grid points inside %g %s for grid block at [%g %g %g] Bohr\n",
+        if (grid_points_inside && echo > 11) std::printf("# %ld grid points inside %g %s for grid block at [%g %g %g] Bohr\n",
             grid_points_inside, r_cut*Ang, _Ang, block_coords[0], block_coords[1], block_coords[2]);
 #endif // DEVEL
         return added_charge;
@@ -750,11 +750,11 @@ namespace parallel_potential {
             comm_  = comm;
             auto const nprocs = mpi_parallel::size(comm); assert(nprocs > 0);
             auto const me     = mpi_parallel::rank(comm);
-            auto const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner rank = global_atom_id % nprocs
-            auto const na_max =  (n_all_atoms + nprocs - 1)/nprocs;
-            auto const na_min =               (n_all_atoms)/nprocs;
+            int const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner rank = global_atom_id % nprocs
+            int const na_max =  (n_all_atoms + nprocs - 1)/nprocs;
+            int const na_min =               (n_all_atoms)/nprocs;
             if (echo > 9) std::printf("# rank#%i has %d (min %d max %d) owned atoms\n", me, na, na_min, na_max);
-            auto const na_max8 = (na_max + 7) >> 3;
+            int const na_max8 = (na_max + 7) >> 3;
             if (echo > 5) std::printf("# %s: use MPI_Alltoall with %d--%d bits in %d Byte\n", __func__, na_min, na_max, na_max8);
             list_.resize(na);
             natoms_ = global_atom_ids.size();
@@ -835,7 +835,7 @@ namespace parallel_potential {
         uint32_t const natoms = global_atom_ids.size();
         if (echo > 8) std::printf("# %s of %s, %d owned atoms to %d atoms\n", __func__, what, na, natoms);
         assert(natoms == atom_comm_list.natoms());
-        std::vector<MPI_Request> recv_requests(natoms, MPI_REQUEST_NULL); // ToDo: add to MPI Stubs
+        std::vector<MPI_Request> recv_requests(natoms, MPI_REQUEST_NULL);
         for (uint32_t iatom{0}; iatom < natoms; ++iatom) { // loop over contributing atoms
             auto const global_atom_id = global_atom_ids[iatom];
             auto const atom_owner = global_atom_id % nprocs;

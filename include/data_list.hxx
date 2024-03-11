@@ -94,7 +94,7 @@ public:
     uint32_t mcols() const { return max_m_; } // max. number of cols
     uint32_t ncols(uint32_t const i) const { assert(i < n_); return m_[i]; }
     uint32_t const * m() const { return m_.data(); } // numbers of cols
-    size_t fill(T const value={0}) { std::fill(data_.begin(), data_.end(), value); return data_.size(); } // set value
+    size_t fill(T const value=T(0)) { std::fill(data_.begin(), data_.end(), value); return data_.size(); } // set value
 
 }; // data_list
 
