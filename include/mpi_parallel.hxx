@@ -127,7 +127,6 @@ namespace mpi_parallel {
   template <> inline MPI_Datatype get<int32_t> (int32_t  t) { return MPI_INT32_T;  }
   template <> inline MPI_Datatype get<uint32_t>(uint32_t t) { return MPI_UINT32_T; }
   template <> inline MPI_Datatype get<int64_t> (int64_t  t) { return MPI_INT64_T;  }
-  template <> inline MPI_Datatype get<uint64_t>(uint64_t t) { return MPI_UINT64_T; }
   template <> inline MPI_Datatype get<size_t>  (size_t   t) { return MPI_UINT64_T; }
   template <> inline MPI_Datatype get<float>   (float    t) { return MPI_FLOAT;    }
   template <> inline MPI_Datatype get<double>  (double   t) { return MPI_DOUBLE;   }
