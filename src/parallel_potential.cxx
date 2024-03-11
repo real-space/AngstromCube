@@ -370,9 +370,10 @@ namespace parallel_potential {
         if (echo > 2) std::printf("# rank#%i %d x %.3f k = %.6f M atom-block distances\n",
                               me, n_blocks, n_relevant_atoms*1e-3, distances_stored*1e-6);
         // if we knew the radii of compensation charges, core densities, valence densities, vbar, we could reduce this data item to a single bit, i.e. by 32x
+        assert(n_relevant_atoms == atom_images.size());
 
         return atom_images;
-    } // get_neigborhood
+    } // get_neighborhood
 
 
     std::vector<uint32_t> find_unique_atoms(std::vector<atom_image_t> & atom_images, int const echo=0) {
@@ -406,7 +407,7 @@ namespace parallel_potential {
         } // scope
 
         // translate the members atom_id_ in atom_images from global ids into unique ids
-        for (auto ai : atom_images) {
+        for (auto & ai : atom_images) {
             auto const global_atom_id = ai.atom_id_;
             auto const i_unique = id_map[global_atom_id];
             ai.atom_id_ = i_unique;
@@ -1353,7 +1354,11 @@ namespace parallel_potential {
         status_t stat(0);
         stat += test_r2grid_integrator(echo);
         auto const already_initialized = mpi_parallel::init();
-        stat += test_scf(echo);
+        int64_t const echo_mask = control::get("verbosity.mpi.mask", 1.); // -1:all, 0:no_one, 1:master only, 5:rank#0 and rank#2, ...
+        auto const myrank = mpi_parallel::rank();
+        int const verbose_rank = (-1 == echo_mask) ? 1 : ((myrank < 53)*((echo_mask >> myrank) & 1));
+        auto const echo_rank = verbose_rank*mpi_parallel::max(echo);
+        stat += test_scf(echo_rank);
         if (!already_initialized) mpi_parallel::finalize();
         return stat;
     } // all_tests

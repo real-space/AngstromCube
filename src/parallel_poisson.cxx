@@ -165,7 +165,6 @@ namespace parallel_poisson {
             view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1);
 
             if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
-            if (echo > 7) std::printf("# rank#%i local_global_ids.size=%ld\n", me, local_global_ids_.size());
             if (echo > 7) std::printf("# rank#%i n_local_blocks=%d\n", me, n_local_blocks);
 
             local_global_ids_.resize(n_local_blocks, int64_t(-1));
