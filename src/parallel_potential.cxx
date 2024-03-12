@@ -1074,8 +1074,21 @@ namespace parallel_potential {
         data_list<double> atoms_qzyx, atoms_vzyx;                 // for contributing atoms
         {
             std::vector<double> Za(na, 0.);
-            for (int32_t ia{0}; ia < na; ++ia) { Za[ia] = xyzZ_all(global_atom_ids[ia],3); }
+            for (int32_t ia{0}; ia < na; ++ia) {
+                auto const global_atom_id = nprocs*ia + me;
+                Za[ia] = xyzZ_all(global_atom_id,3);
+            } // ia
             std::vector<float> ionization(na, 0.f);
+
+#ifdef    HAS_SINGLE_ATOM
+            if (echo > 1) std::printf("# use single_atom::atom_update(what, na=%d, ...);\n", na);
+#else  // HAS_SINGLE_ATOM
+#ifdef    HAS_LIVE_ATOM
+            if (echo > 1) std::printf("# use C-interface live_atom_update_(what, na=%d, ...);\n", na);
+#else  // HAS_LIVE_ATOM
+            if (echo > 1) std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n");
+#endif // HAS_LIVE_ATOM
+#endif // HAS_SINGLE_ATOM
 
             stat += live_atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
             stat += live_atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
@@ -1292,7 +1305,7 @@ namespace parallel_potential {
             project_grid(atoms_vzyx, V_electrostatic, block_coords, n_blocks, lmaxs_vlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
             stat += atom_data_allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", atom_comm_list, global_atom_ids, g.dV(), echo);
-            for (int ia{0}; ia < na; ++ia) {
+            for (int32_t ia{0}; ia < na; ++ia) {
                 auto const global_atom_id = ia*nprocs + me;
                 auto const stat_ren = sho_projection::renormalize_electrostatics(atom_vlm[ia], atom_vzyx[ia], lmax_vlm[ia], sigma_cmp[ia], unitary, echo);
                 if (stat_ren) warn("renormalize_electrostatics failed with status= %i for atom#%i", int(stat_ren), global_atom_id);
