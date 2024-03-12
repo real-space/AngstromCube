@@ -84,6 +84,7 @@ public:
     T const & at(uint32_t const i, uint32_t const j) const { assert(i < n_); assert(j < m_[i]); return ptrs_[i][j]; }
     T       & at(uint32_t const i, uint32_t const j)       { assert(i < n_); assert(j < m_[i]); return ptrs_[i][j]; }
 
+    T*        at  (uint32_t const i) const { assert(i < n_); return ptrs_[i]; }
     T* operator[] (uint32_t const i) const { assert(i < n_); return ptrs_[i]; }
 
     // member access functions

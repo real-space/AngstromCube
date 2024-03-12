@@ -564,12 +564,12 @@ namespace parallel_potential {
                 hits_per_block       += hits;
             } // ai
 #ifdef    DEVEL
-            if (echo > 11 && hits_per_block) std::printf("# %s: block #%i at %g %g %g Bohr has %.3f k hits\n", __func__,
+            if (echo > 17 && hits_per_block) std::printf("# %s: block #%i at %g %g %g Bohr has %.3f k hits\n", __func__,
                 ilb, block_coords[ilb][0], block_coords[ilb][1], block_coords[ilb][2], hits_per_block*1e-3);
 #endif // DEVEL
         } // ilb
 #ifdef    DEVEL
-        if (echo > 3) {
+        if (echo > 13) {
             for (size_t iatom{0}; iatom < sigma.size()*(echo > 0); ++iatom) {
                 if (hits_per_atom[iatom]) std::printf("# %s: atom #%li has %.3f k hits\n", __func__, iatom, hits_per_atom[iatom]*1e-3);
             } // iatom
@@ -611,12 +611,12 @@ namespace parallel_potential {
                 hits_per_atom       += hits;
             } // ilb
 #ifdef    DEVEL
-            if (echo > 0 && hits_per_atom) std::printf("# %s: image of atom #%i at %g %g %g Bohr has %.3f k hits\n",
+            if (echo > 17 && hits_per_atom) std::printf("# %s: image of atom #%i at %g %g %g Bohr has %.3f k hits\n",
                                            __func__, iatom, ai.pos_[0], ai.pos_[1], ai.pos_[2], hits_per_atom*1e-3);
 #endif // DEVEL
         } // ai
 #ifdef    DEVEL
-        if (echo > 11) {
+        if (echo > 13) {
             for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) {
                 if (hits_per_block[ilb]) std::printf("# %s: block #%i at %g %g %g Bohr has %.3f k hits\n", __func__,
                     ilb, block_coords[ilb][0], block_coords[ilb][1], block_coords[ilb][2], hits_per_block[ilb]*1e-3);
@@ -850,6 +850,7 @@ namespace parallel_potential {
                 } // remote
             } // rank
         } // ia
+        uint32_t irequest{0};
 #endif // HAS_NO_MPI
 
         // contributing atoms listen
@@ -857,7 +858,6 @@ namespace parallel_potential {
         if (echo > 8) std::printf("# %s of %s, %d owned atoms to %d atoms\n", __func__, what, na, natoms);
         assert(natoms == atom_comm_list.natoms());
         std::vector<MPI_Request> recv_requests(natoms, MPI_REQUEST_NULL);
-        uint32_t irequest{0};
         for (uint32_t iatom{0}; iatom < natoms; ++iatom) { // loop over contributing atoms
             auto const global_atom_id = global_atom_ids[iatom];
             auto const atom_owner = global_atom_id % nprocs;
@@ -875,8 +875,8 @@ namespace parallel_potential {
                 if (echo > 11) std::printf("# rank#%i %s: recv %s, %d doubles for owned atom#%i from owner rank#%i to contributing atom#%i, global#%i\n",
                                                    me, __func__, what, count, ia, atom_owner, iatom, global_atom_id);
                 stat += MPI_Irecv(atom_data[iatom], count, MPI_DOUBLE, atom_owner, ia, comm, &recv_requests[irequest]);
-#endif // HAS_NO_MPI
                 ++irequest;
+#endif // HAS_NO_MPI
             }
         } // iatom
 
@@ -954,8 +954,8 @@ namespace parallel_potential {
             std::vector<double> contrib(count);
             for (auto const rank : list_ia) {
                 if (rank != me) {
-                    if (echo > 13) std::printf("# rank#%i %s: recv %s, %d doubles for my owned atom#%i from contributing rank#%i\n",
-                                                       me, __func__, what, count, ia, rank);
+                    if (echo > 13) std::printf("# rank#%i %s: recv %s, %d doubles for my owned atom#%i, global#%i from contributing rank#%i\n",
+                                                       me, __func__, what, count, ia, ia*nprocs + me, rank);
                     MPI_Status status;     // Mind that this is a blocking communication routine
                     stat += MPI_Recv(contrib.data(), count, MPI_DOUBLE, rank, ia, comm, &status);
                     add_product(owner_data[ia], count, contrib.data(), factor); // accumulation
@@ -994,10 +994,6 @@ namespace parallel_potential {
             if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
             stat += stat_init;
         } // master
-        // mpi_parallel::broadcast(&n_all_atoms, comm);
-        // if (0 != me) { xyzZ_all = view2D<double>(n_all_atoms, 4); }
-        // mpi_parallel::broadcast(xyzZ_all.data(), comm, n_all_atoms*4);
-        // mpi_parallel::broadcast((char*)&g, comm, sizeof(g));
 
         // create a coarse grid descriptor
         real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2);
@@ -1074,13 +1070,13 @@ namespace parallel_potential {
             { // scope: initialized the data_lists for owned atoms
                 view2D<uint32_t> num(6, na, 0); // how many
                 for (int32_t ia{0}; ia < na; ++ia) {
-                    num(0,ia) = pow2(1 + lmax_qlm[ia]); // qlm
-                    num(1,ia) = pow2(1 + lmax_vlm[ia]); // vlm
-                    int const n_sho = sho_tools::nSHO(numax[ia]);
+                    num(0,ia) = pow2(1 + lmax_qlm.at(ia)); // qlm
+                    num(1,ia) = pow2(1 + lmax_vlm.at(ia)); // vlm
+                    int const n_sho = sho_tools::nSHO(numax.at(ia));
                     num(2,ia) =   pow2(n_sho);          // aDm
                     num(3,ia) = 2*pow2(n_sho);          // aHm+aSm
-                    num(4,ia) = sho_tools::nSHO(lmax_qlm[ia]);
-                    num(5,ia) = sho_tools::nSHO(lmax_vlm[ia]);
+                    num(4,ia) = sho_tools::nSHO(lmax_qlm[ia]); // number of coefficients to represent qlm compensation charges in a SHO basis
+                    num(5,ia) = sho_tools::nSHO(lmax_vlm[ia]); // number of coefficients to represent vlm electrostatic projectors in a SHO basis
                  } // ia
                 // get memory in the form of data_list containers
                 atom_qlm  = data_list<double>(na, num[0], 0.0); // charge multipole moments on owned atoms
@@ -1096,13 +1092,13 @@ namespace parallel_potential {
                 std::vector<uint32_t> num(na, m8);
                 data_list<double> atom_send(num, 0.0);
                 for (int32_t ia{0}; ia < na; ++ia) {
-                    atom_send(ia,0) = numax[ia];
-                    atom_send(ia,1) = lmax_qlm[ia];
-                    atom_send(ia,2) = lmax_vlm[ia];
-                    atom_send(ia,3) = sigma_cmp[ia];
-                    atom_send(ia,4) = nr2[ia];
-                    atom_send(ia,5) = ar2[ia];
-                    atom_send(ia,7) = ionization[ia];
+                    atom_send(ia,0) = numax.at(ia);
+                    atom_send(ia,1) = lmax_qlm.at(ia);
+                    atom_send(ia,2) = lmax_vlm.at(ia);
+                    atom_send(ia,3) = sigma_cmp.at(ia);
+                    atom_send(ia,4) = nr2.at(ia);
+                    atom_send(ia,5) = ar2.at(ia);
+                    atom_send(ia,7) = ionization.at(ia);
                 } // ia
 
                 num.resize(natoms, m8);
@@ -1111,11 +1107,11 @@ namespace parallel_potential {
                 stat += atom_data_broadcast(atoms_recv, atom_send, "eight atom scalars", atom_comm_list, global_atom_ids, echo);
 
                 for (uint32_t iatom{0}; iatom < natoms; ++iatom) {
-                    lmaxs_qlm[iatom]  = atoms_recv(iatom,1);
-                    lmaxs_vlm[iatom]  = atoms_recv(iatom,2);
-                    sigmas_cmp[iatom] = atoms_recv(iatom,3); 
-                    nr2s[iatom]       = atoms_recv(iatom,4);
-                    ar2s[iatom]       = atoms_recv(iatom,5);
+                    lmaxs_qlm.at(iatom)  = atoms_recv(iatom,1);
+                    lmaxs_vlm.at(iatom)  = atoms_recv(iatom,2);
+                    sigmas_cmp.at(iatom) = atoms_recv(iatom,3); 
+                    nr2s.at(iatom)       = atoms_recv(iatom,4);
+                    ar2s.at(iatom)       = atoms_recv(iatom,5);
                 } // iatom
             } // scope
 
@@ -1252,8 +1248,9 @@ namespace parallel_potential {
             stat += live_atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
 
             for (int ia{0}; ia < na; ++ia) {
+                auto const global_atom_id = ia*nprocs + me;
                 auto const stat_den = sho_projection::denormalize_electrostatics(atom_qzyx[ia], atom_qlm[ia], lmax_qlm[ia], sigma_cmp[ia], unitary, echo);
-                if (stat_den) warn("denormalize_electrostatics failed with status= %i for owned atom#%i", int(stat_den), ia);
+                if (stat_den) warn("denormalize_electrostatics failed with status= %i for atom#%i", int(stat_den), global_atom_id);
                 stat += stat_den;
             } // ia
             stat += atom_data_broadcast(atoms_qzyx, atom_qzyx, "compensator multipole moments", atom_comm_list, global_atom_ids, echo);
@@ -1271,7 +1268,7 @@ namespace parallel_potential {
                                                 &es_residual, es_maxiter, es_miniter, es_restart);
                 if (echo > 2) std::printf("# Poisson equation %s, residual= %.2e a.u.\n#\n", es_stat?"failed":"converged", es_residual);
                 stat += es_stat;
-                if (es_stat) warn("parallel_poisson::solve returned status= %i", int(es_stat));
+                if (es_stat && 0 == me) warn("parallel_poisson::solve returned status= %i", int(es_stat));
             } // scope
 
             print_stats(V_electrostatic[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth electrostatic potential", eV, _eV);
@@ -1281,26 +1278,24 @@ namespace parallel_potential {
 
             stat += atom_data_allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", atom_comm_list, global_atom_ids, g.dV(), echo);
             for (int ia{0}; ia < na; ++ia) {
+                auto const global_atom_id = ia*nprocs + me;
                 auto const stat_ren = sho_projection::renormalize_electrostatics(atom_vlm[ia], atom_vzyx[ia], lmax_vlm[ia], sigma_cmp[ia], unitary, echo);
-                if (stat_ren) warn("renormalize_electrostatics failed with status= %i", int(stat_ren));
+                if (stat_ren) warn("renormalize_electrostatics failed with status= %i for atom#%i", int(stat_ren), global_atom_id);
                 stat += stat_ren;
-            } // iatom
-
 #ifdef    DEVEL
-            if (echo > 3) {
-                for (int ia{0}; ia < na; ++ia) {
-                    std::printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, atom_vlm[ia][00]*Y00*eV, _eV);
+                if (echo > 7) {
+                    std::printf("# potential projection for atom #%i v_00 = %.9f %s\n", global_atom_id, atom_vlm[ia][00]*Y00*eV, _eV);
                     int const ellmax_show = std::min(lmax_vlm[ia], 2);
                     for (int ell = 1; ell <= ellmax_show; ++ell) {
                         double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
                         int const ilm0 = sho_tools::lm_index(ell, -ell);
-                        std::printf("# potential projection for atom #%d v_%im =", ia, ell);
+                        std::printf("# potential projection for atom #%i v_%im =", global_atom_id, ell);
                         printf_vector(" %.6f", &atom_vlm[ia][ilm0], 2*ell + 1, nullptr, unitfactor);
                         std::printf(" %s %s^%i\n", _eV, _Ang, -ell);
                     } // ell
-                } // ia
-            } // echo
+                } // echo
 #endif // DEVEL
+            } // ia
 
             // compose and coarsen total effective potential
 
@@ -1339,7 +1334,7 @@ namespace parallel_potential {
                 auto const stat_TF = new_density_Thomas_Fermi(new_valence_density[0], E_Fermi, V_effective[0],
                                 n_blocks*size_t(512), comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_TF;
-                if (stat_TF) warn("# new_density_Thomas_Fermi returned status= %i", int(stat_TF));
+                if (stat_TF && 0 == me) warn("# new_density_Thomas_Fermi returned status= %i", int(stat_TF));
                 print_stats(new_valence_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
             } // scope
 
