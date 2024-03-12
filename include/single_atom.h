@@ -54,10 +54,10 @@
 
 /*
     Example for inclusion in Fortran:
-        integer(kind=4), parameter :: na = 2
+        integer(kind=4), parameter :: na = 2 ! two atoms
         integer(kind=4) :: status
         real(kind=8) :: quantity(na)
-        external live_atom_get_some_quantity ! optional
+        external live_atom_get_some_quantity ! declaration as external is optional
         call live_atom_get_some_quantity(na, quantity, status)
         if (status /= 0) stop 'ERROR'
         write(*,*) quantity
@@ -65,8 +65,8 @@
     A note on equivalent types:
         integer(kind=4)       int32_t
         integer(kind=1)        int8_t
-         real(kind=8)           double
-         character(len=*)    char[]
+        real(kind=8)           double
+        character(len=*)       char[]
      Mind that strings are not null-terminated in Fortran
 */
 
@@ -93,9 +93,8 @@
         *status += unit_system::set(control::get("output.length.unit", "Bohr"),
                                     control::get("output.energy.unit", "Ha"), echo);
     } // live_atom_set_env_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(initialize)
         ( int32_t const *na // number of atoms
@@ -138,9 +137,8 @@
         warn("Initialized %d LiveAtoms, ToDo: need to deal with atom_id, nn, magnetization, xc_key", *na);
         // std::fflush(stdout);
     } // live_atom_initialize_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(set_env)
         ( char const *varname
@@ -155,9 +153,8 @@
         *status = (nullptr == newvalue);
         // std::fflush(stdout);
     } // live_atom_set_env_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_env)
         ( char const *varname
@@ -173,9 +170,8 @@
         *status = ('\0' == *oldvalue);
         // std::fflush(stdout);
     } // live_atom_get_env_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_core_density)
         ( int32_t const *na
@@ -188,9 +184,8 @@
         if (echo > 0) std::printf("\n# got_core_density for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_core_density_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_start_waves)
         ( int32_t const *na
@@ -204,9 +199,8 @@
         if (echo > 0) std::printf("# got_start_waves for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_start_waves_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(set_density_matrix)
         ( int32_t const *na
@@ -220,9 +214,8 @@
         if (echo > 0) std::printf("# density_matrices set for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_set_density_matrix_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_compensation_charge)
         ( int32_t const *na
@@ -235,9 +228,8 @@
         if (echo > 0) std::printf("# got_compensation_charge %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_compensation_charge_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(set_potential_multipole)
         ( int32_t const *na
@@ -251,9 +243,8 @@
         if (echo > 0) std::printf("# potential_multipoles set for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_set_potential_multipole_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_zero_potential)
         ( int32_t const *na
@@ -266,9 +257,8 @@
         if (echo > 0) std::printf("# got_zero_potential for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_zero_potential_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_projectors)
         ( int32_t const *na
@@ -282,9 +272,8 @@
         if (echo > 0) std::printf("# got_projectors for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_projectors_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_hamiltonian_matrix)
         ( int32_t const *na
@@ -297,9 +286,8 @@
         if (echo > 0) std::printf("# got_hamiltonian_matrix for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_hamiltonian_matrix_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(get_energy_contributions)
         ( int32_t const *na
@@ -312,9 +300,8 @@
         if (echo > 0) std::printf("# got_energy_contributions for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_energy_contributions_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(update)
         ( char const *what
@@ -331,9 +318,8 @@
         if (echo > 0) std::printf("# update('%s') for %d LiveAtoms\n", what, *na);
         // std::fflush(stdout);
     } // live_atom_update_
-#else
-    ;
 #endif
+    ;
 
     fortran_callable(finalize)
         ( int32_t const *na
@@ -348,8 +334,7 @@
         recorded_warnings::show_warnings(3);
         // std::fflush(stdout);
     } // live_atom_finalize_
-#else
-    ;
 #endif
+    ;
 
 #endif // SINGLE_ATOM_HEADER (header guard)

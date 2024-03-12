@@ -14,9 +14,12 @@
 #ifndef   NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
+  #include "parallel_potential.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
   #include "parallel_poisson.hxx" // ::all_tests
+  #include "chemical_symbol.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
+  #include "geometry_input.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
@@ -76,6 +79,8 @@
           add_module_test(inline_math);
           add_module_test(sho_tools);
           add_module_test(unit_system);
+          add_module_test(geometry_input);
+          add_module_test(chemical_symbol);
           add_module_test(boundary_condition);
           add_module_test(global_coordinates);
           add_module_test(xml_reading);
@@ -85,6 +90,7 @@
           add_module_test(mpi_parallel);
           add_module_test(green_parallel);
           add_module_test(parallel_poisson);
+          add_module_test(parallel_potential);
           green_tests::add_tests(results, input_name, show, all, echo);
 
 #undef    add_module_test

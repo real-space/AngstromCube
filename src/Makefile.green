@@ -24,7 +24,12 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	display_units.o \
 	load_balancer.o \
 	mpi_parallel.o \
+	geometry_input.o \
+	sho_unitary.o \
+	exchange_correlation.o \
 	parallel_poisson.o \
+	parallel_potential.o \
+	chemical_symbol.o \
 	green_experiments.o \
 	green_function.o \
 	green_parallel.o \
@@ -44,6 +49,7 @@ allclean: clean
 CU    ?= nvcc
 CC    ?= gcc
 FEAFLAGS ?=
+FEAFLAGS += -DHAS_LIVE_ATOM
 INC ?=
 LDFLAGS ?=
 ERRFLAGS ?=
@@ -110,6 +116,10 @@ OPTFLAGS += -Wno-unknown-pragmas
 
 # LDFLAGS += -mkl
 LDFLAGS += ## -lmkl_intel_thread
+//LDFLAGS += -L. -lliveatom.so
+LDFLAGS += libliveatom.a
+LDFLAGS += -lblas
+LDFLAGS += -llapack
 
 CUOPTFLAGS =
 #### production mode

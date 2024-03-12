@@ -12,7 +12,7 @@
 
 #include "geometry_analysis.hxx" // ::fold_back, length
 
-#include "geometry_input.hxx" // ::
+#include "geometry_input.hxx" // ::read_xyz_file
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, ::periodic_images, Invalid_Boundary
 #include "display_units.h" // Ang, _Ang
 #include "inline_math.hxx" // set, pow2

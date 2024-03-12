@@ -9,7 +9,7 @@ namespace single_atom {
 
   status_t atom_update(
         char const *what    // decide, what to import or export, only 1st char relevant (w), unless what="#...", then also the 2nd char
-      , int natoms          // number of atoms, most relevant when (i) ("initialize")
+      , int32_t natoms      // number of atoms, most relevant when (i) ("initialize"), this is the C++-interface so here call-by-value
       , double  *dp=nullptr // (i)in atomic number, (s)out sigma_cmp, (l)in decide if _cmp or _pot
       , int32_t *ip=nullptr // (i)in numax, (n)out numax, (l)out lmax_cmp or lmax_pot
       , float   *fp=nullptr // (i)in ionization, (c/v/z)in ar2, (u)opt-in {mix_pot, mix_rho}

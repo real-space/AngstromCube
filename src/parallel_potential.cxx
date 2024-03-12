@@ -9,14 +9,19 @@
 
 #include "parallel_potential.hxx"
 
-// #include "single_atom.h" // live_atom_##NAME##_ // use the libliveatom library
-#include "single_atom.hxx" // ::atom_update
+#ifdef    HAS_SINGLE_ATOM
+    #include "single_atom.hxx" // ::atom_update
+#else  // HAS_SINGLE_ATOM
+    extern "C" {
+       #include "single_atom.h" // live_atom_update_ // use the libliveatom library C-interface
+    } // extern "C"
+#endif // HAS_SINGLE_ATOM
 
 #include "status.hxx" // status_t
 #include "control.hxx" // ::get
 #include "real_space.hxx" // ::grid_t
 #include "display_units.h" // Ang, _Ang
-#include "self_consistency.hxx" // ::init_geometry_and_grid
+#include "geometry_input.hxx" // ::init_geometry_and_grid
 #include "mpi_parallel.hxx" // ::init, ::finalize, MPI_COMM_WORLD, ::barrier
 #include "parallel_poisson.hxx" // ::parallel_grid_t
 #include "data_view.hxx" // view2D<>, view3D<>
@@ -51,7 +56,17 @@ namespace parallel_potential {
          // warn("single_atom::atom_update deactivated", 0); 
             return 0;
         } else {
+#ifdef    HAS_SINGLE_ATOM
             auto const stat = single_atom::atom_update(what, natoms, dp, ip, fp, dpp);
+#else  // HAS_SINGLE_ATOM
+#ifdef    HAS_LIVE_ATOM
+            int32_t stat{0}; live_atom_update_(what, &natoms, dp, ip, fp, dpp, &stat);
+#else  // HAS_LIVE_ATOM
+            static bool warned = false;
+            if (!warned) { warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM", natoms); warned = true; }
+            status_t stat(1);
+#endif // HAS_LIVE_ATOM
+#endif // HAS_SINGLE_ATOM
             if (stat) warn("single_atom::atom_update(%s, natoms=%d, ...) returned status= %i", what, natoms, int(stat));
             return stat;
         }
@@ -990,7 +1005,7 @@ namespace parallel_potential {
         int32_t n_all_atoms;  // number of all atoms
 
         { // MPI master task
-            auto const stat_init = self_consistency::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
+            auto const stat_init = geometry_input::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
             if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
             stat += stat_init;
         } // master

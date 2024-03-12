@@ -11,13 +11,15 @@ set(a43_atom_headers
     ../include/control.hxx
     ../include/recorded_warnings.hxx
     ../include/radial_grid.hxx
+    ../include/radial_grid.h
+    ../include/quantum_numbers.h
     ../include/radial_integrator.hxx
     ../include/radial_potential.hxx
     ../include/radial_eigensolver.hxx
     ../include/exchange_correlation.hxx
     ../include/scattering_test.hxx
-    ../include/chemical_symbol.h
     ../include/chemical_symbol.hxx
+    ../include/chemical_symbol.h
     ../include/display_units.h
     ../include/sigma_config.hxx
     ../include/atom_core.hxx
@@ -74,6 +76,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/sho_basis.hxx
     ../include/sho_overlap.hxx
     ../include/sho_hamiltonian.hxx
+    ../include/gaunt_entry.h
     ../include/sho_projection.hxx
     ../include/sho_potential.hxx
     ../include/structure_solver.hxx
@@ -130,11 +133,14 @@ set(all_targets ${all_targets} green)
 
 set(green_headers
     ../include/control.hxx
+    ../include/constants.hxx
     ../include/recorded_warnings.hxx
     ../include/geometry_input.hxx
     ../include/display_units.h
+    ../include/single_atom.h
     ../include/mpi_parallel.hxx
     ../include/simple_timer.hxx
+    ../include/simple_stats.hxx
     ../include/global_coordinates.hxx
     ../include/green_parallel.hxx
     ../include/green_input.hxx
@@ -144,17 +150,31 @@ set(green_headers
     ../include/green_function.hxx
     ../include/green_experiments.hxx
     ../include/chemical_symbol.h
+    ../include/inline_math.hxx
     ../include/chemical_symbol.hxx
+    ../include/exchange_correlation.hxx
+    ../include/hermite_polynomial.hxx
+    ../include/sho_projection.hxx
     ../include/green_tests.hxx
+    ../include/sho_tools.hxx
+    ../include/sho_unitary.hxx
+    ../include/data_view.hxx
+    ../include/data_list.hxx
+    ../include/boundary_condition.hxx
+    ../include/print_tools.hxx
+    ../include/parallel_potential.hxx
 )
 
 set(green_sources
     control.cxx
     recorded_warnings.cxx
+    sho_unitary.cxx
     chemical_symbol.cxx
     geometry_input.cxx
     display_units.cxx
     mpi_parallel.cxx
+    exchange_correlation.cxx
+    parallel_potential.cxx
     parallel_poisson.cxx
     green_parallel.cxx
     green_input.cxx
@@ -209,6 +229,10 @@ endif(HAS_CUDA)
 # a43 never has CUDA
 target_compile_definitions(a43 PUBLIC -DHAS_NO_CUDA)
 
+# a43 comes together with single_atom, while green will be linked against libliveatom.so
+target_compile_definitions(a43 PUBLIC -DHAS_SINGLE_ATOM)
+target_compile_definitions(green PUBLIC -DHAS_LIVE_ATOM)
+target_link_libraries(green PUBLIC liveatom)
 
 if(HAS_DEVEL)
     add_definitions(-DDEVEL)
