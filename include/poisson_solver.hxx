@@ -20,7 +20,7 @@ namespace poisson_solver {
 
   inline char solver_method(char const *const method) { return *method; } // returns the 1st char
 
-#ifdef DEVEL
+#ifdef    DEVEL
 
   template <typename real_t>
   void print_direct_projection(

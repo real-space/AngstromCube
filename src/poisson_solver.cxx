@@ -41,7 +41,7 @@
 namespace poisson_solver {
   // this module contains a collection of Poisson solvers and control the selection
 
-#ifdef DEVEL
+#ifdef    DEVEL
 
   status_t Bessel_Poisson_solver(
         double Ves[] // output electrostatic potential

@@ -304,7 +304,7 @@ namespace iterative_poisson {
         set(b32, nall, b); // convert to float
         set(x32, nall, x); // convert to float
         if (echo > 5) std::printf("# %s solve in <float> precision first\n", __FILE__);
-        ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter >> 4, miniter, restart);
+        ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter, miniter, restart);
         if (echo > 5) std::printf("# %s switch back to <double> precision\n", __FILE__);
         set(x, nall, x32); // convert to double
     } // real_t==double

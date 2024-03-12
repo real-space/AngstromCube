@@ -17,7 +17,7 @@ namespace iterative_poisson {
       , float const threshold=3e-8 // convergence criterion
       , float *residual=nullptr // residual that was reached
       , int const maxiter=199 // maximum number of iterations 
-      , int const miniter=3  // minimum number of iterations
+      , int const miniter=3 // minimum number of iterations
       , int restart=4096 // number of iterations before restart, 1:steepest descent
   ); // declaration only
 
