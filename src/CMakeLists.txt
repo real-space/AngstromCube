@@ -91,6 +91,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/load_balancer.hxx
     ../include/green_tests.hxx
     ../include/add_module_test.h
+    ../include/energy_contribution.hxx
 )
 
 set(a43_sources ${a43_atom_sources}

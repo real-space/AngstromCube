@@ -57,6 +57,7 @@ namespace parallel_poisson {
         , int const maxiter=199 // maximum number of iterations 
         , int const miniter=3  // minimum number of iterations
         , int restart=4096 // number of iterations before restart, 1:steepest descent
+        , double *inner_xx_bb=nullptr // export the last inner product
     ); // declaration only
 
     status_t all_tests(int const echo=0); // declaration only

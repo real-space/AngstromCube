@@ -32,6 +32,7 @@
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 #include "sho_projection.hxx" // ::denormalize_electrostatics, ::renormalize_electrostatics
 #include "print_tools.hxx" // printf_vector
+#include "energy_contribution.hxx" // ::show, ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 #ifdef    HAS_SINGLE_ATOM
     #include "single_atom.hxx" // ::atom_update
@@ -1233,6 +1234,11 @@ namespace parallel_potential {
 
         sho_unitary::Unitary_SHO_Transform const unitary(9);
 
+
+        // energy contributions
+        double grid_kinetic_energy{0}, grid_electrostatic_energy{0}, grid_xc_energy{0}, total_energy{0};
+
+
         int scf_iteration{0};
         bool scf_run{true};
         do { // self-consistency loop
@@ -1241,12 +1247,12 @@ namespace parallel_potential {
             ++scf_iteration;
             if (echo > 3) std::printf("#\n# Start SCF iteration #%i\n#\n", scf_iteration);
 
-
-            // get smooth core densities on r^2-grids
+            // get smooth core densities
             stat += live_atom_update("core densities", na, 0, nr2.data(), 0, atom_rhoc.data());
 
             if (take_atomic_valence_densities > 0) {
                 auto & atom_rhov = atom_vbar; // use memory of vbar for the moment
+                // get smooth spherical valence density
                 stat += live_atom_update("valence densities", na, 0, nr2.data(), 0, atom_rhov.data());
                 for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
                     // add valence density to r^2-gridded core density
@@ -1256,8 +1262,6 @@ namespace parallel_potential {
                 } // ia
             } // take_atomic_valence_densities > 0
             stat += atom_data_broadcast(atoms_rhoc, atom_rhoc, "core densities", atom_comm_list, global_atom_ids, echo);
-
-            // ToDo: broadcast atom_rhoc among those processes contributing
 
             auto const total_charge_added = add_r2grid_quantity(core_density, "smooth core density", atoms_rhoc,
                                             atom_images, natoms, block_coords, n_blocks, g, comm, echo, Y00sq);
@@ -1289,8 +1293,8 @@ namespace parallel_potential {
              // if (echo > 2) std::printf("# rank#%i rho_max= %g a.u. at index= %lli\n", me, rho_max, i_max);
                 E_xc = mpi_parallel::sum(E_xc, comm) * g.dV(); // scale with volume element
                 E_dc = mpi_parallel::sum(E_dc, comm) * g.dV(); // scale with volume element
-                if (echo > 2) std::printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", E_xc*eV,_eV, E_dc*eV,_eV);
-                // grid_xc_energy = E_xc;
+                if (echo > 2) std::printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", E_xc*eV, _eV, E_dc*eV, _eV);
+                grid_xc_energy = E_xc;
             } // scope
             print_stats(V_xc[0], n_blocks*size_t(8*8*8), comm, echo > 1, 0, "# smooth exchange-correlation potential", eV, _eV);
 
@@ -1311,13 +1315,16 @@ namespace parallel_potential {
 
             { // scope: Poisson equation
                 if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF iteration #%i\n#\n", nprocs, scf_iteration);
+                double E_es{0};
                 float es_residual{0};
                 auto const es_stat = parallel_poisson::solve(V_electrostatic[0], augmented_density[0],
                                                 pg, *es_method, es_echo, es_threshold,
-                                                &es_residual, es_maxiter, es_miniter, es_restart);
+                                                &es_residual, es_maxiter, es_miniter, es_restart, &E_es);
                 if (echo > 2) std::printf("# Poisson equation %s, residual= %.2e a.u.\n#\n", es_stat?"failed":"converged", es_residual);
                 stat += es_stat;
                 if (es_stat && 0 == me) warn("parallel_poisson::solve returned status= %i", int(es_stat));
+                grid_electrostatic_energy = 0.5*E_es; // store
+                if (echo > 3) std::printf("# smooth electrostatic grid energy %.9f %s\n", grid_electrostatic_energy*eV, _eV);
             } // scope
 
             print_stats(V_electrostatic[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth electrostatic potential", eV, _eV);
@@ -1387,6 +1394,13 @@ namespace parallel_potential {
                 print_stats(new_valence_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
             } // scope
 
+            auto const E_dcc = dot_product(n_blocks*size_t(8*8*8), new_valence_density[0], V_effective[0]);
+            double const double_counting_correction = mpi_parallel::sum(E_dcc, comm) * g.dV();
+            if (echo > 1) std::printf("\n# grid double counting %.9f %s\n\n", double_counting_correction*eV, _eV);
+
+            grid_kinetic_energy = E_Fermi - double_counting_correction;
+            if (echo > 1) std::printf("\n# grid kinetic energy %.9f %s (take %.1f %%)\n\n",
+                    grid_kinetic_energy*eV, _eV, (1. - take_atomic_valence_densities)*100);
 
             float rho_mixing_ratios[] = {.5, .5, .5}; // for spherical {core, semicore, valence} density
             stat += live_atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());
@@ -1394,6 +1408,51 @@ namespace parallel_potential {
             double const mix_new = rho_mixing_ratios[2], mix_old = 1. - mix_new;
             scale(valence_density(0,0),       n_blocks*size_t(8*8*8), mix_old);
             add_product(valence_density(0,0), n_blocks*size_t(8*8*8), new_valence_density[0], mix_new);
+
+
+            // compute the total energy
+            std::vector<double> atomic_energy_diff(na, 0.0);
+
+            bool const total_energy_details = true;
+            if (total_energy_details) {
+                int const nE = align<1>(energy_contribution::max_number);
+                std::vector<int32_t> nEa(na, nE);
+                data_list<double> atom_contrib(nEa, 0.0);
+                stat += live_atom_update("energies", na, atomic_energy_diff.data(), 0, 0, atom_contrib.data());
+                std::vector<double> Ea(nE, 0.0);
+                for (int32_t ia = 0; ia < na; ++ia) {
+                    add_product(Ea.data(), nE, atom_contrib[ia], 1.); // all atomic weight factors are 1.0
+                } // ia
+                mpi_parallel::sum(Ea.data(), nE, comm);
+                if (echo > 7) std::printf("\n# sum of atomic energy contributions without grid contributions:\n");
+                energy_contribution::show(Ea.data(), echo - 7, eV, _eV);
+                // now add grid contributions
+                Ea[energy_contribution::KINETIC] += grid_kinetic_energy * (1. - take_atomic_valence_densities);
+                Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
+                Ea[energy_contribution::ELECTROSTATIC] += grid_electrostatic_energy;
+                // reconstruct total energy from its contributions KINETIC + ES + XC
+                Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
+                                               + Ea[energy_contribution::ELECTROSTATIC]
+                                               + Ea[energy_contribution::EXCHANGE_CORRELATION];
+                if (echo > 7) std::printf("\n# sum of atomic energy contributions with grid contributions:\n");
+                energy_contribution::show(Ea.data(), echo - 3, eV, _eV);
+            } else {
+                stat += live_atom_update("energies", na, atomic_energy_diff.data());
+            } // total_energy_details
+
+            double atomic_energy_corrections{0};
+            for (int32_t ia = 0; ia < na; ++ia) {
+                atomic_energy_corrections += atomic_energy_diff[ia];
+            } // ia
+            atomic_energy_corrections = mpi_parallel::sum(atomic_energy_corrections, comm);
+
+            total_energy = grid_kinetic_energy * (1. - take_atomic_valence_densities)
+                         + grid_xc_energy
+                         + grid_electrostatic_energy
+                         + atomic_energy_corrections;
+            if (echo > 0) { std::printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV); std::fflush(stdout); }
+
+
 
             scf_run = (scf_iteration < scf_maxiter);
 

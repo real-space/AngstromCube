@@ -21,7 +21,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "data_list.hxx" // data_list<T>
 
-#include "geometry_input.hxx" // ::read_xyz_file
+#include "geometry_input.hxx" // ::read_xyz_file, ::get_temperature, ::init_geometry_and_grid
 #include "geometry_analysis.hxx" // ::fold_back, length
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::get, ::set, ::echo_set_without_warning
@@ -32,7 +32,7 @@
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
 #include "single_atom.hxx" // ::atom_update
-#include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
+#include "energy_contribution.hxx" // ::show, ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
 #include "potential_generator.hxx" // ::add_smooth_quantities
@@ -54,133 +54,10 @@
 #endif // DEBUG
 
 namespace self_consistency {
-  // This module makes a DFT calculation based on atoms
-  // that live in a spherical potential which is found
-  // by projection of the 3D potential.
-  // Their wave functions do not hybridize but they
-  // feel the effect of the density of neighboring atoms
+  // This module makes an all-electron Density Functional Theory (DFT) calculation of atoms
+  // described by the Projector Augmented Wave method (PAW) 
 
-  inline int even(int const any, unsigned const n_even=2) { return ((any - 1 + n_even)/n_even)*n_even; }
-  inline int n_grid_points(double const suggest, unsigned const n_even=2) { return even(int(std::ceil(suggest)), n_even); }
-
-  status_t init_geometry_and_grid(
-        real_space::grid_t & g // output grid descriptor
-      , view2D<double> & xyzZ // output atom coordinates and core charges Z
-      , int32_t & natoms // output number of atoms found
-      , unsigned const n_even // =2
-      , int const echo // =0 log-level
-  ) {
-      status_t stat(0);
-
-      natoms = 0; // number of atoms
-      int8_t bc[3]; // boundary conditions
-      double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}}; // general cell parameters
-      auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      stat += geometry_input::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
-
-      auto const keyword_ng = "grid.points";
-      auto const keyword_hg = "grid.spacing";
-      { // scope: determine grid spacings and number of grid points
-
-          // precedence:
-          //    highest:  grid.points.x, .y, .z
-          //           :  grid.points
-          //           :  grid.spacing.x, .y, .z
-          //     lowest:  grid.spacing             default value = 0.125 Angstrom
-
-          auto const grid_spacing_unit_name = control::get("grid.spacing.unit", "Bohr");
-          char const *_lu;
-          auto const lu = unit_system::length_unit(grid_spacing_unit_name, &_lu);
-          auto const in_lu = 1./lu;
-
-          auto const default_grid_spacing = 0.23621577; // == 0.125 Angstrom
-          auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
-          auto const hg_iso = std::abs(control::get(keyword_hg, -default_grid_spacing*lu));
-
-          int default_grid_spacing_used{0};
-          int ng[3] = {0, 0, 0};
-          for (int d = 0; d < 3; ++d) { // directions x, y, z
-              char keyword[32]; std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
-              ng[d] = int(control::get(keyword, ng_iso)); // "grid.points.x", ".y", ".z"
-              if (ng[d] < 1) {
-                  // try to initialize the grid via "grid.spacing"
-                  std::snprintf(keyword, 32, "%s.%c", keyword_hg, 'x'+d);
-                  double const hg_lu = control::get(keyword, hg_iso); // "grid.spacing.x", ".y", ".z"
-                  bool const is_default_grid_spacing = (hg_lu == hg_iso);
-                  double const hg = hg_lu*in_lu;
-                  if (echo > 8) std::printf("# grid spacing in %c-direction is %g %s = %g %s%s\n",
-                      'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
-                  default_grid_spacing_used += is_default_grid_spacing;
-                  if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-                  ng[d] = n_grid_points(std::abs(cell[d][d])/hg, n_even);
-                  if (ng[d] < 1) error("no grid points with grid spacings %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-              } // ng < 1
-              ng[d] = even(ng[d], n_even); // if odd, increment to nearest higher even number
-              if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
-          } // d
-          if (default_grid_spacing_used > 0) {
-              if (echo > 6) std::printf("# default grid spacing %g %s used for %d directions\n",
-                                default_grid_spacing*Ang, _Ang, default_grid_spacing_used);
-          } // default_grid_spacing_used
-          g = real_space::grid_t(ng[0], ng[1], ng[2]);
-
-      } // scope
-
-      if (echo > 1) std::printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
-      g.set_boundary_conditions(bc[0], bc[1], bc[2]);
-      g.set_cell_shape(cell, echo);
-      assert(g.is_shifted() && "self_consistency module can only treat lower triangular cell matrices!");
-
-      double const max_grid_spacing = std::max(std::max(std::max(1e-9, g.h[0]), g.h[1]), g.h[2]);
-      if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
-            g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-      for (int d = 0; d < 3; ++d) {
-          assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16 && "grid spacing and its inverse do not match");
-      } // d
-      if (g.is_Cartesian()) {
-          if (echo > 1) std::printf("# cell is  %.9f %.9f %.9f  %s\n", cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang);
-          for (int d = 0; d < 3; ++d) {
-              if (std::abs(g.h[d]*g[d] - cell[d][d]) >= 1e-6) {
-                  warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s",
-                           'x'+d, g[d], g.h[d]*Ang, cell[d][d]*Ang, _Ang);
-                  ++stat;
-              } // deviates
-          } // d
-      } else if (echo > 1) {
-          for (int d = 0; d < 3; ++d) {
-              std::printf("# cell is  %15.9f %15.9f %15.9f  %s\n", g.cell[d][0]*Ang, g.cell[d][1]*Ang, g.cell[d][2]*Ang, _Ang);
-          } // d
-      } // is_Cartesian
-
-      { // scope: correct the global variables, suppress warnings
-          for (int d = 0; d < 3; ++d) { // directions x, y, z
-              char keyword[32];
-              std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
-              control::set(keyword, g[d], control::echo_set_without_warning);
-              std::snprintf(keyword, 32, "%s.%c", keyword_hg, 'x'+d);
-              control::set(keyword, g.h[d], control::echo_set_without_warning);
-          } // d
-          control::set(keyword_hg, std::cbrt(g.dV()), control::echo_set_without_warning);
-          control::set(keyword_ng, std::cbrt(g[2]*size_t(g[1])*size_t(g[0])), control::echo_set_without_warning);
-      } // scope
-
-      return stat;
-  } // init_geometry_and_grid
-
-
-  double get_temperature(int const echo, double const def) { // def=1e-3
-      auto const unit = control::get("electronic.temperature.unit", "Ha");
-      char const *_eu;
-      auto const eu = unit_system::energy_unit(unit, &_eu);
-      auto const temp = control::get("electronic.temperature", def*eu)/eu;
-      if (echo > 0) std::printf("# electronic.temperature= %g %s == %g %s\n", temp*eu, _eu, temp*eV, _eV);
-      return temp;
-  } // get_temperature
-
-
-  status_t SCF(
-        int const echo // =0 // log-level
-  ) {
+  status_t SCF(int const echo) { // =0 // log-level
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
       // get the ell=0 compensator charge and add it to the 3D grid
@@ -205,7 +82,7 @@ namespace self_consistency {
       view2D<double> xyzZ;
       real_space::grid_t g;
       int na_noconst{0};
-      stat += init_geometry_and_grid(g, xyzZ, na_noconst, 2, echo);
+      stat += geometry_input::init_geometry_and_grid(g, xyzZ, na_noconst, 2, echo);
       int const na{na_noconst}; // total number of atoms
 
       std::vector<float> ionization(na, 0.f);
@@ -350,7 +227,7 @@ namespace self_consistency {
       if (echo > 2) std::printf("# fermi.level=%c from {exact, linearized}\n", occupation_method);
 
       // create a FermiLevel object
-      fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);
+      fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, geometry_input::get_temperature(echo), echo);
 
       double const density_mixing_fixed = control::get("self_consistency.mix.density", 0.25);
       double density_mixing{1.0}; // initialize with 100% since we have no previous density
@@ -661,6 +538,7 @@ namespace self_consistency {
               for (int ia = 0; ia < na; ++ia) {
                   add_product(Ea.data(), nE, atom_contrib[ia], 1.0); // all atomic weight factors are 1.0
               } // ia
+#if 0
               for (int i01 = 0; i01 < 2; ++i01) {
                   if (echo > 3 + 4*(1 - i01)) {
                       auto const E_tot = Ea[energy_contribution::KINETIC]
@@ -688,7 +566,20 @@ namespace self_consistency {
                                                      + Ea[energy_contribution::EXCHANGE_CORRELATION];
                   } // 0 == i01
               } // i01 show without and with grid contributions
-
+#else
+              if (echo > 7) std::printf("\n# sum of atomic energy contributions without grid contributions:\n");
+              energy_contribution::show(Ea.data(), echo - 7, eV, _eV);
+              // now add grid contributions
+              Ea[energy_contribution::KINETIC] += grid_kinetic_energy * (1. - take_atomic_valence_densities);
+              Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
+              Ea[energy_contribution::ELECTROSTATIC] += grid_electrostatic_energy;
+              // reconstruct total energy from its contributions KINETIC + ES + XC
+              Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
+                                             + Ea[energy_contribution::ELECTROSTATIC]
+                                             + Ea[energy_contribution::EXCHANGE_CORRELATION];
+              if (echo > 7) std::printf("\n# sum of atomic energy contributions with grid contributions:\n");
+              energy_contribution::show(Ea.data(), echo - 3, eV, _eV);
+#endif
           } else {
               stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
           } // total_energy_details

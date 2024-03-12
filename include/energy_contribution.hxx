@@ -3,17 +3,33 @@
 
 namespace energy_contribution {
 
-  int constexpr max_number=16;
-  int constexpr TOTAL=0;
-  int constexpr DIFFERENCE=2;
-  int constexpr REFERENCE=3;
-  int constexpr ELECTROSTATIC=4;
-  int constexpr COULOMB=5;
-  int constexpr HARTREE=6;
-  int constexpr EXCHANGE_CORRELATION=7;
-  int constexpr DOUBLE_COUNTING=8;
-  int constexpr KINETIC=10;
-  int constexpr EXTERNAL=11; // due to an external potential
+    int constexpr max_number=16;
+    int constexpr TOTAL=0;
+    int constexpr DIFFERENCE=2;
+    int constexpr REFERENCE=3;
+    int constexpr ELECTROSTATIC=4;
+    int constexpr COULOMB=5;
+    int constexpr HARTREE=6;
+    int constexpr EXCHANGE_CORRELATION=7;
+    int constexpr DOUBLE_COUNTING=8;
+    int constexpr KINETIC=10;
+    int constexpr EXTERNAL=11; // due to an external potential
+
+    inline double show(double const Ea[], int const echo, double const eV=1, char const *const _eV="") {
+        auto const E_tot = Ea[energy_contribution::KINETIC]
+                         + Ea[energy_contribution::ELECTROSTATIC]
+                         + Ea[energy_contribution::EXCHANGE_CORRELATION]
+                         - Ea[energy_contribution::REFERENCE]; // subtract neutral atom energies
+        if (echo > 0) {
+            std::printf("# kinetic      %32.9f %s\n", Ea[energy_contribution::KINETIC]             *eV, _eV);
+            std::printf("# electrostatic%32.9f %s\n", Ea[energy_contribution::ELECTROSTATIC]       *eV, _eV);
+            std::printf("# XC           %32.9f %s\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV, _eV);
+            std::printf("# true total   %32.9f %s\n", Ea[energy_contribution::TOTAL]               *eV, _eV);
+            std::printf("# reference    %32.9f %s\n", Ea[energy_contribution::REFERENCE]           *eV, _eV);
+            std::printf("# total        %32.9f %s\n", E_tot                                        *eV, _eV);
+        } // echo
+        return E_tot;
+    } // show
 
 } // namespace energy_contribution
 

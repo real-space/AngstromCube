@@ -411,6 +411,7 @@ namespace parallel_poisson {
         , int const maxiter // =999 // maximum number of iterations 
         , int const miniter // =0   // minimum number of iterations
         , int restart // =4096 // number of iterations before restart, 1:steepest descent
+        , double *inner_xx_bb // = nullptr
     ) {
 
         auto const comm = pg.comm();
@@ -593,6 +594,8 @@ namespace parallel_poisson {
 
         auto const inner = scalar_product(x, b, nall, comm) * pg.dV();
         if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", strip_path(__FILE__), inner);
+
+        if (nullptr != inner_xx_bb) *inner_xx_bb = inner;
 
         set(xx, nall, x);
 
