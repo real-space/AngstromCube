@@ -37,6 +37,7 @@ set(a43_atom_sources
     radial_potential.cxx
     radial_eigensolver.cxx
     exchange_correlation.cxx
+    library_kind_dynamic.cxx
     scattering_test.cxx
     chemical_symbol.cxx
     display_units.cxx

@@ -337,4 +337,10 @@
 #endif
     ;
 
+    // this function allows to determine at runtime, if the 
+    // live_atom lib is linked as static (.a) library or dynamic (e.g. as .so)
+    fortran_callable(is_a_dynamic_library) (int32_t *status);
+    // the function definition can be found in library_kind_dynamic.cxx or library_kind_static.cxx
+
+
 #endif // SINGLE_ATOM_HEADER (header guard)

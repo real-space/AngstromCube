@@ -37,15 +37,18 @@
     #include "single_atom.hxx" // ::atom_update
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
+    // use the libliveatom library C-interface
     extern "C" {
-       #include "single_atom.h" // live_atom_update_ // use the libliveatom library C-interface
+       #include "single_atom.h" // live_atom_update_
+                                // live_atom_is_a_dynamic_library_
+                                // live_atom_init_env_
     } // extern "C"
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
 
 namespace parallel_potential {
 
-    inline status_t live_atom_update(
+    status_t live_atom_update(
         char const *const what    // selector string
       , int32_t  const natoms     // number of atoms
       , double  *const dp=nullptr // quantities (input/output) double  dp[natoms]
@@ -53,25 +56,41 @@ namespace parallel_potential {
       , float   *const fp=nullptr // quantities (input)        float   fp[natoms or less]
       , double  *const *const dpp=nullptr // quantities (input/output) double* dpp[natoms]
     ) {
-        auto const use = control::get("use.live.atom", 1.);
+        int32_t stat(0);
+
+        static int use{-1};
+        if (-1 == use) {
+            use = control::get("use.live.atom", 1.);
+#ifdef    HAS_LIVE_ATOM
+            int32_t is_dynamic{0}; live_atom_is_a_dynamic_library_(&is_dynamic);
+            if (is_dynamic) {
+                auto const *const control_file = control::get("control.file", "");
+                int const echo = (0 == mpi_parallel::rank());
+                if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
+                    "# read single_atom.*-controls from +control.file=%s\n", control_file);
+                live_atom_init_env_(control_file, &stat);
+                if (0 == *control_file && echo) warn("no +control.file for libliveatom.so, live_atom_init_env_ returned %i", int(stat))
+            } // is_dynamic
+#endif // HAS_LIVE_ATOM
+        } // needs init
         if (0 == use) {
-         // warn("single_atom::atom_update deactivated", 0); 
+            // warn("single_atom::atom_update deactivated", 0); 
             return 0;
-        } else {
+        } // 0 == use
+
 #ifdef    HAS_SINGLE_ATOM
-            auto const stat = single_atom::atom_update(what, natoms, dp, ip, fp, dpp);
+        stat = single_atom::atom_update(what, natoms, dp, ip, fp, dpp);
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
-            int32_t stat{0}; live_atom_update_(what, &natoms, dp, ip, fp, dpp, &stat);
+        live_atom_update_(what, &natoms, dp, ip, fp, dpp, &stat);
 #else  // HAS_LIVE_ATOM
-            static bool warned = false;
-            if (!warned) { warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM", natoms); warned = true; }
-            status_t stat(1);
+        static bool warned = false;
+        if (!warned) { warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM", natoms); warned = true; }
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
-            if (stat) warn("single_atom::atom_update(%s, natoms=%d, ...) returned status= %i", what, natoms, int(stat));
-            return stat;
-        }
+
+        if (stat) warn("single_atom::atom_update(%s, natoms=%d, ...) returned status= %i", what, natoms, int(stat));
+        return stat;
     } // live_atom_update
 
     inline double rho_Thomas_Fermi(double const Ekin, double & derivative) {
@@ -1083,10 +1102,10 @@ namespace parallel_potential {
             std::vector<float> ionization(na, 0.f);
 
 #ifdef    HAS_SINGLE_ATOM
-            if (echo > 1) std::printf("# use single_atom::atom_update(what, na=%d, ...);\n", na);
+            if (echo > 1) std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", na);
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
-            if (echo > 1) std::printf("# use C-interface live_atom_update_(what, na=%d, ...);\n", na);
+            if (echo > 1) std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", na);
 #else  // HAS_LIVE_ATOM
             if (echo > 1) std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n");
 #endif // HAS_LIVE_ATOM

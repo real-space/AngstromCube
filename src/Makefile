@@ -154,10 +154,10 @@ DEP=$(OBJ:$(OBJDIR)/%.o=$(OBJDIR)/%.d) $(OBJATOM:$(OBJDIR)/%.o=$(OBJDIR)/%.d)
 ${EXECUTABLE}: ${OBJATOM} ${OBJ}
 	${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
 
-libliveatom.a: ${OBJATOM}
+libliveatom.a: ${OBJATOM} $(OBJDIR)/library_kind_static.o
 	ar rcsv $@ $^
 
-libliveatom.so: ${OBJATOM}
+libliveatom.so: ${OBJATOM} $(OBJDIR)/library_kind_dynamic.o
 	${CXX} ${CXXFLAGS} -fPIC -shared $^ ${LDFLAGS} -o $@
 
 $(OBJDIR)/%.o:%.c $(OBJDIR)/%.d
