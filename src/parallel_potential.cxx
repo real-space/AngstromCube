@@ -856,8 +856,7 @@ namespace parallel_potential {
         } // iatom
 
 #ifndef   HAS_NO_MPI
-        std::vector<MPI_Status> statuses(natoms);
-        stat += MPI_Waitall(natoms, recv_requests.data(), statuses.data());
+        stat += MPI_Waitall(natoms, recv_requests.data(), MPI_STATUSES_IGNORE);
 #endif // HAS_NO_MPI
 
         if (stat) warn("failed for %s with status= %i", what, int(stat));
