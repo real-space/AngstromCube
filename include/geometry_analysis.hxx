@@ -12,14 +12,15 @@
 
 namespace geometry_analysis {
 
-  status_t read_xyz_file(
-        view2D<double> & xyzZ // result: atom info, x,y,z,Z,...
-      , int32_t & n_atoms // result: number of atoms
-      , double cell[3][4] // result: cell shape
-      , int8_t bc[3]=nullptr // result: boundary conditions
-      , char const *filename="atoms.xyz" // filename
-      , int const echo=5 // log level
-  ); // declaration only
+  // status_t read_xyz_file(
+  //       view2D<double> & xyzZ // result: atom info, x,y,z,Z,...
+  //     , int32_t & n_atoms // result: number of atoms
+  //     , double cell[3][4] // result: cell shape
+  //     , int8_t bc[3]=nullptr // result: boundary conditions
+  //     , char const *filename="atoms.xyz" // filename
+  //     , int const echo=5 // log level
+  // ); // declaration only
+  // ---> moved to geometry_input.cxx
 
   inline double fold_back(double const position, double const cell_extend) { 
       double x{position};

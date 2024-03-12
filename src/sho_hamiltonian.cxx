@@ -12,7 +12,8 @@
 #include "sho_hamiltonian.hxx"
 
 #include "sho_potential.hxx" // ::load_local_potential, ::normalize_potential_coefficients, ::potential_matrix
-#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
+#include "geometry_input.hxx" // ::read_xyz_file
+#include "geometry_analysis.hxx" // ::fold_back
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
 #include "real_space.hxx" // ::grid_t
@@ -700,7 +701,7 @@ namespace sho_hamiltonian {
       double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
       int8_t bc[3] = {-7, -7, -7}; // boundary conditions
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo/2);
+          stat += geometry_input::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo/2);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope

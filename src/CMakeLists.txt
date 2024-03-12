@@ -16,6 +16,7 @@ set(a43_atom_headers
     ../include/radial_eigensolver.hxx
     ../include/exchange_correlation.hxx
     ../include/scattering_test.hxx
+    ../include/chemical_symbol.h
     ../include/chemical_symbol.hxx
     ../include/display_units.h
     ../include/sigma_config.hxx
@@ -59,6 +60,7 @@ set(all_targets ${all_targets} a43)
 set(a43_headers ${a43_atom_headers}
     ../include/simple_timer.hxx
     ../include/global_coordinates.hxx
+    ../include/geometry_input.hxx
     ../include/geometry_analysis.hxx
     ../include/self_consistency.hxx
     ../include/iterative_poisson.hxx
@@ -88,6 +90,7 @@ set(a43_headers ${a43_atom_headers}
 )
 
 set(a43_sources ${a43_atom_sources}
+    geometry_input.cxx
     geometry_analysis.cxx
     self_consistency.cxx
     iterative_poisson.cxx
@@ -128,6 +131,7 @@ set(all_targets ${all_targets} green)
 set(green_headers
     ../include/control.hxx
     ../include/recorded_warnings.hxx
+    ../include/geometry_input.hxx
     ../include/display_units.h
     ../include/mpi_parallel.hxx
     ../include/simple_timer.hxx
@@ -139,12 +143,16 @@ set(green_headers
     ../include/green_kinetic.hxx
     ../include/green_function.hxx
     ../include/green_experiments.hxx
+    ../include/chemical_symbol.h
+    ../include/chemical_symbol.hxx
     ../include/green_tests.hxx
 )
 
 set(green_sources
     control.cxx
     recorded_warnings.cxx
+    chemical_symbol.cxx
+    geometry_input.cxx
     display_units.cxx
     mpi_parallel.cxx
     parallel_poisson.cxx

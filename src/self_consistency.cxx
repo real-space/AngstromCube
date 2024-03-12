@@ -21,7 +21,8 @@
 #include "data_view.hxx" // view2D<T>
 #include "data_list.hxx" // data_list<T>
 
-#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back, length
+#include "geometry_input.hxx" // ::read_xyz_file
+#include "geometry_analysis.hxx" // ::fold_back, length
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::get, ::set, ::echo_set_without_warning
 
@@ -75,7 +76,7 @@ namespace self_consistency {
       int8_t bc[3]; // boundary conditions
       double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}}; // general cell parameters
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      stat += geometry_analysis::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
+      stat += geometry_input::read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
 
       auto const keyword_ng = "grid.points";
       auto const keyword_hg = "grid.spacing";

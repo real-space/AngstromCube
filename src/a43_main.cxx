@@ -33,6 +33,7 @@
   #include "fourier_poisson.hxx" // ::all_tests
   #include "solid_harmonics.hxx" // ::all_tests
   #include "bisection_tools.hxx" // ::all_tests
+  #include "geometry_input.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
   #include "poisson_solver.hxx" // ::all_tests
   #include "brillouin_zone.hxx" // ::all_tests
@@ -165,6 +166,7 @@
           start_a_chapter("input"); // *****************************************
           add_module_test(chemical_symbol);
           add_module_test(boundary_condition);
+          add_module_test(geometry_input);
           add_module_test(geometry_analysis);
           add_module_test(shift_boundary);
           add_module_test(unit_system);

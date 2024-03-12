@@ -6,7 +6,7 @@
 #include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t
-#include "geometry_analysis.hxx" // ::read_xyz_file
+#include "geometry_input.hxx" // ::read_xyz_file
 #include "data_view.hxx" // view2D<>, view3D<>
 #include "display_units.h" // Ang, _Ang
 #include "inline_math.hxx" // set
@@ -221,7 +221,7 @@ namespace symmetry_group {
           if (t >= 3) {
               int n_atoms;
               view2D<double> xyzZ;
-              stat += geometry_analysis::read_xyz_file(xyzZ, n_atoms, cell_in_file, nullptr, "atoms.xyz", echo);
+              stat += geometry_input::read_xyz_file(xyzZ, n_atoms, cell_in_file, nullptr, "atoms.xyz", echo);
               lattice_vectors = cell_in_file;
           }
           for (int d = 0; d < 3*(echo > 4); ++d) {

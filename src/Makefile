@@ -32,6 +32,7 @@ OBJATOM = $(addprefix $(OBJDIR)/, \
 	single_atom.o )
 
 OBJ = $(addprefix $(OBJDIR)/, \
+	geometry_input.o \
 	geometry_analysis.o \
 	self_consistency.o \
 	iterative_poisson.o \
