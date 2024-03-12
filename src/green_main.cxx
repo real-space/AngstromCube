@@ -122,16 +122,21 @@
               status += std::abs(int(stat));
               nonzero_status += (0 != stat);
           } // result
+          auto const me = mpi_parallel::rank();
+          status = mpi_parallel::max(status);
+          auto const non0status = mpi_parallel::max(nonzero_status);
           if (show) {
-              if (echo > 0) std::printf("\n");
-              warn("Display only, none of %d modules has been tested", nmodules);
+              if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
+              if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);
           } else { // show
               if (nmodules > 1 && echo > 0) {
                   std::printf("\n#%3d modules have been tested,  total status= %d", nmodules, int(status));
-                  if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop());
+                  if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop()); // total time
                   std::printf("\n\n");
               } // show total status if many modules have been tested
-              if (status > 0) warn("Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
+              if (status > 0 && 0 == me) {
+                  warn("Tests for %d module%s failed!", non0status, (1 == non0status)?"":"s");
+              }
           } // show
       } // something has been tested
       return status;

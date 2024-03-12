@@ -1026,7 +1026,7 @@ namespace parallel_potential {
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 
         // distribute the dense grid in 8x8x8 grid blocks to parallel owners
-        parallel_poisson::parallel_grid_t pg(g, comm, 8, echo);
+        parallel_poisson::parallel_grid_t const pg(g, comm, 8, echo);
         if (echo > 1) { auto const nb = pg.grid_blocks(); std::printf("# use  %d %d %d  grid blocks\n", nb[0], nb[1], nb[2]); }
 
         auto const n_blocks = pg.n_local();

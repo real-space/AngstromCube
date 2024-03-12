@@ -106,6 +106,12 @@ namespace parallel_poisson {
             n_local_blocks = rank_center[3]; // the 4th component contains the number of items
             if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %d local blocks\n",
                                               me, __func__, load, n_local_blocks);
+            if (true) {
+                simple_stats::Stats<double> load_stats(0);
+                load_stats.add(load);
+                mpi_parallel::allreduce(load_stats, comm);
+                if (echo > 2) std::printf("# load_balancer distribution over %d ranks is %s\n", np, load_stats.interval().c_str());
+            } // true
 
             // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
             size_t const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[1]);
