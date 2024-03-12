@@ -1047,10 +1047,10 @@ namespace parallel_potential {
         int32_t const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner rank = global_atom_id % nprocs
         if (echo > 4) std::printf("# rank#%i has %d owned atoms\n", me, na);
 
-        uint32_t const natoms = global_atom_ids.size(); // number of locally relevant atoms
+        uint32_t const natoms = global_atom_ids.size(); // number of locally contributing atoms
         if (echo > 4) std::printf("# rank#%i has %d locally contributing atoms\n", me, natoms);
 
-        AtomCommList_t atom_comm_list(n_all_atoms, global_atom_ids, comm, echo);
+        AtomCommList_t const atom_comm_list(n_all_atoms, global_atom_ids, comm, echo);
 
         float take_atomic_valence_densities{1}; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
         if (echo > 2) std::printf("# take atomic valence densities with %g %%\n", take_atomic_valence_densities*100);
@@ -1370,6 +1370,23 @@ namespace parallel_potential {
         stat += live_atom_update("memory cleanup", na);
         return stat;
     } // SCF
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #ifdef  NO_UNIT_TESTS

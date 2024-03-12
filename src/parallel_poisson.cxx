@@ -16,6 +16,7 @@
 #include "boundary_condition.hxx" // Periodic_Boundary
 #include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD, MPI_COMM_NULL, ::sum, ::rank, ::size, ::min, ::barrier
 #include "load_balancer.hxx" // ::get, ::no_owner
+#include "simple_timer.hxx" // strip_path
 #include "global_coordinates.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
 #include "green_parallel.hxx" // ::exchange, ::RequestList_t
@@ -160,16 +161,16 @@ namespace parallel_poisson {
             uint8_t constexpr OUTSIDE=0, BORDER=1, INSIDE=2, VACUUM=7;
             view3D<uint8_t> domain(ndom[2],ndom[1],ndom[0], OUTSIDE);
 
-            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
+            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
             view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1);
 
-            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
+            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
             if (echo > 7) std::printf("# rank#%i n_local_blocks=%d\n", me, n_local_blocks);
 
             local_global_ids_.resize(n_local_blocks, int64_t(-1));
 
-            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
+            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
             uint32_t ilb{0}; // index of the local block
             for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
@@ -198,7 +199,7 @@ namespace parallel_poisson {
             assert(ilb <= (1ull << 31));
             if (ilb != n_local_blocks) error("expected match between n_local_blocks=%d and count(owner_rank[]==me)=%d\n", n_local_blocks, ilb);
 
-            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, __FILE__, __LINE__); std::fflush(stdout); }
+            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
 
             // loop over the domain again, this time including the halos
@@ -298,7 +299,7 @@ namespace parallel_poisson {
             std::printf(" }, %ld items\n", local_global_ids_.size());
         } // echo
 
-        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, __FILE__, __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
+        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
         mpi_parallel::barrier(comm);
 
         requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, echo);
@@ -423,9 +424,9 @@ namespace parallel_poisson {
             auto const x32=xb[0], b32=xb[1];
             set(b32, nall, bb); // convert to float
             set(x32, nall, xx); // convert to float
-            if (echo > 5) std::printf("# %s solve in <float> precision first\n", __FILE__);
+            if (echo > 5) std::printf("# %s solve in <float> precision first\n", strip_path(__FILE__));
             ist += solve(x32, b32, pg, method, echo, threshold, residual, maxiter, miniter, restart);
-            if (echo > 5) std::printf("# %s switch back to <double> precision\n", __FILE__);
+            if (echo > 5) std::printf("# %s switch back to <double> precision\n", strip_path(__FILE__));
             set(xx, nall, x32); // convert to double
         } // real_t == double
 
@@ -473,7 +474,7 @@ namespace parallel_poisson {
         
         if (pg.all_periodic_boundary_conditions()) {
             double const bnorm = norm1(b, nall, comm) * pg.dV();
-            if (echo > 8) std::printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", __FILE__, bnorm);
+            if (echo > 8) std::printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", strip_path(__FILE__), bnorm);
         } // all_boundary_conditions_periodic
 
         // |r> = |b> - A|x> = |b> - |Ax>
@@ -482,7 +483,7 @@ namespace parallel_poisson {
         // res^2 = <r|r>
         double res2 = norm2(r, nall, comm) * pg.dV();
         double const res_start = std::sqrt(res2/cell_volume); // store starting residual
-        if (echo > 8) std::printf("# %s start residual=%.1e\n", __FILE__, res_start);
+        if (echo > 8) std::printf("# %s start residual=%.1e\n", strip_path(__FILE__), res_start);
 
         // |z> = |Pr> = P|r>
         if (use_precond) {
@@ -561,9 +562,9 @@ namespace parallel_poisson {
                 add_product(p, nall, z, real_t(1));
             } // rz_old < tiny
 
-            if (echo > 9) std::printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
+            if (echo > 9) std::printf("# %s it=%i alfa=%g beta=%g\n", strip_path(__FILE__), it, alpha, beta);
             auto const inner = scalar_product(x, b, nall, comm) * pg.dV(); // this synchronization point is for display only
-            if (echo > 7) std::printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, std::sqrt(res2/cell_volume), inner);
+            if (echo > 7) std::printf("# %s it=%i res=%.2e E=%.15f\n", strip_path(__FILE__), it, std::sqrt(res2/cell_volume), inner);
 
             // rz_old = rz_new
             rz_old = rz_new;
@@ -581,16 +582,34 @@ namespace parallel_poisson {
         if (residual) *residual = res; // export
 
         // show the result
-        if (echo > 2) std::printf("# %s %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n", __FILE__,
+        if (echo > 2) std::printf("# %s %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n", strip_path(__FILE__),
             res_start, res, (res < threshold)?" converged":"", it, (it < maxiter)?"":" (maximum)");
 
         auto const inner = scalar_product(x, b, nall, comm) * pg.dV();
-        if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", __FILE__, inner);
+        if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", strip_path(__FILE__), inner);
 
         set(xx, nall, x);
 
         return (res > threshold); // returns 0 when converged
     } // solve
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #ifdef    NO_UNIT_TESTS
     template // explicit template instantiation for double (and float implicitly)
@@ -629,7 +648,7 @@ namespace parallel_poisson {
                 size_t const ifft = (iz*g[1] + iy)*g[0] + ix;
                 b_fft[ifft] = rho;
             }}} // ix iy iz
-            if (echo > 3) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
+            if (echo > 3) std::printf("# %s integrated density %g\n", strip_path(__FILE__), integral*g.dV());
         } // scope
 
         parallel_grid_t pg(g, MPI_COMM_WORLD, 8, echo);
