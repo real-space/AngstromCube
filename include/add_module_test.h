@@ -18,8 +18,8 @@
               auto const module_name = #MODULE_NAME;                                \
               if (all || (input_name == module_name)) {                             \
                   SimpleTimer timer(module_name, 0, "", 0);                         \
-                  if (echo > 2) std::printf("\n\n\n# ============= Module test"     \
-                     " for %s ==================\n\n", module_name);                \
+                  if (echo > 2 && !show) std::printf("\n\n\n# ============= "       \
+                     "Module test for %s ==================\n\n", module_name);     \
                   auto const stat = show ? 0 : MODULE_NAME::all_tests(echo);        \
                   double const time = timer.stop();                                 \
                   results.push_back(std::make_tuple(module_name, time, stat));      \

@@ -9,14 +9,6 @@
 
 #include "parallel_potential.hxx"
 
-#ifdef    HAS_SINGLE_ATOM
-    #include "single_atom.hxx" // ::atom_update
-#else  // HAS_SINGLE_ATOM
-    extern "C" {
-       #include "single_atom.h" // live_atom_update_ // use the libliveatom library C-interface
-    } // extern "C"
-#endif // HAS_SINGLE_ATOM
-
 #include "status.hxx" // status_t
 #include "control.hxx" // ::get
 #include "real_space.hxx" // ::grid_t
@@ -40,6 +32,16 @@
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 #include "sho_projection.hxx" // ::denormalize_electrostatics, ::renormalize_electrostatics
 #include "print_tools.hxx" // printf_vector
+
+#ifdef    HAS_SINGLE_ATOM
+    #include "single_atom.hxx" // ::atom_update
+#else  // HAS_SINGLE_ATOM
+#ifdef    HAS_LIVE_ATOM
+    extern "C" {
+       #include "single_atom.h" // live_atom_update_ // use the libliveatom library C-interface
+    } // extern "C"
+#endif // HAS_LIVE_ATOM
+#endif // HAS_SINGLE_ATOM
 
 namespace parallel_potential {
 
