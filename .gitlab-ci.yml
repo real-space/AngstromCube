@@ -13,7 +13,7 @@ build_on_JUSUF:
     - export MKL_ROOT=/p/software/jusuf/stages/2023/software/imkl/2022.1.0/mkl/latest/
     - echo "Start build system..."
     - rm -rf build && mkdir build && cd build
-    - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43
+    - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43 -DHAS_MKL=ON -DHAS_MPI=ON -DHAS_DEVEL=ON -DHAS_TFQMRGPU=OFF -DHAS_RAPIDXML=ON -DHAS_RAPIDJSON=OFF -DHAS_FFTW=OFF -DHAS_OPENMP=ON
     - echo "Compiling the code..."
     - make -j install
     - cd ..
