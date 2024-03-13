@@ -31,7 +31,7 @@ namespace green_function {
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
       , std::vector<std::vector<double>> const & AtomMatrices // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
-      , int const echo=0 // log-level
+      , int const echo=0 // verbosity
       , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
       , int const Noco=2
   ); // declaration only
@@ -43,7 +43,7 @@ namespace green_function {
       , double const dVol // volume element of the grid
       , int const Noco // =1
       , double const scale_H // =1
-      , int const echo // =0
+      , int const echo // =0 // verbosity
   ); // declaration only
 
   status_t update_phases(
@@ -60,7 +60,7 @@ namespace green_function {
       , double const dVol
       , int const Noco=1
       , double const scale_H=1
-      , int const echo=0
+      , int const echo=0 // verbosity
   ) {
       p.E_param = E_param;
       return update_atom_matrices(p.dyadic_plan, E_param, AtomMatrices, dVol, Noco, scale_H, echo);

@@ -60,7 +60,7 @@
   #include "bitmap.hxx" // ::write_bmp_file
 #endif // HAS_BITMAP_EXPORT
 
-#define   GREEN_FUNCTION_SVG_EXPORT
+// #define   GREEN_FUNCTION_SVG_EXPORT
 
  /*
   *  Future plan:
@@ -134,7 +134,7 @@ namespace green_function {
           //     sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
           // } // i
           auto const ia = p.original_atom_index[iac];
-          assert(2*nc*nc <= AtomMatrices[ia].size());
+          assert(2*nc*nc <= AtomMatrices.at(ia).size());
 
           // fill this with matrix values
           auto const atomMatrix = p.AtomMatrices[iac];
@@ -164,8 +164,8 @@ namespace green_function {
       , double const cell[3]
       , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
-      , std::vector<std::vector<double>> const & AtomMatrices
-      , std::vector<double> const & xyzZinso
+      , std::vector<std::vector<double>> const & AtomMatrices // [natoms][2*nSHO(numax[ia])]
+      , std::vector<double> const & xyzZinso // [natoms*8]
       , uint32_t const nRowsGreen
       , uint32_t const nrhs
       , uint32_t const *const rowStartGreen
@@ -190,9 +190,8 @@ namespace green_function {
       double const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
       p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
 
-      int32_t const natoms = AtomMatrices.size(); // number of original atoms
+      int32_t const natoms = xyzZinso.size()/8; // number of original atoms
       if (echo > 2) std::printf("\n#\n# %s for %d atoms\n#\n", __func__, natoms);
-      assert(xyzZinso.size() == natoms*8);
 
       // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
       double max_projection_radius{0};
@@ -210,7 +209,7 @@ namespace green_function {
       size_t nimages{1}, ncopies{1};
       for (int d = 0; d < 3; ++d) { // parallel
           // what happens if there is a wrap_boundary but the non-local projection overlaps with two periodic ends of the sphere?
-          // we may have to diffentiate between images and copies of atoms! ToDo, Repeat_Boundary needs copies, Wrap_boundary needs copies
+          // we may have to diffentiate between images and copies of atoms! Repeat_Boundary needs copies, Wrap_boundary needs copies
           int const nmx = std::max(0., std::ceil(radius/cell[d]));
           if (Periodic_Boundary == boundary_condition[d]) {
               iimage[d] = nmx;
@@ -220,7 +219,7 @@ namespace green_function {
               icopies[d] = 1; // in WRAP the truncation sphere fits into the cell, ...
               // however, left targets of a left source and right targets of a right source could potentially see the same atom
           }
-          nimages *= (2*iimage[d] + 1); // iimage images to the left and right
+          nimages *= (2*iimage[d]  + 1); // iimage  images to the left and right
           ncopies *= (2*icopies[d] + 1); // icopies copies to the left and right
       } // d
       size_t const nAtomCopies = natoms*ncopies;
@@ -240,6 +239,8 @@ namespace green_function {
       cubes.reserve(nAtomImages); // maximum (needs 24 Byte per atom image)
 
       size_t iai{0}; // counter for atomic images
+{   SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances with all atoms", echo);
+
       for (int z = -iimage[Z]; z <= iimage[Z]; ++z) { // serial
       for (int y = -iimage[Y]; y <= iimage[Y]; ++y) { // serial
       for (int x = -iimage[X]; x <= iimage[X]; ++x) { // serial
@@ -259,11 +260,11 @@ namespace green_function {
               for (int d = 0; d < 3; ++d) { // unroll
                   atom_pos[d] = xyzZinso[ia*8 + d] + (xyz_image_shift[d] + xyz_copy_shift[d] + 0.5)*cell[d];
               } // d
-//                   if (echo > 5) std::printf("# image of atom #%i at %s %s\n", atom_id, str(atom_pos, Ang), _Ang);
+//            if (echo > 5) std::printf("# image of atom #%i at %s %s\n", atom_id, str(atom_pos, Ang), _Ang);
 
               double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
               double const r2projection = pow2(r_projection);
-//                double const r2projection_plus = pow2(r_projection + r_block_circumscribing_sphere);
+//            double const r2projection_plus = pow2(r_projection + r_block_circumscribing_sphere);
 
               // check all target blocks if they are inside the projection radius
               uint32_t ntb{0}; // number of target blocks
@@ -271,7 +272,7 @@ namespace green_function {
                   auto const *const target_block = internal_target_coords[icube];
                   if (true) {
                       // do more precise checking
-//                        if (echo > 9) std::printf("# target block #%i at %s gets corner check\n", icube, str(target_block));
+//                    if (echo > 9) std::printf("# target block #%i at %s gets corner check\n", icube, str(target_block));
                       int nci{0}; // number of corners inside
                       // check 8 corners
                       for (int iz = 0; iz < 4; iz += 3) { // parallel, reduction on nci
@@ -305,9 +306,9 @@ namespace green_function {
                           sparse += nrhs_icube;
                           dense  += p.nrhs; // all columns
 
-//                            if (echo > 7) std::printf("# target block #%i at %s is inside\n", icube, str(target_block));
+//                        if (echo > 7) std::printf("# target block #%i at %s is inside\n", icube, str(target_block));
                       } else { // nci
-//                            if (echo > 9) std::printf("# target block #%i at %s is outside\n", icube, str(target_block));
+//                        if (echo > 9) std::printf("# target block #%i at %s is outside\n", icube, str(target_block));
                       } // nci
 
                   } else { // d2 < r2projection_plus
@@ -334,7 +335,7 @@ namespace green_function {
                   atom.nc = nc;
                   atom.numax = numax;
 
-//                    if (echo > 5) std::printf("# image of atom #%i at %s %s contributes to %d target blocks\n", atom_id, str(atom_pos, Ang), _Ang, ntb);
+//                if (echo > 5) std::printf("# image of atom #%i at %s %s contributes to %d target blocks\n", atom_id, str(atom_pos, Ang), _Ang, ntb);
                   AtomImageStarts[iai + 1] = AtomImageStarts[iai] + nc;
                   ++iai;
 
@@ -352,12 +353,14 @@ namespace green_function {
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
               } else {
-//                    if (echo > 15) std::printf("# image of atom #%i at %s %s does not contribute\n", atom_id, str(atom_pos, Ang), _Ang);
+//                if (echo > 15) std::printf("# image of atom #%i at %s %s does not contribute\n", atom_id, str(atom_pos, Ang), _Ang);
               } // ntb > 0
               ++iaa;
-      }}} // xc // yc // zc
-          } // ia
-      }}} // x // y // z
+      }}} // xc // yc // zc  --- copies
+          } // ia           --- atoms
+      }}} // x // y // z  --- images
+
+} // timer
 
       auto const nai = iai; // corrected number of atomic images
       if (echo > 3) std::printf("# %ld of %lu (%.2f %%) atom images have an overlap with projection spheres\n",
@@ -492,14 +495,15 @@ namespace green_function {
           char name[64]; std::snprintf(name, 64, "AtomMatrices[iac=%d/iaa=%d]", iac, iaa);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
-          // fill this with matrix values
-          auto const ia = p.original_atom_index[iac];
-          assert(2*nc*nc <= AtomMatrices[ia].size());
-          // use MPI communication to find values in atom owner processes
       } // iac
       p.nAtoms = nac; // number of contributing atom copies
 
-      update_atom_matrices(p, E_param, AtomMatrices, dVol, Noco, 1.0, echo);
+      if (AtomMatrices.size() == natoms) {
+          // use MPI communication to find values in atom owner processes
+          update_atom_matrices(p, E_param, AtomMatrices, dVol, Noco, 1.0, echo);
+      } else {
+          warn("missing call to update_atom_matrices, Noco=%d", Noco);
+      }
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
 
@@ -548,7 +552,7 @@ namespace green_function {
 
   std::vector<int64_t> get_right_hand_sides(
         uint32_t const nb[3] // number of blocks
-      , std::vector<uint16_t> & owner_rank
+      , std::vector<uint16_t> & owner_rank // result: who owns which RHS block
       , int const echo=0
   ) {
       std::vector<int64_t> global_source_indices; // result array
@@ -761,10 +765,6 @@ namespace green_function {
                                                        max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang);
 
       // truncation radius
-      // double r_trunc_xyz[] = {9e8, 9e8, 9e8};
-      // auto const r_trunc = control::get(r_trunc_xyz, "green_function.truncation.radius", "xyz", 10.);
-      // if (echo > 0) std::printf("# green_function.truncation.radius=%g %g %g %s, %.1f grid points\n",
-      //                                         r_trunc_xyz[0]*Ang, r_trunc_xyz[1]*Ang, r_trunc_xyz[2]*Ang, _Ang, r_trunc/average_grid_spacing);
       auto const r_trunc = control::get("green_function.truncation.radius", 10.);
       if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
       p.r_truncation  = std::max(0., r_trunc);
@@ -1267,12 +1267,17 @@ namespace green_function {
 
       p.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
       for (int mag = 0; mag < 4; ++mag) p.Veff[mag] = nullptr;
-      if (1) { // scope: restructure and communicate potential
+      auto const n_all_grid_points = size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]);
+
+      for (int mag = 0; mag < Noco*Noco; ++mag) {
+          p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
+          set(p.Veff[mag][0], p.nRows*64, 0.0);
+      } // mag
+
+      if (Veff.size() == n_all_grid_points) { // scope: restructure and communicate potential
 
           auto const Vinp = new double[nrhs*Noco*Noco][64];
           // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
-          auto const n_all_grid_points = size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]);
-          assert(Veff.size() == n_all_grid_points);
           for (uint16_t rhs{0}; rhs < nrhs; ++rhs) {
               // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
               auto const *const ib = global_source_coords[rhs];
@@ -1292,10 +1297,6 @@ namespace green_function {
               }}} // i4x i4y i4z
           } // rhs
 
-          for (int mag = 0; mag < Noco*Noco; ++mag) {
-              p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
-          } // mag
-
 #ifdef    HAS_NO_MPI
           auto const default_exchange = 0.; // skip the exchange since we have no parallel processes, beware that p.Veff is set to 0.0
 #else  // HAS_NO_MPI
@@ -1303,14 +1304,11 @@ namespace green_function {
 #endif // HAS_NO_MPI
           if (1. == control::get("green_function.potential.exchange", default_exchange)) {
               green_parallel::RequestList_t const requests(p.global_target_indices,  // requests
-                                                          p.global_source_indices, // offerings
-                                                          owner_rank.data(), n_blocks, echo);
+                                                           p.global_source_indices, // offerings
+                                                           owner_rank.data(), n_blocks, echo);
               green_parallel::potential_exchange(p.Veff, Vinp, requests, Noco, echo);
           } else {
               if (echo > 0) std::printf("# skip green_function.potential.exchange\n");
-              for (int mag = 0; mag < Noco*Noco; ++mag) {
-                  set(p.Veff[mag][0], p.nRows*64, 0.0);
-              } // mag
           } // needs exchange?
 
           delete[] Vinp;
@@ -1326,7 +1324,10 @@ namespace green_function {
               } // iRow
               std::printf("# %s effective local potential %s %s\n", __func__, pot.interval(eV).c_str(), _eV);
           } // echo
-      } // scope
+
+      } else {
+          warn("potential has not been filled!", __LINE__);
+      }
 
 #ifdef    GREEN_FUNCTION_SVG_EXPORT
       { // scope
@@ -1484,7 +1485,6 @@ namespace green_function {
 
 
   status_t test_Green_function(int const echo=0) {
-
       bool const already_initialized = mpi_parallel::init();
 
       uint32_t ng[3] = {0, 0, 0}; // grid sizes

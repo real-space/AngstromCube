@@ -29,6 +29,7 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	exchange_correlation.o \
 	parallel_poisson.o \
 	parallel_potential.o \
+	energy_contour.o \
 	chemical_symbol.o \
 	green_experiments.o \
 	green_function.o \

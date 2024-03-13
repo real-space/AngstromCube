@@ -586,6 +586,7 @@ namespace sho_tools {
       stat += test_index_table_construction<int16_t>(echo);
       stat += test_order_enum(echo);
       stat += test_sho_hex(echo);
+      // std::printf("# nSHO(-9)= %d\n", nSHO(-9)); // == -56
       return stat;
   } // all_tests
 

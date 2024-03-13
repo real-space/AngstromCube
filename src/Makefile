@@ -48,6 +48,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	sho_basis.o \
 	sho_overlap.o \
 	sho_hamiltonian.o \
+	energy_contour.o \
 	sho_projection.o \
 	sho_potential.o \
 	structure_solver.o \
@@ -124,7 +125,7 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-ifeq ($(HOSTNAME),MacBook-Pro-4.local)
+ifeq ($(HOSTNAME),MacBook-Pro-4)
 	EXTFLAGS += -D HAS_NO_MKL
 	LDFLAGS += -lm
 	LDFLAGS += -lblas

@@ -33,6 +33,7 @@
 #include "sho_projection.hxx" // ::denormalize_electrostatics, ::renormalize_electrostatics
 #include "print_tools.hxx" // printf_vector
 #include "energy_contribution.hxx" // ::show, ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
+#include "energy_contour.hxx" // ::Integrator
 
 #ifdef    HAS_SINGLE_ATOM
     #include "single_atom.hxx" // ::atom_update
@@ -111,12 +112,12 @@ namespace parallel_potential {
         , double & Fermi_level // Fermi level
         , double const Vtot[] // input potential
         , size_t const nall // number of all grid points
-        , MPI_Comm const comm // grid communicator
-        , double const n_electrons // required total number of electrons 
-        , double const dV // grid volume element
-        , int const echo // log level
+        , MPI_Comm const comm=MPI_COMM_WORLD // grid communicator
+        , double const n_electrons=1 // required total number of electrons 
+        , double const dV=1 // grid volume element
+        , int const echo=0 // log level
         , int const maxiter=99 // maximum number of iterations
-        , float const threshold=1e-8 // convergence criterion
+        , float const threshold=1e-8f // convergence criterion
     ) {
         double mu = Fermi_level;
         { // scope: correct Fermi level
@@ -257,8 +258,10 @@ namespace parallel_potential {
         , real_space::grid_t const & g
         , double const grid_center[3]
         , int const echo=0
-        , float const r_cut=16.f // truncation radius of atom-cube interactions
+        , float const r_cut=16.f // truncation radius of atom-cube interactions, largest radius for smooth core densities, vbar, 9*sigma_cmp
     ) {
+        if (echo > 2) std::printf("# search periodic images of atoms in a neighborhood of radius %g %s\n", r_cut*Ang, _Ang);
+
         std::vector<atom_image_t> atom_images(0); // list of candidates of atomic images relevant for this MPI rank
 
         auto const n_blocks = pg.n_local();
@@ -312,22 +315,23 @@ namespace parallel_potential {
             auto const n_periodic_images = boundary_condition::periodic_images(periodic_images,
                            g.cell, g.boundary_conditions(), r_search, echo/2, &periodic_shift);
 
-            // this should be the only loop over all atoms in the entire code, keep it free of I/O and only minimum number of operations
+            // this should be the only loop over all atoms in the entire code
+            // keep it free of I/O and only minimum number of operations
             {   SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances of all atoms", echo);
-                for (int32_t ia{0}; ia < n_all_atoms; ++ia) {
-                    auto const *const pos = xyzZ_all[ia];
+                for (int32_t global_atom_id{0}; global_atom_id < n_all_atoms; ++global_atom_id) {
+                    auto const *const pos = xyzZ_all[global_atom_id];
                     for (int ip{0}; ip < n_periodic_images; ++ip) {
                         auto const *const img = periodic_images[ip];
                         auto const dist2 = pow2(pos[0] + img[0] - cow[0])
-                                        + pow2(pos[1] + img[1] - cow[1])
-                                        + pow2(pos[2] + img[2] - cow[2]);
+                                         + pow2(pos[1] + img[1] - cow[1])
+                                         + pow2(pos[2] + img[2] - cow[2]);
                         if (dist2 < r2search) {
                             double const img_pos[] = {pos[0] + img[0], pos[1] + img[1], pos[2] + img[2]};
                             double const Z = pos[3]; // pos points into xyzZ array
-                            atom_images.push_back(atom_image_t(img_pos, Z, ia, periodic_shift[ip]));
+                            atom_images.push_back(atom_image_t(img_pos, Z, global_atom_id, periodic_shift[ip]));
                         } // inside search radius
                     } // ip
-                } // ia
+                } // global_atom_id
             } // timer
             if (echo > 2) std::printf("# rank#%i finds %ld atom images inside a %g %s search radius\n",
                                               me, atom_images.size(), r_search*Ang, _Ang);
@@ -438,29 +442,28 @@ namespace parallel_potential {
     ) {
         // count how many periodic images each unique atom has
         std::map<int32_t,uint32_t> npi_map;
-        for (auto const & ai : atom_images) {
+        for (auto const & ai : atom_images) { // 
             auto const global_atom_id = ai.atom_id_;
             ++npi_map[global_atom_id];
         } // ai
         // the size of this map determines how many different global_ids are involved
-        auto const n_unique = npi_map.size();
-        if (echo > 0) std::printf("# found %ld different atoms in %ld atom images\n", n_unique, atom_images.size());
+        auto const natoms = npi_map.size(); // number of contributing atoms
+        if (echo > 0) std::printf("# found %ld different atoms in %ld atom images\n", natoms, atom_images.size());
 
-        std::vector<uint32_t> global_atom_ids(n_unique); // prepare function result
-        std::map<int32_t,uint32_t> id_map; // this map translates from global ids to 
-        { // scope:
+        std::vector<uint32_t> global_atom_ids(natoms); // prepare function result
+        std::map<int32_t,uint32_t> id_map; // this map translates from global_atom_ids to iatom-indices
+        { // scope: 
             simple_stats::Stats<float> s(0);
-            uint32_t i_unique{0};
-            for (auto const & ia : npi_map) {
-                auto const global_atom_id = ia.first;
-                id_map[global_atom_id] = i_unique;
+            uint32_t iatom{0};
+            for (auto const & atom : npi_map) { // loop over contributing atoms (not images)
+                s.add(atom.second); // statistics about the number of periodic images
+                auto const global_atom_id = atom.first;
+                id_map[global_atom_id] = iatom;
                 assert(global_atom_id >= 0);
-                global_atom_ids[i_unique] = global_atom_id;
-                ++i_unique;
-
-                s.add(ia.second); // statistics about the number of periodic images
+                global_atom_ids[iatom] = global_atom_id;
+                ++iatom;
             } // ia
-            assert(n_unique == i_unique);
+            assert(natoms == iatom);
             auto const s_interval = s.interval();
             if (echo > 3) std::printf("# distribution of periodic images is %s\n", s_interval.c_str());
         } // scope
@@ -468,8 +471,8 @@ namespace parallel_potential {
         // translate the members atom_id_ in atom_images from global ids into unique ids
         for (auto & ai : atom_images) {
             auto const global_atom_id = ai.atom_id_;
-            auto const i_unique = id_map[global_atom_id];
-            ai.atom_id_ = i_unique;
+            auto const iatom = id_map[global_atom_id];
+            ai.atom_id_ = iatom;
         } // ai
 
         return global_atom_ids;
@@ -482,7 +485,7 @@ namespace parallel_potential {
           double      result[] // 0:grid_values[n8*n8*n8],  1:sho_coeff[nSHO(numax)], SHO-coefficients are zyx-ordered
         , double const input[] // 0:sho_coeff[nSHO(numax)], 1:grid_values[n8*n8*n8]
         , double const block_coords[3] // block origin
-        , double const h[3] // grid spacing
+        , double const hg[3] // grid spacing
         , double const r_circum // == std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]))
         , double const atom_center[3] // where is the atom image
         , int const numax // SHO basis size
@@ -491,9 +494,9 @@ namespace parallel_potential {
         , int const echo=0 // log-level
     ) {
         if (1) { // check if the atom is too far from the center of the block
-            auto const r2 = pow2(block_coords[0] + h[0]*n8*.5 - atom_center[0])
-                          + pow2(block_coords[1] + h[1]*n8*.5 - atom_center[1])
-                          + pow2(block_coords[2] + h[2]*n8*.5 - atom_center[2]);
+            auto const r2 = pow2(block_coords[0] + hg[0]*n8*.5 - atom_center[0])
+                          + pow2(block_coords[1] + hg[1]*n8*.5 - atom_center[1])
+                          + pow2(block_coords[2] + hg[2]*n8*.5 - atom_center[2]);
             if (r2 > pow2(r_cut + n8*.5*r_circum)) return 0;
         } // fast check
 
@@ -506,7 +509,7 @@ namespace parallel_potential {
         for (int dir = 0; dir < 3; ++dir) {
             if (echo > 55) std::printf("\n# Hermite polynomials for %c-direction:\n", 'x' + dir);
             for (int i8 = 0; i8 < n8; ++i8) {
-                auto const x = block_coords[dir] + (i8 + .5)*h[dir] - atom_center[dir];
+                auto const x = block_coords[dir] + (i8 + .5)*hg[dir] - atom_center[dir];
                 Gauss_Hermite_polynomials(H1d(dir,i8), x*sigma_inv, numax);
                 radius2[dir][i8] = pow2(x);
 #ifdef    DEVEL
@@ -596,13 +599,13 @@ namespace parallel_potential {
         , std::vector<int32_t> const & lmax // lmax_qlm[natoms]
         , std::vector<double> const & sigma // sigma_cmp[natoms]
         , std::vector<atom_image_t> const & atom_images
-        , double const h[3] // == g.grid_spacings()
+        , double const hg[3] // == g.grid_spacings()
         , int const echo=0
     ) {
         auto const natoms = sigma.size();
         assert(natoms == lmax.size());
         assert(natoms == atom_coeff.nrows());
-        auto const r_circum = std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
+        auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
         std::vector<size_t> hits_per_atom(sigma.size(), 0);
         for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) { // OMP PARALLEL
             size_t hits_per_block{0};
@@ -610,7 +613,7 @@ namespace parallel_potential {
                 auto const iatom = ai.atom_id_;
                 float const r_cut = 9*sigma[iatom];
                 auto const hits = sho_project0_or_add1<1,8>(grid_values[ilb], atom_coeff[iatom], block_coords[ilb],
-                                                            h, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
+                                                            hg, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
                 hits_per_atom[iatom] += hits;
                 hits_per_block       += hits;
             } // ai
@@ -637,13 +640,13 @@ namespace parallel_potential {
         , std::vector<int32_t> const & lmax // lmax_vlm[natoms]
         , std::vector<double> const & sigma // sigma_cmp[natoms]
         , std::vector<atom_image_t> const & atom_images
-        , double const h[3] // == g.grid_spacings()
+        , double const hg[3] // == g.grid_spacings()
         , int const echo=0
     ) {
         auto const natoms = sigma.size();
         assert(natoms == lmax.size());
         assert(natoms == atom_coeff.nrows());
-        auto const r_circum = std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
+        auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
         for (size_t iatom{0}; iatom < natoms; ++iatom) {
             auto const nSHO = sho_tools::nSHO(lmax[iatom]);
             set(atom_coeff[iatom], nSHO, 0.0); // clear
@@ -657,7 +660,7 @@ namespace parallel_potential {
             size_t hits_per_atom{0};
             for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) {
                 auto const hits = sho_project0_or_add1<0,8>(atom_coeff[iatom], grid_values[ilb], block_coords[ilb],
-                                                            h, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
+                                                            hg, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
                 hits_per_block[ilb] += hits;
                 hits_per_atom       += hits;
             } // ilb
@@ -682,7 +685,7 @@ namespace parallel_potential {
     double add_r2grid_to_block(
           real_t values[n8*n8*n8]
         , double const block_coords[3]
-        , double const h[3] // Cartesian grid spacings
+        , double const hg[3] // Cartesian grid spacings
         , double const r_circum // == std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]))
         , double const atom_center[3]
         , double const r2coeff[] // radial function on an r^2-grid
@@ -693,9 +696,9 @@ namespace parallel_potential {
         , float const ar2=16.f // r^2-grid parameter
     ) {
         if (1) { // check if the atom is too far from the center of the block
-            auto const r2 = pow2(block_coords[0] + h[0]*n8*.5 - atom_center[0])
-                          + pow2(block_coords[1] + h[1]*n8*.5 - atom_center[1])
-                          + pow2(block_coords[2] + h[2]*n8*.5 - atom_center[2]);
+            auto const r2 = pow2(block_coords[0] + hg[0]*n8*.5 - atom_center[0])
+                          + pow2(block_coords[1] + hg[1]*n8*.5 - atom_center[1])
+                          + pow2(block_coords[2] + hg[2]*n8*.5 - atom_center[2]);
             if (r2 > pow2(r_cut + n8*.5*r_circum)) return 0;
         } // fast check
 
@@ -705,9 +708,9 @@ namespace parallel_potential {
         for (int iz{0}; iz < n8; ++iz) {
         for (int iy{0}; iy < n8; ++iy) {
         for (int ix{0}; ix < n8; ++ix) {
-            auto const r2 = pow2(block_coords[0] + h[0]*(ix + .5) - atom_center[0])
-                          + pow2(block_coords[1] + h[1]*(iy + .5) - atom_center[1])
-                          + pow2(block_coords[2] + h[2]*(iz + .5) - atom_center[2]);
+            auto const r2 = pow2(block_coords[0] + hg[0]*(ix + .5) - atom_center[0])
+                          + pow2(block_coords[1] + hg[1]*(iy + .5) - atom_center[1])
+                          + pow2(block_coords[2] + hg[2]*(iz + .5) - atom_center[2]);
             if (r2 < r2cut) {
                 int const ir2 = int(ar2*r2);
                 if (ir2 + 1 < nr2) {
@@ -744,8 +747,8 @@ namespace parallel_potential {
     ) {
         auto const me = mpi_parallel::rank(comm);
         // ToDo: get atom_r2coeff from atom owners
-        auto const *const h = g.grid_spacings();
-        auto const r_circum = std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
+        auto const *const hg = g.grid_spacings();
+        auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
 
         float const r_cut = std::sqrt((nr2 - 1.)/ar2); // largest radius of the r^2-grid
         assert(ar2 > 0);
@@ -766,7 +769,7 @@ namespace parallel_potential {
 #endif // DEVEL
             double added_charge{0};
             for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) { // local blocks
-                added_charge += add_r2grid_to_block(grid_quantity[ilb], block_coords[ilb], h, r_circum,
+                added_charge += add_r2grid_to_block(grid_quantity[ilb], block_coords[ilb], hg, r_circum,
                                           ai.pos_, atom_r2coeff[iatom], r_cut, factor, echo, nr2, ar2);
             } // ilb
 #ifdef    DEVEL
@@ -1035,16 +1038,25 @@ namespace parallel_potential {
         auto const me = mpi_parallel::rank(comm);
         auto const nprocs = mpi_parallel::size(comm); assert(nprocs > 0);
 
-        // load geometry from +geometry.file=atoms.xyz (a good candidate is +geometry.file=test/geo/Cu40Zr22.xyz)
+        bool needs_integrator{false};
+        char const *const basis_method = control::get("basis", "Thomas-Fermi"); // {Thomas-Fermi, Green-function}
+        switch (*basis_method | 32) {
+            case 't': break; // Thomas-Fermi model
+            case 'g': needs_integrator = true; break; // Green-function model
+            case 'n': warn("with +basis=%s --> none no new valence density is created!", basis_method); break;
+            default:  error("not implemented +basis=%s", basis_method);
+        } // switch
+
+        // load geometry from +geometry.file=atoms.xyz
         real_space::grid_t g; // entire grid descriptor
         view2D<double> xyzZ_all;  // coordinates for all atoms
         int32_t n_all_atoms;  // number of all atoms
 
-        { // MPI master task
+        { // scope: init_geometry_and_grid
             auto const stat_init = geometry_input::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
             if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
             stat += stat_init;
-        } // master
+        } // scope
 
         // create a coarse grid descriptor
         real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2);
@@ -1064,27 +1076,41 @@ namespace parallel_potential {
         if (echo > 1) { auto const nb = pg.grid_blocks(); std::printf("# use  %d %d %d  grid blocks\n", nb[0], nb[1], nb[2]); }
 
         // distribute the atom ownership:
-        // simple distribution model: owner_rank == atom_id % nprocs, advantage: every rank can compute the owner
-        // alternativ: make a weight grid pg.nb^3, init 0, add weight where atoms are, call load_balancer
+        // simple distribution model: owner_rank == global_atom_id % nprocs, advantage: every rank can compute the owner
+        //  
+        // Example:  n_all_atoms=19, nprocs=7
+        // rank      r#0   r#1   r#2   r#3   r#4   r#5   r#6
+        //           a#0   a#1   a#2   a#3   a#4   a#5   a#6
+        // owns      a#7   a#8   a#9   a#10  a#11  a#12  a#13
+        //           a#14  a#15  a#16  a#17  a#18
+        // na ==     3     3     3     3     3     2     2      na: number of atoms owned by this rank
+        //
+        // Alternative 1: instead of cyclic as above make something like owner_rank = (global_atom_id * nprocs)/n_all_atoms
+        //
+        // Alternative 2: make a weight grid pg.nb^3, init 0, add weight where atoms are, call load_balancer
+        //     could be enriched by a workload model as function of Z
+        //     would create some MPI closeness for systems with homogeneously distributed atoms
 
         if (echo > 0) std::printf("# distribute %.3f k atoms as %g atoms per rank on %d ranks\n", n_all_atoms*1e-3, n_all_atoms/double(nprocs), nprocs);
-        int32_t const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner rank = global_atom_id % nprocs
+        int32_t const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner_rank = global_atom_id % nprocs
         if (echo > 4) std::printf("# rank#%i has %d owned atoms\n", me, na);
 
         std::vector<double> Z_owned_atoms(na, 0.);
         for (int32_t ia{0}; ia < na; ++ia) {
-            auto const global_atom_id = nprocs*ia + me;
-            Z_owned_atoms[ia] = xyzZ_all(global_atom_id,3); // component 3 is the atomic number Z
+            auto const gid = nprocs*ia + me;
+            assert(0 <= gid); assert(gid < n_all_atoms);
+            Z_owned_atoms[ia] = xyzZ_all(gid,3); // component 3 is the atomic number Z
         } // ia
 
         auto const n_blocks = pg.n_local();
         view2D<double> block_coords(n_blocks, 4, 0.0);
-        auto atom_images = get_neighborhood(block_coords, n_all_atoms, xyzZ_all, pg, g, grid_center, echo);
-        // for now atom_images.atom_id_ are in [0, n_all_atoms)
+        auto atom_images_ = get_neighborhood(block_coords, n_all_atoms, xyzZ_all, pg, g, grid_center, echo);
+        // for now atom_images_.atom_id_ are in [0, n_all_atoms)
 
-        xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this
+        // ToDo: use get_neighborhood with r_cut + r_trunc to prefilter the relevant atomic images for the Green function method, so we don't have to pass xyzZ_all to them
 
-        auto const global_atom_ids = find_unique_atoms(atom_images, echo);
+        auto const global_atom_ids = find_unique_atoms(atom_images_, echo);
+        auto const & atom_images = atom_images_;
         // from here atom_images.atom_id_ are in [0, global_atom_ids.size())
 
 
@@ -1100,7 +1126,7 @@ namespace parallel_potential {
         char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
         auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
         if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
-        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -1); // -1: LivePAW, -9: load from pawxml files
+        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -4); // -4: LivePAW, -9: load from pawxml files
         std::vector<int32_t> lmax_qlm(na, -1);      // expansion of qlm on owned atoms
         std::vector<int32_t> lmax_vlm(na, -1);      // expansion of vlm on owned atoms
         std::vector<int32_t> lmaxs_qlm(natoms, -1); // expansion of qlm on contributing atoms
@@ -1117,18 +1143,18 @@ namespace parallel_potential {
         data_list<double> atom_qzyx, atom_vzyx;                   // for owned atoms
         data_list<double> atoms_qzyx, atoms_vzyx;                 // for contributing atoms
         {
-            std::vector<float> ionization(na, 0.f);
-
 #ifdef    HAS_SINGLE_ATOM
             if (echo > 1) std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", na);
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
+            // use linked library libliveatom
             if (echo > 1) std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", na);
 #else  // HAS_LIVE_ATOM
             if (echo > 1) std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n");
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
 
+            std::vector<float> ionization(na, 0.f);
             stat += live_atom_update("initialize", na, Z_owned_atoms.data(), numax.data(), ionization.data(), (double**)1);
             stat += live_atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
             stat += live_atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
@@ -1139,9 +1165,9 @@ namespace parallel_potential {
                 for (int32_t ia{0}; ia < na; ++ia) {
                     num(0,ia) = pow2(1 + lmax_qlm.at(ia)); // qlm
                     num(1,ia) = pow2(1 + lmax_vlm.at(ia)); // vlm
-                    int const n_sho = sho_tools::nSHO(numax.at(ia));
-                    num(2,ia) =   pow2(n_sho);          // aDm
-                    num(3,ia) = 2*pow2(n_sho);          // aHm+aSm
+                    auto const n_sho = sho_tools::nSHO(numax.at(ia)); assert(n_sho > 0);
+                    num(2,ia) =   pow2(n_sho);             // aDm
+                    num(3,ia) = 2*pow2(n_sho);             // aHm+aSm
                     num(4,ia) = sho_tools::nSHO(lmax_qlm[ia]); // number of coefficients to represent qlm compensation charges in a SHO basis
                     num(5,ia) = sho_tools::nSHO(lmax_vlm[ia]); // number of coefficients to represent vlm electrostatic projectors in a SHO basis
                  } // ia
@@ -1165,7 +1191,8 @@ namespace parallel_potential {
                     atom_send(ia,3) = sigma_cmp.at(ia);
                     atom_send(ia,4) = nr2.at(ia);
                     atom_send(ia,5) = ar2.at(ia);
-                    atom_send(ia,7) = ionization.at(ia);
+                    atom_send(ia,6) = ionization.at(ia);
+                    atom_send(ia,7) = 0; // spare
                 } // ia
 
                 num.resize(natoms, m8);
@@ -1203,6 +1230,43 @@ namespace parallel_potential {
 
 
 
+        energy_contour::Integrator integrator;
+        if (needs_integrator) {
+            if (echo > 0) std::printf("\n# Initialize energy contour integrator");
+
+            std::vector<double> xyzZinso(0);
+            { // scope: determine additional info
+                std::vector<int32_t> numax_prj(na, 0);
+                std::vector<double>  sigma_prj(na, 0);
+                stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
+
+                view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
+                for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
+                    assert(numax_prj.at(ia) == numax.at(ia) && "inconsist between 'projectors' and 'initialize' call");
+                    auto const gid = nprocs*ia + me; // global_atom_id
+                    assert(0 <= gid); assert(gid < n_all_atoms);
+                    numax_sigma(gid,0) = numax_prj.at(ia);
+                    numax_sigma(gid,1) = sigma_prj.at(ia);
+                } // ia
+                mpi_parallel::max(numax_sigma[0], n_all_atoms*2, comm); // this is potentially slow
+
+                xyzZinso.resize(8*n_all_atoms);
+                for (int32_t gid{0}; gid < n_all_atoms; ++gid) { // another loop over all atoms, TODO can we avoid this?
+                    set(&xyzZinso[gid*8], 4, xyzZ_all[gid]); // copy position and atomic number
+                    xyzZinso[gid*8 + 4] = gid;
+                    xyzZinso[gid*8 + 5] = numax_sigma(gid,0);
+                    xyzZinso[gid*8 + 6] = numax_sigma(gid,1);
+                    xyzZinso[gid*8 + 7] = 0;
+                } // gid
+            } // scope
+
+            integrator = energy_contour::Integrator(gc, xyzZinso, echo);
+        } // needs_integrator
+
+        xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this
+
+
+
 
         // allocate CPU memory for grid arrays
         view2D<double> augmented_density(n_blocks, 8*8*8, 0.0);
@@ -1213,10 +1277,6 @@ namespace parallel_potential {
 
         double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
         double constexpr Y00sq = pow2(Y00);        // == 1/(4*pi)
-
-
-        // These data items are needed for the Kohn-Sham Hamiltonian
-        // stat += live_atom_update("projectors", na, sigma_prj.data(), numax.data());
 
         // configure the Poisson solver
         auto  const es_method    = control::get("poisson.method", "cg"); // {cg, sd}
@@ -1253,7 +1313,6 @@ namespace parallel_potential {
 
         // energy contributions
         double grid_kinetic_energy{0}, grid_electrostatic_energy{0}, grid_xc_energy{0}, total_energy{0};
-
 
         int scf_iteration{0};
         bool scf_run{true};
@@ -1400,15 +1459,40 @@ namespace parallel_potential {
 
 
 
-            // ToDo: call energy-contour integration to find a new density
             view2D<double> new_valence_density(n_blocks, 8*8*8, 0.0);
-            { // scope: apply Thomas-Fermi approximation
+
+            switch (*basis_method | 32) {
+            case 't':
+            {
+                if (echo > 0) std::printf("# +basis=%s --> Thomas-Fermi model\n", basis_method);
+                // apply Thomas-Fermi approximation
                 auto const stat_TF = new_density_Thomas_Fermi(new_valence_density[0], E_Fermi, V_effective[0],
                                 n_blocks*size_t(512), comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_TF;
                 if (stat_TF && 0 == me) warn("# new_density_Thomas_Fermi returned status= %i", int(stat_TF));
                 print_stats(new_valence_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
-            } // scope
+            }
+            break;
+
+            case 'g':
+            {
+                if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
+                // call energy-contour integration to find a new density
+                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0],
+                                        n_blocks, pg, comm, n_valence_electrons, g.dV(), echo);
+                stat += stat_Gf;
+                if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
+            }
+            break;
+
+            case 'n':
+            {
+                if (echo > 0) std::printf("# +basis=%s --> none, valence density is not updated!\n", basis_method);
+            }
+            break;
+
+            default: error("not implemented +basis=%s", basis_method);
+            } // switch basis_method
 
             auto const E_dcc = dot_product(n_blocks*size_t(8*8*8), new_valence_density[0], V_effective[0]);
             double const double_counting_correction = mpi_parallel::sum(E_dcc, comm) * g.dV();
@@ -1450,7 +1534,7 @@ namespace parallel_potential {
                 Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
                                                + Ea[energy_contribution::ELECTROSTATIC]
                                                + Ea[energy_contribution::EXCHANGE_CORRELATION];
-                if (echo > 7) std::printf("\n# sum of atomic energy contributions with grid contributions:\n");
+                if (echo > 7) std::printf("\n# energy contributions including grid contributions:\n");
                 energy_contribution::show(Ea.data(), echo - 3, eV, _eV);
             } else {
                 stat += live_atom_update("energies", na, atomic_energy_diff.data());

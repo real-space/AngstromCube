@@ -37,6 +37,7 @@
   #include "green_parallel.hxx" // ::all_tests
   #include "poisson_solver.hxx" // ::all_tests
   #include "brillouin_zone.hxx" // ::all_tests
+  #include "energy_contour.hxx" // ::all_tests
   #include "sho_projection.hxx" // ::all_tests
   #include "shift_boundary.hxx" // ::all_tests
   #include "linear_algebra.hxx" // ::all_tests
@@ -233,6 +234,7 @@
           add_module_test(davidson_solver);
           add_module_test(dense_solver);
           add_module_test(structure_solver);
+          add_module_test(energy_contour);
 
           start_a_chapter("DFT-specific"); // *****************************************
           add_module_test(symmetry_group);

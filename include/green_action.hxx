@@ -59,6 +59,7 @@ namespace green_action {
       int16_t copies[3]; // periodic copy shifts
   }; // atom_t 56 Byte, only used in CPU parts
 
+#if 0
   // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
   struct atom_image_t {
       double pos[3]; // atom position
@@ -66,6 +67,7 @@ namespace green_action {
       int8_t shifts[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
       int8_t lmax; // SHO basis size >= -1
   }; // atom_image_t 32 Byte
+#endif
 
   struct plan_t {
 
@@ -284,7 +286,7 @@ namespace green_action {
       } // destruct plan
       if (echo > 6) {
           std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
-          std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
+//        std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
           std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(plan_t));
       } // echo
       return 0;

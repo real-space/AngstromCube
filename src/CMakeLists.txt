@@ -8,43 +8,43 @@ set(all_targets )
 set(all_targets ${all_targets} liveatom)
 
 set(a43_atom_headers
+    ../include/angular_grid.hxx
+    ../include/atom_core.hxx
+    ../include/chemical_symbol.h
+    ../include/chemical_symbol.hxx
     ../include/control.hxx
-    ../include/recorded_warnings.hxx
-    ../include/radial_grid.hxx
-    ../include/radial_grid.h
+    ../include/display_units.h
+    ../include/exchange_correlation.hxx
     ../include/quantum_numbers.h
+    ../include/radial_eigensolver.hxx
+    ../include/radial_grid.h
+    ../include/radial_grid.hxx
     ../include/radial_integrator.hxx
     ../include/radial_potential.hxx
-    ../include/radial_eigensolver.hxx
-    ../include/exchange_correlation.hxx
+    ../include/recorded_warnings.hxx
     ../include/scattering_test.hxx
-    ../include/chemical_symbol.hxx
-    ../include/chemical_symbol.h
-    ../include/display_units.h
-    ../include/sigma_config.hxx
-    ../include/atom_core.hxx
     ../include/sho_unitary.hxx
-    ../include/angular_grid.hxx
-    ../include/single_atom.hxx
+    ../include/sigma_config.hxx
     ../include/single_atom.h
+    ../include/single_atom.hxx
 )
 
 set(a43_atom_sources
+    angular_grid.cxx
+    atom_core.cxx
+    chemical_symbol.cxx
     control.cxx
-    recorded_warnings.cxx
+    display_units.cxx
+    exchange_correlation.cxx
+    library_kind_dynamic.cxx
+    radial_eigensolver.cxx
     radial_grid.cxx
     radial_integrator.cxx
     radial_potential.cxx
-    radial_eigensolver.cxx
-    exchange_correlation.cxx
-    library_kind_dynamic.cxx
+    recorded_warnings.cxx
     scattering_test.cxx
-    chemical_symbol.cxx
-    display_units.cxx
-    sigma_config.cxx
-    atom_core.cxx
     sho_unitary.cxx
-    angular_grid.cxx
+    sigma_config.cxx
     single_atom.cxx
 )
    
@@ -61,67 +61,69 @@ add_library(liveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 set(all_targets ${all_targets} a43)
 
 set(a43_headers ${a43_atom_headers}
-    ../include/simple_timer.hxx
-    ../include/global_coordinates.hxx
-    ../include/geometry_input.hxx
-    ../include/geometry_analysis.hxx
-    ../include/self_consistency.hxx
-    ../include/iterative_poisson.hxx
+    ../include/add_module_test.h
     ../include/bessel_transform.hxx
     ../include/dense_solver.hxx
-    ../include/multi_grid.hxx
-    ../include/mpi_parallel.hxx
-    ../include/potential_generator.hxx
-    ../include/poisson_solver.hxx
-    ../include/plane_wave.hxx
-    ../include/sho_basis.hxx
-    ../include/sho_overlap.hxx
-    ../include/sho_hamiltonian.hxx
+    ../include/energy_contour.hxx
+    ../include/energy_contribution.hxx
     ../include/gaunt_entry.h
-    ../include/sho_projection.hxx
-    ../include/sho_potential.hxx
-    ../include/structure_solver.hxx
-    ../include/green_parallel.hxx
-    ../include/green_kinetic.hxx
-    ../include/green_function.hxx
+    ../include/geometry_analysis.hxx
+    ../include/geometry_input.hxx
+    ../include/global_coordinates.hxx
     ../include/green_experiments.hxx
+    ../include/green_function.hxx
     ../include/green_input.hxx
+    ../include/green_kinetic.hxx
+    ../include/green_parallel.hxx
+    ../include/green_tests.hxx
+    ../include/iterative_poisson.hxx
+    ../include/load_balancer.hxx
+    ../include/mpi_parallel.hxx
+    ../include/multi_grid.hxx
     ../include/parallel_poisson.hxx
     ../include/parallel_potential.hxx
-    ../include/load_balancer.hxx
-    ../include/green_tests.hxx
-    ../include/add_module_test.h
-    ../include/energy_contribution.hxx
+    ../include/plane_wave.hxx
+    ../include/poisson_solver.hxx
+    ../include/potential_generator.hxx
+    ../include/self_consistency.hxx
+    ../include/sho_basis.hxx
+    ../include/sho_hamiltonian.hxx
+    ../include/sho_overlap.hxx
+    ../include/sho_potential.hxx
+    ../include/sho_projection.hxx
+    ../include/simple_timer.hxx
+    ../include/structure_solver.hxx
 )
 
 set(a43_sources ${a43_atom_sources}
-    geometry_input.cxx
-    geometry_analysis.cxx
-    self_consistency.cxx
-    iterative_poisson.cxx
+    a43_main.cxx
     bessel_transform.cxx
     dense_solver.cxx
-    multi_grid.cxx
+    energy_contour.cxx
+    geometry_analysis.cxx
+    geometry_input.cxx
+    green_experiments.cxx
+    green_function.cxx
+    green_input.cxx
+    green_kinetic.cxx
+    green_parallel.cxx
+    green_tests.cxx
+    iterative_poisson.cxx
+    load_balancer.cxx
     mpi_parallel.cxx
-    potential_generator.cxx
+    multi_grid.cxx
     parallel_poisson.cxx
     parallel_potential.cxx
-    poisson_solver.cxx
     plane_wave.cxx
+    poisson_solver.cxx
+    potential_generator.cxx
+    self_consistency.cxx
     sho_basis.cxx
-    sho_overlap.cxx
     sho_hamiltonian.cxx
-    sho_projection.cxx
+    sho_overlap.cxx
     sho_potential.cxx
+    sho_projection.cxx
     structure_solver.cxx
-    green_parallel.cxx
-    green_kinetic.cxx
-    green_function.cxx
-    green_experiments.cxx
-    green_input.cxx
-    load_balancer.cxx
-    green_tests.cxx
-    a43_main.cxx
 )
 
 # build a serial application
@@ -134,68 +136,70 @@ add_executable(a43 ${a43_sources} ${a43_headers})
 set(all_targets ${all_targets} green)
 
 set(green_headers
-    ../include/control.hxx
-    ../include/constants.hxx
-    ../include/recorded_warnings.hxx
-    ../include/geometry_input.hxx
-    ../include/display_units.h
-    ../include/single_atom.h
-    ../include/mpi_parallel.hxx
-    ../include/simple_timer.hxx
-    ../include/simple_stats.hxx
-    ../include/global_coordinates.hxx
-    ../include/green_parallel.hxx
-    ../include/green_input.hxx
-    ../include/parallel_poisson.hxx
-    ../include/load_balancer.hxx
-    ../include/green_kinetic.hxx
-    ../include/green_function.hxx
-    ../include/green_experiments.hxx
+    ../include/boundary_condition.hxx
     ../include/chemical_symbol.h
-    ../include/inline_math.hxx
     ../include/chemical_symbol.hxx
+    ../include/constants.hxx
+    ../include/control.hxx
+    ../include/data_list.hxx
+    ../include/data_view.hxx
+    ../include/display_units.h
+    ../include/energy_contour.hxx
     ../include/exchange_correlation.hxx
-    ../include/hermite_polynomial.hxx
-    ../include/sho_projection.hxx
+    ../include/geometry_input.hxx
+    ../include/global_coordinates.hxx
+    ../include/green_experiments.hxx
+    ../include/green_function.hxx
+    ../include/green_input.hxx
+    ../include/green_kinetic.hxx
+    ../include/green_parallel.hxx
     ../include/green_tests.hxx
+    ../include/hermite_polynomial.hxx
+    ../include/inline_math.hxx
+    ../include/load_balancer.hxx
+    ../include/mpi_parallel.hxx
+    ../include/parallel_poisson.hxx
+    ../include/parallel_potential.hxx
+    ../include/print_tools.hxx
+    ../include/recorded_warnings.hxx
+    ../include/sho_projection.hxx
     ../include/sho_tools.hxx
     ../include/sho_unitary.hxx
-    ../include/data_view.hxx
-    ../include/data_list.hxx
-    ../include/boundary_condition.hxx
-    ../include/print_tools.hxx
-    ../include/parallel_potential.hxx
+    ../include/simple_stats.hxx
+    ../include/simple_timer.hxx
+    ../include/single_atom.h
 )
 
 set(green_sources
+    chemical_symbol.cxx
     control.cxx
+    display_units.cxx
+    energy_contour.cxx
+    exchange_correlation.cxx
+    geometry_input.cxx
+    green_input.cxx
+    green_parallel.cxx
+    load_balancer.cxx
+    mpi_parallel.cxx
+    parallel_poisson.cxx
+    parallel_potential.cxx
     recorded_warnings.cxx
     sho_unitary.cxx
-    chemical_symbol.cxx
-    geometry_input.cxx
-    display_units.cxx
-    mpi_parallel.cxx
-    exchange_correlation.cxx
-    parallel_potential.cxx
-    parallel_poisson.cxx
-    green_parallel.cxx
-    green_input.cxx
-    load_balancer.cxx
 )
 
 if(HAS_CUDA)
     enable_language(CUDA)
     set(green_sources ${green_sources}
-        green_kinetic.cu
-        green_function.cu
         green_experiments.cu
+        green_function.cu
+        green_kinetic.cu
         green_tests.cu
     )
 else(HAS_CUDA)
     set(green_sources ${green_sources}
-        green_kinetic.cxx
-        green_function.cxx
         green_experiments.cxx
+        green_function.cxx
+        green_kinetic.cxx
         green_tests.cxx
     )
 endif(HAS_CUDA)

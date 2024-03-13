@@ -18,6 +18,7 @@
   #include "recorded_warnings.hxx" // ::all_tests
   #include "parallel_poisson.hxx" // ::all_tests
   #include "chemical_symbol.hxx" // ::all_tests
+  #include "energy_contour.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
   #include "geometry_input.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
@@ -89,6 +90,7 @@
           add_module_test(load_balancer);
           add_module_test(mpi_parallel);
           add_module_test(green_parallel);
+          add_module_test(energy_contour);
           add_module_test(parallel_poisson);
           add_module_test(parallel_potential);
           green_tests::add_tests(results, input_name, show, all, echo);

@@ -538,35 +538,6 @@ namespace self_consistency {
               for (int ia = 0; ia < na; ++ia) {
                   add_product(Ea.data(), nE, atom_contrib[ia], 1.0); // all atomic weight factors are 1.0
               } // ia
-#if 0
-              for (int i01 = 0; i01 < 2; ++i01) {
-                  if (echo > 3 + 4*(1 - i01)) {
-                      auto const E_tot = Ea[energy_contribution::KINETIC]
-                                       + Ea[energy_contribution::ELECTROSTATIC]
-                                       + Ea[energy_contribution::EXCHANGE_CORRELATION]
-                                       - Ea[energy_contribution::REFERENCE];
-                      char const *const without_with = i01 ? "" : "out";
-                      std::printf("\n# sum of atomic energy contributions with%s grid contributions:\n", without_with);
-                      std::printf("# kinetic      %32.9f %s\n", Ea[energy_contribution::KINETIC]             *eV, _eV);
-                      std::printf("# electrostatic%32.9f %s\n", Ea[energy_contribution::ELECTROSTATIC]       *eV, _eV);
-                      std::printf("# XC           %32.9f %s\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV, _eV);
-                      std::printf("# true total   %32.9f %s\n", Ea[energy_contribution::TOTAL]               *eV, _eV);
-                      std::printf("# reference    %32.9f %s\n", Ea[energy_contribution::REFERENCE]           *eV, _eV);
-                      std::printf("# total        %32.9f %s\n", E_tot                                        *eV, _eV);
-                  } // echo
-
-                  if (0 == i01) {
-                      // now add grid contributions
-                      Ea[energy_contribution::KINETIC] += grid_kinetic_energy * (1. - take_atomic_valence_densities);
-                      Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
-                      Ea[energy_contribution::ELECTROSTATIC] += grid_electrostatic_energy;
-                      // reconstruct total energy from its contributions KINETIC + ES + XC
-                      Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
-                                                     + Ea[energy_contribution::ELECTROSTATIC]
-                                                     + Ea[energy_contribution::EXCHANGE_CORRELATION];
-                  } // 0 == i01
-              } // i01 show without and with grid contributions
-#else
               if (echo > 7) std::printf("\n# sum of atomic energy contributions without grid contributions:\n");
               energy_contribution::show(Ea.data(), echo - 7, eV, _eV);
               // now add grid contributions
@@ -577,9 +548,8 @@ namespace self_consistency {
               Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC]
                                              + Ea[energy_contribution::ELECTROSTATIC]
                                              + Ea[energy_contribution::EXCHANGE_CORRELATION];
-              if (echo > 7) std::printf("\n# sum of atomic energy contributions with grid contributions:\n");
+              if (echo > 7) std::printf("\n# energy contributions including grid contributions:\n");
               energy_contribution::show(Ea.data(), echo - 3, eV, _eV);
-#endif
           } else {
               stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
           } // total_energy_details
