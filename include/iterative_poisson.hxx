@@ -14,7 +14,7 @@ namespace iterative_poisson {
       , real_space::grid_t const & g // grid descriptor
       , char const method='M' // solver method M:multi-grid, c:conjugate-gradient, s:steepest-descent
       , int const echo=0 // log level
-      , float const threshold=3e-8 // convergence criterion
+      , float const threshold=3e-8f // convergence criterion
       , float *residual=nullptr // residual that was reached
       , int const maxiter=199 // maximum number of iterations 
       , int const miniter=3 // minimum number of iterations

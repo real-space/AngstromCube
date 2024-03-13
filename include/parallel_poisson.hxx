@@ -52,7 +52,7 @@ namespace parallel_poisson {
         , parallel_grid_t const & g8 // parallel grid descriptor
         , char const method='c' // solver method c:conjugate-gradient, s:steepest-descent
         , int const echo=0 // log level
-        , float const threshold=3e-8 // convergence criterion
+        , float const threshold=3e-8f // convergence criterion
         , float *residual=nullptr // residual that was reached
         , int const maxiter=199 // maximum number of iterations 
         , int const miniter=3  // minimum number of iterations
