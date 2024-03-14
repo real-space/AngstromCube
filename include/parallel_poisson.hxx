@@ -5,7 +5,7 @@
 
 #include "status.hxx" // status_t
 #include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_NULL
-#include "green_parallel.hxx" // ::RequestList_t
+#include "green_parallel.hxx" // ::RequestList_t, ::rank_int_t
 #include "inline_math.hxx" // set
 
 namespace parallel_poisson {
@@ -19,6 +19,8 @@ namespace parallel_poisson {
             , unsigned const n8=8 // number of grid points per block edge
             , int const echo=0 // log-level
             , char const *const what="FD1"
+            , green_parallel::rank_int_t *const owner_rank=nullptr // import owner rank from a previous load balancing
+            , int64_t const n_blocks=-1 // import number of local blocks from a previous load balancing, -1: not given
         ); // declaration only
     private:
         green_parallel::RequestList_t requests_;

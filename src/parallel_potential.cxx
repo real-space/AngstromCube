@@ -1072,10 +1072,10 @@ namespace parallel_potential {
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 
         // distribute the dense grid in 8x8x8 grid blocks to parallel owners
-        parallel_poisson::parallel_grid_t const pg(g, comm, 8, echo);
+        parallel_poisson::parallel_grid_t const pg(g, comm, 8, echo, "grid distribution");
         if (echo > 1) { auto const nb = pg.grid_blocks(); std::printf("# use  %d %d %d  grid blocks\n", nb[0], nb[1], nb[2]); }
 
-        parallel_poisson::parallel_grid_t const pg_Interpolation(g, comm, 8, echo, "Interpolation"); // ToDo: maybe we can re-use the load_balacing results from pg
+        parallel_poisson::parallel_grid_t const pg_Interpolation(g, comm, 8, echo, "Interpolation", pg.owner_rank().data(), pg.n_local());
 
         // distribute the atom ownership:
         // simple distribution model: owner_rank == global_atom_id % nprocs, advantage: every rank can compute the owner
@@ -1511,6 +1511,9 @@ namespace parallel_potential {
 
             default: error("not implemented +basis=%s", basis_method);
             } // switch basis_method
+
+            print_stats(new_valence_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# new valence density");
+
 
             auto const E_dcc = dot_product(n_blocks*size_t(8*8*8), new_valence_density[0], V_effective[0]);
             double const double_counting_correction = mpi_parallel::sum(E_dcc, comm) * g.dV();

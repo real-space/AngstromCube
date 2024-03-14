@@ -28,6 +28,8 @@ namespace recorded_warnings {
 
   status_t show_warnings(int const echo=1); // declaration only
 
+  char const *const sharp_line="###############################################################";
+
   template <class... Args>
   void _print_error_message(
         FILE* os
@@ -38,7 +40,7 @@ namespace recorded_warnings {
       , char const *format
       , Args &&... args
   ) {
-        std::fprintf(os, "\n\n# %s in %s:%i (%s) Message:\n#   ", type, srcfile, srcline, srcfunc);
+        std::fprintf(os, "\n\n# %s\n#\n# %s in %s:%i (%s) Message:\n#   ", sharp_line, type, srcfile, srcline, srcfunc);
         std::fprintf(os, format, std::forward<Args>(args)...);
         std::fprintf(os, "\n\n");
         std::fflush(os);

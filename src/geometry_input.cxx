@@ -186,7 +186,7 @@ namespace geometry_input {
             auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
             auto const hg_iso = std::abs(control::get(keyword_hg, -default_grid_spacing*lu));
 
-            int default_grid_spacing_used{0};
+            int default_grid_spacing_used{0}, default_grid_spacing_xyz{0};
             int ng[3] = {0, 0, 0};
             for (int d = 0; d < 3; ++d) { // directions x, y, z
                 char keyword[32]; std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
@@ -199,7 +199,8 @@ namespace geometry_input {
                     double const hg = hg_lu*in_lu;
                     if (echo > 8) std::printf("# grid spacing in %c-direction is %g %s = %g %s%s\n",
                         'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
-                    default_grid_spacing_used += is_default_grid_spacing;
+                    default_grid_spacing_used += int(is_default_grid_spacing);
+                    default_grid_spacing_xyz += (int(is_default_grid_spacing) << d);
                     if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
                     ng[d] = n_grid_points(std::abs(cell[d][d])/hg, n_even);
                     if (ng[d] < 1) error("no grid points with grid spacings %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
@@ -208,8 +209,9 @@ namespace geometry_input {
                 if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
             } // d
             if (default_grid_spacing_used > 0) {
-                if (echo > 6) std::printf("# default grid spacing %g %s used for %d directions\n",
-                                  default_grid_spacing*Ang, _Ang, default_grid_spacing_used);
+                char const which_ones[8][16] = {"", ", x", ",y", ", x and y", ", z", ", x and z", ", y and z", ", x, y, and z"};
+                if (echo > 6) std::printf("# default grid spacing %g %s used for %d directions%s\n",
+                    default_grid_spacing*Ang, _Ang, default_grid_spacing_used, which_ones[default_grid_spacing_xyz & 7]);
             } // default_grid_spacing_used
             g = real_space::grid_t(ng[0], ng[1], ng[2]);
 

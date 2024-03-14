@@ -76,6 +76,8 @@ namespace parallel_poisson {
       , unsigned const n8 // number of grid points per block edge
       , int const echo // =0 log-level
       , char const *const what // ="FD1"
+      , green_parallel::rank_int_t *const owner_rank // =nullptr // import owner rank from a previous load balancing
+      , int64_t const n_blocks // =-1 // import number of local blocks from a previous load balancing, -1: not given
     ) { // constructor
 
         comm_ = comm; // copy the communicator
@@ -104,19 +106,18 @@ namespace parallel_poisson {
                                            {0,0,-1,  1}, {0,0,1,  1} };
 
         int8_t stencil_333[27][4];
-        if (*what == 'I') {
-            // 3x3x3 Interpolation stencil
+        if (*what == 'I') { // 3x3x3 Interpolation stencil
+            nstencil_ = 27;
             stencil_ = stencil_333;
-            nstencil_ = 3*3*3; // 27
-            for (int iz = -1; iz <= 1; ++iz) {
-            for (int iy = -1; iy <= 1; ++iy) {
-            for (int ix = -1; ix <= 1; ++ix) {
-                auto const k = ((iz + 1)*3 + (iy + 1))*3 + (ix + 1);
-                stencil_333[k][0] = ix;
-                stencil_333[k][1] = iy;
-                stencil_333[k][2] = iz;
-                stencil_333[k][3] = ix*ix + iy*iy + iz*iz; // distance^2
-            }}} // triple loop
+            for (int z = -1; z <= 1; ++z) {
+            for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                auto const k = ((z + 1)*3 + (y + 1))*3 + (x + 1);
+                stencil_333[k][0] = x;
+                stencil_333[k][1] = y;
+                stencil_333[k][2] = z;
+                stencil_333[k][3] = x*x + y*y + z*z; // distance^2
+            }}} // x y z
         } else {
             // 3D-Finite Difference Star-shaped stencil
             stencil_ = stencil_FD1;
@@ -129,16 +130,19 @@ namespace parallel_poisson {
 
         uint32_t n_local_blocks{0};
 
-        // maybe the following 15 lines can be moved out of this constructor in the future, since load balancing should be done at program start
-        owner_rank_ = view3D<green_parallel::rank_int_t>(nb[2],nb[1],nb[0], load_balancer::no_owner);
-        double rank_center[4];
-        { // scope: load balancing
+        if (nullptr == owner_rank) {
+            // perform a new load_balancing
+
+            owner_rank_ = view3D<green_parallel::rank_int_t>(nb[2], nb[1], nb[0], load_balancer::no_owner);
+            double rank_center[4];
             uint32_t const np = control::get("parallel_poisson.nprocs", double(mpi_parallel::size()));
 
             auto const load = load_balancer::get(np, me, nb, echo, rank_center, owner_rank_.data());
             n_local_blocks = rank_center[3]; // the 4th component contains the number of items
             if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %d local blocks\n",
                                               me, __func__, load, n_local_blocks);
+            if (echo > 7) std::printf("# rank#%i rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
+
             if (true) {
                 simple_stats::Stats<double> load_stats(0);
                 load_stats.add(load);
@@ -156,7 +160,20 @@ namespace parallel_poisson {
                 } // echo
             } // not comm_null
 
-        } // scope
+        } else {
+            // take results of a previous load_balancing
+
+            // Discussion: owner_rank should but does not come as a (green_parallel::rank_int_t const)-pointer.
+            //      Nevertheless, we read from it only. We could work around by wrapping owner_rank_.data() one more time,
+            //      but that would take away the advantage of index checking in the z-component.
+            owner_rank_ = view3D<green_parallel::rank_int_t>(owner_rank, nb[1], nb[0]);
+            if (n_blocks > -1) { 
+                n_local_blocks = n_blocks;
+                if (echo > 7) std::printf("# rank#%i has %d local blocks (from precious load balancing)\n", me, n_local_blocks);
+            } else {
+                error("With results from a previous load_balancing, also pass the number of local blocks, found %li", n_blocks);
+            }
+        } // perform load_balancing
 
         local_global_ids_.resize(0);
 
@@ -186,8 +203,7 @@ namespace parallel_poisson {
                 cnt_domain[d] /= nown;
                 assert(max_domain[d] >= min_domain[d]);
             } // d
-            if (echo > 7) std::printf("# rank#%i domain center %g %g %g rank center %g %g %g\n",
-                    me, cnt_domain[0], cnt_domain[1], cnt_domain[2], rank_center[0], rank_center[1], rank_center[2]);
+            if (echo > 7) std::printf("# rank#%i domain center %g %g %g\n", me, cnt_domain[0], cnt_domain[1], cnt_domain[2]);
 
             int32_t constexpr HALO=1;
             int32_t const ndom[] = {max_domain[0] - min_domain[0] + 1 + 2*HALO,
@@ -386,21 +402,24 @@ namespace parallel_poisson {
         , double const prefactor // =1
         , char const *const what // ="!"
     ) {
-        if (echo > 9) std::printf("\n# %s start what=%s\n", __func__, what);
 
         auto const nlb = pg.n_local();
         auto const nrb = pg.n_remote();
+        if (echo > 9) std::printf("\n# %s start what=%s %d local blocks, %d remote blocks\n", __func__, what, nlb, nrb);
         view2D<real_t> v4(nlb + nrb, 4*4*4, real_t(0));
         set(v4[0], nlb*64, v444); // copy in
         auto const stat = data_exchange(v4.data(), pg, 4*4*4, echo, __func__); // fill remote blocks
 
+        if (echo > 9) std::printf("\n# %s %d remote blocks exchanged\n", __func__, nrb);
+
         assert(27 == pg.star_dim());
-        auto const star = (uint32_t const(*)[27])pg.star();
+        auto const star = (int32_t const(*)[27])pg.star();
 
         double const f = prefactor/(4*4*4);
 
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             auto const *const nn = star[ilb]; // 27 nearest-neighbor blocks of block ilb, load into GPU shared memory
+            if (echo > 39) { std::printf("# star[%i,:] = ", ilb); printf_vector(" %i", nn, 27); }
 
             // copy data into a halo=1-enlarged block v666
             real_t v666[6][6][6]; // real_t=float 864 Byte, real_t=double 1.728 kByte
@@ -409,7 +428,8 @@ namespace parallel_poisson {
             for (int x = -1; x < 5; ++x) { int const x3 = (x + 2) >> 2;
                 auto const i3zyx = (z3*3 + y3)*3 + x3;
                 assert(i3zyx >= 0); assert(i3zyx < 27);
-                auto const i64 = size_t(nn[i3zyx]) << 6; // block offset in v4 blocks
+                auto const i64 = nn[i3zyx];
+                assert(i64 < nlb + nrb);
                 auto const i4zyx = (z & 0x3)*4*4 + (y & 0x3)*4 + (x & 0x3); // & 0x3 is the same as % 4
                 v666[z + 1][y + 1][x + 1] = v4(i64,i4zyx);
             }}} // x y z
@@ -433,7 +453,7 @@ namespace parallel_poisson {
             }}} // x y z
 
             // interpolate linearly in z-direction, weights are {1,3}
-            auto const i512 = size_t(ilb) << 9; // block offset in v8 blocks
+            auto const i512 = size_t(ilb) << 9; // block offset in v8 blocks, write blocks of 4.096 kByte
             for (int z = 0; z < 4; ++z) {
             for (int y = 0; y < 8; ++y) {
             for (int x = 0; x < 8; ++x) {
@@ -484,7 +504,7 @@ namespace parallel_poisson {
         auto const star = (int32_t const(*)[6])pg.star();
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset
-            auto const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
+            auto const *const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
             if (echo > 11) std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i %i %i %i %i}\n",
                                                            ilb, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5]);
             for (int iz = 0; iz < 8; ++iz) {
