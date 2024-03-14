@@ -308,10 +308,10 @@ namespace load_balancer {
           float const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
           w8s[iall]     = w8;
           w8sum_all    += w8;
+          xyzw[iall][X] = ix + .5f;
+          xyzw[iall][Y] = iy + .5f;
+          xyzw[iall][Z] = iz + .5f;
           xyzw[iall][W] = w8;
-          xyzw[iall][X] = ix;
-          xyzw[iall][Y] = iy;
-          xyzw[iall][Z] = iz;
       }}} // ix iy iz
 
       auto const load_now = plane_balancer(comm_size, comm_rank, nall, xyzw, w8s.data(), w8sum_all, echo
@@ -319,6 +319,19 @@ namespace load_balancer {
       delete[] xyzw;
       return load_now;
   } // get
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

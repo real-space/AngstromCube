@@ -10,6 +10,36 @@
 
 namespace parallel_poisson {
 
+    class load_balancing_t {
+    public:
+        load_balancing_t() : nb_{0u, 0u, 0u} {} // default constructor
+        load_balancing_t(
+              real_space::grid_t const & g
+            , MPI_Comm const comm // MPI communicator
+            , unsigned const n8=8 // number of grid points per block edge
+            , int const echo=0 // log-level
+        ); // declaration only
+    private:
+        MPI_Comm comm_ = MPI_COMM_NULL; // which MPI communicator is to be used?
+        uint32_t nb_[3]; // box of blocks
+        uint32_t n_local_blocks_ = 0;
+        double dom_center_[3];
+        double load_ = 0;
+        int32_t min_domain_[3];
+        int32_t max_domain_[3];
+        view3D<green_parallel::rank_int_t> owner_rank_;
+    public:
+        uint32_t const * grid_blocks() const { return nb_; }
+        view3D<green_parallel::rank_int_t> const & owner_rank() const { return owner_rank_; }
+        MPI_Comm comm() const { return comm_; }
+        int32_t const * min_domain() const { return min_domain_; }
+        int32_t const * max_domain() const { return max_domain_; }
+        double load() const { return load_; }
+        uint32_t n_local() const { return n_local_blocks_; }
+    }; // class load_balancing_t
+
+
+
     class parallel_grid_t {
     public:
         parallel_grid_t() { set(nb_, 3, 0u); set(bc_, 3, int8_t(0)); nperiodic_ = 0; comm_ = MPI_COMM_NULL; set(h2_, 3, 1.); dVol_ = 1; } // default constructor
@@ -21,6 +51,12 @@ namespace parallel_poisson {
             , char const *const what="FD1"
             , green_parallel::rank_int_t *const owner_rank=nullptr // import owner rank from a previous load balancing
             , int64_t const n_blocks=-1 // import number of local blocks from a previous load balancing, -1: not given
+        ); // declaration only
+        parallel_grid_t(
+              real_space::grid_t const & g
+            , load_balancing_t const & lb
+            , int const echo=0 // log-level
+            , char const *const what="FD1"
         ); // declaration only
     private:
         green_parallel::RequestList_t requests_;

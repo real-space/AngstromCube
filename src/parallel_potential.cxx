@@ -1071,11 +1071,15 @@ namespace parallel_potential {
         }
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 
+        parallel_poisson::load_balancing_t const lb(g, comm, 8, echo);
+
         // distribute the dense grid in 8x8x8 grid blocks to parallel owners
-        parallel_poisson::parallel_grid_t const pg(g, comm, 8, echo, "grid distribution");
+        // parallel_poisson::parallel_grid_t const pg(g, comm, 8, echo, "grid distribution");
+        parallel_poisson::parallel_grid_t const pg(g, lb, echo, "grid distribution");
         if (echo > 1) { auto const nb = pg.grid_blocks(); std::printf("# use  %d %d %d  grid blocks\n", nb[0], nb[1], nb[2]); }
 
-        parallel_poisson::parallel_grid_t const pg_Interpolation(g, comm, 8, echo, "Interpolation", pg.owner_rank().data(), pg.n_local());
+        // parallel_poisson::parallel_grid_t const pg_Interpolation(g, comm, 8, echo, "Interpolation", pg.owner_rank().data(), pg.n_local());
+        parallel_poisson::parallel_grid_t const pg_Interpolation(g, lb, echo, "Interpolation");
 
         // distribute the atom ownership:
         // simple distribution model: owner_rank == global_atom_id % nprocs, advantage: every rank can compute the owner

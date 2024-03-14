@@ -70,6 +70,90 @@ namespace parallel_poisson {
     } // scalar_product
 
 
+    load_balancing_t::load_balancing_t(
+        real_space::grid_t const & g // grid descriptor of the entire grid
+      , MPI_Comm const comm // MPI communicator
+      , unsigned const n8 // number of grid points per block edge
+      , int const echo // =0 log-level
+    ) { // constructor
+
+        comm_ = comm; // copy the communicator
+        int32_t const me = mpi_parallel::rank(comm);
+        uint32_t const np = control::get("parallel_poisson.nprocs", double(mpi_parallel::size(comm))); // listens to fake MPI setups
+
+        auto nb = nb_;
+        auto const ng = g.grid_points();
+        if (echo > 3) std::printf("# %s(%d x %d x %d grid points in blocks of %dx%dx%d)\n", __func__, ng[0], ng[1], ng[2], n8,n8,n8);
+        assert(n8 > 0);
+        for (int d{0}; d < 3; ++d) {
+            nb[d] = ng[d]/n8; // divide by n8
+            assert(nb[d]*n8 == ng[d] && "grid numbers must be a positive multiple of the block edge");
+            assert(nb[d] > 0 && "at least one block of grid points needed");
+        } // d
+
+        owner_rank_ = view3D<green_parallel::rank_int_t>(nb[2], nb[1], nb[0], load_balancer::no_owner);
+
+        double rank_center[4] = {0,0,0,  0};
+
+        load_ = load_balancer::get(np, me, nb, echo, rank_center, owner_rank_.data());
+        n_local_blocks_ = rank_center[3]; // the 4th component contains the number of items
+        if (echo > 7) std::printf("# rank#%i rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
+
+        if (true) {
+            simple_stats::Stats<double> load_stats(0);
+            load_stats.add(load_);
+            mpi_parallel::allreduce(load_stats, comm);
+            if (echo > 2) std::printf("# load_balancer distribution over %d ranks is %s\n", np, load_stats.interval().c_str());
+        } // true
+
+        // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
+        size_t const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[1]);
+        if (MPI_COMM_NULL != comm) {
+            mpi_parallel::min(owner_rank_.data(), nall, comm);
+            if (echo > 99) {
+                std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
+                printf_vector(" %i", owner_rank_.data(), nall);
+            } // echo
+        } // not comm_null
+
+        set(min_domain_, 3, int32_t((1ull << 31) - 1)); 
+        set(max_domain_, 3, -1);
+        double dom_center[] = {0, 0, 0};
+        size_t nown{0};
+        for (uint32_t iz = 0; iz < nb[2]; ++iz) {
+        for (uint32_t iy = 0; iy < nb[1]; ++iy) {  // this triple loop does not scale well as it is the same range for all processes
+        for (uint32_t ix = 0; ix < nb[0]; ++ix) {
+            if (me == owner_rank_(iz,iy,ix)) {
+                ++nown;
+                int32_t const ixyz[] = {int32_t(ix), int32_t(iy), int32_t(iz)};
+                for (int d = 0; d < 3; ++d) {
+                    min_domain_[d] = std::min(min_domain_[d], ixyz[d]);
+                    max_domain_[d] = std::max(max_domain_[d], ixyz[d]);
+                    dom_center[d] += (ixyz[d] + 0.5);
+                } // d
+            } // my
+        }}} // iz iy ix
+        if (nown != n_local_blocks_) {
+            warn("expected match between n_local_blocks= %d and count(owner_rank[]==me)= %ld\n", n_local_blocks_, nown);
+            n_local_blocks_ = nown;
+        }
+        if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %g items, %d local blocks\n",
+                                            me, __func__, load_, rank_center[3], n_local_blocks_);
+        auto const by_nown = nown ? 1./nown : 0;
+        for (int d = 0; d < 3; ++d) {
+            dom_center_[d] = dom_center[d] * by_nown;
+            assert(max_domain_[d] >= min_domain_[d]);
+        } // d
+        if (echo > 7) std::printf("# rank#%i domain center %g %g %g\n", me, dom_center_[0], dom_center_[1], dom_center_[2]);
+        if (echo > 7) std::printf("# rank#%i   rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
+
+    } // load_balancing_t constructor
+
+
+
+
+
+
     parallel_grid_t::parallel_grid_t(
         real_space::grid_t const & g // grid descriptor of the entire grid
       , MPI_Comm const comm // MPI communicator
@@ -173,6 +257,11 @@ namespace parallel_poisson {
             } else {
                 error("With results from a previous load_balancing, also pass the number of local blocks, found %li", n_blocks);
             }
+
+            // Alternative: we could create a new class for the results of the load balancing
+            //  also transporting info like min_domain, max_domain so these do not have to be
+            //  re-evaluated. Furthermore, we could store load and rank_center...
+
         } // perform load_balancing
 
         local_global_ids_.resize(0);
@@ -377,6 +466,256 @@ namespace parallel_poisson {
         } // echo
 
     } // parallel_grid_t constructor
+
+
+
+
+
+
+
+
+
+
+    parallel_grid_t::parallel_grid_t(
+        real_space::grid_t const & g // grid descriptor of the entire grid
+      , load_balancing_t const & lb
+      , int const echo // =0 log-level
+      , char const *const what // ="FD1"
+    ) { // constructor
+
+        comm_ = lb.comm(); // copy the communicator
+        int32_t const me = mpi_parallel::rank(comm_);
+        auto nb = nb_;
+        set(nb, 3, lb.grid_blocks());
+
+        auto const bc = g.boundary_conditions();
+        if (echo > 3) std::printf("# %s(nb=[%d %d %d], bc=[%d %d %d])\n", __func__, nb[0], nb[1], nb[2], bc[0], bc[1], bc[2]);
+
+        for (int d{0}; d < 3; ++d) {
+            bc_[d] = bc[d]; // copy
+            assert(0 != g.h[d]);
+            h2_[d] = 1./pow2(g.h[d]);
+        } // d
+        dVol_ = g.dV();
+        nperiodic_ = g.number_of_boundary_conditions(Periodic_Boundary);
+
+        int nstencil_; // non-const version
+        int8_t const (*stencil_)[4] {nullptr}; // non-const version
+
+        int8_t const stencil_FD1[6][4] = { {-1,0,0,  1}, {1,0,0,  1},
+                                           {0,-1,0,  1}, {0,1,0,  1},
+                                           {0,0,-1,  1}, {0,0,1,  1} };
+
+        int8_t stencil_333[27][4];
+        if (*what == 'I') { // 3x3x3 Interpolation stencil
+            nstencil_ = 27;
+            stencil_ = stencil_333;
+            for (int z = -1; z <= 1; ++z) {
+            for (int y = -1; y <= 1; ++y) {
+            for (int x = -1; x <= 1; ++x) {
+                auto const k = ((z + 1)*3 + (y + 1))*3 + (x + 1);
+                stencil_333[k][0] = x;
+                stencil_333[k][1] = y;
+                stencil_333[k][2] = z;
+                stencil_333[k][3] = x*x + y*y + z*z; // distance^2
+            }}} // x y z
+        } else {
+            // 3D-Finite Difference Star-shaped stencil
+            stencil_ = stencil_FD1;
+            nstencil_ = 6;
+        }
+        int8_t const (*const stencil)[4] = stencil_;
+        int const nstencil = nstencil_;
+        assert(nstencil > 0);
+
+
+        uint32_t const n_local_blocks = lb.n_local();
+        local_global_ids_.resize(0);
+        owner_rank_ = view3D<green_parallel::rank_int_t>(lb.owner_rank().data(), nb[1], nb[0]); // wrap
+
+        if (n_local_blocks > 0) { // scope: setup of star and remote_global_ids, determination of n_remote_blocks
+
+            auto const *const max_domain = lb.max_domain();
+            auto const *const min_domain = lb.min_domain();
+
+            int32_t constexpr HALO=1;
+            int32_t const ndom[] = {max_domain[0] - min_domain[0] + 1 + 2*HALO,
+                                    max_domain[1] - min_domain[1] + 1 + 2*HALO,
+                                    max_domain[2] - min_domain[2] + 1 + 2*HALO};
+            int32_t const ioff[] = {min_domain[0] - HALO, min_domain[1] - HALO, min_domain[2] - HALO};
+            if (echo > 7) std::printf("# rank#%i domain(%d %d %d), halo= %d\n", me, ndom[0], ndom[1], ndom[2], HALO);
+            assert(ndom[0] > 0); assert(ndom[1] > 0); assert(ndom[2] > 0);
+
+            uint8_t constexpr OUTSIDE=0, BORDER=1, INSIDE=2, VACUUM=7;
+            view3D<uint8_t> domain(ndom[2],ndom[1],ndom[0], OUTSIDE);
+
+            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
+
+            view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1);
+
+            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
+            if (echo > 7) std::printf("# rank#%i n_local_blocks=%d\n", me, n_local_blocks);
+
+            local_global_ids_.resize(n_local_blocks, int64_t(-1));
+
+         // if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
+
+            uint32_t ilb{0}; // index of the local block
+            for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
+            for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) { // 1st domain loop
+            for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
+                // translate domain indices {ix,iy,iz} into box indices
+                int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
+                for (int d = 0; d < 3; ++d) { assert(ixyz[d] >= 0); assert(ixyz[d] < nb[d]); }
+                if (me == owner_rank_(ixyz[2],ixyz[1],ixyz[0])) {
+                    domain(iz,iy,ix) |= INSIDE;
+                    domain_index(iz,iy,ix) = ilb; // domain index for inner elements
+
+                    // mark lowest-order finite-difference sourrounding as border
+                    for (int k{0}; k < nstencil; ++k) {
+                        domain(iz + stencil[k][2],iy + stencil[k][1],ix + stencil[k][0]) |= BORDER;
+                    } // k
+
+                    local_global_ids_[ilb] = global_coordinates::get(ixyz);
+
+                    ++ilb; // count inside elements
+                } // me == owner
+            }}} // iz iy ix
+            assert(ilb <= (1ull << 31));
+            if (ilb != n_local_blocks) error("expected match between n_local_blocks=%d and count(owner_rank[]==me)=%d\n", n_local_blocks, ilb);
+
+            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
+
+
+            // loop over the domain again, this time including the halos
+            uint32_t jrb{0}; // index for border-only blocks
+            size_t st[4] = {0, 0, 0}; // statistics for display
+            for (int32_t iz = 0; iz < ndom[2]; ++iz) {
+            for (int32_t iy = 0; iy < ndom[1]; ++iy) { // 2nd domain loop
+            for (int32_t ix = 0; ix < ndom[0]; ++ix) {
+                auto const dom = domain(iz,iy,ix);
+                if (BORDER == dom) { // is border-only
+                    domain_index(iz,iy,ix) = n_local_blocks + jrb; // domain index for border elements
+                    ++jrb; // count remote elements
+                } // border
+                ++st[dom & 0x3]; // dom should be in [0, 3] anyway but better safe than sorry
+            }}} // iz iy ix
+            if (echo > 5) std::printf("# rank#%i has %ld outside, %ld border, %ld inside, %ld inside+border elements\n",
+                                                me, st[OUTSIDE], st[BORDER], st[INSIDE], st[INSIDE+BORDER]);
+            uint32_t const n_remote_blocks = jrb;
+            if (echo > 5) std::printf("# rank#%i has %d local and %d remote blocks, %d in total\n",
+                                                me, n_local_blocks, n_remote_blocks, n_local_blocks + n_remote_blocks);
+            
+            remote_global_ids_.resize(n_remote_blocks, -1); // init remote element request lists
+            star_ = view2D<int32_t>(n_local_blocks, nstencil, -1); // init finite-difference neighborhood lists
+
+            size_t vacuum_assigned{0};
+            // loop over domain again (3rd time), with halos
+            for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
+            for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) { // 3rd domain loop
+            for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
+                // translate domain indices {ix,iy,iz} into box indices
+                int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
+                for (int d = 0; d < 3; ++d) { assert(ixyz[d] >= 0); assert(ixyz[d] < nb[d]); } // should still hold...
+                if (domain(iz,iy,ix) & INSIDE) {
+                    auto const id0 = domain_index(iz,iy,ix);
+                    assert(id0 >= 0); assert(id0 < n_local_blocks);
+
+                    for (int k{0}; k < nstencil; ++k) {
+                        {
+                            int32_t       jxyz[] = {ixyz[0] + stencil[k][0], ixyz[1] + stencil[k][1], ixyz[2] + stencil[k][2]}; // global coordinates
+                            int32_t const jdom[] = {ix      + stencil[k][0], iy      + stencil[k][1], iz      + stencil[k][2]}; // domain coordinates
+                            for (int d = 0; d < 3; ++d) { assert(jdom[d] >= 0); assert(jdom[d] < ndom[d]); }
+
+                            assert( BORDER & domain(jdom[2],jdom[1],jdom[0]) ); // consistent with 1st domain loop
+                            auto const klb = domain_index(jdom[2],jdom[1],jdom[0]);
+                            assert(klb >= 0);
+                            star_(id0,k) = klb; // k==2*d + i01
+
+                            int is_vacuum{0};
+                            for (int d = 0; d < 3; ++d) {
+                                auto const bc_shift = int(jxyz[d] < 0) - int(jxyz[d] >= int32_t(nb[d]));
+                                jxyz[d] += bc_shift*int32_t(nb[d]); // fold back into [0, nb)
+                                is_vacuum += int((0 != bc_shift) && (Isolated_Boundary == bc[d]));
+                            }
+                            if (is_vacuum) {
+                                // id = -1; // not existing
+                                auto & dom = domain(jdom[2],jdom[1],jdom[0]);
+                                // mark as vacuum
+                                assert(dom != INSIDE);
+                                if (VACUUM == dom) {
+                                    assert(27 == nstencil); // in the case of an interpolation stencil it can already be marked as vacuum before, 
+                                } else {                    // in the case of a finite-difference stencil this should not happen
+                                    assert(BORDER == dom); // must be border-only
+                                    dom = VACUUM; // mark in the mask
+                                    ++vacuum_assigned;
+                                }
+                            } else {
+                                if (klb >= n_local_blocks) {
+                                    assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be a border-only element
+                                    auto const irb = klb - n_local_blocks;
+                                    assert(irb >= 0);
+                                    for (int d = 0; d < 3; ++d) { assert(jxyz[d] >= 0); assert(jxyz[d] < nb[d]); }
+                                    auto const gid = global_coordinates::get(jxyz);
+                                    assert((gid == remote_global_ids_[irb]) || (-1 == remote_global_ids_[irb])); // either unassigned(-1) or the same value
+                                    remote_global_ids_[irb] = gid;
+                                } // add to remote list
+                            } // is_vacuum
+                        } // i01
+                    } // d
+                    if (echo > 19) std::printf("# rank#%i star[%i,:] = {%i %i %i %i %i %i}\n", me, id0,
+                                    star_(id0,0), star_(id0,1), star_(id0,2), star_(id0,3), star_(id0,4), star_(id0,5));
+                } // is INSIDE
+            }}} // iz iy ix
+
+
+            if (echo > 8) std::printf("# rank#%i star list generated\n", me); std::fflush(stdout);
+
+            size_t vacuum_requested{0};
+            for (auto id : remote_global_ids_) {
+                vacuum_requested += (-1 == id);
+            } // id
+            if (vacuum_requested && echo > 3) std::printf("# rank#%i assigned %ld, request %ld vacuum cells\n", me, vacuum_assigned, vacuum_requested);
+            assert(vacuum_assigned == vacuum_requested);
+
+        } else { // n_local_blocks > 0
+            star_ = view2D<int32_t>(nullptr, 6); // dummy
+        } // n_local_blocks > 0
+
+        if (echo > 8) {
+            std::printf("# rank#%i %s: requests={", me, __func__);
+            for (auto rq : remote_global_ids_) {
+                std::printf(" %lli", rq);
+            } // rq
+            std::printf(" }, %ld items\n", remote_global_ids_.size());
+
+            std::printf("# rank#%i %s: offering={", me, __func__);
+            for (auto of : local_global_ids_) {
+                std::printf(" %lli", of);
+            } // of
+            std::printf(" }, %ld items\n", local_global_ids_.size());
+        } // echo
+
+        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
+        mpi_parallel::barrier(comm_);
+
+        requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank_.data(), nb, echo);
+
+        if (echo > 8) {
+            std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
+            for (auto ow : requests_.owner) {
+                std::printf(" %i", ow);
+            } // ow
+            std::printf(" }, %ld items\n", requests_.owner.size());
+        } // echo
+
+    } // parallel_grid_t constructor
+
+
+
+
+
+
 
     template <typename real_t>
     status_t data_exchange(
