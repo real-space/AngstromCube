@@ -53,27 +53,25 @@ namespace parallel_poisson {
         green_parallel::RequestList_t requests_;
         std::vector<int64_t> remote_global_ids_; // may contain "-1"-entries, could be removed after setup keeping only a uint32_t n_remote_blocks;
         std::vector<int64_t> local_global_ids_;  // may not contain "-1"-entries
-        view2D<int32_t> star_; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6). Should be backed with GPU memory in the future
+        view2D<uint32_t> star_; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6). Should be backed with GPU memory in the future
         double dVol_;
         MPI_Comm comm_; // which MPI communicator is to be used?
         double h2_[3];
         uint32_t nb_[3]; // box of blocks
         int8_t bc_[3];
         uint8_t nperiodic_;
-        view3D<green_parallel::rank_int_t> owner_rank_;
         // std::vector<bool> inner_cell_; // mark those of the n_local cells, i.e. cells than can start to execute a stencil without waiting for remote data
     public:
         double const * get_prefactors() const { return h2_; }
         uint32_t const * grid_blocks() const { return nb_; }
         uint32_t n_local()  const { return local_global_ids_.size();  } // number of blocks owned by this MPI rank
         uint32_t n_remote() const { return remote_global_ids_.size(); } // number of blocks requested by this MPI rank
-        int32_t const* star() const { return (int32_t const*)star_.data(); }
+        uint32_t const* star() const { return (uint32_t const*)star_.data(); }
         uint32_t star_dim() const { return star_.stride(); }
         std::vector<int64_t> const & local_ids() const { return local_global_ids_; }
         std::vector<int64_t> const & remote_ids() const { return remote_global_ids_; }
         green_parallel::RequestList_t const & requests() const { return requests_; }
         bool all_periodic_boundary_conditions() const { return 3 == nperiodic_; }
-     // view3D<green_parallel::rank_int_t> const & owner_rank() const { return owner_rank_; }
         MPI_Comm comm() const { return comm_; }
         double dV() const { return dVol_; }
     }; // class parallel_grid_t
