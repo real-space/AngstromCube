@@ -44,7 +44,7 @@ namespace energy_contour {
     } // solve
 
     status_t Integrator::integrate(
-          double rho_new[] // resulting density in [nblocks][8*8*8] data layout
+          double rho_888[] // resulting density in [nblocks][8*8*8] data layout
         , double & Fermi_level // Fermi level
         , double const Vtot[] // input potential in [nblocks][4*4*4]
         , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
@@ -73,9 +73,7 @@ namespace energy_contour {
             set(AtomMatrices[iAtom].data(), nc2, atom_mat[iAtom]); // copy
         } // iAtom
 
-        set(rho_new, nblocks*size_t(4*4*4), 0.0); // clear new density
-
-        view2D<double> rho(nblocks, 4*4*4);
+        view2D<double> rho(nblocks, 4*4*4, 0.0);
 
         int constexpr Noco = 1;
         double constexpr scale_H = 1;
@@ -90,21 +88,24 @@ namespace energy_contour {
             if (echo > 5) std::printf("# energy parameter  (%g %s, %g %s)\n", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
             stat += green_function::update_energy_parameter(plan, energy, AtomMatrices, dV, scale_H, echo, Noco, &atom_req_);
 
+            view2D<double> rho_E(nblocks, 4*4*4, 0.0);
+
             for (int ikpoint{0}; ikpoint < 1; ++ikpoint) {
                 double const kpoint[] = {0, 0, 0};
                 double const kpoint_weight = 1;
-                auto const weight = energy_weight * kpoint_weight;
 
                 stat += green_function::update_phases(plan, kpoint, echo, Noco);
 
-                stat += solve<float>(rho[0], *plan_, echo);
+                view2D<double> rho_Ek(nblocks, 4*4*4, 1.0);
+                stat += solve<float>(rho_Ek[0], *plan_, echo);
 
-                add_product(rho_new, nblocks*size_t(4*4*4), rho[0], weight);
-
+                add_product(rho_E[0], nblocks*size_t(4*4*4), rho_Ek[0], kpoint_weight); // accumulate density
             } // ikpoint
+            add_product(rho[0], nblocks*size_t(4*4*4), rho_E[0], energy_weight); // accumulate density
         } // ienergy
 
-        // interpolation from 4*4*4 to 8*8*8 block could be done here
+        // interpolation density from 4*4*4 to 8*8*8 block could be done here
+        parallel_poisson::block_interpolation(rho_888, rho[0], pg, echo, 1., "density");
 
         return stat;
     } // integrate

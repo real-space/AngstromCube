@@ -24,14 +24,14 @@
 #define DimUnknown 0
 
 namespace data_view {
-    inline void _check_index(int const srcline, size_t const n, size_t const i, char const d) {
-        if (i >= n) error("# data_view.hxx:%d i%c=%ld >= n%c=%ld\n", srcline, '0'+d, i, '0'+d, n);
+    inline void _check_index(int const srcline, size_t const n, size_t const i, char const d, int const D) {
+        if (i >= n) error("# data_view.hxx:%d view%dD i%c=%ld >= n%c=%ld\n", srcline, D, '0'+d, i, '0'+d, n);
         assert(i < n);
     } // _check_index
 } // namespace data_view
 
-#define CHECK_INDEX(n,i,d) data_view::_check_index(__LINE__, n, i, d);
-// #define CHECK_INDEX(n,i,d)
+#define CHECK_INDEX(D,n,i,d) data_view::_check_index(__LINE__, n, i, d, D);
+// #define CHECK_INDEX(D,n,i,d)
 
 template <typename T>
 class view2D {
@@ -97,20 +97,20 @@ public:
 #ifdef  _VIEW2D_HAS_PARENTHESIS
   T const & operator () (size_t const i1, size_t const i0) const {
       if (_n1 > DimUnknown)
-      CHECK_INDEX(_n1, i1, 1);
-      CHECK_INDEX(_n0, i0, 0);
+      CHECK_INDEX(2, _n1, i1, 1);
+      CHECK_INDEX(2, _n0, i0, 0);
       return _data[i1*_n0 + i0]; } // (i,j)
 
   T       & operator () (size_t const i1, size_t const i0)       {
       if (_n1 > DimUnknown)
-      CHECK_INDEX(_n1, i1, 1);
-      CHECK_INDEX(_n0, i0, 0);
+      CHECK_INDEX(2, _n1, i1, 1);
+      CHECK_INDEX(2, _n0, i0, 0);
       return _data[i1*_n0 + i0]; } // (i,j)
 #endif // _VIEW2D_HAS_PARENTHESIS
 
   T* operator[] (size_t const i1) const {
       if (_n1 > DimUnknown)
-      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(2, _n1, i1, 1);
       return &_data[i1*_n0]; } // []
 
   T* data() const { return _data; }
@@ -243,16 +243,16 @@ public:
 #define _access return _data[(i2*_n1 + i1)*_n0 + i0]
   T const & operator () (size_t const i2, size_t const i1, size_t const i0) const {
       if (_n2 > DimUnknown)
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
-      CHECK_INDEX(_n0, i0, 0);
+      CHECK_INDEX(3, _n2, i2, 2);
+      CHECK_INDEX(3, _n1, i1, 1);
+      CHECK_INDEX(3, _n0, i0, 0);
       _access; }
 
   T       & operator () (size_t const i2, size_t const i1, size_t const i0)       {
       if (_n2 > DimUnknown)
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
-      CHECK_INDEX(_n0, i0, 0);
+      CHECK_INDEX(3, _n2, i2, 2);
+      CHECK_INDEX(3, _n1, i1, 1);
+      CHECK_INDEX(3, _n0, i0, 0);
       _access; }
 #undef _access
 #endif // _VIEW3D_HAS_PARENTHESIS
@@ -262,8 +262,8 @@ public:
 #define _access return &_data[(i2*_n1 + i1)*_n0]
   T* operator () (size_t const i2, size_t const i1) const {
       if (_n2 > DimUnknown)
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(3, _n2, i2, 2);
+      CHECK_INDEX(3, _n1, i1, 1);
       _access; }
 #undef _access
 #endif // _VIEW3D_HAS_PARENTHESIS_2ARGS
@@ -272,7 +272,7 @@ public:
 #ifdef  _VIEW3D_HAS_INDEXING
   view2D<T> operator[] (size_t const i2) const { 
       if (_n2 > DimUnknown)
-      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(3, _n2, i2, 2);
       return view2D<T>(_data + i2*_n1*_n0, _n0); } // [] returns a sub-array
   // maybe sub-optimal as it creates a view2D object every time
 #endif // _VIEW3D_HAS_INDEXING
@@ -358,18 +358,18 @@ public:
 #define _access return _data[((i3*_n2 + i2)*_n1 + i1)*_n0 + i0]
   T const & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0) const {
       if (_n3 > DimUnknown)
-      CHECK_INDEX(_n3, i3, 3);
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
-      CHECK_INDEX(_n0, i0, 0);
+      CHECK_INDEX(4, _n3, i3, 3);
+      CHECK_INDEX(4, _n2, i2, 2);
+      CHECK_INDEX(4, _n1, i1, 1);
+      CHECK_INDEX(4, _n0, i0, 0);
       _access; }
 
   T       & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0)       {
       if (_n3 > DimUnknown)
-      CHECK_INDEX(_n3, i3, 3);
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
-      CHECK_INDEX(_n0, i0, 0);
+      CHECK_INDEX(4, _n3, i3, 3);
+      CHECK_INDEX(4, _n2, i2, 2);
+      CHECK_INDEX(4, _n1, i1, 1);
+      CHECK_INDEX(4, _n0, i0, 0);
       _access; }
 #undef _access
 #endif // _VIEW4D_HAS_PARENTHESIS
@@ -379,9 +379,9 @@ public:
 #define _access return &_data[((i3*_n2 + i2)*_n1 + i1)*_n0]
   T* operator () (size_t const i3, size_t const i2, size_t const i1) const {
       if (_n3 > DimUnknown)
-      CHECK_INDEX(_n3, i3, 3);
-      CHECK_INDEX(_n2, i2, 2);
-      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(4, _n3, i3, 3);
+      CHECK_INDEX(4, _n2, i2, 2);
+      CHECK_INDEX(4, _n1, i1, 1);
       _access; }
 #undef _access
 #endif // _VIEW4D_HAS_PARENTHESIS_3ARGS
@@ -390,8 +390,8 @@ public:
 #ifdef  _VIEW4D_HAS_PARENTHESIS_2ARGS
   view2D<T> operator () (size_t const i3, size_t const i2) const {
       if (_n3 > DimUnknown)
-      CHECK_INDEX(_n3, i3, 3);
-      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(4, _n3, i3, 3);
+      CHECK_INDEX(4, _n2, i2, 2);
       return view2D<T>(_data + (i3*_n2 + i2)*_n1*_n0, _n0); }
 #endif // _VIEW4D_HAS_PARENTHESIS_2ARGS
 
@@ -399,7 +399,7 @@ public:
 #ifdef  _VIEW4D_HAS_INDEXING
   view3D<T> operator[] (size_t const i3) const {
       if (_n3 > DimUnknown)
-      CHECK_INDEX(_n3, i3, 3);
+      CHECK_INDEX(4, _n3, i3, 3);
       return view3D<T>(_data + i3*_n2*_n1*_n0, _n1, _n0); } // [] returns a sub-array
   // maybe sub-optimal as it creates a view3D object every time
 #endif // _VIEW4D_HAS_INDEXING

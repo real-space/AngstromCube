@@ -26,6 +26,7 @@
 #ifndef   NO_UNIT_TESTS
   #include <array> // std::array<T,N>
   #include <algorithm> // std::stable_sort
+
   #include "fourier_poisson.hxx" // ::solve
   #include "lossful_compression.hxx" // print_compressed
 #endif // NO_UNIT_TESTS
@@ -95,15 +96,41 @@ namespace parallel_poisson {
         dVol_ = g.dV();
         nperiodic_ = g.number_of_boundary_conditions(Periodic_Boundary);
 
-        int const nstencil = 6;
-        int8_t const stencil[6][4] = { {-1,0,0,  1}, {1,0,0,  1},
-                                       {0,-1,0,  1}, {0,1,0,  1},
-                                       {0,0,-1,  1}, {0,0,1,  1} };
+        int nstencil_; // non-const version
+        int8_t const (*stencil_)[4] {nullptr}; // non-const version
+
+        int8_t const stencil_FD1[6][4] = { {-1,0,0,  1}, {1,0,0,  1},
+                                           {0,-1,0,  1}, {0,1,0,  1},
+                                           {0,0,-1,  1}, {0,0,1,  1} };
+
+        int8_t stencil_333[27][4];
+        if (*what == 'I') {
+            // 3x3x3 Interpolation stencil
+            stencil_ = stencil_333;
+            nstencil_ = 3*3*3; // 27
+            for (int iz = -1; iz <= 1; ++iz) {
+            for (int iy = -1; iy <= 1; ++iy) {
+            for (int ix = -1; ix <= 1; ++ix) {
+                auto const k = ((iz + 1)*3 + (iy + 1))*3 + (ix + 1);
+                stencil_333[k][0] = ix;
+                stencil_333[k][1] = iy;
+                stencil_333[k][2] = iz;
+                stencil_333[k][3] = ix*ix + iy*iy + iz*iz; // distance^2
+            }}} // triple loop
+        } else {
+            // 3D-Finite Difference Star-shaped stencil
+            stencil_ = stencil_FD1;
+            nstencil_ = 6;
+        }
+        int8_t const (*const stencil)[4] = stencil_;
+        int const nstencil = nstencil_;
+        assert(nstencil > 0);
+
 
         uint32_t n_local_blocks{0};
 
         // maybe the following 15 lines can be moved out of this constructor in the future, since load balancing should be done at program start
-        owner_rank_ = view3D<uint16_t>(nb[2],nb[1],nb[0], load_balancer::no_owner);
+        owner_rank_ = view3D<green_parallel::rank_int_t>(nb[2],nb[1],nb[0], load_balancer::no_owner);
         double rank_center[4];
         { // scope: load balancing
             uint32_t const np = control::get("parallel_poisson.nprocs", double(mpi_parallel::size()));
@@ -182,7 +209,7 @@ namespace parallel_poisson {
 
             local_global_ids_.resize(n_local_blocks, int64_t(-1));
 
-            if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
+         // if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
             uint32_t ilb{0}; // index of the local block
             for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
@@ -197,15 +224,8 @@ namespace parallel_poisson {
 
                     // mark lowest-order finite-difference sourrounding as border
                     for (int k{0}; k < nstencil; ++k) {
-                         domain(iz + stencil[k][2],iy + stencil[k][1],ix + stencil[k][0]) |= BORDER;
+                        domain(iz + stencil[k][2],iy + stencil[k][1],ix + stencil[k][0]) |= BORDER;
                     } // k
-                    // for nstencil == 6:
-                    // domain(iz,iy,ix - 1) |= BORDER;
-                    // domain(iz,iy,ix + 1) |= BORDER;
-                    // domain(iz,iy - 1,ix) |= BORDER;
-                    // domain(iz,iy + 1,ix) |= BORDER;
-                    // domain(iz - 1,iy,ix) |= BORDER;
-                    // domain(iz + 1,iy,ix) |= BORDER;
 
                     local_global_ids_[ilb] = global_coordinates::get(ixyz);
 
@@ -238,7 +258,7 @@ namespace parallel_poisson {
                                                 me, n_local_blocks, n_remote_blocks, n_local_blocks + n_remote_blocks);
             
             remote_global_ids_.resize(n_remote_blocks, -1); // init remote element request lists
-            star_ = view2D<int32_t>(n_local_blocks, 6, -1); // init finite-difference neighborhood lists
+            star_ = view2D<int32_t>(n_local_blocks, nstencil, -1); // init finite-difference neighborhood lists
 
             size_t vacuum_assigned{0};
             // loop over domain again (3rd time), with halos
@@ -256,17 +276,12 @@ namespace parallel_poisson {
                         {
                             int32_t       jxyz[] = {ixyz[0] + stencil[k][0], ixyz[1] + stencil[k][1], ixyz[2] + stencil[k][2]}; // global coordinates
                             int32_t const jdom[] = {ix      + stencil[k][0], iy      + stencil[k][1], iz      + stencil[k][2]}; // domain coordinates
-                    // for (int d = 0; d < 3; ++d) {
-                    //     for (int i01 = 0; i01 < 2; ++i01) {
-                            // int32_t jxyz[] = {ixyz[0], ixyz[1], ixyz[2]}; // global coordinates
-                            // int32_t jdom[] = {ix, iy, iz}; // domain coordinates
-                            // jxyz[d] += (i01*2 - 1); // add or subtract 1
-                            // jdom[d] += (i01*2 - 1); // add or subtract 1
-                            // if (echo > 7) std::printf("# rank#%i %d %d %d %c%c1\n", me, ixyz[0], ixyz[1], ixyz[2], 'x'+d, i01?'+':'-');
+                            for (int d = 0; d < 3; ++d) { assert(jdom[d] >= 0); assert(jdom[d] < ndom[d]); }
+
                             assert( BORDER & domain(jdom[2],jdom[1],jdom[0]) ); // consistent with 1st domain loop
                             auto const klb = domain_index(jdom[2],jdom[1],jdom[0]);
                             assert(klb >= 0);
-                            if (6 == nstencil) star_(id0,k) = klb; // k==2*d + i01
+                            star_(id0,k) = klb; // k==2*d + i01
 
                             int is_vacuum{0};
                             for (int d = 0; d < 3; ++d) {
@@ -276,9 +291,16 @@ namespace parallel_poisson {
                             }
                             if (is_vacuum) {
                                 // id = -1; // not existing
-                                assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be border-only
-                                domain(jdom[2],jdom[1],jdom[0]) = VACUUM; // mark in the mask
-                                ++vacuum_assigned;
+                                auto & dom = domain(jdom[2],jdom[1],jdom[0]);
+                                // mark as vacuum
+                                assert(dom != INSIDE);
+                                if (VACUUM == dom) {
+                                    assert(27 == nstencil); // in the case of an interpolation stencil it can already be marked as vacuum before, 
+                                } else {                    // in the case of a finite-difference stencil this should not happen
+                                    assert(BORDER == dom); // must be border-only
+                                    dom = VACUUM; // mark in the mask
+                                    ++vacuum_assigned;
+                                }
                             } else {
                                 if (klb >= n_local_blocks) {
                                     assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be a border-only element
@@ -294,7 +316,7 @@ namespace parallel_poisson {
                     } // d
                     if (echo > 19) std::printf("# rank#%i star[%i,:] = {%i %i %i %i %i %i}\n", me, id0,
                                     star_(id0,0), star_(id0,1), star_(id0,2), star_(id0,3), star_(id0,4), star_(id0,5));
-                } // is inside
+                } // is INSIDE
             }}} // iz iy ix
 
 
@@ -346,17 +368,93 @@ namespace parallel_poisson {
         , parallel_grid_t const & pg // descriptor
         , size_t const count // number of real_t per package
         , int const echo=0 // log-level
+        , char const *const what="??"
     ) {
         auto const n_local = pg.n_local();
-        auto const stat = green_parallel::exchange(v + count*n_local, v, pg.requests(), count, echo, "Poisson"); // ToDo: inser communicator
+        auto const stat = green_parallel::exchange(v + count*n_local, v, pg.requests(), count, echo, what); // ToDo: inser communicator
         return stat;
     } // data_exchange
+
+
+
+    template <typename real_t> // =double
+    status_t block_interpolation(
+          real_t       *const v888 // result array, data layout v888[n_local_blocks][8*8*8]
+        , real_t const *const v444 // input  array, data layout v444[n_local_blocks][4*4*4]
+        , parallel_grid_t const & pg // descriptor, must be prepared with "3x3x3"
+        , int const echo // =0 // log level
+        , double const prefactor // =1
+        , char const *const what // ="!"
+    ) {
+        if (echo > 9) std::printf("\n# %s start what=%s\n", __func__, what);
+
+        auto const nlb = pg.n_local();
+        auto const nrb = pg.n_remote();
+        view2D<real_t> v4(nlb + nrb, 4*4*4, real_t(0));
+        set(v4[0], nlb*64, v444); // copy in
+        auto const stat = data_exchange(v4.data(), pg, 4*4*4, echo, __func__); // fill remote blocks
+
+        assert(27 == pg.star_dim());
+        auto const star = (uint32_t const(*)[27])pg.star();
+
+        double const f = prefactor/(4*4*4);
+
+        for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
+            auto const *const nn = star[ilb]; // 27 nearest-neighbor blocks of block ilb, load into GPU shared memory
+
+            // copy data into a halo=1-enlarged block v666
+            real_t v666[6][6][6]; // real_t=float 864 Byte, real_t=double 1.728 kByte
+            for (int z = -1; z < 5; ++z) { int const z3 = (z + 2) >> 2;
+            for (int y = -1; y < 5; ++y) { int const y3 = (y + 2) >> 2; // mapping of y:[-1,0,1,2,3,4] --> y3:[0,1,1,1,1,2]
+            for (int x = -1; x < 5; ++x) { int const x3 = (x + 2) >> 2;
+                auto const i3zyx = (z3*3 + y3)*3 + x3;
+                assert(i3zyx >= 0); assert(i3zyx < 27);
+                auto const i64 = size_t(nn[i3zyx]) << 6; // block offset in v4 blocks
+                auto const i4zyx = (z & 0x3)*4*4 + (y & 0x3)*4 + (x & 0x3); // & 0x3 is the same as % 4
+                v666[z + 1][y + 1][x + 1] = v4(i64,i4zyx);
+            }}} // x y z
+
+            // interpolate linearly in x-direction, weights are {1,3}
+            double v668[6][6][8]; // 2.304 kByte
+            for (int z = 0; z < 6; ++z) {
+            for (int y = 0; y < 6; ++y) {
+            for (int x = 0; x < 4; ++x) {
+                v668[z][y][2*x+0] = v666[z][y][x+0] + 3.*v666[z][y][x+1];
+                v668[z][y][2*x+1] = v666[z][y][x+1]*3. + v666[z][y][x+2];
+            }}} // x y z
+
+            // interpolate linearly in y-direction, weights are {1,3}
+            double v688[6][8][8]; // 3.072 kByte
+            for (int z = 0; z < 6; ++z) {
+            for (int y = 0; y < 4; ++y) {
+            for (int x = 0; x < 8; ++x) {
+                v688[z][2*y+0][x] = v668[z][y+0][x] + 3*v668[z][y+1][x];
+                v688[z][2*y+1][x] = v668[z][y+1][x]*3 + v668[z][y+2][x];
+            }}} // x y z
+
+            // interpolate linearly in z-direction, weights are {1,3}
+            auto const i512 = size_t(ilb) << 9; // block offset in v8 blocks
+            for (int z = 0; z < 4; ++z) {
+            for (int y = 0; y < 8; ++y) {
+            for (int x = 0; x < 8; ++x) {
+                v888[i512 + (2*z+0)*8*8 + y*8 + x] = (v688[z+0][y][x] + 3*v688[z+1][y][x])*f;
+                v888[i512 + (2*z+1)*8*8 + y*8 + x] = (v688[z+1][y][x]*3 + v688[z+2][y][x])*f; // f divides by 4^3
+            }}} // x y z
+
+        } // ilb
+
+        if (echo > 9) std::printf("# %s done\n\n", __func__);
+        return stat;
+    } // block_interpolation
+
+    template // explicit template instantiation for real_t=double
+    status_t block_interpolation(double*, double const*, parallel_grid_t const &, int, double, char const*);
 
 
     template <typename real_t, typename double_t=double>
     status_t Laplace16th(
           real_t *Av // result array, data layout Av[n_local_blocks][8*8*8]
-        , real_t *v  // input  array, data layout  v[n_local_remote][8*8*8], cannot be real_t const to call data_exchange onto v
+        , real_t *v  // input  array, data layout  v[n_local_remote][8*8*8], cannot be const due to call data_exchange onto v
         , parallel_grid_t const & pg // descriptor
         , int const echo=0 // log level
         , double const prefactor=1
@@ -365,7 +463,7 @@ namespace parallel_poisson {
 
         // to reduce the latencies, we could start to apply the stencil to inner cells that do not depend on remote data
 
-        auto const stat = data_exchange(v, pg, 8*8*8, echo);
+        auto const stat = data_exchange(v, pg, 8*8*8, echo, __func__);
         double const *const h2 = pg.get_prefactors();
 
         // prepare finite-difference coefficients (isotropic)
@@ -382,6 +480,7 @@ namespace parallel_poisson {
                                       15360*norm,
                                        -735*norm};
         int const nlb = pg.n_local();
+        assert(6 == pg.star_dim());
         auto const star = (int32_t const(*)[6])pg.star();
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             size_t const i512 = ilb << 9; // block offset

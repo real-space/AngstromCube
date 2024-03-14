@@ -1075,6 +1075,8 @@ namespace parallel_potential {
         parallel_poisson::parallel_grid_t const pg(g, comm, 8, echo);
         if (echo > 1) { auto const nb = pg.grid_blocks(); std::printf("# use  %d %d %d  grid blocks\n", nb[0], nb[1], nb[2]); }
 
+        parallel_poisson::parallel_grid_t const pg_Interpolation(g, comm, 8, echo, "Interpolation"); // ToDo: maybe we can re-use the load_balacing results from pg
+
         // distribute the atom ownership:
         // simple distribution model: owner_rank == global_atom_id % nprocs, advantage: every rank can compute the owner
         //  
@@ -1469,15 +1471,6 @@ namespace parallel_potential {
 
             print_stats(V_effective[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
 
-            view2D<double> V_coarse(n_blocks, 4*4*4, 0.0);
-            { // scope: reduce them to 4x4x4 grid points per block
-                for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) { // parallel loop over local blocks
-                    block_average(V_coarse[ilb], V_effective[ilb]);
-                } // ilb
-            } // scope
-            print_stats(V_coarse[0], n_blocks*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
-
-
 
             view2D<double> new_valence_density(n_blocks, 8*8*8, 0.0);
 
@@ -1497,9 +1490,14 @@ namespace parallel_potential {
             case 'g':
             {
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
+                view2D<double> V_coarse(n_blocks, 4*4*4, 0.0);
+                for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) { // parallel loop over local blocks
+                    block_average(V_coarse[ilb], V_effective[ilb]);
+                } // ilb
+                print_stats(V_coarse[0], n_blocks*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat,
-                                        n_blocks, pg, comm, n_valence_electrons, g.dV(), echo);
+                                        n_blocks, pg_Interpolation, comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }

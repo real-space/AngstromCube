@@ -31,7 +31,7 @@ namespace parallel_poisson {
         uint32_t nb_[3]; // box of blocks
         int8_t bc_[3];
         uint8_t nperiodic_;
-        view3D<uint16_t> owner_rank_;
+        view3D<green_parallel::rank_int_t> owner_rank_;
         // std::vector<bool> inner_cell_; // mark those of the n_local cells, i.e. cells than can start to execute a stencil without waiting for remote data
     public:
         double const * get_prefactors() const { return h2_; }
@@ -39,11 +39,12 @@ namespace parallel_poisson {
         uint32_t n_local()  const { return local_global_ids_.size();  } // number of blocks owned by this MPI rank
         uint32_t n_remote() const { return remote_global_ids_.size(); } // number of blocks requested by this MPI rank
         int32_t const* star() const { return (int32_t const*)star_.data(); }
+        uint32_t star_dim() const { return star_.stride(); }
         std::vector<int64_t> const & local_ids() const { return local_global_ids_; }
         std::vector<int64_t> const & remote_ids() const { return remote_global_ids_; }
         green_parallel::RequestList_t const & requests() const { return requests_; }
         bool all_periodic_boundary_conditions() const { return 3 == nperiodic_; }
-        view3D<uint16_t> const & owner_rank() const { return owner_rank_; }
+        view3D<green_parallel::rank_int_t> const & owner_rank() const { return owner_rank_; }
         MPI_Comm comm() const { return comm_; }
         double dV() const { return dVol_; }
     }; // class parallel_grid_t
@@ -62,6 +63,17 @@ namespace parallel_poisson {
         , int restart=4096 // number of iterations before restart, 1:steepest descent
         , double *inner_xx_bb=nullptr // export the last inner product
     ); // declaration only
+
+    template <typename real_t=double>
+    status_t block_interpolation(
+          real_t       *const v888 // result array, data layout v888[n_local_blocks][8*8*8]
+        , real_t const *const v444 // input  array, data layout v444[n_local_blocks][4*4*4]
+        , parallel_grid_t const & pg // descriptor, must be prepared with "3x3x3"
+        , int const echo=0 // log level
+        , double const prefactor=1
+        , char const *const what="!"
+    ); // declaration only
+
 
     status_t all_tests(int const echo=0); // declaration only
 
