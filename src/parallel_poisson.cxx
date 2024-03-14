@@ -74,6 +74,7 @@ namespace parallel_poisson {
       , MPI_Comm const comm // MPI communicator
       , unsigned const n8 // number of grid points per block edge
       , int const echo // =0 log-level
+      , char const *const what // ="FD1"
     ) { // constructor
 
         comm_ = comm; // copy the communicator
@@ -93,6 +94,11 @@ namespace parallel_poisson {
         } // d
         dVol_ = g.dV();
         nperiodic_ = g.number_of_boundary_conditions(Periodic_Boundary);
+
+        int const nstencil = 6;
+        int8_t const stencil[6][4] = { {-1,0,0,  1}, {1,0,0,  1},
+                                       {0,-1,0,  1}, {0,1,0,  1},
+                                       {0,0,-1,  1}, {0,0,1,  1} };
 
         uint32_t n_local_blocks{0};
 
@@ -190,12 +196,16 @@ namespace parallel_poisson {
                     domain_index(iz,iy,ix) = ilb; // domain index for inner elements
 
                     // mark lowest-order finite-difference sourrounding as border
-                    domain(iz,iy,ix - 1) |= BORDER;
-                    domain(iz,iy,ix + 1) |= BORDER;
-                    domain(iz,iy - 1,ix) |= BORDER;
-                    domain(iz,iy + 1,ix) |= BORDER;
-                    domain(iz - 1,iy,ix) |= BORDER;
-                    domain(iz + 1,iy,ix) |= BORDER;
+                    for (int k{0}; k < nstencil; ++k) {
+                         domain(iz + stencil[k][2],iy + stencil[k][1],ix + stencil[k][0]) |= BORDER;
+                    } // k
+                    // for nstencil == 6:
+                    // domain(iz,iy,ix - 1) |= BORDER;
+                    // domain(iz,iy,ix + 1) |= BORDER;
+                    // domain(iz,iy - 1,ix) |= BORDER;
+                    // domain(iz,iy + 1,ix) |= BORDER;
+                    // domain(iz - 1,iy,ix) |= BORDER;
+                    // domain(iz + 1,iy,ix) |= BORDER;
 
                     local_global_ids_[ilb] = global_coordinates::get(ixyz);
 
@@ -241,19 +251,30 @@ namespace parallel_poisson {
                 if (domain(iz,iy,ix) & INSIDE) {
                     auto const id0 = domain_index(iz,iy,ix);
                     assert(id0 >= 0); assert(id0 < n_local_blocks);
-                    for (int d = 0; d < 3; ++d) {
-                        for (int i01 = 0; i01 < 2; ++i01) {
-                            int32_t jxyz[] = {ixyz[0], ixyz[1], ixyz[2]}; // global coordinates
-                            int32_t jdom[] = {ix, iy, iz}; // domain coordinates
-                            jxyz[d] += (i01*2 - 1); // add or subtract 1
-                            jdom[d] += (i01*2 - 1); // add or subtract 1
+
+                    for (int k{0}; k < nstencil; ++k) {
+                        {
+                            int32_t       jxyz[] = {ixyz[0] + stencil[k][0], ixyz[1] + stencil[k][1], ixyz[2] + stencil[k][2]}; // global coordinates
+                            int32_t const jdom[] = {ix      + stencil[k][0], iy      + stencil[k][1], iz      + stencil[k][2]}; // domain coordinates
+                    // for (int d = 0; d < 3; ++d) {
+                    //     for (int i01 = 0; i01 < 2; ++i01) {
+                            // int32_t jxyz[] = {ixyz[0], ixyz[1], ixyz[2]}; // global coordinates
+                            // int32_t jdom[] = {ix, iy, iz}; // domain coordinates
+                            // jxyz[d] += (i01*2 - 1); // add or subtract 1
+                            // jdom[d] += (i01*2 - 1); // add or subtract 1
                             // if (echo > 7) std::printf("# rank#%i %d %d %d %c%c1\n", me, ixyz[0], ixyz[1], ixyz[2], 'x'+d, i01?'+':'-');
                             assert( BORDER & domain(jdom[2],jdom[1],jdom[0]) ); // consistent with 1st domain loop
                             auto const klb = domain_index(jdom[2],jdom[1],jdom[0]);
                             assert(klb >= 0);
-                            star_(id0,2*d + i01) = klb;
-                            auto const bc_shift = int(jxyz[d] < 0) - int(jxyz[d] >= int32_t(nb[d]));
-                            if ((0 != bc_shift) && (Isolated_Boundary == bc[d])) {
+                            if (6 == nstencil) star_(id0,k) = klb; // k==2*d + i01
+
+                            int is_vacuum{0};
+                            for (int d = 0; d < 3; ++d) {
+                                auto const bc_shift = int(jxyz[d] < 0) - int(jxyz[d] >= int32_t(nb[d]));
+                                jxyz[d] += bc_shift*int32_t(nb[d]); // fold back into [0, nb)
+                                is_vacuum += int((0 != bc_shift) && (Isolated_Boundary == bc[d]));
+                            }
+                            if (is_vacuum) {
                                 // id = -1; // not existing
                                 assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be border-only
                                 domain(jdom[2],jdom[1],jdom[0]) = VACUUM; // mark in the mask
@@ -263,13 +284,12 @@ namespace parallel_poisson {
                                     assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be a border-only element
                                     auto const irb = klb - n_local_blocks;
                                     assert(irb >= 0);
-                                    jxyz[d] += bc_shift*int32_t(nb[d]); // fold back into [0, nb)
                                     for (int d = 0; d < 3; ++d) { assert(jxyz[d] >= 0); assert(jxyz[d] < nb[d]); }
                                     auto const gid = global_coordinates::get(jxyz);
                                     assert((gid == remote_global_ids_[irb]) || (-1 == remote_global_ids_[irb])); // either unassigned(-1) or the same value
                                     remote_global_ids_[irb] = gid;
                                 } // add to remote list
-                            } // block exists
+                            } // is_vacuum
                         } // i01
                     } // d
                     if (echo > 19) std::printf("# rank#%i star[%i,:] = {%i %i %i %i %i %i}\n", me, id0,

@@ -18,6 +18,7 @@ namespace parallel_poisson {
             , MPI_Comm const comm // MPI communicator
             , unsigned const n8=8 // number of grid points per block edge
             , int const echo=0 // log-level
+            , char const *const what="FD1"
         ); // declaration only
     private:
         green_parallel::RequestList_t requests_;

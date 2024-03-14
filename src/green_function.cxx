@@ -129,7 +129,7 @@ namespace green_function {
             size_t nc2{0};
             for (auto const & am : AtomMatrices) { nc2 = std::max(nc2, am.size()); }
             int const count = mpi_parallel::max(nc2);
-            if (echo > 03) std::printf("# %s: AtomMatrices.size()= %ld, requests->window()= %d, p.nAtoms= %d, requests->size()= %d\n",
+            if (echo > 13) std::printf("# %s: AtomMatrices.size()= %ld, requests->window()= %d, p.nAtoms= %d, requests->size()= %d\n",
                                     __func__, AtomMatrices.size(),      requests->window(),     p.nAtoms,     requests->size());
             assert(p.nAtoms == requests->size());
             assert(AtomMatrices.size() == requests->window());
