@@ -32,9 +32,8 @@ namespace energy_contour {
             , double & Fermi_level // Fermi level
             , double const Vtot[] // input potential in [nblocks][4*4*4], coarsening could be performed here...
             , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
-            , size_t const nblocks // number of all grid blocks
+            , parallel_poisson::load_balancing_t const & lb
             , parallel_poisson::parallel_grid_t const & pg
-            , MPI_Comm const comm=MPI_COMM_WORLD // communicator
             , double const n_electrons=1 // required total number of electrons 
             , double const dV=1 // grid volume element
             , int const echo=0 // log level

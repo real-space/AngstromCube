@@ -73,7 +73,7 @@ namespace parallel_poisson {
         std::vector<int64_t> const & remote_ids() const { return remote_global_ids_; }
         green_parallel::RequestList_t const & requests() const { return requests_; }
         bool all_periodic_boundary_conditions() const { return 3 == nperiodic_; }
-        view3D<green_parallel::rank_int_t> const & owner_rank() const { return owner_rank_; }
+     // view3D<green_parallel::rank_int_t> const & owner_rank() const { return owner_rank_; }
         MPI_Comm comm() const { return comm_; }
         double dV() const { return dVol_; }
     }; // class parallel_grid_t
