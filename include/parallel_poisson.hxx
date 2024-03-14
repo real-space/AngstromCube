@@ -45,15 +45,6 @@ namespace parallel_poisson {
         parallel_grid_t() { set(nb_, 3, 0u); set(bc_, 3, int8_t(0)); nperiodic_ = 0; comm_ = MPI_COMM_NULL; set(h2_, 3, 1.); dVol_ = 1; } // default constructor
         parallel_grid_t(
               real_space::grid_t const & g
-            , MPI_Comm const comm // MPI communicator
-            , unsigned const n8=8 // number of grid points per block edge
-            , int const echo=0 // log-level
-            , char const *const what="FD1"
-            , green_parallel::rank_int_t *const owner_rank=nullptr // import owner rank from a previous load balancing
-            , int64_t const n_blocks=-1 // import number of local blocks from a previous load balancing, -1: not given
-        ); // declaration only
-        parallel_grid_t(
-              real_space::grid_t const & g
             , load_balancing_t const & lb
             , int const echo=0 // log-level
             , char const *const what="FD1"
