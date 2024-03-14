@@ -1,0 +1,143 @@
+// This file is part of AngstromCube under MIT License
+
+#include <cstdint> // int8_t
+#include <cassert> // assert
+#include <cstdio> // std::printf, ::snprintf
+#include <vector> // std::vector<T>
+
+#include "energy_contour.hxx"
+
+#include "control.hxx" // ::get
+#include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
+#include "mpi_parallel.hxx" // MPI_COMM_WORLD
+#include "data_view.hxx" // view2D<T>
+#include "parallel_poisson.hxx" // ::parallel_grid_t
+#include "green_action.hxx" // ::action_t
+#include "green_function.hxx" // ::construct_Green_function, ::update_atom_matrices, ::update_phases, ::update_energy_parameter, ::update_potential
+#include "real_space.hxx" // ::grid_t
+#include "data_list.hxx" // data_list<T>
+#include "recorded_warnings.hxx" // warn
+#include "inline_math.hxx" // set, add_product
+
+namespace energy_contour {
+
+    Integrator::Integrator( // implementation of constructor
+          real_space::grid_t const & gc // coarse grid descriptor
+        , std::vector<double> const & xyzZinso // all atoms
+        , int const echo // verbosity
+    ) {
+        plan_ = new green_action::plan_t(); // CPU memory for the plan
+        auto const stat = green_function::construct_Green_function(*plan_,
+                            gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(),
+                            xyzZinso, echo);
+        if (stat) warn("construct_Green_function returned status= %i", int(stat));
+    } // constructor
+
+    template <typename real_t>
+    status_t solve(
+          double rho[] // result density [plan.nCols][4*4*4]
+        , green_action::plan_t const & plan
+        , int const echo
+    ) {
+        if (echo > 0) std::printf("# solve ...\n");
+        return 0;
+    } // solve
+
+    status_t Integrator::integrate(
+          double rho_new[] // resulting density in [nblocks][8*8*8] data layout
+        , double & Fermi_level // Fermi level
+        , double const Vtot[] // input potential in [nblocks][4*4*4]
+        , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
+        , size_t const nblocks // number of all grid blocks
+        , parallel_poisson::parallel_grid_t const & pg
+        , MPI_Comm const comm // =MPI_COMM_WORLD // communicator
+        , double const n_electrons // =1 // required total number of electrons 
+        , double const dV // =1 // grid volume element
+        , int const echo // =0 // log level
+    ) {
+        status_t stat(0);
+
+        int const check = control::get("check", 0.);
+        if (echo > 0) std::printf("# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
+
+        assert(pg.n_local() == nblocks);
+        assert(nullptr != plan_);
+        auto & plan = *plan_;
+        if (plan.nCols != nblocks) error("model assumes that each local block has one RHS, found n_local= %d and p.nRHS= %d", nblocks, plan.nCols);
+
+        auto const nAtoms = atom_mat.nrows();
+        std::vector<std::vector<double>> AtomMatrices(nAtoms);
+        for (int iAtom{0}; iAtom < nAtoms; ++iAtom) {
+            auto const nc2 = atom_mat.ncols(iAtom);
+            AtomMatrices[iAtom] = std::vector<double>(nc2);
+            set(AtomMatrices[iAtom].data(), nc2, atom_mat[iAtom]); // copy
+        } // iAtom
+
+        set(rho_new, nblocks*size_t(4*4*4), 0.0); // clear new density
+
+        view2D<double> rho(nblocks, 4*4*4);
+
+        int constexpr Noco = 1;
+        double constexpr scale_H = 1;
+
+        std::vector<double> Veff(nblocks*4*4*4, 0.); // ToDo: fille Veff with Vtot
+        stat += green_function::update_potential(plan, pg.grid_blocks(), Veff, pg.owner_rank(), echo, Noco);
+
+        for (int ienergy{0}; ienergy < 1; ++ienergy) {
+            double const energy_weight = 1;
+            
+            std::complex<double> const energy((ienergy + 1)*0.5, 0.125);
+            if (echo > 5) std::printf("# energy parameter  (%g %s, %g %s)\n", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
+            stat += green_function::update_energy_parameter(plan, energy, AtomMatrices, dV, scale_H, echo, Noco, &atom_req_);
+
+            for (int ikpoint{0}; ikpoint < 1; ++ikpoint) {
+                double const kpoint[] = {0, 0, 0};
+                double const kpoint_weight = 1;
+                auto const weight = energy_weight * kpoint_weight;
+
+                stat += green_function::update_phases(plan, kpoint, echo, Noco);
+
+                stat += solve<float>(rho[0], *plan_, echo);
+
+                add_product(rho_new, nblocks*size_t(4*4*4), rho[0], weight);
+
+            } // ikpoint
+        } // ienergy
+
+        // interpolation from 4*4*4 to 8*8*8 block could be done here
+
+        return stat;
+    } // integrate
+
+
+
+
+
+
+
+
+
+#ifdef    NO_UNIT_TESTS
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else  // NO_UNIT_TESTS
+
+    status_t test_integration(int const echo=3, size_t const nblocks=1) {
+        double E_Fermi{0};
+        parallel_poisson::parallel_grid_t const pg;
+        view2D<double> V_coarse(nblocks, 4*4*4, 0.5);
+        view2D<double> rhov_new(nblocks, 8*8*8, 0.0);
+        std::vector<uint32_t> num(0);
+        data_list<double> atom_mat(num);
+        Integrator integrator;
+        return integrator.integrate(rhov_new[0], E_Fermi, V_coarse[0], atom_mat, nblocks, pg, MPI_COMM_WORLD, 1., 1., echo);
+    } // test_integration
+
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        stat += test_integration(echo);
+        return stat;
+    } // all_tests
+
+#endif // NO_UNIT_TESTS
+
+} // namespace energy_contour

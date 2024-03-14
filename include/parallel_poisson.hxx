@@ -30,6 +30,7 @@ namespace parallel_poisson {
         uint32_t nb_[3]; // box of blocks
         int8_t bc_[3];
         uint8_t nperiodic_;
+        view3D<uint16_t> owner_rank_;
         // std::vector<bool> inner_cell_; // mark those of the n_local cells, i.e. cells than can start to execute a stencil without waiting for remote data
     public:
         double const * get_prefactors() const { return h2_; }
@@ -41,6 +42,7 @@ namespace parallel_poisson {
         std::vector<int64_t> const & remote_ids() const { return remote_global_ids_; }
         green_parallel::RequestList_t const & requests() const { return requests_; }
         bool all_periodic_boundary_conditions() const { return 3 == nperiodic_; }
+        view3D<uint16_t> const & owner_rank() const { return owner_rank_; }
         MPI_Comm comm() const { return comm_; }
         double dV() const { return dVol_; }
     }; // class parallel_grid_t

@@ -1,0 +1,48 @@
+#pragma once
+// This file is part of AngstromCube under MIT License
+
+#include "status.hxx" // status_t
+#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
+#include "parallel_poisson.hxx" // ::parallel_grid_t
+#include "green_action.hxx" // ::plan_t
+#include "real_space.hxx" // ::grid_t
+#include "data_list.hxx" // data_list<T>
+
+namespace energy_contour {
+
+    class Integrator {
+
+    public: // constructors
+
+        Integrator() {} // default constructor
+        Integrator(
+              real_space::grid_t const & gc // coarse grid descriptor
+            , std::vector<double> const & xyzZinso // all atoms
+            , int const echo=0 // verbosity
+        ); // constructor
+
+    public: // members TODO: go private
+        green_action::plan_t *plan_ = nullptr;
+        green_parallel::RequestList_t atom_req_;
+
+    public: // methods
+
+        status_t integrate(
+              double rho_new[] // result density in [nblocks][8*8*8] data layout
+            , double & Fermi_level // Fermi level
+            , double const Vtot[] // input potential in [nblocks][4*4*4], coarsening could be performed here...
+            , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
+            , size_t const nblocks // number of all grid blocks
+            , parallel_poisson::parallel_grid_t const & pg
+            , MPI_Comm const comm=MPI_COMM_WORLD // communicator
+            , double const n_electrons=1 // required total number of electrons 
+            , double const dV=1 // grid volume element
+            , int const echo=0 // log level
+        ); // declaration only
+
+    }; // class Integrator
+
+
+    status_t all_tests(int const echo=0); // declaration only
+
+} // namespace energy_contour

@@ -97,12 +97,12 @@ namespace parallel_poisson {
         uint32_t n_local_blocks{0};
 
         // maybe the following 15 lines can be moved out of this constructor in the future, since load balancing should be done at program start
-        view3D<uint16_t> owner_rank(nb[2],nb[1],nb[0], load_balancer::no_owner);
+        owner_rank_ = view3D<uint16_t>(nb[2],nb[1],nb[0], load_balancer::no_owner);
         double rank_center[4];
         { // scope: load balancing
             uint32_t const np = control::get("parallel_poisson.nprocs", double(mpi_parallel::size()));
 
-            auto const load = load_balancer::get(np, me, nb, echo, rank_center, owner_rank.data());
+            auto const load = load_balancer::get(np, me, nb, echo, rank_center, owner_rank_.data());
             n_local_blocks = rank_center[3]; // the 4th component contains the number of items
             if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %d local blocks\n",
                                               me, __func__, load, n_local_blocks);
@@ -116,10 +116,10 @@ namespace parallel_poisson {
             // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
             size_t const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[1]);
             if (MPI_COMM_NULL != comm) {
-                mpi_parallel::min(owner_rank.data(), nall, comm);
+                mpi_parallel::min(owner_rank_.data(), nall, comm);
                 if (echo > 99) {
                     std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
-                    printf_vector(" %i", owner_rank.data(), nall);
+                    printf_vector(" %i", owner_rank_.data(), nall);
                 } // echo
             } // not comm_null
 
@@ -136,7 +136,7 @@ namespace parallel_poisson {
             for (uint32_t iz = 0; iz < nb[2]; ++iz) {
             for (uint32_t iy = 0; iy < nb[1]; ++iy) {  // this triple loop does not scale well as it is the same work for all processes
             for (uint32_t ix = 0; ix < nb[0]; ++ix) {
-                if (me == owner_rank(iz,iy,ix)) {
+                if (me == owner_rank_(iz,iy,ix)) {
                     ++nown;
                     int32_t const ixyz[] = {int32_t(ix), int32_t(iy), int32_t(iz)};
                     for (int d = 0; d < 3; ++d) {
@@ -185,7 +185,7 @@ namespace parallel_poisson {
                 // translate domain indices {ix,iy,iz} into box indices
                 int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
                 for (int d = 0; d < 3; ++d) { assert(ixyz[d] >= 0); assert(ixyz[d] < nb[d]); }
-                if (me == owner_rank(ixyz[2],ixyz[1],ixyz[0])) {
+                if (me == owner_rank_(ixyz[2],ixyz[1],ixyz[0])) {
                     domain(iz,iy,ix) |= INSIDE;
                     domain_index(iz,iy,ix) = ilb; // domain index for inner elements
 
@@ -308,7 +308,7 @@ namespace parallel_poisson {
         if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
         mpi_parallel::barrier(comm);
 
-        requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, echo);
+        requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank_.data(), nb, echo);
 
         if (echo > 8) {
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
@@ -328,7 +328,7 @@ namespace parallel_poisson {
         , int const echo=0 // log-level
     ) {
         auto const n_local = pg.n_local();
-        auto const stat = green_parallel::exchange(v + count*n_local, v, pg.requests(), count, echo); // ToDo: inser communicator
+        auto const stat = green_parallel::exchange(v + count*n_local, v, pg.requests(), count, echo, "Poisson"); // ToDo: inser communicator
         return stat;
     } // data_exchange
 

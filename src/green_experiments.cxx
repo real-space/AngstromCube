@@ -29,7 +29,7 @@
 
 #include "green_memory.hxx" // get_memory, free_memory
 #include "green_action.hxx" // ::plan_t, ::action_t
-#include "green_function.hxx" // ::update_phases, ::construct_Green_function, ::update_energy_parameter
+#include "green_function.hxx" // ::construct_Green_function, ::update_energy_parameter, ::update_phases
 #include "control.hxx" // ::get
 #ifdef    HAS_LAPACK
     #include "linear_algebra.hxx" // ::eigenvalues
@@ -763,6 +763,13 @@ namespace green_experiments {
 
 
 
+
+
+
+
+
+
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -782,6 +789,7 @@ namespace green_experiments {
           warn("failed to load_Hamiltonian with status=%d", int(load_stat));
           return load_stat;
       } // load_stat
+      auto const dVol = hg[2]*hg[1]*hg[0];
 
       if ('g' != how) {
           double const huge = 9*std::max(std::max(ng[0]*hg[0], ng[1]*hg[1]), ng[2]*hg[2]);
@@ -790,25 +798,39 @@ namespace green_experiments {
 
       int const Noco = 1 + (control::get("green_experiments.eigen.noco", 0.) > 0);
       green_action::plan_t p;
-      auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo, nullptr, Noco);
+      auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, Noco);
       if (plan_stat) {
-          warn("failed to construct_Green_function with status=%d", int(plan_stat));
+          warn("construct_Green_function failed with status=%d", int(plan_stat));
           return plan_stat;
       } // plan_stat
+
+      uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
+      view3D<uint16_t> owner_rank(nb[2], nb[1], nb[0], 0); // all owners are the MPI master
+      auto const pot_stat = green_function::update_potential(p, nb, Veff, owner_rank, echo, Noco);
+      if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
+
+      auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), AtomMatrices, dVol, Noco, 1.0, echo);
+      if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
 
       if ('g' == how) {
           // compute the bandstructure using the Green function method
           return (1 == Noco) ? bandstructure<double,1>(p, AtomMatrices, ng, hg, echo):
                                bandstructure<double,2>(p, AtomMatrices, ng, hg, echo);
       } else {
-          // compute a bandstructure using a wave function method
+          // compute a bandstructure using an eigenstate method
+          // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S
+
           green_action::plan_t pS; // plan for the overlap operator
           int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.);
-          auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo_pS, nullptr, Noco);
+          auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, echo_pS, Noco); // since the copy operator is deleted we have to do it again
           if (plan_stat) {
-              warn("failed to construct_Green_function with status=%d for the overlap operator", int(plan_stat));
+              warn("construct_Green_function failed with status=%d for the overlap operator", int(plan_stat));
               return plan_stat;
           } // plan_stat
+
+          auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), AtomMatrices, dVol, Noco, 0.0, echo);
+          if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
+
           int const r1c2 = (2 == Noco) ? 2 : (2 - (control::get("green_experiments.eigen.real", 0.) > 0));
           int const bits = control::get("green_experiments.eigen.floating.point.bits", 64.);
           int const bits_r1c2_noco = bits*100 + r1c2*10 + Noco;

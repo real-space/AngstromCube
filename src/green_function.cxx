@@ -109,50 +109,156 @@ namespace green_function {
   // However, it could be viewed as Repeat_Boundary...
 
 
+    status_t update_energy_parameter(
+          green_action::plan_t & plan
+        , std::complex<double> E_param
+        , std::vector<std::vector<double>> const & AtomMatrices
+        , double const dVol // volume element of the grid
+        , double const scale_H // =1
+        , int const echo // =0
+        , int const Noco // =1
+        , green_parallel::RequestList_t const *requests // =nullptr
+    ) {
+        plan.E_param = E_param;
+
+        auto & p = plan.dyadic_plan;
+        if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
+
+        view2D<double> output;
+        if (requests) {
+            size_t nc2{0};
+            for (auto const & am : AtomMatrices) { nc2 = std::max(nc2, am.size()); }
+            int const count = mpi_parallel::max(nc2);
+            if (echo > 03) std::printf("# %s: AtomMatrices.size()= %ld, requests->window()= %d, p.nAtoms= %d, requests->size()= %d\n",
+                                    __func__, AtomMatrices.size(),      requests->window(),     p.nAtoms,     requests->size());
+            assert(p.nAtoms == requests->size());
+            assert(AtomMatrices.size() == requests->window());
+            view2D<double> input(requests->window(), count, 0.0);
+            for (size_t iam{0}; iam < AtomMatrices.size(); ++iam) { 
+                auto const & am = AtomMatrices.at(iam);
+                auto const nc2 = am.size();
+                set(input[iam], nc2, am.data()); // copy
+            } // iam
+            output = view2D<double>(requests->size(), count, 0.0);
+            green_parallel::exchange(output.data(), input.data(), *requests, count, echo, "atom_mat");
+        } else {
+            if (echo > 0) std::printf("# skip green_function.matrices.exchange\n");
+        } // requests
+
+        auto const f = dVol; // we multiply the matrices by dVol so we can omit this factor in SHOprj
+        for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
+            int const lmax = p.AtomLmax[iac];
+            // auto const sigma = p.AtomSigma[iac];
+            int const nc = sho_tools::nSHO(lmax);
+            assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
+            // auto sho_norm = green_dyadic::sho_normalization(lmax, sigma);
+            // assert(sho_norm.size() == nc);
+            // for (int i = 0; i < nc; ++i) {
+            //     sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
+            // } // i
+            double const *hmt{nullptr};
+            if (requests) {
+                hmt = output[iac];
+            } else {
+                auto const ia = p.original_atom_index[iac];
+                assert(2*nc*nc <= AtomMatrices.at(ia).size());
+                hmt = AtomMatrices[ia].data(); // Hamiltonian matrix elements
+            }
+
+            // fill this with matrix values
+            auto const atomMatrix = p.AtomMatrices[iac]; // data layout [Noco*Noco*2*nc*nc], 2 for {real,imag}
+            auto const ovl = hmt + nc*nc;          // charge deficit matrix elements
+            for (int i = 0; i < nc; ++i) {
+                for (int j = 0; j < nc; ++j) {
+                    int const ij = i*nc + j;
+                    atomMatrix[ij] = (scale_H * hmt[ij] - E_param.real() * ovl[ij])*f; // real part
+                    atomMatrix[ij + nc*nc] = (          - E_param.imag() * ovl[ij])*f; // imag part
+                } // j
+            } // i
+            // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
+            //                                       component 2 and 3 == V_x and V_y
+        } // iac
+
+        return 0;
+    } // update_atom_matrices
 
 
-  status_t update_atom_matrices(
-        green_dyadic::dyadic_plan_t & p
-      , std::complex<double> E_param
-      , std::vector<std::vector<double>> const & AtomMatrices
-      , double const dVol // volume element of the grid
-      , int const Noco // =1
-      , double const scale_H // =1
-      , int const echo // =0
-  ) {
-      if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
 
-      auto const f = dVol; // we multiply the matrices by dVol so we can omit this factor in SHOprj
-      for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
-          int const lmax = p.AtomLmax[iac];
-          // auto const sigma = p.AtomSigma[iac];
-          int const nc = sho_tools::nSHO(lmax);
-          assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-          // auto sho_norm = green_dyadic::sho_normalization(lmax, sigma);
-          // assert(sho_norm.size() == nc);
-          // for (int i = 0; i < nc; ++i) {
-          //     sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
-          // } // i
-          auto const ia = p.original_atom_index[iac];
-          assert(2*nc*nc <= AtomMatrices.at(ia).size());
+    status_t update_potential(
+          green_action::plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+        , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
+        , std::vector<double> const & Veff // [nb[2]*4*nb[1]*4*nb[0]*4]
+        , view3D<uint16_t> const & owner_rank // [nb[2]*nb[1]*nb[0]]
+        , int const echo // =0 // verbosity
+        , int const Noco // =2
+    ) {
+        auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
+        if (Veff.size() == n_all_grid_points) { // scope: restructure and communicate potential
+            auto const nrhs = p.nCols;
+//          auto const n_all_blocks = size_t(nb[2])*size_t(nb[1])*size_t(nb[0]);
+            assert(owner_rank.stride() == nb[0] && owner_rank.dim1() == nb[1]);
 
-          // fill this with matrix values
-          auto const atomMatrix = p.AtomMatrices[iac];
-          auto const hmt = AtomMatrices[ia].data(); // Hamiltonian matrix elements
-          auto const ovl = hmt + nc*nc;          // charge deficit matrix elements
-          for (int i = 0; i < nc; ++i) {
-              for (int j = 0; j < nc; ++j) {
-                  int const ij = i*nc + j;
-                  atomMatrix[ij] = (scale_H * hmt[ij] - E_param.real() * ovl[ij])*f; // real part
-                  atomMatrix[ij + nc*nc] = (          - E_param.imag() * ovl[ij])*f; // imag part
-              } // j
-          } // i
-          // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
-           //                                       component 2 and 3 == V_x and V_y
-      } // iac
+            auto const Vinp = new double[nrhs*Noco*Noco][64];
+            // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
+            for (uint16_t irhs{0}; irhs < nrhs; ++irhs) {
+                // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
+                int32_t ib[3]; global_coordinates::get(ib, p.global_source_indices[irhs]);
+                for (int d = 0; d < 3; ++d) { assert(ib[d] >= 0); }
+                for (int i4z = 0; i4z < 4; ++i4z) { size_t const iz = ib[Z]*4 + i4z;
+                for (int i4y = 0; i4y < 4; ++i4y) { size_t const iy = ib[Y]*4 + i4y;
+                for (int i4x = 0; i4x < 4; ++i4x) { size_t const ix = ib[X]*4 + i4x;
+                    auto const izyx = (iz*(nb[Y]*4) + iy)*(nb[X]*4) + ix; // global grid point index
+                    assert(izyx < n_all_grid_points);
+                    auto const i64 = (i4z*4 + i4y)*4 + i4x;
+                    if (2 == Noco) {
+                        Vinp[irhs*4 + 3][i64] = 0.0;  // set clear V_y
+                        Vinp[irhs*4 + 2][i64] = 0.0;  // set clear V_x
+                        Vinp[irhs*4 + 1][i64] = Veff[izyx]; // set V_upup
+                    } // non-collinear
+                    Vinp[irhs*Noco*Noco][i64] = Veff[izyx]; // copy potential value to V_dndn
+                }}} // i4x i4y i4z
+            } // irhs
 
-      return 0;
-  } // update_atom_matrices
+#ifdef    HAS_NO_MPI
+            auto const default_exchange = 0.; // skip the exchange since we have no parallel processes, beware that p.Veff is set to 0.0
+#else  // HAS_NO_MPI
+            auto const default_exchange = 1.; // do the exchange of potential blocks
+#endif // HAS_NO_MPI
+            if (1. == control::get("green_function.potential.exchange", default_exchange)) {
+                // ToDo: move this into the constructors
+                green_parallel::RequestList_t const requests(p.global_target_indices,  // requests
+                                                             p.global_source_indices, // offerings
+                                                             owner_rank.data(), nb, echo);
+                green_parallel::potential_exchange(p.Veff, Vinp, requests, Noco, echo);
+            } else {
+                if (echo > 0) std::printf("# skip green_function.potential.exchange\n");
+            } // needs exchange?
+
+            delete[] Vinp;
+
+            if (echo > 4) {
+                int constexpr mag = 0; // only for the Noco=1 case
+                simple_stats::Stats<> pot;
+                for (int iRow = 0; iRow < p.nRows; ++iRow) {
+                    auto const *const V = p.Veff[mag][iRow];
+                    for (int i64 = 0; i64 < 64; ++i64) {
+                        pot.add(V[i64]);
+                    } // i64
+                } // iRow
+                std::printf("# %s effective local potential %s %s\n", __func__, pot.interval(eV).c_str(), _eV);
+            } // echo
+
+        } else {
+            warn("wrong number of potential grid points found %ld expect %lld", Veff.size(), n_all_grid_points);
+        }
+        return 0;
+    } // update_potential
+
+
+
+
+
+
 
 #ifdef    GREEN_FUNCTION_SVG_EXPORT
   static FILE* svg;
@@ -164,7 +270,7 @@ namespace green_function {
       , double const cell[3]
       , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
-      , std::vector<std::vector<double>> const & AtomMatrices // [natoms][2*nSHO(numax[ia])]
+//    , std::vector<std::vector<double>> const & AtomMatrices // [natoms][2*nSHO(numax[ia])]
       , std::vector<double> const & xyzZinso // [natoms*8]
       , uint32_t const nRowsGreen
       , uint32_t const nrhs
@@ -175,10 +281,8 @@ namespace green_function {
       , double const r_block_circumscribing_sphere
       , double const max_distance_from_center
       , double const r_trunc
-      , std::complex<double> E_param
-      , double const dVol // volume element of the grid
-      , int const Noco=1
       , int const echo=0 // verbosity
+      , int const Noco=1 // 1:collinear spins, 2:Non-collinear
   ) {
       SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
@@ -247,7 +351,7 @@ namespace green_function {
 //            if (echo > 3) std::printf("# periodic shifts  %d %d %d\n", x, y, z);
           int const xyz_image_shift[] = {x, y, z};
           for (int ia = 0; ia < natoms; ++ia) { // loop over original atoms in the unit cell, serial
-              auto const atom_id = int32_t(xyzZinso[ia*8 + 4]);
+              auto const atom_id = int32_t(xyzZinso[ia*8 + 4]); // global_atom_id
               auto const numax =       int(xyzZinso[ia*8 + 5]);
               auto const sigma =           xyzZinso[ia*8 + 6] ;
               int iaa{0};
@@ -451,6 +555,7 @@ namespace green_function {
       auto const nac = iac; // number of contributing atoms
       p.global_atom_index.resize(nac);
       p.original_atom_index.resize(nac);
+      p.global_atom_ids.resize(nac, -1);
 
       // store the atomic image positions in GPU memory
       p.AtomImageLmax  = get_memory<int8_t>(nai, echo, "AtomImageLmax");
@@ -464,6 +569,7 @@ namespace green_function {
       for (size_t iai = 0; iai < nai; ++iai) { // serial
           auto const iaa = atom_data[iai].iaa; // index of the atom copy
           auto const iac = local_atom_index[iaa]; assert(0 <= iac); assert(iac < nac);
+          p.global_atom_ids.at(iac) = atom_data[iai].gid;
           p.AtomImageIndex[iai] = iac;
           set(p.AtomImagePos[iai], 3, atom_data[iai].pos);
           set(p.AtomImageShift[iai], 3, atom_data[iai].shifts); p.AtomImageShift[iai][3] = 0;
@@ -498,12 +604,7 @@ namespace green_function {
       } // iac
       p.nAtoms = nac; // number of contributing atom copies
 
-      if (AtomMatrices.size() == natoms) {
-          // use MPI communication to find values in atom owner processes
-          update_atom_matrices(p, E_param, AtomMatrices, dVol, Noco, 1.0, echo);
-      } else {
-          warn("missing call to update_atom_matrices, Noco=%d", Noco);
-      }
+      warn("missing call to update_atom_matrices, Noco=%d", Noco);
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
 
@@ -516,8 +617,8 @@ namespace green_function {
   status_t update_phases(
         green_action::plan_t & p
       , double const k_point[3]
-      , int const Noco // =1
       , int const echo // =0 // verbosity
+      , int const Noco // =1
   ) {
       assert(p.phase && "phase[3][2][2] must already be allocated in device memory");
       green_kinetic::set_phase(p.phase, k_point, echo); // neutral (Gamma-point) phase factors
@@ -651,16 +752,16 @@ namespace green_function {
       , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
       , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
       , double const hg[3] // grid spacings
-      , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
+//    , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
-      , std::vector<std::vector<double>> const & AtomMatrices // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
+//    , std::vector<std::vector<double>> const & AtomMatrices // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
       , int const echo // =0 // log-level
-      , std::complex<double> const *energy_parameter // =nullptr // E in G = (H - E*S)^{-1}
+//    , std::complex<double> const *energy_parameter // =nullptr // E in G = (H - E*S)^{-1}
       , int const Noco // =2
   ) {
       if (echo > 0) std::printf("\n#\n# %s(%s)\n#\n\n", __func__, str(ng, 1, ", "));
 
-      p.E_param = energy_parameter ? *energy_parameter : 0;
+      p.E_param = 0;
 
       int8_t bc[3] = {boundary_condition[X], boundary_condition[Y], boundary_condition[Z]};
       uint32_t n_blocks[3] = {0, 0, 0};
@@ -1266,68 +1367,14 @@ namespace green_function {
       } // scope
 
       p.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
-      for (int mag = 0; mag < 4; ++mag) p.Veff[mag] = nullptr;
-      auto const n_all_grid_points = size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]);
+      for (int mag = 0; mag < 4; ++mag) { p.Veff[mag] = nullptr; }
 
       for (int mag = 0; mag < Noco*Noco; ++mag) {
           p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
           set(p.Veff[mag][0], p.nRows*64, 0.0);
       } // mag
 
-      if (Veff.size() == n_all_grid_points) { // scope: restructure and communicate potential
-
-          auto const Vinp = new double[nrhs*Noco*Noco][64];
-          // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
-          for (uint16_t rhs{0}; rhs < nrhs; ++rhs) {
-              // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
-              auto const *const ib = global_source_coords[rhs];
-              for (int d = 0; d < 3; ++d) { assert(ib[d] >= 0); }
-              for (int i4z = 0; i4z < 4; ++i4z) { size_t const iz = ib[Z]*4 + i4z;
-              for (int i4y = 0; i4y < 4; ++i4y) { size_t const iy = ib[Y]*4 + i4y;
-              for (int i4x = 0; i4x < 4; ++i4x) { size_t const ix = ib[X]*4 + i4x;
-                  auto const izyx = (iz*ng[Y] + iy)*ng[X] + ix; // global grid point index
-                  assert(izyx < n_all_grid_points);
-                  auto const i64 = (i4z*4 + i4y)*4 + i4x;
-                  if (2 == Noco) {
-                      Vinp[rhs*4 + 3][i64] = 0.0;  // set clear V_y
-                      Vinp[rhs*4 + 2][i64] = 0.0;  // set clear V_x
-                      Vinp[rhs*4 + 1][i64] = Veff[izyx]; // set V_upup
-                  } // non-collinear
-                  Vinp[rhs*Noco*Noco][i64] = Veff[izyx]; // copy potential value to V_dndn
-              }}} // i4x i4y i4z
-          } // rhs
-
-#ifdef    HAS_NO_MPI
-          auto const default_exchange = 0.; // skip the exchange since we have no parallel processes, beware that p.Veff is set to 0.0
-#else  // HAS_NO_MPI
-          auto const default_exchange = 1.; // do the exchange of potential blocks
-#endif // HAS_NO_MPI
-          if (1. == control::get("green_function.potential.exchange", default_exchange)) {
-              green_parallel::RequestList_t const requests(p.global_target_indices,  // requests
-                                                           p.global_source_indices, // offerings
-                                                           owner_rank.data(), n_blocks, echo);
-              green_parallel::potential_exchange(p.Veff, Vinp, requests, Noco, echo);
-          } else {
-              if (echo > 0) std::printf("# skip green_function.potential.exchange\n");
-          } // needs exchange?
-
-          delete[] Vinp;
-
-          if (echo > 4) {
-              int constexpr mag = 0; // only for the Noco=1 case
-              simple_stats::Stats<> pot;
-              for (int iRow = 0; iRow < p.nRows; ++iRow) {
-                  auto const *const V = p.Veff[mag][iRow];
-                  for (int i64 = 0; i64 < 64; ++i64) {
-                      pot.add(V[i64]);
-                  } // i64
-              } // iRow
-              std::printf("# %s effective local potential %s %s\n", __func__, pot.interval(eV).c_str(), _eV);
-          } // echo
-
-      } else {
-          warn("potential has not been filled!", __LINE__);
-      }
+      warn("potential has not been filled!", __LINE__);
 
 #ifdef    GREEN_FUNCTION_SVG_EXPORT
       { // scope
@@ -1341,14 +1388,11 @@ namespace green_function {
       } // scope
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
-      auto const stat = construct_dyadic_plan(p.dyadic_plan
-                            , cell, bc, hg
-                            , AtomMatrices, xyzZinso
+      auto const stat = green_function::construct_dyadic_plan(p.dyadic_plan
+                            , cell, bc, hg, xyzZinso
                             , p.nRows, p.nCols, p.RowStart, p.colindx.data()
                             , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
-                            , max_distance_from_center, r_trunc
-                            , p.E_param, hg[2]*hg[1]*hg[0], Noco
-                            , echo);
+                            , max_distance_from_center, r_trunc, echo, Noco);
       if (stat && echo > 0) std::printf("# construct_dyadic_plan returned status= %i\n", int(stat));
 
       auto const nerr = p.dyadic_plan.consistency_check();
@@ -1384,6 +1428,16 @@ namespace green_function {
   } // construct_Green_function
 
   #undef str // === vec2str.c_str()
+
+
+
+
+
+
+
+
+
+
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
@@ -1509,7 +1563,7 @@ namespace green_function {
 //    for (int ia = 0; ia < natoms; ++ia) { xyzZinso[ia*8 + 3] = 6; } // set all atoms to carbon
 
       green_action::plan_t p;
-      stat += construct_Green_function(p, ng, bc, hg, Veff, xyzZinso, AtomMatrices, echo, nullptr, noco);
+      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, noco);
 
       assert(1 == r1c2 || 2 == r1c2);
       assert(1 == noco || r1c2 == noco);

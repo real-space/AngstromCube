@@ -880,6 +880,7 @@ namespace green_dyadic {
       green_sparse::sparse_t<>  sparse_SHOadd;
       green_sparse::sparse_t<>  sparse_SHOsum;
 
+      std::vector<int64_t> global_atom_ids; // [nAtoms]
       std::vector<int32_t> global_atom_index;
       std::vector<int32_t> original_atom_index;
 
@@ -890,12 +891,12 @@ namespace green_dyadic {
 
   public: // methods
 
-      dyadic_plan_t(int const echo=0) {
+      dyadic_plan_t(int const echo=0) { // constructor
           if (echo > 0) std::printf("# construct %s\n", __func__);
           // please see construct_dyadic_plan in green_function.hxx for the construction of the dyadic_plan_t
       } // empty and default constructor
 
-      ~dyadic_plan_t() {
+      ~dyadic_plan_t() { // destructor
 #ifdef DEBUG
           std::printf("# destruct %s\n", __func__);
 #endif // DEBUG

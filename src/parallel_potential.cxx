@@ -1170,7 +1170,7 @@ namespace parallel_potential {
                     num(3,ia) = 2*pow2(n_sho);             // aHm+aSm
                     num(4,ia) = sho_tools::nSHO(lmax_qlm[ia]); // number of coefficients to represent qlm compensation charges in a SHO basis
                     num(5,ia) = sho_tools::nSHO(lmax_vlm[ia]); // number of coefficients to represent vlm electrostatic projectors in a SHO basis
-                 } // ia
+                } // ia
                 // get memory in the form of data_list containers
                 atom_qlm  = data_list<double>(na, num[0], 0.0); // charge multipole moments on owned atoms
                 atom_vlm  = data_list<double>(na, num[1], 0.0); // electrostatic moments    on owned atoms
@@ -1234,6 +1234,8 @@ namespace parallel_potential {
         if (needs_integrator) {
             if (echo > 0) std::printf("\n# Initialize energy contour integrator");
 
+            // currently the Green function method requires all atoms
+            // as it has to tell apart atomic images from atomic copies
             std::vector<double> xyzZinso(0);
             { // scope: determine additional info
                 std::vector<int32_t> numax_prj(na, 0);
@@ -1260,7 +1262,25 @@ namespace parallel_potential {
                 } // gid
             } // scope
 
+            // envoke the constructor energy_contour::Integrator
             integrator = energy_contour::Integrator(gc, xyzZinso, echo);
+
+            // setup communication infrastructure for atom_mat, TODO: also for potential elements
+            auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
+            std::vector<int64_t> owned_global_atom_ids(na);
+            for (int ia{0}; ia < na; ++ia) {
+                owned_global_atom_ids[ia] = nprocs*ia + me;
+            } // ia
+            assert(0 == (xyzZinso.size() & 0x7)); // make sure it is divisible by 8
+            uint32_t const n_all_atoms = xyzZinso.size() >> 3; // divide by 8
+            uint32_t const nb[] = {n_all_atoms, 0, 0};
+            std::vector<green_parallel::rank_int_t> atom_owner_rank(n_all_atoms, 0);
+            auto const nprocs = mpi_parallel::size(); // comm=MPI_COMM_WORLD?
+            for (uint32_t gid{0}; gid < n_all_atoms; ++gid) {
+                atom_owner_rank[gid] = gid % nprocs;
+            } // gid
+            integrator.atom_req_ = green_parallel::RequestList_t(target_global_atom_ids,
+                                        owned_global_atom_ids, atom_owner_rank.data(), nb, echo);
         } // needs_integrator
 
         xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this
@@ -1478,7 +1498,7 @@ namespace parallel_potential {
             {
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
                 // call energy-contour integration to find a new density
-                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0],
+                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat,
                                         n_blocks, pg, comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));

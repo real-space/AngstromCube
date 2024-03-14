@@ -169,15 +169,17 @@ namespace green_parallel {
         real_t       *const data_out // output data, data layout data_out[nrequests*count]
       , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
       , RequestList_t const & requests
-      , int const count // number of real_t per package
+      , uint32_t const count // number of real_t per package
       , int const echo // =0, log-level
+      , char const *what // =nullptr // quantity
   ) {
+      what = what ? what : "?";
       auto const comm = MPI_COMM_WORLD;
       auto const me = mpi_parallel::rank(comm);
 
       // The number of local atoms is limited to 2^16 == 65536
-      if (echo > 0) std::printf("# exchange using MPI one-sided communication, packages of %.3f k numbers, %.3f kByte\n",
-                                                                                    count*.001, count*sizeof(real_t)*.001);
+      if (echo > 0) std::printf("# exchange using MPI one-sided communication, packages of %.3f k numbers, %.3f kByte %s\n",
+                                                                            count*.001, count*sizeof(real_t)*.001, what);
       auto const nreq = requests.size(); // number of requests
       auto const nwin = requests.window(); // number of offerings
       if (nullptr == data_out) assert(0 == nreq && "may not be called with a nullptr for output");
@@ -196,7 +198,7 @@ namespace green_parallel {
       auto const data_type = (8 == sizeof(real_t)) ? MPI_DOUBLE : MPI_FLOAT;
 
       // synchronize processes
-      int const assertions = 0; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
+      int const assertions = MPI_MODE_NOPUT; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
       status += MPI_Win_fence(assertions, window);
 
 #endif // HAS_NO_MPI
@@ -246,10 +248,10 @@ namespace green_parallel {
   } // exchange
 
   template // explicit template instantiation for real_t=double
-  status_t exchange(double*, double const*, RequestList_t const &, int, int);
+  status_t exchange(double*, double const*, RequestList_t const &, uint32_t, int, char const*);
 
   template // explicit template instantiation for real_t=float
-  status_t exchange(float* , float  const*, RequestList_t const &, int, int);
+  status_t exchange(float* , float  const*, RequestList_t const &, uint32_t, int, char const*);
 
   status_t potential_exchange(
         double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nreq][64]
@@ -270,7 +272,7 @@ namespace green_parallel {
       auto const nreq = requests.size();
       view3D<double> Vout(nreq,Noco*Noco,64, 0.0); // get temporary CPU memory in [Noco^2][64] layout
 
-      auto const status = exchange(Vout(0,0), Vinp[0], requests, Noco*Noco*64, echo);
+      auto const status = exchange(Vout(0,0), Vinp[0], requests, Noco*Noco*64, echo, "potential");
 
       // convert Vout into special data layout of Veff (GPU memory) 
       for (size_t ireq = 0; ireq < nreq; ++ireq) {

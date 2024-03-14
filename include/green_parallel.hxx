@@ -6,18 +6,6 @@
 
 namespace green_parallel {
 
-  int init(int argc=0, char **argv=nullptr); // declaration only
-
-  unsigned size(void); // declaration only
-
-  int rank(void); // declaration only
-
-  int finalize(void); // declaration only
-
-  int max(uint16_t data[], size_t const n); // declaration only
-
-  int allreduce(simple_stats::Stats<double> & stats); // declaration only
-
   typedef uint16_t rank_int_t;
 
   class RequestList_t {
@@ -47,8 +35,9 @@ namespace green_parallel {
         real_t       *const data_out // output data, data layout data_out[nrequests*count]
       , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
       , RequestList_t const & requests // contains info which ids are pulled from where
-      , int const count=1 // how many real_t per package
+      , uint32_t const count=1 // how many real_t per package
       , int const echo=0 // log-level
+      , char const *what=nullptr // quantity
   ); // declaration only
 
   status_t potential_exchange(
