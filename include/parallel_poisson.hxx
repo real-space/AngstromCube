@@ -54,13 +54,13 @@ namespace parallel_poisson {
         std::vector<int64_t> remote_global_ids_; // may contain "-1"-entries, could be removed after setup keeping only a uint32_t n_remote_blocks;
         std::vector<int64_t> local_global_ids_;  // may not contain "-1"-entries
         view2D<uint32_t> star_; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6). Should be backed with GPU memory in the future
-        double dVol_;
+        std::vector<bool> inner_cell_; // mark those of the n_local cells that can start to execute a stencil without waiting for remote data
         MPI_Comm comm_; // which MPI communicator is to be used?
         double h2_[3];
+        double dVol_;
         uint32_t nb_[3]; // box of blocks
         int8_t bc_[3];
         uint8_t nperiodic_;
-        // std::vector<bool> inner_cell_; // mark those of the n_local cells, i.e. cells than can start to execute a stencil without waiting for remote data
     public:
         double const * get_prefactors() const { return h2_; }
         uint32_t const * grid_blocks() const { return nb_; }
@@ -71,6 +71,7 @@ namespace parallel_poisson {
         std::vector<int64_t> const & local_ids() const { return local_global_ids_; }
         std::vector<int64_t> const & remote_ids() const { return remote_global_ids_; }
         green_parallel::RequestList_t const & requests() const { return requests_; }
+        std::vector<bool> const & inner_cell() const { return inner_cell_; }
         bool all_periodic_boundary_conditions() const { return 3 == nperiodic_; }
         MPI_Comm comm() const { return comm_; }
         double dV() const { return dVol_; }

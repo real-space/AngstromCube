@@ -229,7 +229,7 @@ namespace parallel_poisson {
 
             if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
-            view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1);
+            view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1); // -1: not assigned, <n_local_blocks: INSIDE
 
             if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
             if (echo > 7) std::printf("# rank#%i n_local_blocks=%d\n", me, n_local_blocks);
@@ -287,7 +287,9 @@ namespace parallel_poisson {
             remote_global_ids_.resize(n_remote_blocks, -1); // init remote element request lists
             star_ = view2D<uint32_t>(n_local_blocks, nstencil, uint32_t(-1)); // init finite-difference neighborhood lists
 
-            size_t vacuum_assigned{0};
+            inner_cell_.resize(n_local_blocks, false);
+
+            size_t vacuum_assigned{0}, inner_cell_found{0};
             // loop over domain again (3rd time), with halos
             for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
             for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) { // 3rd domain loop, could be parallel
@@ -307,7 +309,7 @@ namespace parallel_poisson {
                         assert( BORDER & domain(jdom[2],jdom[1],jdom[0]) ); // consistent with 1st domain loop
                         auto const klb = domain_index(jdom[2],jdom[1],jdom[0]);
                         assert(klb >= 0);
-                        star_(id0,k) = klb; // k==2*d + i01
+                        star_(id0,k) = klb;
 
                         int is_vacuum{0};
                         for (int d = 0; d < 3; ++d) {
@@ -341,10 +343,19 @@ namespace parallel_poisson {
                     } // k
                     if (6 == nstencil && echo > 19) std::printf("# rank#%i star[%i,:] = {%i %i %i %i %i %i}\n", me, id0,
                                     star_(id0,0), star_(id0,1), star_(id0,2), star_(id0,3), star_(id0,4), star_(id0,5));
+                    
+                    // to be an inner_cell_ all blocks hit by the stencil must be local blocks
+                    int is_inner_cell{0};
+                    for (int k{0}; k < nstencil; ++k) {
+                        is_inner_cell += (star_(id0,k) < n_local_blocks);
+                    } // k
+                    inner_cell_[id0]  = (is_inner_cell == nstencil);
+                    inner_cell_found += (is_inner_cell == nstencil);
+
                 } // is INSIDE
             }}} // iz iy ix
 
-            if (echo > 8) std::printf("# rank#%i star list generated\n", me); std::fflush(stdout);
+            if (echo > 8) std::printf("# rank#%i star list generated, %ld inner cells found\n", me, inner_cell_found); std::fflush(stdout);
 
             size_t vacuum_requested{0};
             for (auto id : remote_global_ids_) {
@@ -497,6 +508,8 @@ namespace parallel_poisson {
 
         // to reduce the latencies, we could start to apply the stencil to inner cells that do not depend on remote data
 
+        // mode must be in {0, 1, 2, 3}, 0: only communicate, 1:only do inner cells, 2: only do outer cells, 3: do both
+
         auto const stat = data_exchange(v, pg, 8*8*8, echo, __func__);
         double const *const h2 = pg.get_prefactors();
 
@@ -517,10 +530,10 @@ namespace parallel_poisson {
         assert(6 == pg.star_dim());
         auto const star = (uint32_t const(*)[6])pg.star();
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
-            size_t const i512 = ilb << 9; // block offset
+            auto const i512 = size_t(ilb) << 9; // block offset
             auto const *const nn = star[ilb]; // nearest-neighbor blocks of block ilb, load into GPU shared memory
-            if (echo > 11) std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i %i %i %i %i}\n",
-                                                           ilb, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5]);
+            if (echo > 11) std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i, %i %i, %i %i}\n",
+                                                           ilb, nn[0], nn[1],  nn[2], nn[3],  nn[4], nn[5]);
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over block elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
