@@ -114,6 +114,10 @@ set(a43_sources ${a43_atom_sources}
     multi_grid.cxx
     parallel_poisson.cxx
     parallel_potential.cxx
+    dyadic_plan.cxx
+    kinetic_plan.cxx
+    action_plan.cxx
+    green_memory.cxx
     plane_wave.cxx
     poisson_solver.cxx
     potential_generator.cxx
@@ -153,6 +157,7 @@ set(green_headers
     ../include/green_input.hxx
     ../include/green_kinetic.hxx
     ../include/green_parallel.hxx
+    ../include/dyadic_plan.hxx
     ../include/green_tests.hxx
     ../include/hermite_polynomial.hxx
     ../include/inline_math.hxx
@@ -178,6 +183,9 @@ set(green_sources
     exchange_correlation.cxx
     geometry_input.cxx
     green_input.cxx
+    dyadic_plan.cxx
+    kinetic_plan.cxx
+    action_plan.cxx
     green_parallel.cxx
     load_balancer.cxx
     mpi_parallel.cxx
@@ -194,6 +202,7 @@ if(HAS_CUDA)
         green_function.cu
         green_kinetic.cu
         green_tests.cu
+        green_memory.cu
     )
 else(HAS_CUDA)
     set(green_sources ${green_sources}
@@ -201,6 +210,7 @@ else(HAS_CUDA)
         green_function.cxx
         green_kinetic.cxx
         green_tests.cxx
+        green_memory.cxx
     )
 endif(HAS_CUDA)
 

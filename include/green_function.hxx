@@ -6,9 +6,10 @@
 #include <complex>    // std::complex
 
 #include "status.hxx" // status_t
-#include "green_action.hxx" // ::plan_t
-#include "green_dyadic.hxx" // ::dyadic_plan_t
-
+// #include "green_action.hxx" // ::plan_t
+#include "action_plan.hxx" // action_plan_t
+#include "green_parallel.hxx" // ::RequestList_t
+#include "data_view.hxx" // view3D<T>
 
  /*
   *  Future plan:
@@ -20,11 +21,11 @@
 
 namespace green_function {
 
-    char const boundary_condition_name[][16] = {"isolated", "periodic", "vacuum"};
-    char const boundary_condition_shortname[][8] = {"iso", "peri", "vacu"};
+//     char const boundary_condition_name[][16] = {"isolated", "periodic", "vacuum"};
+//     char const boundary_condition_shortname[][8] = {"iso", "peri", "vacu"};
 
     status_t construct_Green_function(
-          green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+          action_plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
         , int8_t const boundary_condition[3] // boundary conditions
         , double const hg[3] // grid spacings
@@ -37,7 +38,7 @@ namespace green_function {
     ); // declaration only
 
     status_t update_potential(
-          green_action::plan_t & p // modify
+          action_plan_t & p // modify
         , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
         , std::vector<double> const & Veff // [nb[2]*4*nb[1]*4*nb[0]*4]
         , view3D<uint16_t> const & owner_rank // [nb[2],nb[1],nb[0]]
@@ -46,7 +47,7 @@ namespace green_function {
     ); // declaration only
 
     status_t update_energy_parameter(
-          green_action::plan_t & p // modify
+          action_plan_t & p // modify
         , std::complex<double> E_param
         , std::vector<std::vector<double>> const & AtomMatrices
         , double const dVol // volume element of the grid
@@ -57,7 +58,7 @@ namespace green_function {
     ); // declaration only
 
     status_t update_phases(
-          green_action::plan_t & p // modify
+          action_plan_t & p // modify
         , double const k_point[3]
         , int const echo=0 // verbosity
         , int const Noco=1 // // 1:collinear spins, 2:Non-collinear

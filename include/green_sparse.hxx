@@ -11,6 +11,7 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "print_tools.hxx" // printf_vector
 #include "green_memory.hxx" // get_memory, free_memory
+#include "green_cuda.hxx" // __host__, __device__
 #include "simple_stats.hxx" // ::Stats<>
 
 // #define DEBUG

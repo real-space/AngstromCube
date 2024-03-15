@@ -110,7 +110,7 @@ namespace green_function {
 
 
     status_t update_energy_parameter(
-          green_action::plan_t & plan
+          action_plan_t & plan
         , std::complex<double> E_param
         , std::vector<std::vector<double>> const & AtomMatrices
         , double const dVol // volume element of the grid
@@ -129,8 +129,8 @@ namespace green_function {
             size_t nc2{0};
             for (auto const & am : AtomMatrices) { nc2 = std::max(nc2, am.size()); }
             int const count = mpi_parallel::max(nc2);
-            if (echo > 13) std::printf("# %s: AtomMatrices.size()= %ld, requests->window()= %d, p.nAtoms= %d, requests->size()= %d\n",
-                                    __func__, AtomMatrices.size(),      requests->window(),     p.nAtoms,     requests->size());
+            if (echo > 13) std::printf("# %s: AtomMatrices.size()= %ld, requests->window()= %ld, p.nAtoms= %d, requests->size()= %ld\n",
+                                    __func__, AtomMatrices.size(),      requests->window(),      p.nAtoms,     requests->size());
             assert(p.nAtoms == requests->size());
             assert(AtomMatrices.size() == requests->window());
             view2D<double> input(requests->window(), count, 0.0);
@@ -185,7 +185,7 @@ namespace green_function {
 
 
     status_t update_potential(
-          green_action::plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+          action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
         , std::vector<double> const & Veff // [nb[2]*4*nb[1]*4*nb[0]*4]
         , view3D<uint16_t> const & owner_rank // [nb[2]*nb[1]*nb[0]]
@@ -266,7 +266,7 @@ namespace green_function {
 
 
   status_t construct_dyadic_plan(
-        green_dyadic::dyadic_plan_t & p
+        dyadic_plan_t & p
       , double const cell[3]
       , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
@@ -615,7 +615,7 @@ namespace green_function {
 
 
   status_t update_phases(
-        green_action::plan_t & p
+        action_plan_t & p
       , double const k_point[3]
       , int const echo // =0 // verbosity
       , int const Noco // =1
@@ -748,7 +748,7 @@ namespace green_function {
 
 
   status_t construct_Green_function(
-        green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+        action_plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
       , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
       , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
       , double const hg[3] // grid spacings
@@ -1445,7 +1445,7 @@ namespace green_function {
 
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  void test_action(green_action::plan_t & p, int const iterations=1, int const echo=9) {
+  void test_action(action_plan_t & p, int const iterations=1, int const echo=9) {
       if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
       green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
@@ -1562,7 +1562,7 @@ namespace green_function {
 
 //    for (int ia = 0; ia < natoms; ++ia) { xyzZinso[ia*8 + 3] = 6; } // set all atoms to carbon
 
-      green_action::plan_t p;
+      action_plan_t p;
       stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, noco);
 
       assert(1 == r1c2 || 2 == r1c2);

@@ -31,10 +31,14 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	parallel_potential.o \
 	energy_contour.o \
 	chemical_symbol.o \
+	action_plan.o \
+	kinetic_plan.o \
+	dyadic_plan.o \
 	green_experiments.o \
 	green_function.o \
 	green_parallel.o \
 	green_kinetic.o \
+	green_memory.o \
 	green_input.o \
 	green_tests.o \
 	green_main.o )

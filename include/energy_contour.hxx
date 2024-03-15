@@ -4,7 +4,7 @@
 #include "status.hxx" // status_t
 #include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
 #include "parallel_poisson.hxx" // ::parallel_grid_t
-#include "green_action.hxx" // ::plan_t
+#include "action_plan.hxx" // action_plan_t
 #include "real_space.hxx" // ::grid_t
 #include "data_list.hxx" // data_list<T>
 
@@ -22,7 +22,7 @@ namespace energy_contour {
         ); // constructor
 
     public: // members TODO: go private
-        green_action::plan_t *plan_ = nullptr;
+        action_plan_t *plan_ = nullptr;
         green_parallel::RequestList_t atom_req_;
 
     public: // methods

@@ -32,6 +32,9 @@ OBJATOM = $(addprefix $(OBJDIR)/, \
 	single_atom.o )
 
 OBJ = $(addprefix $(OBJDIR)/, \
+	action_plan.o \
+	dyadic_plan.o \
+	kinetic_plan.o \
 	geometry_input.o \
 	geometry_analysis.o \
 	self_consistency.o \
@@ -56,6 +59,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	green_kinetic.o \
 	green_function.o \
 	green_experiments.o \
+	green_memory.o \
 	green_input.o \
 	load_balancer.o \
 	green_tests.o \

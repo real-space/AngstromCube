@@ -9,13 +9,14 @@
 #include "green_memory.hxx" // get_memory, free_memory --> used in multiply, ToDo: move into planning phase
 #include "green_sparse.hxx" // ::sparse_t<T>
 #include "data_view.hxx" // view3D<T>
+#include "kinetic_plan.hxx" // kinetic_plan_t
 
-  // ToDo: move to green_utils.hxx or similar
-  template <typename uint_t, typename int_t> inline
-  size_t index3D(uint_t const n[3], int_t const i[3]) {
-      // usual 3D indexing
-      return size_t(i[2]*n[1] + i[1])*n[0] + i[0];
-  } // index3D
+//   // now in kinetic_plan.hxx
+//   template <typename uint_t, typename int_t> inline
+//   size_t index3D(uint_t const n[3], int_t const i[3]) {
+//       // usual 3D indexing
+//       return size_t(i[2]*n[1] + i[1])*n[0] + i[0];
+//   } // index3D
 
 
 namespace green_kinetic {
@@ -372,6 +373,27 @@ namespace green_kinetic {
                    Tpsi, psi, index_list, prefactor, Stride, phase);
         return (8 == FD_range) ? 17 : 9; // returns the number of stencil coefficients
     } // Laplace_driver
+
+
+
+    template <typename real_t, int R1C2=2, int Noco=1>
+    size_t multiply(
+          real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
+        , kinetic_plan_t const & plan
+        , double   const phase[2][2]=nullptr // complex Bloch phase factors
+        , int      const echo=0
+    ) {
+        int  const stride = 1 << (2*plan.derivative_direction); // 4^dd: X:1, Y:4, Z:16
+        auto const nFD = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, plan.lists, plan.prefactor, plan.sparse.nRows(), stride, phase, plan.FD_range);
+        size_t const nops = plan.nnzb*nFD*R1C2*pow2(Noco*64ul)*2ul;
+        if (echo > 7) {
+            char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
+            std::printf("# green_kinetic::%s dd=\'%c\', nFD= %d, number= %d, %.3f M%clop\n",
+                __func__, 'x' + plan.derivative_direction, nFD, plan.   sparse.nRows(), nops*1e-6, fF);
+        } // echo
+        return nops; // return the total number of floating point operations performed
+    } // multiply (kinetic energy operator)
 
 
     void __host__ set_phase(

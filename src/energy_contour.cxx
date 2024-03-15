@@ -12,7 +12,7 @@
 #include "mpi_parallel.hxx" // MPI_COMM_WORLD
 #include "data_view.hxx" // view2D<T>
 #include "parallel_poisson.hxx" // ::parallel_grid_t
-#include "green_action.hxx" // ::action_t
+#include "action_plan.hxx" // action_plan_t
 #include "green_function.hxx" // ::construct_Green_function, ::update_atom_matrices, ::update_phases, ::update_energy_parameter, ::update_potential
 #include "real_space.hxx" // ::grid_t
 #include "data_list.hxx" // data_list<T>
@@ -26,7 +26,7 @@ namespace energy_contour {
         , std::vector<double> const & xyzZinso // all atoms
         , int const echo // verbosity
     ) {
-        plan_ = new green_action::plan_t(); // CPU memory for the plan
+        plan_ = new action_plan_t(); // CPU memory for the plan
         auto const stat = green_function::construct_Green_function(*plan_,
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(),
                             xyzZinso, echo);
@@ -36,7 +36,7 @@ namespace energy_contour {
     template <typename real_t>
     status_t solve(
           double rho[] // result density [plan.nCols][4*4*4]
-        , green_action::plan_t const & plan
+        , action_plan_t const & plan
         , int const echo
     ) {
         if (echo > 0) std::printf("# solve ...\n");

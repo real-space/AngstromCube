@@ -36,8 +36,10 @@
 // #include "green_kinetic.hxx"// ::multiply, ::finite_difference_plan_t
 #include "green_kinetic.hxx"   // ::kinetic_plan_t
 #include "green_potential.hxx" // ::multiply
-#include "green_dyadic.hxx"    // ::multiply, ::dyadic_plan_t
+#include "green_dyadic.hxx"    // ::multiply
+#include "dyadic_plan.hxx"    // ::dyadic_plan_t
 
+#include "action_plan.hxx" // action_plan_t
 
 #ifdef    DEBUG
   #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
@@ -69,6 +71,7 @@ namespace green_action {
   }; // atom_image_t 32 Byte
 #endif
 
+#if 0
   struct plan_t {
 
       // members needed for the usage with tfQMRgpu
@@ -129,7 +132,7 @@ namespace green_action {
 
       bool noncollinear_spin = false;
 
-      green_dyadic::dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
+      dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
       plan_t() {
           green_debug_printf("# default constructor for %s\n", __func__);
@@ -155,7 +158,7 @@ namespace green_action {
       } // destructor
 
   }; // plan_t
-
+#endif // 0
 
 
 
@@ -174,7 +177,7 @@ namespace green_action {
       // Arithmetic according to complex<real_t>
       // with real_t either float or double
       //
-      action_t(plan_t *plan)
+      action_t(action_plan_t *plan)
         : p(plan), apc(nullptr), aac(nullptr)
       {
           assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
@@ -243,7 +246,7 @@ namespace green_action {
 
           // add the kinetic energy expressions
           for (int dd = 0; dd < 3; ++dd) { // loop must run serial
-              nops += p->kinetic[dd].multiply<real_t,R1C2,Noco>(y, x, p->phase[dd], p->echo);
+              nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->kinetic[dd], p->phase[dd], p->echo);
           } // dd derivative direction
 
           // add the non-local potential using the dyadic action of project + add
@@ -255,11 +258,11 @@ namespace green_action {
           return nops;
       } // multiply
 
-      plan_t * get_plan() { return p; }
+      action_plan_t * get_plan() { return p; }
 
     private: // members
 
-      plan_t *p; // the plan is independent of real_t and R1C2
+      action_plan_t *p; // the plan is independent of real_t and R1C2
 
       // temporary device memory needed for dyadic operations
       real_t (*apc)[R1C2][Noco][LM]; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
@@ -274,7 +277,7 @@ namespace green_action {
 #else // NO_UNIT_TESTS
 
   inline status_t test_construction_and_destruction(int const echo=0) {
-      {   plan_t plan;
+      {   action_plan_t plan;
           if (echo > 4) std::printf("# %s for action_t\n", __func__);
           { action_t<float ,1,1> action(&plan); }
           { action_t<float ,2,1> action(&plan); }
@@ -287,7 +290,7 @@ namespace green_action {
       if (echo > 6) {
           std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
 //        std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
-          std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(plan_t));
+          std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
       } // echo
       return 0;
   } // test_construction_and_destruction

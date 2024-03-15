@@ -28,7 +28,8 @@
 #endif // HAS_TFQMRGPU
 
 #include "green_memory.hxx" // get_memory, free_memory
-#include "green_action.hxx" // ::plan_t, ::action_t
+#include "action_plan.hxx" // action_plan_t
+#include "green_action.hxx" // ::action_t
 #include "green_function.hxx" // ::construct_Green_function, ::update_energy_parameter, ::update_phases
 #include "control.hxx" // ::get
 #ifdef    HAS_LAPACK
@@ -39,7 +40,7 @@ namespace green_experiments {
 
   template <typename real_t=double, int Noco=1>
   status_t bandstructure(
-        green_action::plan_t & p
+        action_plan_t & p
       , std::vector<std::vector<double>> const & AtomMatrices
       , uint32_t const ng[3] // grid points
       , double const hg[3] // grid spacings
@@ -411,8 +412,8 @@ namespace green_experiments {
 
   template <typename real_t=double, int R1C2=1, int Noco=1>
   status_t eigensolver(
-        green_action::plan_t & pH
-      , green_action::plan_t & pS
+        action_plan_t & pH
+      , action_plan_t & pS
       , std::vector<std::vector<double>> const & AtomMatrices
       , uint32_t const ng[3] // grid points
       , double const hg[3] // grid spacings
@@ -797,7 +798,7 @@ namespace green_experiments {
       } // how
 
       int const Noco = 1 + (control::get("green_experiments.eigen.noco", 0.) > 0);
-      green_action::plan_t p;
+      action_plan_t p;
       auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, Noco);
       if (plan_stat) {
           warn("construct_Green_function failed with status=%d", int(plan_stat));
@@ -820,7 +821,7 @@ namespace green_experiments {
           // compute a bandstructure using an eigenstate method
           // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S
 
-          green_action::plan_t pS; // plan for the overlap operator
+          action_plan_t pS; // plan for the overlap operator
           int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.);
           auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, echo_pS, Noco); // since the copy operator is deleted we have to do it again
           if (plan_stat) {
