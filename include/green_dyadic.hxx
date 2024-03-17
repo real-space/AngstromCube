@@ -16,6 +16,7 @@
 #include "constants.hxx" // ::sqrtpi
 #include "green_parallel.hxx" // ::rank, ::size, ::dyadic_exchange
 #include "recorded_warnings.hxx" // warn
+#include "green_cuda.hxx" // __global__, __host__, __device__
 
 #ifndef HAS_NO_CUDA
     #include <cuda/std/complex> // std::complex
@@ -979,7 +980,7 @@ namespace green_dyadic {
             pGp[iatom].resize(nSHO*nSHO*Noco*Noco, 0.0); // init
         } // iai
 
-        typedef std::complex<double> complex_t;
+        typedef std__complex<double> complex_t;
         complex_t constexpr zero = complex_t(0, 0);
 
         for (uint32_t iai = 0; iai < nAtomImages; ++iai) {

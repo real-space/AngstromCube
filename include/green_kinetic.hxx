@@ -10,6 +10,7 @@
 #include "green_sparse.hxx" // ::sparse_t<T>
 #include "data_view.hxx" // view3D<T>
 #include "kinetic_plan.hxx" // kinetic_plan_t
+#include "green_cuda.hxx" // __global__, __host__, __device__
 
 //   // now in kinetic_plan.hxx
 //   template <typename uint_t, typename int_t> inline

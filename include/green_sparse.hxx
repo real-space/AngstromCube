@@ -11,7 +11,7 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "print_tools.hxx" // printf_vector
 #include "green_memory.hxx" // get_memory, free_memory
-#include "green_cuda.hxx" // __host__, __device__
+// #include "green_cuda.hxx" // __host__, __device__
 #include "simple_stats.hxx" // ::Stats<>
 
 // #define DEBUG
@@ -118,14 +118,21 @@ namespace green_sparse {
           return *this;
       } // move assignment
 
-      __host__ __device__ RowIndex_t const * rowStart() const { return rowStart_; };
-      __host__ __device__ ColIndex_t const * colIndex() const { return colIndex_; };
-      __host__ __device__ RowIndex_t            nRows() const { return nRows_; }
-      __host__ __device__ RowIndex_t        nNonzeros() const { return (row_signed && nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
+#ifdef __NVCC__
+      __host__ __device__
+#endif
+      RowIndex_t const * rowStart() const { return rowStart_; };
+#ifdef __NVCC__
+      __host__ __device__
+#endif
+      ColIndex_t const * colIndex() const { return colIndex_; };
+      RowIndex_t            nRows() const { return nRows_; }
+      RowIndex_t        nNonzeros() const { return (row_signed && nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
 
   private:
 
-      __host__ bool invalid_row_index_(RowIndex_t const iRow) const {
+      // __host__ 
+      bool invalid_row_index_(RowIndex_t const iRow) const {
           if (iRow >= nRows_)  return true;  // invalid
           else if (iRow < 0)   return true;  // invalid
           else                 return false; //   valid
@@ -148,7 +155,8 @@ namespace green_sparse {
 
 #endif // 0
 
-      __host__ bool is_in(RowIndex_t const iRow, ColIndex_t const jCol, RowIndex_t *index=nullptr) const {
+      // __host__ 
+      bool is_in(RowIndex_t const iRow, ColIndex_t const jCol, RowIndex_t *index=nullptr) const {
           if (invalid_row_index_(iRow)) return false;
           if (nullptr == rowStart_ || nullptr == colIndex_) return false;
 //        std::printf("# search for index (iRow=%d, jCol=%d)\n", iRow, jCol);
@@ -161,7 +169,8 @@ namespace green_sparse {
           return false;
       } // is_in
 
-      __host__ RowIndex_t const * rowIndex() { // non-const member function triggers the generation of internal rowIndex_
+      // __host__ 
+      RowIndex_t const * rowIndex() { // non-const member function triggers the generation of internal rowIndex_
           if (nullptr == rowIndex_) {
               // try to construct the rowIndex list
               auto const nnz = nNonzeros();

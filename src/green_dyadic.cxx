@@ -36,7 +36,7 @@ namespace green_dyadic {
 #else // NO_UNIT_TESTS
 
 
-  inline status_t test_Hermite_polynomials_1D(int const echo=0, double const sigma=16) {
+  status_t test_Hermite_polynomials_1D(int const echo=0, double const sigma=16) {
       int constexpr Lmax = 7;
       double H1D[Lmax + 1][3][4]; // 1D-Hermite polynomials times Gaussian decay function for 3 directions and grid points
       float  h1D[Lmax + 1][3][4]; // H1D in single precision
@@ -118,7 +118,7 @@ namespace green_dyadic {
 
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  inline status_t test_SHOprj_and_SHOadd(int const echo=0, int8_t const lmax=6) {
+  status_t test_SHOprj_and_SHOadd(int const echo=0, int8_t const lmax=6) {
       // check if drivers compile and the normalization of the lowest (up to 64) SHO functions
       auto const sigma = control::get("green_dyadic.test.sigma", 1.);
       auto const hg    = control::get("green_dyadic.test.grid.spacing", 0.25);
@@ -256,7 +256,7 @@ namespace green_dyadic {
       return 0;
   } // test_SHOprj_and_SHOadd
 
-  inline status_t test_SHOprj_and_SHOadd(int const echo=0) {
+  status_t test_SHOprj_and_SHOadd(int const echo=0) {
       status_t stat(0);
       int const more = control::get("green_dyadic.test.more", 1.); // use 0...7
       if (more & 0x1) stat += test_SHOprj_and_SHOadd<float ,1,1>(echo); // real
@@ -270,7 +270,7 @@ namespace green_dyadic {
 
 
   template <int R1C2=2, int Noco=1>
-  inline status_t test_SHOprj_right(int const echo=0, int8_t const lmax=5) {
+  status_t test_SHOprj_right(int const echo=0, int8_t const lmax=5) {
       if (echo > 0) std::printf("\n# %s<R1C2=%d,Noco=%d>\n", __func__, R1C2, Noco);
       uint32_t constexpr nAtoms = 2, nrhs = 1; // two atoms, atom#0 at origin, atom#1 at space diagonal of cube
       auto const nsho = sho_tools::nSHO(int(lmax));
@@ -303,7 +303,7 @@ namespace green_dyadic {
       return 0;
   } // test_SHOprj_right
 
-  inline status_t test_SHOprj_right(int const echo=0) {
+  status_t test_SHOprj_right(int const echo=0) {
       status_t stat(0);
       int const more = control::get("green_dyadic.test.right", 1.); // use 0...7
       if (more & 0x1) stat += test_SHOprj_right<1,1>(echo); // real
