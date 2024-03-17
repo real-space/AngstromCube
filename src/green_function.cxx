@@ -19,6 +19,7 @@
 #include "global_coordinates.hxx" // ::get
 #include "green_input.hxx" // ::load_Hamitonian
 
+#include "action_plan.hxx" // ::atom_t
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "progress_report.hxx" // ProgressReport
@@ -333,7 +334,7 @@ namespace green_function {
       if (echo > 3) std::printf("# replicate %s atom images, %ld images total\n", str(iimage), nimages);
 
       std::vector<uint32_t> AtomImageStarts(nAtomImages + 1, 0); // probably larger than needed, should call resize(nai + 1) later
-      std::vector<green_action::atom_t> atom_data(nAtomImages);
+      std::vector<action_plan::atom_t> atom_data(nAtomImages);
       std::vector<int8_t> atom_numax(nAtomCopies, -1); // -1: atom does not contribute
 
       simple_stats::Stats<> nc_stats;

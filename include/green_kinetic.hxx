@@ -448,7 +448,7 @@ namespace green_kinetic {
 
 
 
-
+#if 0
     class kinetic_plan_t {
     public:
 
@@ -537,7 +537,7 @@ namespace green_kinetic {
         } // multiply (kinetic energy operator)
 
     }; // class kinetic_plan_t
-
+#endif // 0
 
     status_t all_tests(int const echo=0); // declaration only
 

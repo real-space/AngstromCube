@@ -106,6 +106,7 @@ set(a43_sources ${a43_atom_sources}
     green_function.cxx
     green_input.cxx
     green_kinetic.cxx
+    green_dyadic.cxx
     green_parallel.cxx
     green_tests.cxx
     iterative_poisson.cxx
@@ -200,6 +201,7 @@ if(HAS_CUDA)
     set(green_sources ${green_sources}
         green_experiments.cu
         green_function.cu
+        green_dyadic.cu
         green_kinetic.cu
         green_tests.cu
         green_memory.cu
@@ -208,6 +210,7 @@ else(HAS_CUDA)
     set(green_sources ${green_sources}
         green_experiments.cxx
         green_function.cxx
+        green_dyadic.cxx
         green_kinetic.cxx
         green_tests.cxx
         green_memory.cxx

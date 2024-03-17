@@ -35,5 +35,8 @@
         free_memory(rowCubePos);
         free_memory(grid_spacing_trunc);
         free_memory(phase);
+        green_debug_printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
+//             std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
+
     } // destructor
 

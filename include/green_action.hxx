@@ -49,6 +49,7 @@
 
 namespace green_action {
 
+#if 0
   struct atom_t {
       double pos[3]; // position
       double sigma; // Gaussian spread
@@ -60,6 +61,7 @@ namespace green_action {
       int8_t numax; // SHO basis size
       int16_t copies[3]; // periodic copy shifts
   }; // atom_t 56 Byte, only used in CPU parts
+#endif // 0
 
 #if 0
   // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
@@ -70,97 +72,6 @@ namespace green_action {
       int8_t lmax; // SHO basis size >= -1
   }; // atom_image_t 32 Byte
 #endif
-
-#if 0
-  struct plan_t {
-
-      // members needed for the usage with tfQMRgpu
-
-      // for the inner products and axpy/xpay
-      std::vector<uint16_t> colindx; // [nnzbX], must be a std::vector since nnzb is derived from colindx.size()
-      memWindow_t colindxwin; // column indices in GPU memory
-
-      // for the matrix-submatrix addition/subtraction Y -= B:
-      std::vector<uint32_t> subset; // [nnzbB], list of inzbX-indices at which B is also non-zero
-      memWindow_t subsetwin; // subset indices in GPU memory
-      memWindow_t matBwin; // data of the right hand side operator B
-
-      // memory positions
-      memWindow_t matXwin; // solution vector in GPU memory
-      memWindow_t vec3win; // random number vector in GPU memory
-
-      uint32_t nRows = 0; // number of block rows in the Green function
-      uint32_t nCols = 0; // number of block columns, max 65,536 columns
-      std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transferred to the GPU
-
-      // for memory management:
-      size_t gpu_mem = 0; // device memory requirement in Byte (can this be tracked?)
-
-      // stats:
-      float residuum_reached    = 3e38;
-      float flops_performed     = 0.f;
-      float flops_performed_all = 0.f;
-      int   iterations_needed   = -99;
-
-      // =====================================================================================
-      // additional members to define the ultra-sparse PAW Hamiltonian action
-
-      int echo = 9;
-
-      std::vector<int64_t> global_target_indices; // [nRows]
-      std::vector<int64_t> global_source_indices; // [nCols]
-      double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
-      float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
-      float V_confinement   = 1; // potential prefactor
-      std::complex<double> E_param; // energy parameter
-
-      green_kinetic::kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
-
-      uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
-      uint32_t* rowindx  = nullptr; // [nnzb] // allows different parallelization strategies
-      int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
-      int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
-      float   (*rowCubePos)[3+1]    = nullptr; // [nRows][3+1] internal coordinates in float, could be int16_t for most applications
-      float   (*colCubePos)[3+1]    = nullptr; // [nCols][3+1] internal coordinates in float, could be int16_t for most applications
-      int16_t (*target_minus_source)[3+1] = nullptr; // [nnzb][3+1] coordinate differences
-      double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
-      // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
-      int32_t*  veff_index          = nullptr; // [nnzb] indirection list, values -1 for non-existent indices
-
-      double *grid_spacing_trunc = nullptr; // [3]
-      double (*phase)[2][2]      = nullptr; // [3]
-
-      bool noncollinear_spin = false;
-
-      dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
-
-      plan_t() {
-          green_debug_printf("# default constructor for %s\n", __func__);
-          // please see construct_Green_function in green_function.hxx for the construction of the plan_t
-      } // constructor
-
-      ~plan_t() {
-          green_debug_printf("# destruct %s\n", __func__);
-          free_memory(RowStart);
-          free_memory(rowindx);
-          free_memory(source_coords);
-          free_memory(target_coords);
-          free_memory(target_minus_source);
-          for (int mag = 0; mag < 4*(nullptr != Veff); ++mag) {
-              free_memory(Veff[mag]);
-          } // mag
-          free_memory(Veff);
-          free_memory(veff_index);
-          free_memory(colCubePos);
-          free_memory(rowCubePos);
-          free_memory(grid_spacing_trunc);
-          free_memory(phase);
-      } // destructor
-
-  }; // plan_t
-#endif // 0
-
-
 
 
   template <typename floating_point_t=float, int R1C2=2, int Noco=1, int n64=64>
@@ -287,11 +198,7 @@ namespace green_action {
           { action_t<double,2,2> action(&plan); }
           if (echo > 5) std::printf("# Hint: to test action_t::multiply, please envoke --test green_function\n");
       } // destruct plan
-      if (echo > 6) {
-          std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
-//        std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __func__, sizeof(atom_image_t));
-          std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
-      } // echo
+      if (echo > 6) std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
       return 0;
   } // test_construction_and_destruction
 
