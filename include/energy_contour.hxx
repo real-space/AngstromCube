@@ -7,6 +7,7 @@
 #include "action_plan.hxx" // action_plan_t
 #include "real_space.hxx" // ::grid_t
 #include "data_list.hxx" // data_list<T>
+#include "green_solver.hxx" // green_solver_t
 
 namespace energy_contour {
 
@@ -23,6 +24,7 @@ namespace energy_contour {
 
     public: // members TODO: go private
         action_plan_t *plan_ = nullptr;
+        green_solver_t solver_;
         green_parallel::RequestList_t atom_req_;
 
     public: // methods

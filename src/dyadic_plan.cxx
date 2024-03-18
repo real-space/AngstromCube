@@ -17,7 +17,7 @@
     } // empty and default constructor
 
     dyadic_plan_t::~dyadic_plan_t() { // destructor
-#ifdef DEBUG
+#ifdef    DEBUG
         std::printf("# destruct %s\n", __func__);
 #endif // DEBUG
         free_memory(AtomImageIndex);

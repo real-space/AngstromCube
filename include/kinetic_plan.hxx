@@ -17,6 +17,7 @@
 
 namespace kinetic_plan {
 
+#if 1
     status_t finite_difference_plan(
           green_sparse::sparse_t<int32_t> & sparse // result
         , int16_t & FD_range // side result
@@ -30,7 +31,8 @@ namespace kinetic_plan {
         , unsigned const nrhs=1 // number of right hand sides
         , int const echo=0 // log level
     );
-    
+#endif // 0
+
     double set_phase(
           double phase[2][2]
         , double const phase_angle=0
@@ -55,7 +57,7 @@ namespace kinetic_plan {
         static int constexpr nhalo = 4; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
 
         kinetic_plan_t() {} // default constructor
-#if 0
+#if 1
         kinetic_plan_t(
             int16_t & FD_range // side result
           , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
@@ -69,7 +71,8 @@ namespace kinetic_plan {
           , double const grid_spacing=1 // grid spacing in derivative direction
           , int const echo=0 // log level
       );
-#endif // does not work because the copy assignment operator of sparse is deleted
+#endif // cannot be used because the copy assignment operator of green_sparse::sparse_t is deleted
+
       ~kinetic_plan_t(); // destructor
 
       void set(
@@ -87,16 +90,6 @@ namespace kinetic_plan {
         int16_t FD_range_ = 8; // 4 or 8
         int32_t const ** lists_ = nullptr; // in device memory
         int derivative_direction_ = -1; // derivative direction
-
-    public:
-
-        // template <typename real_t, int R1C2=2, int Noco=1>
-        // size_t multiply(
-        //       real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
-        //     , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
-        //     , double   const phase[2][2]=nullptr // complex Bloch phase factors
-        //     , int      const echo=0
-        // ) const;
 
     }; // class kinetic_plan_t
 

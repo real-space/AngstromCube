@@ -43,6 +43,7 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	green_memory.o \
 	green_input.o \
 	green_potential.o \
+  green_solver.o \
 	green_tests.o \
 	green_main.o )
 

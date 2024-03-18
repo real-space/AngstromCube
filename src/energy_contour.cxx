@@ -18,6 +18,7 @@
 #include "data_list.hxx" // data_list<T>
 #include "recorded_warnings.hxx" // warn
 #include "inline_math.hxx" // set, add_product
+#include "green_solver.hxx" // green_solver_t
 
 namespace energy_contour {
 
@@ -31,17 +32,10 @@ namespace energy_contour {
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(),
                             xyzZinso, echo);
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
+
+        solver_ = green_solver_t(plan_, echo);
     } // constructor
 
-    template <typename real_t>
-    status_t solve(
-          double rho[] // result density [plan.nCols][4*4*4]
-        , action_plan_t const & plan
-        , int const echo
-    ) {
-        if (echo > 0) std::printf("# solve ...\n");
-        return 0;
-    } // solve
 
     status_t Integrator::integrate(
           double rho_888[] // resulting density in [nblocks][8*8*8] data layout
@@ -97,7 +91,7 @@ namespace energy_contour {
                 stat += green_function::update_phases(plan, kpoint, echo, Noco);
 
                 view2D<double> rho_Ek(nblocks, 4*4*4, 1.0);
-                stat += solve<float>(rho_Ek[0], *plan_, echo);
+                stat += solver_.solve(rho_Ek[0], echo);
 
                 add_product(rho_E[0], nblocks*size_t(4*4*4), rho_Ek[0], kpoint_weight); // accumulate density
             } // ikpoint

@@ -836,11 +836,13 @@ namespace green_experiments {
           int const bits = control::get("green_experiments.eigen.floating.point.bits", 64.);
           int const bits_r1c2_noco = bits*100 + r1c2*10 + Noco;
           switch (bits_r1c2_noco) {
+#ifndef   HAS_TFQMRGPU
               case 3211: return eigensolver<float ,1,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-              case 3221: return eigensolver<float ,2,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-              case 3222: return eigensolver<float ,2,2>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
               case 6411: return eigensolver<double,1,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+#endif // HAS_TFQMRGPU
+              case 3221: return eigensolver<float ,2,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
               case 6421: return eigensolver<double,2,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 3222: return eigensolver<float ,2,2>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
               case 6422: return eigensolver<double,2,2>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
               default: error("no such case %s%d with Noco=%d", (1 == r1c2)?"real":"complex", bits, Noco);
           } // fp32 or fp64

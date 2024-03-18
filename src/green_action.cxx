@@ -57,7 +57,8 @@
 #include "control.hxx" // ::get
 #include "load_balancer.hxx" // ::get
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
-//int8_t constexpr Isolated_Boundary = 0, Periodic_Boundary = 1;
+#include "display_units.h" // GByte, _GByte
+
 
 #ifdef    HAS_BITMAP_EXPORT
   #include "bitmap.hxx" // ::write_bmp_file
@@ -78,8 +79,6 @@ namespace green_action {
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
-
-  double const GByte = 1e-9; char const *const _GByte = "GByte";
 
   template <typename real_t, int R1C2=2, int Noco=1>
   void test_action(action_plan_t & p, int const iterations=1, int const echo=9) {
@@ -235,10 +234,12 @@ namespace green_action {
   inline status_t test_construction_and_destruction(int const echo=0) {
       {   action_plan_t plan;
           if (echo > 4) std::printf("# %s for action_t\n", __func__);
+#ifndef   HAS_TFQMRGPU
           { action_t<float ,1,1> action(&plan); }
+          { action_t<double,1,1> action(&plan); }
+#endif // HAS_TFQMRGPU
           { action_t<float ,2,1> action(&plan); }
           { action_t<float ,2,2> action(&plan); }
-          { action_t<double,1,1> action(&plan); }
           { action_t<double,2,1> action(&plan); }
           { action_t<double,2,2> action(&plan); }
           if (echo > 5) std::printf("# Hint: to test action_t::multiply, please envoke --test green_function\n");

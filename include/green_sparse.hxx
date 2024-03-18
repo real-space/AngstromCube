@@ -11,7 +11,6 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "print_tools.hxx" // printf_vector
 #include "green_memory.hxx" // get_memory, free_memory
-// #include "green_cuda.hxx" // __host__, __device__
 #include "simple_stats.hxx" // ::Stats<>
 
 // #define DEBUG
@@ -117,13 +116,14 @@ namespace green_sparse {
 //        green_sparse_debug_printf("# sparse_t.colIndex(%p)= ", (void*)colIndex()); printf_vector(" %d", colIndex(), nNonzeros());
           return *this;
       } // move assignment
+      // always use std::move() to assign a sparse_t
 
 #ifdef __NVCC__
-      __host__ __device__
+      __host__ __device__ // the following member function is also called on GPUs
 #endif
       RowIndex_t const * rowStart() const { return rowStart_; };
 #ifdef __NVCC__
-      __host__ __device__
+      __host__ __device__ // the following member function is also called on GPUs
 #endif
       ColIndex_t const * colIndex() const { return colIndex_; };
       RowIndex_t            nRows() const { return nRows_; }
@@ -155,7 +155,6 @@ namespace green_sparse {
 
 #endif // 0
 
-      // __host__ 
       bool is_in(RowIndex_t const iRow, ColIndex_t const jCol, RowIndex_t *index=nullptr) const {
           if (invalid_row_index_(iRow)) return false;
           if (nullptr == rowStart_ || nullptr == colIndex_) return false;
@@ -169,7 +168,7 @@ namespace green_sparse {
           return false;
       } // is_in
 
-      // __host__ 
+      // needed?
       RowIndex_t const * rowIndex() { // non-const member function triggers the generation of internal rowIndex_
           if (nullptr == rowIndex_) {
               // try to construct the rowIndex list

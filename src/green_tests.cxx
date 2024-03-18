@@ -17,6 +17,7 @@
   #include "green_kinetic.hxx"      // ::all_tests
   #include "green_memory.hxx"       // ::all_tests
   #include "green_potential.hxx"    // ::all_tests
+  #include "green_solver.hxx"       // ::all_tests
 #endif // not NO_UNIT_TESTS
 
 #include <cstdio> // std::printf
@@ -49,6 +50,7 @@ namespace green_tests {
           add_module_test(green_dyadic);
           add_module_test(green_potential);
           add_module_test(green_action);
+          add_module_test(green_solver);
           add_module_test(green_experiments);
 
 #undef    add_module_test

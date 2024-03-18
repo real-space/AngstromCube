@@ -121,6 +121,7 @@ set(a43_sources ${a43_atom_sources}
     kinetic_plan.cxx
     action_plan.cxx
     green_memory.cxx
+    green_solver.cxx
     plane_wave.cxx
     poisson_solver.cxx
     potential_generator.cxx
@@ -210,6 +211,7 @@ if(HAS_CUDA)
         green_kinetic.cu
         green_memory.cu
         green_potential.cu
+        green_solver.cu
         green_tests.cu
     )
 else(HAS_CUDA)
@@ -220,6 +222,7 @@ else(HAS_CUDA)
         green_kinetic.cxx
         green_memory.cxx
         green_potential.cxx
+        green_solver.cxx
         green_tests.cxx
 )
 endif(HAS_CUDA)

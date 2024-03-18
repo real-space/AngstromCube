@@ -1,12 +1,11 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-#include <cstdint>    // int64_t, int32_t, uint32_t, int16_t, uint16_t, int8_t, uint8_t
-#include <vector>     // std::vector<T>
-#include <complex>    // std::complex
+#include <cstdint> // uint32_t, int8_t
+#include <vector>  // std::vector<T>
+#include <complex> // std::complex<real_t>
 
 #include "status.hxx" // status_t
-// #include "green_action.hxx" // ::plan_t
 #include "action_plan.hxx" // action_plan_t
 #include "green_parallel.hxx" // ::RequestList_t
 #include "data_view.hxx" // view3D<T>
@@ -21,19 +20,13 @@
 
 namespace green_function {
 
-//     char const boundary_condition_name[][16] = {"isolated", "periodic", "vacuum"};
-//     char const boundary_condition_shortname[][8] = {"iso", "peri", "vacu"};
-
     status_t construct_Green_function(
           action_plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
         , int8_t const boundary_condition[3] // boundary conditions
         , double const hg[3] // grid spacings
-  //    , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
         , std::vector<double> const & xyzZinso // [natoms*8]
-  //    , std::vector<std::vector<double>> const & AtomMatrices // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
         , int const echo=0 // verbosity
-     // , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
         , int const Noco=2 // 1:collinear spins, 2:Non-collinear
     ); // declaration only
 

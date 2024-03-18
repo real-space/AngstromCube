@@ -109,7 +109,17 @@ public: // TODo: check which members could be private
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
 public:
-    action_plan_t(); // default constructor
+    action_plan_t(int const echo=0); // default constructor
+
+    action_plan_t(
+        uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
+      , int8_t const bc[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
+      , double const hg[3] // grid spacings
+      , std::vector<double> const & xyzZinso // [natoms*8]
+      , int const echo // =0 // log-level
+      , int const Noco // =2
+    ); // declaration only
+
     ~action_plan_t(); // destructor
 
 }; // action_plan_t

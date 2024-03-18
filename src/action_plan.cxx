@@ -7,6 +7,7 @@
 #include "action_plan.hxx"
 
 #include "green_memory.hxx" // free_memory
+#include "green_function.hxx" // ::construct_Green_function
 
 #ifdef    DEBUG
   #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
@@ -14,9 +15,21 @@
   #define green_debug_printf(...)
 #endif // DEBUG
 
-    action_plan_t::action_plan_t() { // constructor 
-        green_debug_printf("# default constructor for %s\n", __func__);
+    action_plan_t::action_plan_t(int const echo) { // constructor 
+        if (echo > 0) std::printf("# default constructor for %s\n", __func__);
         // please see construct_Green_function in green_function.hxx for the construction of the plan_t
+    } // constructor
+
+    action_plan_t::action_plan_t(
+        uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
+      , int8_t const bc[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
+      , double const hg[3] // grid spacings
+      , std::vector<double> const & xyzZinso // [natoms*8]
+      , int const echo // =0 // log-level
+      , int const Noco // =2
+    ) {
+        if (echo > 0) std::printf("# constructor for %s --> green_function::construct_Green_function\n", __func__);
+        green_function::construct_Green_function(*this, ng, bc, hg, xyzZinso, echo, Noco);
     } // constructor
 
     action_plan_t::~action_plan_t() { // destructor
@@ -36,7 +49,4 @@
         free_memory(grid_spacing_trunc);
         free_memory(phase);
         green_debug_printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
-//             std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
-
     } // destructor
-

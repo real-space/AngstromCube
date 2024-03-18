@@ -5,7 +5,7 @@
 #include <cassert>    // assert
 #include <cmath>      // std::sqrt, ::cbrt
 #include <algorithm>  // std::max, ::min
-#include <utility>    // std::swap
+#include <utility>    // std::swap, ::move
 #include <vector>     // std::vector<T>
 #include <complex>    // std::complex
 
@@ -17,7 +17,6 @@
 #include "display_units.h" // eV, _eV, Ang, _Ang, GByte, _GByte
 #include "print_tools.hxx" // printf_vector
 #include "global_coordinates.hxx" // ::get
-#include "green_input.hxx" // ::load_Hamitonian
 
 #include "action_plan.hxx" // ::atom_t
 #include "kinetic_plan.hxx" // ::set_phase
@@ -710,11 +709,8 @@ namespace green_function {
       , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
       , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
       , double const hg[3] // grid spacings
-//    , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
-//    , std::vector<std::vector<double>> const & AtomMatrices // atomic hamiltonian and overlap matrix, [natoms][2*nsho^2]
       , int const echo // =0 // log-level
-//    , std::complex<double> const *energy_parameter // =nullptr // E in G = (H - E*S)^{-1}
       , int const Noco // =2
   ) {
       if (echo > 0) std::printf("\n#\n# %s(%s)\n#\n\n", __func__, str(ng, 1, ", "));
@@ -1298,6 +1294,7 @@ namespace green_function {
                   char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
 
                   // create lists for the finite-difference derivatives
+#if 1
                   auto const new_stat = kinetic_plan::finite_difference_plan(p.kinetic[dd].sparse_, kinetic_nFD_dd // results
                       , dd
                       , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
@@ -1309,8 +1306,19 @@ namespace green_function {
                   if (0 == new_stat) {
                       p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
                       p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
-                  } else error("failed to create new kinetic_plan_t in %c-direction", 'x' + dd);   
-
+                  } else error("failed to create new kinetic_plan_t in %c-direction", 'x' + dd);
+#else
+                  p.kinetic[dd] = std::move(kinetic_plan_t(kinetic_nFD_dd // results
+                      , dd
+                      , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
+                      , num_target_coords
+                      , p.RowStart, p.colindx.data()
+                      , iRow_of_coords
+                      , sparsity_pattern.data()
+                      , nrhs, echo));
+                  p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
+                  p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
+#endif
               } // dd derivate direction
           } // scope: set up kinetic plans
 
