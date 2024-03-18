@@ -20,6 +20,7 @@
 #include "green_input.hxx" // ::load_Hamitonian
 
 #include "action_plan.hxx" // ::atom_t
+#include "kinetic_plan.hxx" // ::set_phase
 #include "kinetic_plan.hxx" // kinetic_plan_t
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
@@ -48,10 +49,10 @@
 
 #endif // NO_UNIT_TESTS
 
-#include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
-#include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
-#include "green_potential.hxx" // ::exchange
-#include "green_dyadic.hxx" // ::dyadic_plan_t
+// #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
+// #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
+// #include "green_dyadic.hxx" // ::dyadic_plan_t
+
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 #include "load_balancer.hxx" // ::get
@@ -625,7 +626,7 @@ namespace green_function {
       , int const Noco // =1
   ) {
       assert(p.phase && "phase[3][2][2] must already be allocated in device memory");
-      green_kinetic::set_phase(p.phase, k_point, echo); // neutral (Gamma-point) phase factors
+      kinetic_plan::set_phase(p.phase, k_point, echo); // neutral (Gamma-point) phase factors
 
       std::complex<double> phase[3][2]; // for each direction: forward and backward phase
       for (int d = 0; d < 3; ++d) {
@@ -1366,7 +1367,7 @@ namespace green_function {
           set(p.grid_spacing_trunc, 3, h); // customized grid spacings used for the construction of the truncation sphere
 
           p.phase = get_memory<double[2][2]>(3, echo, "phase");
-          green_kinetic::set_phase(p.phase, nullptr, echo); // init with Gamma point
+          kinetic_plan::set_phase(p.phase, nullptr, echo); // init with Gamma point
 
       } // scope
 

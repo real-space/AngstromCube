@@ -30,6 +30,19 @@ namespace kinetic_plan {
         , unsigned const nrhs=1 // number of right hand sides
         , int const echo=0 // log level
     );
+    
+    double set_phase(
+          double phase[2][2]
+        , double const phase_angle=0
+        , char const direction='?'
+        , int const echo=0
+    ); // declaration only
+
+    void set_phase(
+          double phase[3][2][2]
+        , double const phase_angles[3]=nullptr
+        , int const echo=0
+    ); // declaration only
 
 } // namespace kinetic_plan
 

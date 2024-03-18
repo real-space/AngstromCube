@@ -397,11 +397,6 @@ namespace green_kinetic {
     } // multiply (kinetic energy operator)
 
 
-    void __host__ set_phase(
-          double phase[3][2][2]
-        , double const phase_angles[3]=nullptr
-        , int const echo=0
-    ); // declaration only
 
     // template <typename real_t, int R1C2=2, int Noco=1>
     // size_t multiply(

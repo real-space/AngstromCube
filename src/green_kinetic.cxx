@@ -13,6 +13,7 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory
 #include "green_sparse.hxx" // ::sparse_t<>
+#include "kinetic_plan.hxx" // ::set_phase
 #include "data_view.hxx" // view3D<T>
 #include "inline_math.hxx" // set
 #include "simple_stats.hxx" // ::Stats<>
@@ -210,68 +211,6 @@ namespace green_kinetic {
     } // finite_difference_plan
 #endif // 0
 
-    double __host__ set_phase(double phase[2][2], double const phase_angle=0, char const direction='?', int const echo=0) {
-        // phase_angle in units of 2*pi
-        // phase_angle ==     0.00 --> phase = 1
-        // phase_angle == +/- 0.25 --> phase = +/-i
-        // phase_angle == +/- 0.50 --> phase = -1
-        // phase_angle == +/- 0.75 --> phase = -/+i
-        assert(std::abs(phase_angle) < 0.503); // 181 degrees are accepted for test purposes
-
-
-        double const arg = 2*constants::pi*phase_angle;
-        double cs = std::cos(arg), sn = std::sin(arg);
-
-        // purify the values for multiples of 15 degrees
-        int const phase24 = phase_angle*24;
-        char const *corrected = "";
-        if (phase_angle*24 == phase24) { // exactly on the grid of 15 degree steps
-            int const phase4 = (phase24 + 120) /  6;
-            int const phase2 = (phase24 + 120) % 12;
-            double const sh = std::sqrt(0.5), s3 = std::sqrt(3);
-            double const abs_values6[7] = {0.0, (s3 - 1)*sh*.5, .5, sh, s3*.5, (s3 + 1)*sh*.5, 1.0}; // == sin(i*15degrees)
-
-            int64_t const sin_values = 0x0123456543210; // look-up table with 12 entries (4bit wide each)
-            int const i6_sin = (sin_values >> (4*phase2)) & 0x7;
-            int const i6_cos = 6 - i6_sin;
-//          std::printf("angle= %g degrees = %d * 15 degrees, ph4=%d ph2=%d i6_cos=%i i6_sin=%i\n", phase_angle*360, phase24, phase4, phase2, i6_cos, i6_sin);
-
-            int const sgn_sin = 1 - ( phase4      & 0x2), // {1, 1, -1, -1}[phase4 % 4]
-                      sgn_cos = 1 - ((phase4 + 1) & 0x2); // {1, -1, -1, 1}[phase4 % 4]
-            sn = sgn_sin * abs_values6[i6_sin];
-            cs = sgn_cos * abs_values6[i6_cos];
-            corrected = " corrected";
-        }
-        double dev{0};
-// #ifdef    DEBUG
-        if ('\0' != *corrected) {
-            if (std::abs(cs - std::cos(arg)) > 2.8e-16) error("cosine for phase_angle= %g degrees deviates after purification, cos= %g expected %g", phase_angle*360, cs, std::cos(arg));
-            if (std::abs(sn - std::sin(arg)) > 2.8e-16) error(  "sine for phase_angle= %g degrees deviates after purification, sin= %g expected %g", phase_angle*360, sn, std::sin(arg));
-            dev = std::max(std::abs(cs - std::cos(arg)), std::abs(sn - std::sin(arg)));
-        }
-// #endif // DEBUG
-
-        int constexpr Re=0, Im=1, Left=0, Right=1;
-        phase[Left][Re] = cs;
-        phase[Left][Im] = sn;
-        if (echo > 9) std::printf("# %s angle in %c-direction is %g degree, (%g, %g)%s\n",
-                              __func__, direction, phase_angle*360,  cs, sn, corrected);
-        phase[Right][Re] =  cs;
-        phase[Right][Im] = -sn; // right phase factor is conjugate of the left
-
-        return dev;
-    } // set_phase
-
-    void __host__ set_phase(
-          double phase[3][2][2]
-        , double const phase_angles[3] // =nullptr
-        , int const echo // =0
-    ) {
-        for (int dd = 0; dd < 3; ++dd) {
-            set_phase(phase[dd], phase_angles ? phase_angles[dd] : 0, 'x' + dd, echo);
-        } // dd
-    } // set_phase
-
 
 
 
@@ -387,7 +326,7 @@ namespace green_kinetic {
                 if (echo > 7) { std::printf("# periodic indices: "); printf_vector(" %d", indx, nhalo + nnzb + nhalo); }
                 double const phase_angle[] = {(2 == R1C2) ? .25 : .5, (2 == R1C2) ? -1/3. : -.5, .5}; // in units of 2*pi
                 // if we use real numbers only, phase_angle must be half integer, i.e. 0.0:Gamma or 0.5:X-point
-                set_phase(phase, phase_angle, echo/2);
+                kinetic_plan::set_phase(phase, phase_angle, echo/2);
 
                 kvec = 2*constants::pi*(0 + phase_angle[dd])/(n1D_all*hgrid[dd]); // wave vector in units of inverse grid points
                 auto const Ek = 0.5*pow2(kvec); // kinetic energy in Hartree units
@@ -482,7 +421,7 @@ namespace green_kinetic {
   status_t test_set_phase(int const echo=0) {
       double phase[2][2], maxdev{0};
       for (int iangle = -180; iangle <= 180; iangle += 5) {
-          auto const dev = set_phase(phase, iangle/360., 't', echo);
+          auto const dev = kinetic_plan::set_phase(phase, iangle/360., 't', echo);
           maxdev = std::max(maxdev, dev);
       } // iangle
       return (maxdev > 3e-16);

@@ -1,6 +1,8 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+#include <vector> // std::vector<T>
+
 #include "status.hxx" // status_t
 #include "simple_stats.hxx" // ::Stats<>
 
