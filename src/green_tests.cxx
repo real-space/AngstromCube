@@ -10,14 +10,13 @@
 
 #ifndef NO_UNIT_TESTS
   #include "simple_timer.hxx" // SimpleTimer
-  // the following header files contain CUDA code
-  #include "green_sparse.hxx"       // ::all_tests
-  #include "green_kinetic.hxx"      // ::all_tests
-  #include "green_potential.hxx"    // ::all_tests
-  #include "green_dyadic.hxx"       // ::all_tests
+  // the following header files contain CUDA code. When CUDA is available, the sources are soft linked to .cu files
   #include "green_action.hxx"       // ::all_tests
-  #include "green_function.hxx"     // ::all_tests
+  #include "green_dyadic.hxx"       // ::all_tests
   #include "green_experiments.hxx"  // ::all_tests
+  #include "green_kinetic.hxx"      // ::all_tests
+  #include "green_memory.hxx"       // ::all_tests
+  #include "green_potential.hxx"    // ::all_tests
 #endif // not NO_UNIT_TESTS
 
 #include <cstdio> // std::printf
@@ -45,12 +44,11 @@ namespace green_tests {
 
 #include "add_module_test.h" // macro definition of add_module_test(MODULE_NAME), needs SimpleTimer, std::printf
 
-          add_module_test(green_sparse);
+          add_module_test(green_memory);
           add_module_test(green_kinetic);
-          add_module_test(green_potential);
           add_module_test(green_dyadic);
+          add_module_test(green_potential);
           add_module_test(green_action);
-          add_module_test(green_function);
           add_module_test(green_experiments);
 
 #undef    add_module_test

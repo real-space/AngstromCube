@@ -39,8 +39,10 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	green_parallel.o \
 	green_dyadic.o \
 	green_kinetic.o \
+	green_action.o \
 	green_memory.o \
 	green_input.o \
+	green_potential.o \
 	green_tests.o \
 	green_main.o )
 

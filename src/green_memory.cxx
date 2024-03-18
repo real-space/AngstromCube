@@ -3,7 +3,11 @@
 #include <cstdlib> // std::size_t
 #include <cstdio> // std::printf
 
+#include "green_memory.hxx"
+
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_cuda.hxx" // cuCheck, cudaMallocManaged, cudaFree
+
 
 namespace green_memory {
 
@@ -37,5 +41,26 @@ namespace green_memory {
             std::printf("# green_memory::free %s got nullptr\n", name);
         }
     } // free
+
+
+#ifdef  NO_UNIT_TESTS
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
+
+    status_t test_green_memory(int const echo=0) {
+        status_t stat(0);
+        auto const nrand = (std::rand()*365)/RAND_MAX;
+        auto const mem0 = green_memory::malloc(nrand, "mem0");
+        green_memory::free(mem0, "mem0");
+        return stat;
+    } // test_green_memory
+
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        stat += test_green_memory(echo);
+        return stat;
+    } // all_tests
+
+#endif // NO_UNIT_TESTS
 
 } // namespace green_memory

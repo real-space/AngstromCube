@@ -5,10 +5,14 @@
     #include <cstdio> // std::printf
 #endif // DEBUG
 
+#include "status.hxx" // status_t
+
 namespace green_memory {
 
     void* malloc(size_t const size_in_Bytes, char const *const name=""); // declaration only
     void free(void* ptr, char const *const name=""); // declaration only
+
+    status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_memory
 

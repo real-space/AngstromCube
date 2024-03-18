@@ -33,6 +33,7 @@
   #include "fourier_poisson.hxx" // ::all_tests
   #include "solid_harmonics.hxx" // ::all_tests
   #include "bisection_tools.hxx" // ::all_tests
+  #include "green_function.hxx" // ::all_tests
   #include "geometry_input.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
   #include "poisson_solver.hxx" // ::all_tests
@@ -52,6 +53,7 @@
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
+  #include "green_sparse.hxx" // ::all_tests
   #include "omp_parallel.hxx" // ::all_tests
   #include "angular_grid.hxx" // ::all_tests
   #include "pseudo_tools.hxx" // ::all_tests
@@ -83,9 +85,7 @@
   #include "green_tests.hxx" // ::add_tests
 //   #include "green_experiments.hxx" // ::all_tests
 //   #include "green_potential.hxx" // ::all_tests
-//   #include "green_function.hxx" // ::all_tests
 //   #include "green_kinetic.hxx" // ::all_tests
-//   #include "green_sparse.hxx" // ::all_tests
 //   #include "green_dyadic.hxx" // ::all_tests
 //   #include "green_action.hxx" // ::all_tests
 
@@ -218,15 +218,15 @@
           add_module_test(grid_operators);
           add_module_test(green_input);
           add_module_test(green_parallel);
-//  The 7 green_* modules below are grouped for faster development
-//           add_module_test(green_sparse);
-//           add_module_test(green_function);
+          add_module_test(green_sparse);
+          add_module_test(green_function);
+//  The green_* modules below are grouped for faster development
 //           add_module_test(green_kinetic);
 //           add_module_test(green_potential);
 //           add_module_test(green_dyadic);
 //           add_module_test(green_action);
 //           add_module_test(green_experiments);
-//  The 7 green_* modules above are grouped for faster development
+//  The green_* modules above are grouped for faster development
           green_tests::add_tests(results, input_name, show, all, echo);
 
           start_a_chapter("eigensolver"); // *****************************************

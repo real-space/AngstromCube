@@ -56,14 +56,16 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	sho_potential.o \
 	structure_solver.o \
 	green_parallel.o \
+	green_action.o \
+	green_input.o \
 	green_kinetic.o \
 	green_dyadic.o \
-	green_function.o \
 	green_experiments.o \
+	green_function.o \
 	green_memory.o \
-	green_input.o \
-	load_balancer.o \
+	green_potential.o \
 	green_tests.o \
+	load_balancer.o \
 	a43_main.o)
 
 .PHONY: clean allclean

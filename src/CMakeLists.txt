@@ -108,6 +108,8 @@ set(a43_sources ${a43_atom_sources}
     green_kinetic.cxx
     green_dyadic.cxx
     green_parallel.cxx
+    green_potential.cxx
+    green_action.cxx
     green_tests.cxx
     iterative_poisson.cxx
     load_balancer.cxx
@@ -158,6 +160,7 @@ set(green_headers
     ../include/green_input.hxx
     ../include/green_kinetic.hxx
     ../include/green_parallel.hxx
+    ../include/green_sparse.hxx
     ../include/dyadic_plan.hxx
     ../include/green_tests.hxx
     ../include/hermite_polynomial.hxx
@@ -177,17 +180,18 @@ set(green_headers
 )
 
 set(green_sources
+    action_plan.cxx
     chemical_symbol.cxx
     control.cxx
     display_units.cxx
+    dyadic_plan.cxx
     energy_contour.cxx
     exchange_correlation.cxx
     geometry_input.cxx
+    green_function.cxx
     green_input.cxx
-    dyadic_plan.cxx
-    kinetic_plan.cxx
-    action_plan.cxx
     green_parallel.cxx
+    kinetic_plan.cxx
     load_balancer.cxx
     mpi_parallel.cxx
     parallel_poisson.cxx
@@ -196,25 +200,28 @@ set(green_sources
     sho_unitary.cxx
 )
 
+
 if(HAS_CUDA)
     enable_language(CUDA)
     set(green_sources ${green_sources}
-        green_experiments.cu
-        green_function.cu
+        green_action.cu
         green_dyadic.cu
+        green_experiments.cu
         green_kinetic.cu
-        green_tests.cu
         green_memory.cu
+        green_potential.cu
+        green_tests.cu
     )
 else(HAS_CUDA)
     set(green_sources ${green_sources}
-        green_experiments.cxx
-        green_function.cxx
+        green_action.cxx
         green_dyadic.cxx
+        green_experiments.cxx
         green_kinetic.cxx
-        green_tests.cxx
         green_memory.cxx
-    )
+        green_potential.cxx
+        green_tests.cxx
+)
 endif(HAS_CUDA)
 
 set(green_sources ${green_sources}

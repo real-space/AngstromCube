@@ -183,31 +183,6 @@ namespace green_action {
   }; // class action_t
 
 
-#ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
-
-  inline status_t test_construction_and_destruction(int const echo=0) {
-      {   action_plan_t plan;
-          if (echo > 4) std::printf("# %s for action_t\n", __func__);
-          { action_t<float ,1,1> action(&plan); }
-          { action_t<float ,2,1> action(&plan); }
-          { action_t<float ,2,2> action(&plan); }
-          { action_t<double,1,1> action(&plan); }
-          { action_t<double,2,1> action(&plan); }
-          { action_t<double,2,2> action(&plan); }
-          if (echo > 5) std::printf("# Hint: to test action_t::multiply, please envoke --test green_function\n");
-      } // destruct plan
-      if (echo > 6) std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
-      return 0;
-  } // test_construction_and_destruction
-
-  inline status_t all_tests(int const echo=0) {
-      status_t stat(0);
-      stat += test_construction_and_destruction(echo);
-      return stat;
-  } // all_tests
-
-#endif // NO_UNIT_TESTS
+    status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_action

@@ -20,10 +20,12 @@
   #include "chemical_symbol.hxx" // ::all_tests
   #include "energy_contour.hxx" // ::all_tests
   #include "green_parallel.hxx" // ::all_tests
+  #include "green_function.hxx" // ::all_tests
   #include "geometry_input.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
+  #include "green_sparse.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "json_reading.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
@@ -90,6 +92,8 @@
           add_module_test(load_balancer);
           add_module_test(mpi_parallel);
           add_module_test(green_parallel);
+          add_module_test(green_function);
+          add_module_test(green_sparse);
           add_module_test(energy_contour);
           add_module_test(parallel_poisson);
           add_module_test(parallel_potential);
