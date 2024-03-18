@@ -14,7 +14,7 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
 #include "simple_stats.hxx" // ::Stats<>
-#include "display_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang, GByte, _GByte
 #include "print_tools.hxx" // printf_vector
 #include "global_coordinates.hxx" // ::get
 #include "green_input.hxx" // ::load_Hamitonian
@@ -25,39 +25,17 @@
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "progress_report.hxx" // ProgressReport
+#include "boundary_condition.hxx" // Isolated_Boundary, Periodic_B*, Vacuum_B*, Repeated_B*, Wrap_B*
 
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 
 #ifndef NO_UNIT_TESTS
   #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
-
-  #ifdef HAS_TFQMRGPU
-
-//  #define DEBUG
-//  #define DEBUGGPU
-    #ifdef HAS_NO_CUDA
-        #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
-        #define devPtr const __restrict__
-    #else  // HAS_NO_CUDA
-        #include <cuda.h>
-    #endif // HAS_NO_CUDA
-    #include "tfQMRgpu/include/tfqmrgpu.h" // ...
-    #include "tfQMRgpu/include/tfqmrgpu.hxx" // ...
-    #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
-
-  #endif // HAS_TFQMRGPU
-
 #endif // NO_UNIT_TESTS
-
-// #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
-// #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
-// #include "green_dyadic.hxx" // ::dyadic_plan_t
 
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 #include "load_balancer.hxx" // ::get
-#include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
-//int8_t constexpr Isolated_Boundary = 0, Periodic_Boundary = 1;
 
 #ifdef    HAS_BITMAP_EXPORT
   #include "bitmap.hxx" // ::write_bmp_file
@@ -75,8 +53,6 @@
 
 namespace green_function {
 
-  double const GByte = 1e-9; char const *const _GByte = "GByte";
-
   int constexpr X=0, Y=1, Z=2;
 
   template <typename number_t>
@@ -88,28 +64,6 @@ namespace green_function {
   } // vec2str
   #define str(...) vec2str(__VA_ARGS__).c_str()
 
-  // ToDo: move special BCs into headers
-  int8_t constexpr Vacuum_Boundary = 2;
-  // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
-  // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
-  // even if this exceeds the isolated boundary at which potential values stop to be defined.
-  // The potential is continued as zero beyond the isolated boundary but the tail of the Green function is allowed to fade there.
-  // k-points are not relevant.
-
-  // We could think of a useful new boundary condition
-  int8_t constexpr Repeat_Boundary = 3;
-  // The repeat boundary allows to compute with small unit cells but with realistic truncation radii.
-  // The local potential is repeated periodically (like Periodic_Boundary).
-  // Sources are only relevant inside the small unit cell but again, the Green function tail exceeds the cell boundaries
-  // and extends up to the truncation radius.
-  // For the dyadic potential, we may not reduce over periodic atom images but create copies of the atoms.
-  // k-points are not relevant.
-
-  // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
-  int8_t constexpr Wrap_Boundary = 5;
-  // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
-  // Nevertheless, it cannot be treated like Isolated_Boundary since target block coordinates may need to be wrapped.
-  // However, it could be viewed as Repeat_Boundary...
 
 
     // ToDo: make it a method of action_plan_t
@@ -275,7 +229,6 @@ namespace green_function {
       , double const cell[3]
       , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
-//    , std::vector<std::vector<double>> const & AtomMatrices // [natoms][2*nSHO(numax[ia])]
       , std::vector<double> const & xyzZinso // [natoms*8]
       , uint32_t const nRowsGreen
       , uint32_t const nrhs
@@ -1442,6 +1395,16 @@ namespace green_function {
 
 
 
+
+
+
+
+
+
+
+
+
+
 #ifdef  NO_UNIT_TESTS
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -1454,7 +1417,7 @@ namespace green_function {
 
     status_t all_tests(int const echo) {
         status_t stat(0);
-        bool const already_initialized = mpi_parallel::init();
+        auto const already_initialized = mpi_parallel::init();
         stat += test_Green_function(echo);
         if (!already_initialized) mpi_parallel::finalize();
         return stat;

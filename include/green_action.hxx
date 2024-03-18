@@ -50,6 +50,7 @@
 namespace green_action {
 
 #if 0
+  // move to action_plan.hxx
   struct atom_t {
       double pos[3]; // position
       double sigma; // Gaussian spread
@@ -88,11 +89,12 @@ namespace green_action {
       // Arithmetic according to complex<real_t>
       // with real_t either float or double
       //
-      action_t(action_plan_t *plan)
-        : p(plan), apc(nullptr), aac(nullptr)
+
+      action_t(action_plan_t *plan, int const echo=0)
+        : p(plan), apc(nullptr) // , aac(nullptr)
       {
           assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
-          green_debug_printf("# construct %s\n", __func__);
+          if (echo > 0) std::printf("# construct %s\n", __func__);
           char* buffer{nullptr};
           take_memory(buffer);
           assert(nullptr != plan);
@@ -177,7 +179,7 @@ namespace green_action {
 
       // temporary device memory needed for dyadic operations
       real_t (*apc)[R1C2][Noco][LM]; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
-      real_t (*aac)[R1C2][Noco][LM]; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
+//    real_t (*aac)[R1C2][Noco][LM]; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
       // (we could live with a single copy if the application of the atom-centered matrices is in-place)
 
   }; // class action_t

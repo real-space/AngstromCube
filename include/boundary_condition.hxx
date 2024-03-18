@@ -19,6 +19,29 @@
   int8_t constexpr Mirrored_Boundary = -1;
   int8_t constexpr Invalid_Boundary  = -2;
 
+  int8_t constexpr Vacuum_Boundary = 2;
+  // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
+  // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
+  // even if this exceeds the isolated boundary at which potential values stop to be defined.
+  // The potential is continued as zero beyond the isolated boundary but the tail of the Green function is allowed to fade there.
+  // k-points are not relevant.
+
+  // We could think of a useful new boundary condition
+  int8_t constexpr Repeat_Boundary = 3;
+  // The repeat boundary allows to compute with small unit cells but with realistic truncation radii.
+  // The local potential is repeated periodically (like Periodic_Boundary).
+  // Sources are only relevant inside the small unit cell but again, the Green function tail exceeds the cell boundaries
+  // and extends up to the truncation radius.
+  // For the dyadic potential, we may not reduce over periodic atom images but create copies of the atoms.
+  // k-points are not relevant.
+
+  // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
+  int8_t constexpr Wrap_Boundary = 5;
+  // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
+  // Nevertheless, it cannot be treated like Isolated_Boundary since target block coordinates may need to be wrapped.
+  // However, it could be viewed as Repeat_Boundary...
+
+
 namespace boundary_condition {
 
   inline int periodic_images( // returns the number of images found
