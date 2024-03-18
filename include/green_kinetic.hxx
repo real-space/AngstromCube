@@ -22,7 +22,7 @@
 
 namespace green_kinetic {
 
-    int constexpr nhalo = 4; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
+    int constexpr nhalo = kinetic_plan_t::nhalo;
 
     int32_t constexpr CUBE_EXISTS = 1;
     int32_t constexpr CUBE_IS_ZERO = 0;
@@ -385,13 +385,13 @@ namespace green_kinetic {
         , double   const phase[2][2]=nullptr // complex Bloch phase factors
         , int      const echo=0
     ) {
-        int  const stride = 1 << (2*plan.derivative_direction); // 4^dd: X:1, Y:4, Z:16
-        auto const nFD = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, plan.lists, plan.prefactor, plan.sparse.nRows(), stride, phase, plan.FD_range);
-        size_t const nops = plan.nnzb*nFD*R1C2*pow2(Noco*64ul)*2ul;
+        int  const stride = 1 << (2*plan.derivative_direction_); // 4^dd: X:1, Y:4, Z:16
+        auto const nFD = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, plan.lists_, plan.prefactor_, plan.sparse_.nRows(), stride, phase, plan.FD_range_);
+        size_t const nops = plan.nnzb_*nFD*R1C2*pow2(Noco*64ul)*2ul;
         if (echo > 7) {
             char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
             std::printf("# green_kinetic::%s dd=\'%c\', nFD= %d, number= %d, %.3f M%clop\n",
-                __func__, 'x' + plan.derivative_direction, nFD, plan.   sparse.nRows(), nops*1e-6, fF);
+                __func__, 'x' + plan.derivative_direction_, nFD, plan.sparse_.nRows(), nops*1e-6, fF);
         } // echo
         return nops; // return the total number of floating point operations performed
     } // multiply (kinetic energy operator)
@@ -433,6 +433,7 @@ namespace green_kinetic {
     // } // multiply (kinetic energy operator)
 
 
+#if 0
     status_t finite_difference_plan(
             green_sparse::sparse_t<int32_t> & sparse // result: derivation list of block indices
           , int16_t & FD_range // side result: recommended finite-difference range
@@ -446,7 +447,7 @@ namespace green_kinetic {
           , unsigned const nrhs=1 // number of right hand sides
           , int const echo=0 // log level
     ); // declaration only
-
+#endif
 
 
 #if 0

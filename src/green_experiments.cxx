@@ -491,8 +491,8 @@ namespace green_experiments {
           for (int dd = 0; dd < 3; ++dd) {
             //   pS.kinetic_plan[dd] = green_sparse::sparse_t<int32_t>(); // standard constructor
             //   if (echo > 0) std::printf("# %s modified pS.kinetic_plan[%c].nRows() = %d\n", __func__, 'x'+dd, pS.kinetic_plan[dd].nRows());
-              pS.kinetic[dd].sparse = green_sparse::sparse_t<int32_t>(); // standard constructor, empty
-              if (echo > 0) std::printf("# %s modified pS.kinetic_plan[%c].nRows() = %d\n", __func__, 'x'+dd, pS.kinetic[dd].sparse.nRows());
+              pS.kinetic[dd].sparse_ = green_sparse::sparse_t<int32_t>(); // standard constructor, empty
+              if (echo > 0) std::printf("# %s modified pS.kinetic_plan[%c].nRows() = %d\n", __func__, 'x'+dd, pS.kinetic[dd].sparse_.nRows());
               pS.kinetic[dd].set(dd, 1.0, 0, echo);
           } // dd
           for (int mag = 0; mag < 4; ++mag) {

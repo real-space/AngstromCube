@@ -20,6 +20,7 @@
 #include "green_input.hxx" // ::load_Hamitonian
 
 #include "action_plan.hxx" // ::atom_t
+#include "kinetic_plan.hxx" // kinetic_plan_t
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "progress_report.hxx" // ProgressReport
@@ -86,7 +87,7 @@ namespace green_function {
   } // vec2str
   #define str(...) vec2str(__VA_ARGS__).c_str()
 
-
+  // ToDo: move special BCs into headers
   int8_t constexpr Vacuum_Boundary = 2;
   // The vacuum boundary condition is an addition to Isolated_Boundary and Periodic_Boundary from boundary_condition.hxx
   // Vacuum_Boundary means that the Green function extends from its source coordinate up to the truncation radius
@@ -110,6 +111,7 @@ namespace green_function {
   // However, it could be viewed as Repeat_Boundary...
 
 
+    // ToDo: make it a method of action_plan_t
     status_t update_energy_parameter(
           action_plan_t & plan
         , std::complex<double> E_param
@@ -185,6 +187,7 @@ namespace green_function {
 
 
 
+    // ToDo: make it a method of action_plan_t
     status_t update_potential(
           action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
@@ -1341,7 +1344,7 @@ namespace green_function {
                   char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
 
                   // create lists for the finite-difference derivatives
-                  auto const new_stat = green_kinetic::finite_difference_plan(p.kinetic[dd].sparse, kinetic_nFD_dd // results
+                  auto const new_stat = kinetic_plan::finite_difference_plan(p.kinetic[dd].sparse_, kinetic_nFD_dd // results
                       , dd
                       , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
                       , num_target_coords
@@ -1351,7 +1354,7 @@ namespace green_function {
                       , nrhs, echo);
                   if (0 == new_stat) {
                       p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
-                      p.kinetic[dd].FD_range = control::get(keyword_dd, double(kinetic_nFD_dd));
+                      p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
                   } else error("failed to create new kinetic_plan_t in %c-direction", 'x' + dd);   
 
               } // dd derivate direction
