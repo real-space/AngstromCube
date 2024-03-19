@@ -44,6 +44,32 @@
         free_memory(sparse_SHOprj);
     } // constructor
 
+
+    dyadic_plan_t & dyadic_plan_t::operator=(dyadic_plan_t && rhs) { // move assignment
+        std::swap(this->AtomStarts          , rhs.AtomStarts          );
+        std::swap(this->AtomLmax            , rhs.AtomLmax            );
+        std::swap(this->AtomMatrices        , rhs.AtomMatrices        );
+        std::swap(this->nAtoms              , rhs.nAtoms              );
+        std::swap(this->AtomImageIndex      , rhs.AtomImageIndex      );
+        std::swap(this->AtomImageStarts     , rhs.AtomImageStarts     );
+        std::swap(this->AtomImagePos        , rhs.AtomImagePos        );
+        std::swap(this->AtomImageLmax       , rhs.AtomImageLmax       );
+        std::swap(this->AtomImagePhase      , rhs.AtomImagePhase      );
+        std::swap(this->AtomImageShift      , rhs.AtomImageShift      );
+        std::swap(this->nAtomImages         , rhs.nAtomImages         );
+        std::swap(this->grid_spacing        , rhs.grid_spacing        );
+        std::swap(this->nrhs                , rhs.nrhs                );
+        std::swap(this->sparse_SHOprj       , rhs.sparse_SHOprj       );
+        std::swap(this->sparse_SHOadd       , rhs.sparse_SHOadd       );
+        std::swap(this->sparse_SHOsum       , rhs.sparse_SHOsum       );
+        std::swap(this->global_atom_ids     , rhs.global_atom_ids     );
+        std::swap(this->global_atom_index   , rhs.global_atom_index   );
+        std::swap(this->original_atom_index , rhs.original_atom_index );
+        this->update_flop_counts();
+        return *this;
+    } // move assignment
+
+
     status_t dyadic_plan_t::consistency_check() const {
         status_t stat(0);
         assert(nAtomImages >= nAtoms);
