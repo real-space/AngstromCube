@@ -195,7 +195,7 @@ namespace kinetic_plan {
                             length_stats.min(), length_stats.mean(), length_stats.dev(), length_stats.max());
         list.resize(n_lists);
 
-        sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo);
+        sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo); // this assignment uses the move assignment
 
         if (boundary_is_periodic && FD_range > 4) {
             warn("boundary is periodic in %c-direction, reduce finite-difference range to 4", 'x' + dd);
@@ -304,7 +304,7 @@ namespace kinetic_plan {
               if (echo > 2) std::printf("# failed to set up finite_difference_plan for %c-direction, status= %i\n", 'x' + dd, int(stat));
           }
       } // constructor
-#endif // does not work because the copy assignment operator of sparse is deleted
+#endif // needs a copy assignment operator in sparse_t to work
 
       void kinetic_plan_t::set(
             int const dd

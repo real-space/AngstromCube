@@ -109,9 +109,10 @@ public: // TODo: check which members could be private
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
 public:
+
     action_plan_t(int const echo=0); // default constructor
 
-    action_plan_t(
+    action_plan_t( // constructor
         uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
       , int8_t const bc[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
       , double const hg[3] // grid spacings

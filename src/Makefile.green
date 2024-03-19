@@ -37,6 +37,7 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	green_experiments.o \
 	green_function.o \
 	green_parallel.o \
+	green_sparse.o \
 	green_dyadic.o \
 	green_kinetic.o \
 	green_action.o \

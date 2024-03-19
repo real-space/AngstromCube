@@ -8,8 +8,9 @@
 #include "green_solver.hxx"
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+#include "action_plan.hxx" // action_plan_t
 #include "control.hxx" // ::get
-#include "green_action.hxx" // action_t<real_t,r1c2,noco>
+#include "green_action.hxx" // action_t<real_t,R1C2,Noco>
 #include "recorded_warnings.hxx" // error
 
 #define   DEBUG
@@ -70,7 +71,7 @@ typedef green_action::action_t<double,2,2> Act822;
         , int const echo // =0 // verbosity
     ) {
         if (echo > 0) std::printf("# solve with action_key_= %i\n", int(action_key_));
-        assert(action_ && "action_ pointer must be valid");
+        assert(action_ && "action_ pointer must be valid for call to solve");
         switch (action_key_) {
         case 32021: return ((Act421*)action_)->solve(rho, echo); // complex
         case 32022: return ((Act422*)action_)->solve(rho, echo); // complex non-collinear

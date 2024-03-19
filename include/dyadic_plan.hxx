@@ -3,6 +3,7 @@
 
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <vector> // std::vector<T>
+#include <utility> // std::swap
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_sparse.hxx" // ::sparse_t<>
@@ -42,8 +43,56 @@ public: // members
 
 public: // methods
 
-    dyadic_plan_t(int const echo=0); // constructor
+    dyadic_plan_t(int const echo=0); // default constructor
+
+    dyadic_plan_t( // constructor
+        double const cell[3]
+      , int8_t const boundary_condition[3]
+      , double const grid_spacing[3]
+      , std::vector<double> const & xyzZinso // [natoms*8]
+      , uint32_t const nRowsGreen
+      , uint32_t const nrhs
+      , uint32_t const *const rowStartGreen
+      , uint16_t const *const colIndexGreen
+      , int16_t const (*internal_target_coords)[3+1]
+      , int32_t const global_internal_offset[3]
+      , double const r_block_circumscribing_sphere
+      , double const max_distance_from_center
+      , double const r_trunc
+      , int const echo=0 // verbosity
+      , int const Noco=1 // 1:collinear spins, 2:Non-collinear
+    ); // declaration only
+
     ~dyadic_plan_t(); // destructor
+
+    dyadic_plan_t(dyadic_plan_t const &) = delete; // { std::cout << "A(A&)\n"; } // copy constructor
+    dyadic_plan_t(dyadic_plan_t &&) = delete; // { std::cout << "A(A&&)\n"; } // move constructor
+    dyadic_plan_t & operator=(dyadic_plan_t const &) = delete; // { std::cout << "A=(A&)\n"; return *this; } // copy assignment
+//  dyadic_plan_t & operator=(dyadic_plan_t &&) = delete; // { std::cout << "A=(A&&)\n"; return *this; } // move assignment
+    dyadic_plan_t & operator=(dyadic_plan_t && rhs) { // move assignment
+        std::swap(this->AtomStarts          , rhs.AtomStarts);
+        std::swap(this->AtomLmax            , rhs.AtomLmax);
+        std::swap(this->AtomMatrices        , rhs.AtomMatrices);
+        std::swap(this->nAtoms              , rhs.nAtoms);
+        std::swap(this->AtomImageIndex      , rhs.AtomImageIndex);
+        std::swap(this->AtomImageStarts     , rhs.AtomImageStarts);
+        std::swap(this->AtomImagePos        , rhs.AtomImagePos);
+        std::swap(this->AtomImageLmax       , rhs.AtomImageLmax);
+        std::swap(this->AtomImagePhase      , rhs.AtomImagePhase);
+        std::swap(this->AtomImageShift      , rhs.AtomImageShift);
+        std::swap(this->nAtomImages         , rhs.nAtomImages);
+        std::swap(this->grid_spacing        , rhs.grid_spacing);
+        std::swap(this->nrhs                , rhs.nrhs);
+        std::swap(this->sparse_SHOprj       , rhs.sparse_SHOprj);
+        std::swap(this->sparse_SHOadd       , rhs.sparse_SHOadd);
+        std::swap(this->sparse_SHOsum       , rhs.sparse_SHOsum);
+        std::swap(this->global_atom_ids     , rhs.global_atom_ids);
+        std::swap(this->global_atom_index   , rhs.global_atom_index);
+        std::swap(this->original_atom_index , rhs.original_atom_index);
+        this->update_flop_counts();
+        return *this;
+    } // move assignment
+
 
     status_t consistency_check() const; // declaration only
 

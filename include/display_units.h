@@ -13,7 +13,8 @@ extern "C" {
   extern double Ang; extern char const *_Ang; // dynamic length unit
 #endif
   double constexpr Kelvin = 315773.244215; char const _Kelvin[] = "Kelvin";
-  double const GByte = 1e-9; char const *const _GByte = "GByte";
+  double constexpr GByte = 1e-9; char const *const _GByte = "GByte";
+  double constexpr MByte = 1e-6; char const *const _MByte = "MByte";
 
 #ifdef __cplusplus
 } // extern "C"

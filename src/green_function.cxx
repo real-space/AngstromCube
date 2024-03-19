@@ -222,7 +222,8 @@ namespace green_function {
   static FILE* svg;
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
-
+#if 0
+  // moved into constructor of dyadic_plan_t
   status_t construct_dyadic_plan(
         dyadic_plan_t & p
       , double const cell[3]
@@ -569,7 +570,7 @@ namespace green_function {
 
       return 0;
   } // construct_dyadic_plan
-
+#endif // 0 
 
   status_t update_phases(
         action_plan_t & p
@@ -1294,7 +1295,7 @@ namespace green_function {
                   char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
 
                   // create lists for the finite-difference derivatives
-#if 1
+#if 0
                   auto const new_stat = kinetic_plan::finite_difference_plan(p.kinetic[dd].sparse_, kinetic_nFD_dd // results
                       , dd
                       , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
@@ -1354,12 +1355,20 @@ namespace green_function {
       } // scope
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
+#if 0
       auto const stat = green_function::construct_dyadic_plan(p.dyadic_plan
                             , cell, bc, hg, xyzZinso
                             , p.nRows, p.nCols, p.RowStart, p.colindx.data()
                             , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
                             , max_distance_from_center, r_trunc, echo, Noco);
       if (stat && echo > 0) std::printf("# construct_dyadic_plan returned status= %i\n", int(stat));
+#else
+      p.dyadic_plan = dyadic_plan_t(cell, bc, hg, xyzZinso
+                            , p.nRows, p.nCols, p.RowStart, p.colindx.data()
+                            , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
+                            , max_distance_from_center, r_trunc, echo, Noco);
+      status_t stat(0);
+#endif
 
       auto const nerr = p.dyadic_plan.consistency_check();
       if (nerr && echo > 0) std::printf("# dyadic_plan.consistency_check has %d errors\n", nerr);

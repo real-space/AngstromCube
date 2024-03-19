@@ -61,6 +61,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	green_kinetic.o \
 	green_dyadic.o \
 	green_experiments.o \
+	green_sparse.o \
 	green_solver.o \
 	green_function.o \
 	green_memory.o \

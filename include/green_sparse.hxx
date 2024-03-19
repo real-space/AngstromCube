@@ -7,23 +7,22 @@
 #include <algorithm> // std::max
 #include <vector> // std::vector<T>
 #include <type_traits> // std::is_signed
+#include <utility> // std::swap
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "print_tools.hxx" // printf_vector
 #include "green_memory.hxx" // get_memory, free_memory
 #include "simple_stats.hxx" // ::Stats<>
 
-// #define DEBUG
-
-#ifdef  DEBUG
-  #define green_sparse_debug_printf(...) std::printf(__VA_ARGS__)
-#else  // DEBUG
-  #define green_sparse_debug_printf(...)
-#endif // DEBUG
-
 namespace green_sparse {
 
-  double const MByte = 1e-6; char const *const _MByte = "MByte";
+// #ifdef    DEBUG
+    #define green_sparse_debug_printf(...) std::printf(__VA_ARGS__)
+    int constexpr echo_copy = 9;
+// #else  // DEBUG
+//     #define green_sparse_debug_printf(...)
+//     int constexpr echo_copy = 0;
+// #endif // DEBUG
 
   char const int_t_names[][10] = {"uint8_t", "uint16_t", "uint32_t", "uint64_t", "uint128_t"};
 
@@ -45,7 +44,7 @@ namespace green_sparse {
           green_sparse_debug_printf("# sparse_t default constructor\n");
       } // default constructor
 
-      sparse_t(
+      sparse_t( // constructor
             std::vector<std::vector<ColIndex_t>> const & list
           , bool const with_rowIndex=false  // construct rowIndex now(true) or on demand(false)
           , char const *matrix_name=nullptr // name for log and debug output
@@ -93,7 +92,7 @@ namespace green_sparse {
           } // echo
       } // constructor
 
-      ~sparse_t() {
+      ~sparse_t() { // destructor
           green_sparse_debug_printf("# sparse_t destructor\n");
           if (rowStart_) free_memory(rowStart_);
           if (colIndex_) free_memory(colIndex_);
@@ -101,22 +100,48 @@ namespace green_sparse {
           nRows_ = 0;
       } // destructor
 
-      sparse_t(sparse_t && rhs)                   = delete; // move constructor
-      sparse_t(sparse_t const & rhs)              = delete; // copy constructor
-      sparse_t & operator= (sparse_t       & rhs) = delete; // copy assignment operator
-      sparse_t & operator= (sparse_t const & rhs) = delete; // copy assignment operator
+   // sparse_t(sparse_t && rhs)                   = delete; // move constructor
+      sparse_t(sparse_t && rhs) {                           // move constructor
+          green_sparse_debug_printf("# sparse_t move constructor sparse_t<ColIndex_t=%s,RowIndex_t=%s>\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>());
+//        green_sparse_debug_printf("# sparse_t.colIndex(%p)= ", (void*)rhs.colIndex()); printf_vector(" %d", rhs.colIndex(), rhs.nNonzeros());
+          std::swap(this->rowStart_, rhs.rowStart_);
+          std::swap(this->colIndex_, rhs.colIndex_);
+          std::swap(this->rowIndex_, rhs.rowIndex_);
+          std::swap(this->nRows_   , rhs.nRows_   );
+//        green_sparse_debug_printf("# sparse_t.colIndex(%p)= ", (void*)colIndex()); printf_vector(" %d", colIndex(), nNonzeros());
+      } // move constructor
+      // always use std::move() to assign a sparse_t
 
-      sparse_t & operator= (sparse_t && rhs) {
+ //   sparse_t & operator= (sparse_t && rhs)      = delete; // move assignment operator
+      sparse_t & operator= (sparse_t && rhs) {              // move assignment operator
           green_sparse_debug_printf("# sparse_t move assignment sparse_t<ColIndex_t=%s,RowIndex_t=%s>\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>());
 //        green_sparse_debug_printf("# sparse_t.colIndex(%p)= ", (void*)rhs.colIndex()); printf_vector(" %d", rhs.colIndex(), rhs.nNonzeros());
-          rowStart_ = rhs.rowStart_; rhs.rowStart_ = nullptr;
-          colIndex_ = rhs.colIndex_; rhs.colIndex_ = nullptr;
-          rowIndex_ = rhs.rowIndex_; rhs.rowIndex_ = nullptr;
-          nRows_    = rhs.nRows_;    rhs.nRows_    = 0;
+          std::swap(this->rowStart_, rhs.rowStart_);
+          std::swap(this->colIndex_, rhs.colIndex_);
+          std::swap(this->rowIndex_, rhs.rowIndex_);
+          std::swap(this->nRows_   , rhs.nRows_   );
 //        green_sparse_debug_printf("# sparse_t.colIndex(%p)= ", (void*)colIndex()); printf_vector(" %d", colIndex(), nNonzeros());
           return *this;
-      } // move assignment
-      // always use std::move() to assign a sparse_t
+      } // move assignment operator
+
+      sparse_t(sparse_t const & rhs)              = delete; // copy constructor
+      sparse_t & operator= (sparse_t       & rhs) = delete; // copy assignment operator
+
+ //   sparse_t & operator= (sparse_t const & rhs) = delete; // copy assignment operator
+      sparse_t & operator= (sparse_t const & rhs) {         // copy assignment operator
+          green_sparse_debug_printf("# sparse_t copy assignment sparse_t<ColIndex_t=%s,RowIndex_t=%s>\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>());
+          int constexpr echo = echo_copy;
+          nRows_ = rhs.nRows();
+          auto const rowStart_nc = get_memory<RowIndex_t>(nRows_ + 1, echo, "rowStart_ (copy)");
+          set(rowStart_nc, nRows_ + 1, rhs.rowStart()); // deep copy
+          rowStart_ = rowStart_nc;
+          auto const nnz = size_t(rhs.nNonzeros());
+          auto const colIndex_nc = get_memory<ColIndex_t>(nnz, echo, "colIndex_ (copy)");
+          set(colIndex_nc, nnz, rhs.colIndex()); // deep copy
+          colIndex_ = colIndex_nc;
+          return *this;
+      } // copy assignment operator (deep copy)
+
 
 #ifdef __NVCC__
       __host__ __device__ // the following member function is also called on GPUs
@@ -186,44 +211,16 @@ namespace green_sparse {
       } // rowIndex
 
   private: // members
-      RowIndex_t const *rowStart_;
-      ColIndex_t const *colIndex_;
-      RowIndex_t const *rowIndex_; // optional, will be constructed on first demand
-      RowIndex_t nRows_;
+      RowIndex_t const *rowStart_ = nullptr;
+      ColIndex_t const *colIndex_ = nullptr;
+      RowIndex_t const *rowIndex_ = nullptr; // optional, will be constructed on first demand
+      RowIndex_t nRows_ = 0;
 
   }; // sparse_t
 
+  status_t all_tests(int const echo=0); // declaration only
 
-
-#ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
-
-  inline status_t test_sparse(int const echo=0, int const n=7) {
-      sparse_t<> s0; // test default constructor
-      sparse_t<int> sint; // test default constructor
-      sparse_t<int,int> sintint; // test default constructor
-      std::vector<std::vector<uint8_t>> list(n);
-      for (int i = 0; i < n; ++i) {
-          list[i].resize(i + 1); // lower triangular matrix
-          for (int j = 0; j <= i; ++j) list[i][j] = j;
-      } // i
-      sparse_t<uint8_t> s(list, false, "lowerTriangularMatrix", echo); // test constructor
-      if (echo > 3) std::printf("# %s nRows= %d, nNonzeros= %d\n", __func__, s.nRows(), s.nNonzeros());
-      if (echo > 6) std::printf("# %s last element = %d\n", __func__, int(s.colIndex()[s.nNonzeros() - 1]));
-      if (echo > 6) { std::printf("# rowIndex "); printf_vector(" %d", s.rowIndex(), s.nNonzeros()); }
-      if (echo > 3) std::printf("# sizeof(sparse_t) = %ld Byte\n", sizeof(sparse_t<>));
-      return 0;
-  } // test_sparse
-
-  inline status_t all_tests(int const echo=0) {
-      status_t stat(0);
-      stat += test_sparse(echo);
-      return stat;
-  } // all_tests
-
-#endif // NO_UNIT_TESTS
+#undef green_sparse_debug_printf
 
 } // namespace green_sparse
 
-#undef green_sparse_debug_printf
