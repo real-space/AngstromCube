@@ -9,7 +9,7 @@ if(HAS_RAPIDXML)
         GIT_TAG        v116  # version 1.16
     )
     FetchContent_MakeAvailable(rapidxml)
-    # after configuring headers for rapidXML are found in _deps/rapidxml-src
+    # after configuring headers for rapidXML are found in _deps/rapidxml-src/RapidXML
 endif(HAS_RAPIDXML)
 
 
@@ -35,4 +35,5 @@ if(HAS_TFQMRGPU)
         GIT_TAG        v0.9  # version 0.9
     )
     FetchContent_MakeAvailable(tfQMRgpu)
+    # after configuring headers for tfQMRgpu are found in _deps/tfQMRgpu-src
 endif(HAS_TFQMRGPU)

@@ -343,6 +343,7 @@ endif(HAS_RAPIDJSON)
 if(HAS_TFQMRGPU)
     # tfQMRgpu is a header-only library
     target_compile_definitions(green PUBLIC -DHAS_TFQMRGPU)
+    target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/tfqmrgpu-src/tfQMRgpu/include>)
 endif(HAS_TFQMRGPU)
 
 target_include_directories(liveatom PUBLIC
