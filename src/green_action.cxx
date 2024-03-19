@@ -31,19 +31,19 @@
 #ifndef NO_UNIT_TESTS
   #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
 
-  #ifdef HAS_TFQMRGPU
+  #ifdef    HAS_TFQMRGPU
 
 //  #define DEBUG
 //  #define DEBUGGPU
-    #ifdef HAS_NO_CUDA
-        #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
+    #ifdef    HAS_NO_CUDA
+        #include "tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
     #else  // HAS_NO_CUDA
         #include <cuda.h>
     #endif // HAS_NO_CUDA
-    #include "tfQMRgpu/include/tfqmrgpu.h" // ...
-    #include "tfQMRgpu/include/tfqmrgpu.hxx" // ...
-    #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
+    #include "tfqmrgpu.h" // ...
+    #include "tfqmrgpu.hxx" // ...
+    #include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
   #endif // HAS_TFQMRGPU
 

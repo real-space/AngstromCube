@@ -38,7 +38,7 @@
     inline cudaError_t cudaPeekAtLastError(void) { return 0; } // dummy
 #else  // HAS_TFQMRGPU
     #define gpuStream_t cudaStream_t
-    #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
+    #include "tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
 #endif // HAS_TFQMRGPU
 
   #define cuCheck(err) ;

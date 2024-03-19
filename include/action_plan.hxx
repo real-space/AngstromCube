@@ -8,9 +8,9 @@
 #include <complex> // std::complex<real_t>
 
 // ToDo: get rid of memWindow_t
-#ifdef HAS_TFQMRGPU
+#ifdef    HAS_TFQMRGPU
 
-    #include "tfQMRgpu/include/tfqmrgpu_memWindow.h" // memWindow_t
+    #include "tfqmrgpu_memWindow.h" // memWindow_t
 
 #else  // HAS_TFQMRGPU
 

@@ -97,7 +97,7 @@ FEAFLAGS += -DUSE_SIMPLE_RANGE_TRUNCATION
 
 ## use the tfQMRgpu library to invert the shifted Hamiltonian
 FEAFLAGS += -DHAS_TFQMRGPU
-INC += -I../../tfQMRgpu
+INC += -I../../tfQMRgpu/tfQMRgpu/include
 
 ERRFLAGS =
 # ERRFLAGS += -Werror
