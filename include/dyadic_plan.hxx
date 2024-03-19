@@ -1,6 +1,7 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+#include <cstdio> // FILE
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <vector> // std::vector<T>
 #include <utility> // std::swap
@@ -61,6 +62,7 @@ public: // methods
       , double const r_trunc
       , int const echo=0 // verbosity
       , int const Noco=1 // 1:collinear spins, 2:Non-collinear
+      , FILE* const svg=nullptr // for exporting Scalabe Vector Graphics
     ); // declaration only
 
     ~dyadic_plan_t(); // destructor
@@ -92,7 +94,6 @@ public: // methods
         this->update_flop_counts();
         return *this;
     } // move assignment
-
 
     status_t consistency_check() const; // declaration only
 

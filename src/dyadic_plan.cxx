@@ -1,6 +1,6 @@
 // This file is part of AngstromCube under MIT License
 
-#include <cstdio> // std::printf
+#include <cstdio> // std::printf, FILE, ::fprintf
 #include <cassert> // assert
 
 #define DEBUG
@@ -121,6 +121,7 @@
       , double const r_trunc
       , int const echo // =0 // verbosity
       , int const Noco // =1 // 1:collinear spins, 2:Non-collinear
+      , FILE* const svg // =nullptr // for exporting Scalabe Vector Graphics
   ) {
       SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
       if (echo > 0) std::printf("# construct %s\n", __func__);
@@ -287,7 +288,6 @@
                   AtomImageStarts[iai + 1] = AtomImageStarts[iai] + nc;
                   ++iai;
 
-#ifdef    GREEN_FUNCTION_SVG_EXPORT
                   if (nullptr != svg) { // these circles show the projection spheres of the atoms
                       std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"red\" />\n",
                                              atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y],
@@ -298,7 +298,6 @@
                       if (Z > 0) std::fprintf(svg, "  <text x=\"%g\" y=\"%g\" style=\"font-size: 3;\">%g</text>\n",
                                              atom_pos[X]/grid_spacing[X],  atom_pos[Y]/grid_spacing[Y], Z);
                   } // nullptr != svg
-#endif // GREEN_FUNCTION_SVG_EXPORT
 
               } else {
 //                if (echo > 15) std::printf("# image of atom #%i at %s %s does not contribute\n", atom_id, str(atom_pos, Ang), _Ang);
