@@ -10,11 +10,11 @@ option(HAS_MKL          "Using the Intel Math Kernel Library MKL"       ON )
 option(HAS_UNIT_TESTS   "All modules offer self-tests (recommended)"    ON )
 option(HAS_MPI          "Using the Message Passing Interface MPI"       ON )
 option(HAS_DEVEL        "Include experimental features"                 ON )
-option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     OFF)
 option(HAS_RAPIDXML     "Using the 3rd party XML parser RapidXML"       ON )
 option(HAS_RAPIDJSON    "Using the 3rd party JSON parser RapidJSON"     OFF) ### errors
-option(HAS_FFTW         "Using the Fast Fourier Transform FFTW"         OFF) ### does not work yet
+option(HAS_FFTW         "Using the Fast Fourier Transform FFTW"         ON ) ### does not work yet
 option(HAS_OPENMP       "Using OpenMP to accelerate a43"                ON )
+option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     ON )
 
 find_package(CUDA)
 if(CUDA_FOUND)
@@ -22,6 +22,16 @@ if(CUDA_FOUND)
 else(CUDA_FOUND)
     option(HAS_CUDA         "Using the CUDA programming model for GPUs"    OFF)
 endif(CUDA_FOUND)
+
+
+# list(APPEND CMAKE_MODULE_PATH ~/tfQMRgpu-install/lib64/cmake/tfQMRgpu)
+# set(tfQMRgpu_DIR ~/tfQMRgpu-install/lib64/cmake/tfQMRgpu)
+# find_package(tfQMRgpu)
+# if(tfQMRgpu_FOUND)
+#     option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     ON )
+# else(tfQMRgpu_FOUND)
+#     option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     OFF)
+# endif(tfQMRgpu_FOUND)
 
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 11)

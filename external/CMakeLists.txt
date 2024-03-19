@@ -26,3 +26,13 @@ if(HAS_RAPIDJSON)
 endif(HAS_RAPIDJSON)
 
 
+if(HAS_TFQMRGPU)
+    include(FetchContent)
+
+    FetchContent_Declare(
+        tfQMRgpu
+        GIT_REPOSITORY https://github.com/real-space/tfQMRgpu.git
+        GIT_TAG        v0.9  # version 0.9
+    )
+    FetchContent_MakeAvailable(tfQMRgpu)
+endif(HAS_TFQMRGPU)
