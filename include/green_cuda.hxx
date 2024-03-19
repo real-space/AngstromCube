@@ -39,6 +39,7 @@
 #else  // HAS_TFQMRGPU
     #define gpuStream_t cudaStream_t
     #include "tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
+    #define devPtr const __restrict__
 #endif // HAS_TFQMRGPU
 
   #define cuCheck(err) ;
