@@ -16,14 +16,14 @@
 #ifdef    HAS_TFQMRGPU
 
     #ifdef    HAS_NO_CUDA
-        #include "tfQMRgpu/include/tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
+        #include "tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
     #else  // HAS_NO_CUDA
         #include <cuda.h>
     #endif // HAS_NO_CUDA
-    #include "tfQMRgpu/include/tfqmrgpu_memWindow.h" // memWindow_t
-    #include "tfQMRgpu/include/tfqmrgpu_linalg.hxx" // ...
-    #include "tfQMRgpu/include/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
+    #include "tfqmrgpu_memWindow.h" // memWindow_t
+    #include "tfqmrgpu_linalg.hxx" // ...
+    #include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
 #endif // HAS_TFQMRGPU
 
