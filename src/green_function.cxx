@@ -348,6 +348,7 @@ namespace green_function {
         } // comm_size > 1
 
         if (echo > 5) std::printf("# total number of source blocks is %ld\n", global_source_indices.size());
+        assert(global_source_indices.size() <= 65536 && "column indices are uint16_t");
         return global_source_indices;
     } // get_right_hand_sides
 
@@ -563,22 +564,23 @@ namespace green_function {
                 if (echo > 1) std::printf("# truncation beyond %d %d %d blocks\n", itr[X], itr[Y], itr[Z]);
             }
             auto const product_target_blocks = size_t(num_target_coords[Z])*
-                                                size_t(num_target_coords[Y])*
-                                                size_t(num_target_coords[X]);
-            if (echo > 0) std::printf("# all targets within (%s) and (%s) --> %s = %.3f k\n",
-                str(min_target_coords), str(max_target_coords),
-                str(num_target_coords, 1, " x "), product_target_blocks*.001);
+                                               size_t(num_target_coords[Y])*
+                                               size_t(num_target_coords[X]);
+            if (echo > 0) std::printf("# all targets within (%s) and (%s) --> %s = %.3f k\n", str(min_target_coords),
+                                str(max_target_coords), str(num_target_coords, 1, " x "), product_target_blocks*.001);
             assert(product_target_blocks > 0);
             std::vector<std::vector<uint16_t>> column_indices(product_target_blocks);
 
             double const r2trunc        = pow2(rtrunc),
-                        r2trunc_plus   = pow2(rtrunc_plus);
+                         r2trunc_plus   = pow2(rtrunc_plus);
 #ifndef   USE_SIMPLE_RANGE_TRUNCATION
             double const r2trunc_minus  = pow2(rtrunc_minus),
-                        r2block_circum = pow2(r_block_circumscribing_sphere*3); // Maybe this can be reduced to *2
+                         r2block_circum = pow2(r_block_circumscribing_sphere*3); // Maybe this can be reduced to *2
 #endif // USE_SIMPLE_RANGE_TRUNCATION
 
             std::vector<int32_t> tag_diagonal(product_target_blocks, -1);
+            std::vector<int64_t> idx3_diagonal(nrhs, -1);
+
             assert(nrhs < (1ul << 16) && "the integer type of ColIndex is uint16_t!");
             std::vector<std::vector<bool>> sparsity_pattern(nrhs); // std::vector<bool> is a memory-saving bit-array
 
@@ -592,7 +594,6 @@ namespace green_function {
                 std::vector<uint32_t> hist(1 + max_nci, 0); // distribution of nci
                 std::vector<simple_stats::Stats<>> stats_d2(1 + max_nci);
                 size_t hit_single{0}, hit_multiple{0};
-                int64_t idx3_diagonal{-1};
 
                 int32_t b_first[3], b_last[3]; // box extent relative to source block
                 for (int d = 0; d < 3; ++d) {
@@ -640,12 +641,12 @@ namespace green_function {
                         for (int iz = -3; iz <= 3; iz += inc) { auto const d2z   = pow2((bz*4 + iz)*h[Z]);
                         for (int iy = -3; iy <= 3; iy += inc) { auto const d2yz  = pow2((by*4 + iy)*h[Y]) + d2z;
                         for (int ix = -3; ix <= 3; ix += inc) { auto const d2xyz = pow2((bx*4 + ix)*h[X]) + d2yz;
-    #if 0
+#if 0
                             if (0 == irhs && (d2xyz < r2trunc) && echo > 17) {
                                 std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n",
                                     __func__, bx,by,bz, ix,iy,iz, d2xyz, (d2xyz < r2trunc)?"in":"out");
                             }
-    #endif // 0
+#endif // 0
                             nci += (d2xyz < r2trunc); // add 1 if inside
                         }}} // ix iy iz
                         int const mci = far ? 8 : 27;
@@ -674,10 +675,10 @@ namespace green_function {
                             ++hit_single;
                         } // has not been hit yet
                         if (0 == bz && 0 == by && 0 == bx) {
-                            assert(-1 == idx3_diagonal);
+                            assert(-1 == idx3_diagonal[irhs]);
                             assert(-1 == tag_diagonal[idx3]);
                             tag_diagonal[idx3] = irhs;
-                            idx3_diagonal = idx3;
+                            idx3_diagonal[irhs] = idx3;
                         } // diagonal entry
 
                         if (nci < max_nci) { // partial hit
@@ -720,8 +721,8 @@ namespace green_function {
                     inout[2].add(hist[0]);        // outside
                     inout[3].add(total_checked);  // checked
                 } // echo
-                assert(idx3_diagonal > -1 && "difference vector (0,0,0) must be hit once");
-                assert(tag_diagonal[idx3_diagonal] == irhs && "diagonal inconsistent");
+                assert(idx3_diagonal[irhs] > -1 && "difference vector (0,0,0) must be hit once");
+                assert(tag_diagonal[idx3_diagonal[irhs]] == irhs && "diagonal inconsistent");
             } // irhs
 
             if (echo > 0) {
@@ -753,7 +754,7 @@ namespace green_function {
             } // echo
             assert(nall == product_target_blocks && "sanity check");
 
-            p.nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
+            p.nRows = product_target_blocks - hist[0]; // the target block entries with no RHS do not create a row
             if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
                                 "average %.1f per source block\n", nnzb*.001, nnzb/std::max(nrhs*1., 1.));
             if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n",
@@ -805,7 +806,7 @@ namespace green_function {
             p.colCubePos    = get_memory<float  [3+1]>(p.nCols, echo, "colCubePos"); // internal coordinates but in float
             p.target_minus_source = get_memory<int16_t[3+1]>(nnzb, echo, "target_minus_source");
 
-            for (unsigned iCol = 0; iCol < p.nCols; ++iCol) {
+            for (unsigned iCol{0}; iCol < p.nCols; ++iCol) {
                 for (int d = 0; d < 3; ++d) {
                     p.colCubePos[iCol][d] = global_source_coords(iCol,d) - global_internal_offset[d];
                 } // d
@@ -820,44 +821,46 @@ namespace green_function {
             { // scope: fill BSR tables
                 simple_stats::Stats<> st;
                 uint32_t iRow{0}; // init as 1st index
-                for (uint32_t z = 0; z < num_target_coords[Z]; ++z) { // serial
-                for (uint32_t y = 0; y < num_target_coords[Y]; ++y) { // serial
-                for (uint32_t x = 0; x < num_target_coords[X]; ++x) { // serial
+                for (uint32_t z{0}; z < num_target_coords[Z]; ++z) { // serial
+                for (uint32_t y{0}; y < num_target_coords[Y]; ++y) { // serial (could be parallel if we computed the prefix sum p.RowStart ahead)
+                for (uint32_t x{0}; x < num_target_coords[X]; ++x) { // serial
                     uint32_t const idx[] = {x, y, z};
                     auto const idx3 = index3D(num_target_coords, idx);
-                    assert(idx3 < product_target_blocks);
-
-                    auto const ncols = column_indices[idx3].size();
+                    auto const ncols = column_indices.at(idx3).size();
                     if (ncols > 0) {
-                        st.add(ncols);
-                        iRow_of_coords(idx[Z], idx[Y], idx[X]) = iRow; // set existing
+                        st.add(ncols); // statistics
+                        iRow_of_coords(idx[Z],idx[Y],idx[X]) = iRow; // set existing
+
+                        assert(iRow < p.nRows);
 
                         p.RowStart[iRow + 1] = p.RowStart[iRow] + ncols;
                         // copy the column indices
                         set(p.colindx.data() + p.RowStart[iRow], ncols, column_indices[idx3].data());
                         // copy the target block coordinates
                         int32_t global_target_coords[3];
-                        for (int d = 0; d < 3; ++d) {
+                        for (int d{0}; d < 3; ++d) {
                             global_target_coords[d] = idx[d] + min_target_coords[d];
                             auto const internal_target_coord = global_target_coords[d] - global_internal_offset[d];
                             p.target_coords[iRow][d] = internal_target_coord; assert(internal_target_coord == p.target_coords[iRow][d] && "safe assign");
                             p.rowCubePos[iRow][d]    = internal_target_coord; assert(internal_target_coord == p.rowCubePos[iRow][d]    && "safe assign");
                         } // d
                         p.target_coords[iRow][3] = 0; // not used
-                        p.rowCubePos[iRow][3] = 0.f; // not used
+                        p.rowCubePos[iRow][3] =    0; // not used
 
                         p.global_target_indices[iRow] = global_coordinates::get(global_target_coords);
                         // global_target_indices are needed to gather the local potential data from other MPI processes
 
                         { // scope: determine the diagonal entry (source == target)
                             auto const iCol = tag_diagonal[idx3];
-                            if (iCol > -1) {
-                                assert(iCol < (1ul << 16)); // number range of uint16_t
-                                for (int d = 0; d < 3; ++d) {
+                            if (iCol >= 0) {
+                                assert(idx3 == idx3_diagonal[iCol] && "sanity");
+                                assert(iCol < (1ul << 16)); // within number range of uint16_t
+                                for (int d{0}; d < 3; ++d) {
                                     // sanity check on internal coordinates
-                                    if (p.source_coords[iCol][d] != p.target_coords[iRow][d])
-                                        error("internal coordinates mismatch for RHS#%i at source(%s), target(%s) was tagged diagonal",
-                                                iCol, str(p.source_coords[iCol]), str(p.target_coords[iRow]));
+                                    if (p.source_coords[iCol][d] != p.target_coords[iRow][d]) {
+                                        error("internal %c-coordinate mismatch for RHS#%i at source(%s), target(%s) was tagged diagonal",
+                                                'x'+d, iCol, str(p.source_coords[iCol]), str(p.target_coords[iRow]));
+                                    }
                                     assert(p.source_coords[iCol][d] == p.target_coords[iRow][d]);
                                 } // d
                                 { // scope: search inz such that p.colindx[inz] == iCol
@@ -875,7 +878,7 @@ namespace green_function {
                         if (1) { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
                             int32_t mod[3];
                             bool potential_given{true};
-                            for (int d = 0; d < 3; ++d) {
+                            for (int d{0}; d < 3; ++d) {
                                 mod[d] = global_target_coords[d]; // global target coordinates may be negative
                                 if (Periodic_Boundary == bc[d] || Wrap_Boundary == bc[d] || Repeat_Boundary == bc[d]) {
                                     mod[d] = global_target_coords[d] % n_blocks[d];
@@ -903,12 +906,12 @@ namespace green_function {
                             } // d
                             p.target_minus_source[inz][3] = 0; // component #3 not used
                             p.rowindx[inz] = iRow;
-                            p.veff_index[inz] = veff_index;
+                            p.veff_index[inz] = veff_index; // we could also use veff_index[rowindx[inz]] but this would require one more indirection
                         } // inz
 
                         ++iRow; // count up the number of active rows
-                    } // n > 0
-                }}} // idx
+                    } // ncols > 0
+                }}} // x y z
                 assert(p.nRows == iRow && "counting 2nd time");
                 assert(nnzb == p.RowStart[p.nRows] && "sparse matrix consistency");
                 if (echo > 2) std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
@@ -917,16 +920,16 @@ namespace green_function {
 
             if (echo > 1) { // measure the difference in the number of target blocks of each RHS
                 std::vector<uint32_t> nt(nrhs, 0);
-                // traverse the BSR structure
-                for (uint32_t iRow = 0; iRow < p.nRows; ++iRow) {
+                // traverse the new BSR structure
+                for (uint32_t iRow{0}; iRow < p.nRows; ++iRow) {
                     for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
                         auto const iCol = p.colindx[inz];
-                        ++nt[iCol];
+                        ++nt.at(iCol);
                     } // inz
                 } // iRow
                 // analyze nt
                 simple_stats::Stats<> st;
-                for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
+                for (uint32_t irhs{0}; irhs < nrhs; ++irhs) {
                     st.add(nt[irhs]);
                 } // irhs
                 std::printf("# target blocks per source block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
@@ -990,7 +993,7 @@ namespace green_function {
 
         warn("potential has not been filled!", __LINE__);
 
-    #ifdef    GREEN_FUNCTION_SVG_EXPORT
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
         { // scope
             assert(nullptr == svg);
             svg = std::fopen("green_function.svg", "w");
@@ -1000,55 +1003,55 @@ namespace green_function {
                     min_target_coords[X]*4-20, min_target_coords[Y]*4-20, num_target_coords[X]*4+20, num_target_coords[Y]*4+20);
             } // nullptr != svg
         } // scope
-    #endif // GREEN_FUNCTION_SVG_EXPORT
+#endif // GREEN_FUNCTION_SVG_EXPORT
 
-    #if 0
+#if 0
         auto const stat = green_function::construct_dyadic_plan(p.dyadic_plan
                                 , cell, bc, hg, xyzZinso
                                 , p.nRows, p.nCols, p.RowStart, p.colindx.data()
                                 , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
                                 , max_distance_from_center, r_trunc, echo, Noco);
         if (stat && echo > 0) std::printf("# construct_dyadic_plan returned status= %i\n", int(stat));
-    #else
+#else
         p.dyadic_plan = dyadic_plan_t(cell, bc, hg, xyzZinso
                                 , p.nRows, p.nCols, p.RowStart, p.colindx.data()
                                 , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
                                 , max_distance_from_center, r_trunc, echo, Noco
-    #ifdef    GREEN_FUNCTION_SVG_EXPORT
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
                                 , svg
-    #endif // GREEN_FUNCTION_SVG_EXPORT
+#endif // GREEN_FUNCTION_SVG_EXPORT
                                 );
         status_t stat(0);
-    #endif
+#endif
 
         auto const nerr = p.dyadic_plan.consistency_check();
         if (nerr && echo > 0) std::printf("# dyadic_plan.consistency_check has %d errors\n", nerr);
 
-    #ifdef    GREEN_FUNCTION_SVG_EXPORT
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
         if (nullptr != svg) {
-                // show the cell boundaries if in range
-                std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"black\" />\n", n_blocks[X]*4, n_blocks[Y]*4, 0, 0);
-                // show a square box for each source block
+            // show the cell boundaries if in range
+            std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"black\" />\n", n_blocks[X]*4, n_blocks[Y]*4, 0, 0);
+            // show a square box for each source block
+            for (uint32_t irhs = 0; irhs < nrhs; ++irhs) { auto const *const v = global_source_coords[irhs];
+                std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"grey\" />\n", 4, 4, v[X]*4, v[Y]*4);
+            } // irhs
+            // show a 4 truncation spheres around each source block
+            auto const h = p.grid_spacing_trunc;
+            if (h[X] > 0 && h[Y] > 0) {
+                auto const rx = r_trunc/h[X], ry = r_trunc/h[Y];
                 for (uint32_t irhs = 0; irhs < nrhs; ++irhs) { auto const *const v = global_source_coords[irhs];
-                    std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%d\" y=\"%d\" fill=\"none\" stroke=\"grey\" />\n", 4, 4, v[X]*4, v[Y]*4);
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+0.5, rx, ry);
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+0.5, rx, ry);
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+3.5, rx, ry);
+                    std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+3.5, rx, ry);
                 } // irhs
-                // show a 4 truncation spheres around each source block
-                auto const h = p.grid_spacing_trunc;
-                if (h[X] > 0 && h[Y] > 0) {
-                    auto const rx = r_trunc/h[X], ry = r_trunc/h[Y];
-                    for (uint32_t irhs = 0; irhs < nrhs; ++irhs) { auto const *const v = global_source_coords[irhs];
-                        std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+0.5, rx, ry);
-                        std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+0.5, rx, ry);
-                        std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+3.5, rx, ry);
-                        std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+3.5, rx, ry);
-                    } // irhs
-                } // grid spacings relevant for truncation are positive
+            } // grid spacings relevant for truncation are positive
             std::fprintf(svg, "</svg>\n");
             std::fclose(svg);
             svg = nullptr;
             if (echo > 3) std::printf("# file green_function.svg (Scalable Vector Graphics) written\n");
         } // nullptr != svg
-    #endif // GREEN_FUNCTION_SVG_EXPORT
+#endif // GREEN_FUNCTION_SVG_EXPORT
 
         return stat;
     } // construct_Green_function

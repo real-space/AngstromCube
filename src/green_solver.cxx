@@ -58,25 +58,27 @@ typedef green_action::action_t<double,2,2> Act822;
         if (action_) {
             green_debug_printf("# destruct %s, action_key_= %i\n", __func__, int(action_key_));
             switch (action_key_) {
-            case 32021: { ((Act421*)action_)->~action_t(); } break;
-            case 32022: { ((Act422*)action_)->~action_t(); } break;
-            case 64021: { ((Act821*)action_)->~action_t(); } break;
-            case 64022: { ((Act822*)action_)->~action_t(); } break;
+            case 32021: { ((Act421*)action_)->~action_t(); } break; // complex
+            case 32022: { ((Act422*)action_)->~action_t(); } break; // complex non-collinear
+            case 64021: { ((Act821*)action_)->~action_t(); } break; // double complex
+            case 64022: { ((Act822*)action_)->~action_t(); } break; // double complex non-collinear
             } // switch action_key_
         }
     } // destructor
 
     status_t green_solver_t::solve(
           double rho[] // result: density [plan.nCols][4*4*4]
+        , uint32_t const nblocks
+        , int const iterations
         , int const echo // =0 // verbosity
     ) {
         if (echo > 0) std::printf("# solve with action_key_= %i\n", int(action_key_));
         assert(action_ && "action_ pointer must be valid for call to solve");
         switch (action_key_) {
-        case 32021: return ((Act421*)action_)->solve(rho, echo); // complex
-        case 32022: return ((Act422*)action_)->solve(rho, echo); // complex non-collinear
-        case 64021: return ((Act821*)action_)->solve(rho, echo); // double complex
-        case 64022: return ((Act822*)action_)->solve(rho, echo); // double complex non-collinear
+        case 32021: return ((Act421*)action_)->solve(rho, nblocks, iterations, echo); // complex
+        case 32022: return ((Act422*)action_)->solve(rho, nblocks, iterations, echo); // complex non-collinear
+        case 64021: return ((Act821*)action_)->solve(rho, nblocks, iterations, echo); // double complex
+        case 64022: return ((Act822*)action_)->solve(rho, nblocks, iterations, echo); // double complex non-collinear
         default: error("No solve with such action_key= %i", int(action_key_)); return action_key_;
         } // action_key_ action_key_
     } // solve

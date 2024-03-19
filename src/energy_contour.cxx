@@ -19,6 +19,7 @@
 #include "recorded_warnings.hxx" // warn
 #include "inline_math.hxx" // set, add_product
 #include "green_solver.hxx" // green_solver_t
+#include "recorded_warnings.hxx" // error, warn
 
 namespace energy_contour {
 
@@ -57,7 +58,8 @@ namespace energy_contour {
         assert(lb.n_local() == nblocks);
         assert(nullptr != plan_);
         auto & plan = *plan_;
-        if (plan.nCols != nblocks) error("model assumes that each local block has one RHS, found n_local= %d and p.nRHS= %d", nblocks, plan.nCols);
+
+        if (plan.nCols != nblocks) warn("model assumes that each local block has one RHS, found n_local= %d and p.nRHS= %d", nblocks, plan.nCols);
 
         auto const nAtoms = atom_mat.nrows();
         std::vector<std::vector<double>> AtomMatrices(nAtoms);
@@ -91,7 +93,7 @@ namespace energy_contour {
                 stat += green_function::update_phases(plan, kpoint, echo, Noco);
 
                 view2D<double> rho_Ek(nblocks, 4*4*4, 1.0);
-                stat += solver_.solve(rho_Ek[0], echo);
+                stat += solver_.solve(rho_Ek[0], nblocks, echo);
 
                 add_product(rho_E[0], nblocks*size_t(4*4*4), rho_Ek[0], kpoint_weight); // accumulate density
             } // ikpoint

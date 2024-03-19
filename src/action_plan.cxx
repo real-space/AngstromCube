@@ -17,7 +17,6 @@
 
     action_plan_t::action_plan_t(int const echo) { // constructor 
         if (echo > 0) std::printf("# default constructor for %s\n", __func__);
-        // please see construct_Green_function in green_function.hxx for the construction of the plan_t
     } // constructor
 
     action_plan_t::action_plan_t(

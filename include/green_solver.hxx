@@ -3,6 +3,7 @@
 
 #include <cstdio> // std::printf
 #include <cassert> // assert
+#include <cstdint> // uint32_t
 #include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -20,6 +21,8 @@ public:
 
     status_t solve(
           double rho[] // result density rho [plan.nCols][4*4*4]
+        , uint32_t const nblocks // should match plan.nCols
+        , int const iterations
         , int const echo=0
     ); // declaration only
 

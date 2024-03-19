@@ -202,7 +202,8 @@ namespace green_action {
 
 
     status_t solve(
-          double rho[] // result: density[plan.nCols][4*4*4]
+          double rho[] // result: density[nblocks][4*4*4]
+        , uint32_t const nblocks // should match plan.nCols
         , int const iterations=1
         , int const echo=9
     ) {
@@ -238,8 +239,17 @@ namespace green_action {
             if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
             if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
             // export solution
-            auto const nall = p.nCols*size_t(4*4*4);
-            set(rho, nall, memory_buffer_); // the result is stored somewhere in the first elements
+
+            auto const Green = (real_t const (*)[2][Noco*64][Noco*64])memory_buffer_;
+            if (echo > 2) std::printf("# copy %d diagonal blocks of the Green function\n", p.nCols);
+            if (nblocks != p.nCols) warn("Green function solution provides %d 4x4x4 blocks, but requested %d", p.nCols, nblocks);
+            for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
+                auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal
+                for (int i64{0}; i64 < 64; ++i64) {
+                    int constexpr imaginary_part = 1;
+                    rho[iCol*size_t(4*4*4) + i64] = Green[inz_diagonal][imaginary_part][i64][i64];
+                } // i64
+            } // iCol
 
             free_memory(memory_buffer_);
             return 0;

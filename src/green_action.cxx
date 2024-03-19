@@ -3,32 +3,23 @@
 #include <cstdio>     // std::printf, ::snprintf, FILE, std::fprintf
 #include <cstdint>    // int64_t, int32_t, uint32_t, int16_t, uint16_t, int8_t, uint8_t
 #include <cassert>    // assert
-#include <cmath>      // std::sqrt, ::cbrt
 #include <algorithm>  // std::max, ::min
-#include <utility>    // std::swap
 #include <vector>     // std::vector<T>
 #include <complex>    // std::complex
 
 #include "green_action.hxx"
 
-#include "green_function.hxx" // ::construct_Green_function
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
 #include "simple_stats.hxx" // ::Stats<>
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "print_tools.hxx" // printf_vector
-#include "global_coordinates.hxx" // ::get
-#include "green_input.hxx" // ::load_Hamitonian
-
-#include "action_plan.hxx" // ::atom_t
-#include "kinetic_plan.hxx" // kinetic_plan_t
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
-#include "green_sparse.hxx" // ::sparse_t<,>
 #include "progress_report.hxx" // ProgressReport
-
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 
 #ifndef NO_UNIT_TESTS
+  #include "green_input.hxx" // ::load_Hamiltonian
+  #include "green_function.hxx" // ::construct_Green_function
   #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
 
   #ifdef    HAS_TFQMRGPU
