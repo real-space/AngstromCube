@@ -28,22 +28,22 @@
 // #define FULL_DEBUG
 // #define DEBUG
 
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
     #define DEBUG
     #define full_debug(print) print
-#else
+#else  // FULL_DEBUG
     #define full_debug(print)
-#endif
+#endif // FULL_DEBUG
 
-// #ifdef  DEBUG
+// #ifdef    DEBUG
     #include "debug_output.hxx" // dump_to_file
-// #endif
+// #endif // DEBUG
 
-#ifdef DEBUG
+#ifdef    DEBUG
     #define debug(print) print
-#else
+#else  // DEBUG
     #define debug(print)
-#endif
+#endif // DEBUG
 
 namespace atom_core {
 

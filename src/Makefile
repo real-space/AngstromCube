@@ -93,6 +93,10 @@ FEAFLAGS =
 FEAFLAGS += -D _GIT_KEY=$(GITKEY)
 # FEAFLAGS += -D NO_UNIT_TESTS
 # FEAFLAGS += -D _Output_Units_Fixed
+
+# NDEBUG will disable all the assert() checks from <cassert> 
+# FEAFLAGS += -D NDEBUG
+
 FEAFLAGS += -D HAS_NO_MPI
 FEAFLAGS += -D HAS_NO_OMP
 FEAFLAGS += -D HAS_NO_CUDA

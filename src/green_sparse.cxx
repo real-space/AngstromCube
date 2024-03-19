@@ -4,7 +4,7 @@
 #include <cstdint> // int64_t, int32_t, int16_t, int8_t
 #include <vector> // std::vector<T>
 
-#define DEBUG
+// #define DEBUG
 
 #include "green_sparse.hxx"
 

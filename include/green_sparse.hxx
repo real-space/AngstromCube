@@ -16,13 +16,13 @@
 
 namespace green_sparse {
 
-// #ifdef    DEBUG
-    #define green_sparse_debug_printf(...) std::printf(__VA_ARGS__)
-    int constexpr echo_copy = 9;
-// #else  // DEBUG
-//     #define green_sparse_debug_printf(...)
-//     int constexpr echo_copy = 0;
-// #endif // DEBUG
+// #ifndef   NDEBUG
+//     #define green_sparse_debug_printf(...) std::printf(__VA_ARGS__)
+//     int constexpr echo_copy = 9;
+// #else  // NDEBUG
+    #define green_sparse_debug_printf(...)
+    int constexpr echo_copy = 0;
+// #endif // NDEBUG
 
   char const int_t_names[][10] = {"uint8_t", "uint16_t", "uint32_t", "uint64_t", "uint128_t"};
 

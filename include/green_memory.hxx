@@ -22,11 +22,10 @@ namespace green_memory {
 
         size_t const total = size*sizeof(T);
 #ifdef    DEBUG
-        if (echo > 0) {
-            std::printf("# managed memory: %lu x %.3f kByte = \t", size, sizeof(T)*1e-3);
-            if (total > 1e9) { std::printf("%.9f GByte\n", total*1e-9); } else 
-            if (total > 1e6) { std::printf("%.6f MByte\n", total*1e-6); } else 
-                             { std::printf("%.3f kByte\n", total*1e-3); }
+        if (echo > 7) {
+            double const f = (total > 1e9) ? 1e-9 : ((total > 1e6) ? 1e-6 : 1e-3);
+            char  const _f = (total > 1e9) ? 'G'  : ((total > 1e6) ? 'M'  : 'k' );
+            std::printf("# managed memory: %.3f k x %.3f kByte = \t%g %cByte\n", size*1e-3, sizeof(T)*1e-3, total*f, _f);
         } // echo
 #endif // DEBUG
 
@@ -42,7 +41,9 @@ namespace green_memory {
 
     template <typename T>
     void _free_memory(T* & ptr, char const *const name="") {
+#ifdef    DEBUG
 //      std::printf("# free_memory %s at %p\n", name, (void*)ptr);
+#endif // DEBUG
         if (nullptr != ptr) {
 #ifdef    DEBUGGPU
             std::printf("# free_memory %s at %p\n", name, (void*)ptr);

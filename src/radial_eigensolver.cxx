@@ -15,11 +15,11 @@
 #include "radial_integrator.hxx" // ::shoot
 #include "recorded_warnings.hxx" // warn
 
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
     #define DEBUG
 #endif // FULL_DEBUG
 
-#ifdef  DEBUG
+#ifdef    DEBUG
     #include "debug_output.hxx" // dump_to_file
 #endif // DEBUG
 

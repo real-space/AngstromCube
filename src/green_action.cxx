@@ -47,6 +47,10 @@
 
   #endif // HAS_TFQMRGPU
 
+    #ifdef    DEBUG
+        #undef DEBUG
+    #endif // DEBUG
+
 #endif // NO_UNIT_TESTS
 
 #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t

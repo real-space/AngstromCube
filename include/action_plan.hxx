@@ -22,9 +22,12 @@
 
 #endif // HAS_TFQMRGPU
 
+#ifdef    DEBUG
+    #undef DEBUG
+#endif // DEBUG
+
 #include "status.hxx" // status_t
 
-// #include "green_kinetic.hxx" // ::kinetic_plan_t
 #include "kinetic_plan.hxx" // kinetic_plan_t
 #include "dyadic_plan.hxx" // dyadic_plan_t
 

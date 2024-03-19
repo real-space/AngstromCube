@@ -40,6 +40,8 @@
   #include "bitmap.hxx" // ::write_bmp_file
 #endif // HAS_BITMAP_EXPORT
 
+// #define   GREEN_FUNCTION_SVG_EXPORT
+
  /*
   *  Future plan:
   *   Support also density matrix purification scheme (McWeeney filter: x^2(3-2x)
@@ -1012,7 +1014,11 @@ namespace green_function {
       p.dyadic_plan = dyadic_plan_t(cell, bc, hg, xyzZinso
                             , p.nRows, p.nCols, p.RowStart, p.colindx.data()
                             , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
-                            , max_distance_from_center, r_trunc, echo, Noco);
+                            , max_distance_from_center, r_trunc, echo, Noco
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
+                            , svg
+#endif // GREEN_FUNCTION_SVG_EXPORT
+                            );
       status_t stat(0);
 #endif
 

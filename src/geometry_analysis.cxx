@@ -31,8 +31,8 @@
   #include <fstream> // std::ofstream
 #endif
 
-#define FULL_DEBUG
-#define DEBUG
+// #define FULL_DEBUG
+// #define DEBUG
 
 namespace geometry_analysis {
 
