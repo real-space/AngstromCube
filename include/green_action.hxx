@@ -114,7 +114,7 @@ namespace green_action {
                     if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
                     auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
-                    if (echo > 9) std::printf("# rank#%i try to allocate .9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
+                    if (echo > 9) std::printf("# rank#%i try to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
                 }
                 memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
             } else {

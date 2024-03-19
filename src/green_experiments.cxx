@@ -20,6 +20,7 @@
         #define devPtr const __restrict__
     #else  // HAS_NO_CUDA
         #include <cuda.h>
+        #define devPtr const __restrict__
     #endif // HAS_NO_CUDA
     #include "tfqmrgpu_memWindow.h" // memWindow_t
     #include "tfqmrgpu_linalg.hxx" // ...
