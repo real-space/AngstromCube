@@ -162,26 +162,21 @@ FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 CXXFLAGS = -std=c++11 ${FLAGS}
 
 
-
-DEP=$(OBJ:$(OBJDIR)/%.o=$(OBJDIR)/%.d) $(OBJATOM:$(OBJDIR)/%.o=$(OBJDIR)/%.d)
+DEP=$(OBJ:%.o=%.d) $(OBJATOM:%.o=%.d)
 
 ${EXECUTABLE}: ${OBJATOM} ${OBJ}
-	${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
+		${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
 
 libliveatom.a: ${OBJATOM} $(OBJDIR)/library_kind_static.o
-	ar rcsv $@ $^
+		ar rcsv $@ $^
 
 libliveatom.so: ${OBJATOM} $(OBJDIR)/library_kind_dynamic.o
-	${CXX} ${CXXFLAGS} -fPIC -shared $^ ${LDFLAGS} -o $@
+		${CXX} ${CXXFLAGS} -fPIC -shared $^ ${LDFLAGS} -o $@
 
-$(OBJDIR)/%.o:%.c $(OBJDIR)/%.d
-	${CC} ${CCFLAGS} ${INC} -c $< -o $@
 $(OBJDIR)/%.o:%.cxx $(OBJDIR)/%.d
-	${CXX} ${CXXFLAGS} ${INC} -c $< -o $@
+		${CXX} ${CXXFLAGS} ${INC} -c $< -o $@
 
-$(OBJDIR)/%.d:%.c
-	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
 $(OBJDIR)/%.d:%.cxx
-	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
+		${CXX} ${CXXFLAGS} ${INC} -MM $^ -MT $(patsubst %.d,%.o,$@) -MF $@ 
 
 -include ${DEP}

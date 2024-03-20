@@ -52,10 +52,10 @@ namespace green_parallel {
         auto const nreq = requests.size(); // number of requests
 
 #ifndef   HAS_NO_MPI
-        int constexpr debug = 1;
+        bool const debug = 1;
 
         std::vector<uint16_t> local_index(nall, 0);
-        std::vector<uint16_t> local_check(nall*int(debug), 0);
+        std::vector<uint16_t> local_check(nall*unsigned(debug), 0);
 
         assert(nown <= (1ul << 16) && "each process can hold max 2^16 locally owned items");
         for (size_t iown = 0; iown < nown; ++iown) {
