@@ -6,11 +6,6 @@
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 
-#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-
-#include "constants.hxx" // ::pi
-#include "green_memory.hxx" // get_memory, free_memory
-
 #ifdef HAS_TFQMRGPU
 
 //  #define DEBUG
@@ -35,16 +30,21 @@
 
 #endif // HAS_TFQMRGPU
 
-#include "green_sparse.hxx"    // ::sparse_t<,>
-// #include "green_kinetic.hxx"// ::multiply, ::finite_difference_plan_t
-#include "green_kinetic.hxx"   // ::kinetic_plan_t
+#include "green_kinetic.hxx"   // ::multiply
 #include "green_potential.hxx" // ::multiply
 #include "green_dyadic.hxx"    // ::multiply
-#include "dyadic_plan.hxx"    // ::dyadic_plan_t
+#include "action_plan.hxx"     // action_plan_t
+#include "kinetic_plan.hxx"    // kinetic_plan_t
+#include "dyadic_plan.hxx"     // dyadic_plan_t
+#include "green_sparse.hxx"    // ::sparse_t<,>
+#include "simple_timer.hxx"    // SimpleTimer
 #include "progress_report.hxx" // ProgressReport
-#include "action_plan.hxx" // action_plan_t
-#include "display_units.h" // GByte, _GByte
-#include "mpi_parallel.hxx" // ::allreduce, ::rank
+#include "display_units.h"     // GByte, _GByte
+#include "constants.hxx"       // ::pi
+#include "green_memory.hxx"    // get_memory, free_memory
+#include "status.hxx"          // status_t, STATUS_TEST_NOT_INCLUDED
+#include "mpi_parallel.hxx"    // ::allreduce, ::rank
+#include "recorded_warnings.hxx" // warn
 
 #ifdef    DEBUG
   #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
@@ -54,38 +54,12 @@
 
 namespace green_action {
 
-#if 0
-  // move to action_plan.hxx
-  struct atom_t {
-      double pos[3]; // position
-      double sigma; // Gaussian spread
-      int32_t gid; // global identifier
-      int32_t ia; // local original atom index
-      int32_t iaa; // local atom copy index
-      int16_t shifts[3]; // periodic image shifts
-      uint8_t nc; // number of coefficients, uint8_t sufficient up to numax=9 --> 220 coefficients
-      int8_t numax; // SHO basis size
-      int16_t copies[3]; // periodic copy shifts
-  }; // atom_t 56 Byte, only used in CPU parts
-#endif // 0
-
-#if 0
-  // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
-  struct atom_image_t {
-      double pos[3]; // atom position
-      float  oneoversqrtsigma; // Gaussian spread, 1/sqrt(sigma)
-      int8_t shifts[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
-      int8_t lmax; // SHO basis size >= -1
-  }; // atom_image_t 32 Byte
-#endif
-
-
-    template <typename floating_point_t=float, int R1C2=2, int Noco=1, int n64=64>
+    template <typename floating_point_t=float, unsigned R1C2=2, int Noco=1, int n64=64>
     class action_t { // an action as used in tfQMRgpu
     public:
         typedef floating_point_t real_t;
         static int constexpr LM = Noco*n64, // number of rows per block
-                            LN = LM;    // number of columns per block
+                             LN = LM;    // number of columns per block
         // action_t::LN is needed to support the rectangular blocks feature in tfQMRgpu
         //
         // This action is an implicit linear operator onto block-sparse structured data.

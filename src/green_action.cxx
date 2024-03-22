@@ -15,7 +15,14 @@
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "progress_report.hxx" // ProgressReport
-#include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
+#include "green_parallel.hxx" // ::RequestList_t
+#include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
+#include "green_potential.hxx" // ::exchange
+#include "green_dyadic.hxx" // ::dyadic_plan_t
+#include "sho_tools.hxx" // ::nSHO
+#include "control.hxx" // ::get
+#include "load_balancer.hxx" // ::get
+#include "display_units.h" // GByte, _GByte
 
 #ifndef NO_UNIT_TESTS
   #include "green_input.hxx" // ::load_Hamiltonian
@@ -44,16 +51,6 @@
     #endif // DEBUG
 
 #endif // NO_UNIT_TESTS
-
-#include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
-#include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
-#include "green_potential.hxx" // ::exchange
-#include "green_dyadic.hxx" // ::dyadic_plan_t
-#include "sho_tools.hxx" // ::nSHO
-#include "control.hxx" // ::get
-#include "load_balancer.hxx" // ::get
-#include "boundary_condition.hxx" // Isolated_Boundary, Periodic_Boundary
-#include "display_units.h" // GByte, _GByte
 
 
 #ifdef    HAS_BITMAP_EXPORT

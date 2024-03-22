@@ -19,6 +19,18 @@
 #include "action_plan.hxx" // ::atom_t
 
 
+
+#if 0
+  // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
+  struct atom_image_t {
+      double pos[3]; // atom position
+      float  oneoversqrtsigma; // Gaussian spread, 1/sqrt(sigma)
+      int8_t shifts[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
+      int8_t lmax; // SHO basis size >= -1
+  }; // atom_image_t 32 Byte
+#endif
+
+
     dyadic_plan_t::dyadic_plan_t(int const echo) { // default constructor
         if (echo > 0) std::printf("# construct %s\n", __func__);
         // please see construct_dyadic_plan in green_function.hxx for the construction of the dyadic_plan_t

@@ -14,6 +14,19 @@
 
 namespace sho_tools {
 
+#ifdef    __NVCC__
+      __host__ __device__ // the following member function is also called on GPUs
+#endif // __NVCC__
+  // number of all 3D SHO states up to numax >= 0
+  inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
+
+  // number of all 2D CHO (circular harmonic oscillator) states up to numax
+  inline constexpr int n2HO(int const numax) { return ((1 + numax)*(2 + numax))/2; }
+
+  // number of all 1D HO (harmonic oscillator) states up to numax
+  inline constexpr int n1HO(int const numax) { return  (1 + numax); }
+
+
   typedef enum : int64_t { // different index orderings
       order_zyx     = 0x78797a,   // "zyx"    Cartesian order best for triple loop,         depends on numax
       order_Ezyx    = 0x78797a45, // "Ezyx"   Cartesian energy-ordered,                 independent of numax
@@ -40,15 +53,6 @@ namespace sho_tools {
       auto const o = order;
       return std::string((char const *)&o);
   } // SHO_order2string
-
-  // number of all 3D SHO states up to numax >= 0
-  inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
-
-  // number of all 2D CHO (circular harmonic oscillator) states up to numax
-  inline constexpr int n2HO(int const numax) { return ((1 + numax)*(2 + numax))/2; }
-
-  // number of all 1D HO (harmonic oscillator) states up to numax
-  inline constexpr int n1HO(int const numax) { return  (1 + numax); }
 
 
   // =============================== Radial indices ===============================

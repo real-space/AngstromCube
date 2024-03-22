@@ -4,8 +4,6 @@
 #include <cstdlib> // size_t
 #include <cmath> // std::round
 
-#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-
   template <int nBits> inline
   size_t align(int64_t const in) {
       return ((((in - 1) >> nBits) + 1) << nBits);
@@ -111,10 +109,14 @@
 
 
 #ifndef NO_UNIT_TESTS
+
     #include <cstdio> // std::printf
     #include <cassert> // assert
     #include <algorithm> // std::max
     #include <cmath> // std::pow
+
+    #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+
 #endif // NO_UNIT_TESTS
 
 namespace inline_math {

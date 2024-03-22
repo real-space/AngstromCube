@@ -8,6 +8,7 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_sparse.hxx" // ::sparse_t<>
+#include "inline_math.hxx" // pow2, pow3
 
 class dyadic_plan_t {
 public: // members
