@@ -10,7 +10,7 @@ build_on_JUSUF:
   script:
     - echo "Set module environment"
     - module --force purge && module load Stages/2022 GCC/11.2.0 ParaStationMPI/5.5.0-1 imkl/2021.4.0 CMake CUDA/11.5
-    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest/lib/intel64/
+    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest
     - echo "Start build system..."
     - rm -rf build && mkdir build && cd build
     - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43 -DHAS_MKL=ON -DHAS_MPI=ON -DHAS_DEVEL=ON -DHAS_TFQMRGPU=ON -DHAS_RAPIDXML=ON -DHAS_RAPIDJSON=OFF -DHAS_FFTW=OFF -DHAS_OPENMP=ON
@@ -31,7 +31,7 @@ interfaces_on_JUSUF:
     - echo "Set module environment"
     - module --force purge && module load Stages/2023 GCC/11.3.0 ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 Julia
     - module --force purge && module load Stages/2022 GCC/11.2.0 ParaStationMPI/5.5.0-1 imkl/2021.4.0 CMake CUDA/11.5
-    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest/lib/intel64/
+    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest
     - ls ~/a43/lib64 # libliveatom.so needs to be here
     - echo "Test Python interface"
     - cd interfaces/Python
@@ -68,7 +68,7 @@ test_on_JUSUF:
     - echo "Run A43 unit tests..."
     - module --force purge && module load Stages/2023  GCC/11.3.0  ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 CMake 
     - module --force purge && module load Stages/2022 GCC/11.2.0 ParaStationMPI/5.5.0-1 imkl/2021.4.0 CMake CUDA/11.5
-    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest/lib/intel64/
+    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest
     - pwd
     - ls ~/a43/lib64 ~/a43/bin
     - cd test
@@ -97,7 +97,7 @@ run_on_JUSUF:
     - echo "Run green unit tests..."
     - module --force purge && module load Stages/2023  GCC/11.3.0  ParaStationMPI/5.8.0-1-mt imkl-FFTW/2022.1.0 CMake 
     - module --force purge && module load Stages/2022 GCC/11.2.0 ParaStationMPI/5.5.0-1 imkl/2021.4.0 CMake CUDA/11.5
-    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest/lib/intel64/
+    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest
     - pwd
     - ls ~/a43/lib64 ~/a43/bin
     - ~/a43/bin/green --test
