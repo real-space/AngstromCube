@@ -9,11 +9,11 @@ build_on_JUSUF:
   stage: build
   script:
     - echo "Set module environment"
-    - module --force purge && module load Stages/2022 GCC/11.2.0 ParaStationMPI/5.5.0-1 imkl/2021.4.0 CMake CUDA/11.5
-    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest
+    - module --force purge && module load Stages/2024  Intel/2023.2.1  ParaStationMPI/5.9.2-1-mt  imkl-FFTW/2023.2.0  CMake  CUDA/12
+    - export MKL_ROOT=/p/software/jusuf/stages/2024/software/imkl-FFTW/2023.2.0-ipsmpi-2023a/
     - echo "Start build system..."
     - rm -rf build && mkdir build && cd build
-    - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43 -DHAS_MKL=ON -DHAS_MPI=ON -DHAS_DEVEL=ON -DHAS_TFQMRGPU=ON -DHAS_RAPIDXML=ON -DHAS_RAPIDJSON=OFF -DHAS_FFTW=OFF -DHAS_OPENMP=ON
+    - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43 -DHAS_MKL=ON -DHAS_MPI=ON -DHAS_DEVEL=ON -DHAS_TFQMRGPU=ON -DHAS_RAPIDXML=ON -DHAS_RAPIDJSON=OFF -DHAS_FFTW=ON -DHAS_OPENMP=ON
     - echo "Compiling the code..."
     - make -j install
     - cd ..
