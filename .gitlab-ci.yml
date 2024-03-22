@@ -10,7 +10,7 @@ build_on_JUSUF:
   script:
     - echo "Set module environment"
     - module --force purge && module load Stages/2022 GCC/11.2.0 ParaStationMPI/5.5.0-1 imkl/2021.4.0 CMake CUDA/11.5
-    - export MKL_ROOT=/p/software/jusuf/stages/2023/software/imkl/2022.1.0/mkl/latest/
+    - export MKL_ROOT=/p/software/jusuf/stages/2022/software/imkl/2021.4.0/mkl/latest/
     - echo "Start build system..."
     - rm -rf build && mkdir build && cd build
     - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43 -DHAS_MKL=ON -DHAS_MPI=ON -DHAS_DEVEL=ON -DHAS_TFQMRGPU=ON -DHAS_RAPIDXML=ON -DHAS_RAPIDJSON=OFF -DHAS_FFTW=OFF -DHAS_OPENMP=ON
