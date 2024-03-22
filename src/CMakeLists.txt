@@ -261,7 +261,7 @@ endif(HAS_CUDA)
 target_compile_definitions(a43 PUBLIC -DHAS_NO_CUDA)
 
 # a43 comes together with single_atom, while green will be linked against libliveatom.so
-target_compile_definitions(a43 PUBLIC -DHAS_SINGLE_ATOM)
+target_compile_definitions(a43   PUBLIC -DHAS_SINGLE_ATOM)
 target_compile_definitions(green PUBLIC -DHAS_LIVE_ATOM)
 target_link_libraries(green PUBLIC liveatom)
 

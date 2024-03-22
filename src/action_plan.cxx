@@ -49,3 +49,25 @@
         free_memory(phase);
         green_debug_printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
     } // destructor
+
+namespace action_plan {
+
+#ifdef    NO_UNIT_TESTS
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else  // NO_UNIT_TESTS
+
+    status_t test_construction_and_destrunction(int const echo=3) {
+        if (echo > 3) std::printf("# sizeof(action_plan::atom_t)= %ld Byte\n", sizeof(atom_t));
+        action_plan_t ap;
+        return 0;
+    } // test_init
+
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        stat += test_construction_and_destrunction(echo);
+        return stat;
+    } // all_tests
+
+#endif // NO_UNIT_TESTS
+
+} // namespace action_plan

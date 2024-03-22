@@ -17,7 +17,7 @@ public:
         , int const echo=0
     ); // declaration only
 
-    ~green_solver_t(); // declaration only
+    ~green_solver_t(); // destructor, declaration only
 
     status_t solve(
           double rho[] // result density rho [plan.nCols][4*4*4]

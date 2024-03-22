@@ -143,13 +143,13 @@ namespace green_sparse {
       } // copy assignment operator (deep copy)
 
 
-#ifdef __NVCC__
+#ifdef    __NVCC__
       __host__ __device__ // the following member function is also called on GPUs
-#endif
+#endif // __NVCC__
       RowIndex_t const * rowStart() const { return rowStart_; };
-#ifdef __NVCC__
+#ifdef    __NVCC__
       __host__ __device__ // the following member function is also called on GPUs
-#endif
+#endif // __NVCC__
       ColIndex_t const * colIndex() const { return colIndex_; };
       RowIndex_t            nRows() const { return nRows_; }
       RowIndex_t        nNonzeros() const { return (row_signed && nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
