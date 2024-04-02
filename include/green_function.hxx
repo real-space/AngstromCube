@@ -35,6 +35,7 @@ namespace green_function {
         , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
         , std::vector<double> const & Veff // [nb[2]*4*nb[1]*4*nb[0]*4]
         , view3D<uint16_t> const & owner_rank // [nb[2],nb[1],nb[0]]
+        , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo=0 // verbosity
         , int const Noco=2 // 1:collinear spins, 2:Non-collinear
     ); // declaration only
@@ -42,12 +43,12 @@ namespace green_function {
     status_t update_energy_parameter(
           action_plan_t & p // modify
         , std::complex<double> E_param
-        , std::vector<std::vector<double>> const & AtomMatrices
+     // , std::vector<std::vector<double>> const & AtomMatrices
         , double const dVol // volume element of the grid
-        , double const scale_H // =1
         , int const echo=0 // verbosity
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear
-        , green_parallel::RequestList_t const *requests=nullptr
+        , double const scale_H=1
+     // , green_parallel::RequestList_t const *requests=nullptr
     ); // declaration only
 
     status_t update_phases(

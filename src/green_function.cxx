@@ -68,18 +68,19 @@ namespace green_function {
     status_t update_energy_parameter(
           action_plan_t & plan
         , std::complex<double> E_param
-        , std::vector<std::vector<double>> const & AtomMatrices
+     // , std::vector<std::vector<double>> const & AtomMatrices
         , double const dVol // volume element of the grid
-        , double const scale_H // =1
         , int const echo // =0
         , int const Noco // =1
-        , green_parallel::RequestList_t const *requests // =nullptr
+        , double const scale_H // =1
+     // , green_parallel::RequestList_t const *requests // =nullptr
     ) {
         plan.E_param = E_param;
 
         auto & p = plan.dyadic_plan;
         if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
 
+#if 0
         view2D<double> output;
         if (requests) {
             size_t nc2{0};
@@ -101,9 +102,10 @@ namespace green_function {
 #ifdef    HAS_NO_MPI
             if (echo > 3) std::printf("# skip green_function.matrices.exchange\n");
 #else  // HAS_NO_MPI
-            warn("# skip green_function.matrices.exchange", 0);
+            warn("skip green_function.matrices.exchange", 0);
 #endif // HAS_NO_MPI
         } // requests
+#endif // 0
 
         auto const f = dVol; // we multiply the matrices by dVol so we can omit this factor in SHOprj
         for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
@@ -118,18 +120,21 @@ namespace green_function {
             //     sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
             // } // i
 
-            double const *hmt{nullptr};
-            if (requests) {
-                hmt = output[iac];
-            } else {
-                auto const ia = p.original_atom_index[iac];
-                assert(2*nc*nc <= AtomMatrices.at(ia).size());
-                hmt = AtomMatrices[ia].data(); // Hamiltonian matrix elements
-            } // requests
+            // double const *hmt{nullptr};
+            // if (requests) {
+            //     hmt = output[iac];
+            // } else {
+            //     auto const ia = p.original_atom_index[iac];
+            //     assert(2*nc*nc <= AtomMatrices.at(ia).size());
+            //     hmt = AtomMatrices[ia].data(); // Hamiltonian matrix elements
+            // } // requests
+            double const *const hmt = p.AtomMatrices_[iac]; // in CPU memory
+
 
             // fill this with matrix values
-            auto const atomMatrix = p.AtomMatrices[iac]; // data layout [Noco*Noco*2*nc*nc], 2 for {real,imag}
-            auto const ovl = hmt + nc*nc;          // charge deficit matrix elements
+            auto const atomMatrix = p.AtomMatrices[iac]; // data layout [Noco*Noco*2*nc*nc], 2 for {real,imag}, in GPU memory
+            assert(atomMatrix && "p.AtomMatrices must be allocated beforehand");
+            auto const ovl = hmt + nc*nc; // charge deficit matrix elements
             for (int i = 0; i < nc; ++i) {
                 for (int j = 0; j < nc; ++j) {
                     int const ij = i*nc + j;
@@ -144,7 +149,7 @@ namespace green_function {
         } // iac
 
         return 0;
-    } // update_atom_matrices
+    } // update_energy_parameter
 
 
 
@@ -152,8 +157,9 @@ namespace green_function {
     status_t update_potential(
           action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
-        , std::vector<double> const & Veff // [nb[2]*4*nb[1]*4*nb[0]*4]
-        , view3D<uint16_t> const & owner_rank // [nb[2]*nb[1]*nb[0]]
+        , std::vector<double> const & Veff // [nb[2]*4 * nb[1]*4 * nb[0]*4]
+        , view3D<uint16_t> const & owner_rank // [nb[2]][nb[1]][nb[0]]
+        , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
         , int const Noco // =2
     ) {
@@ -184,14 +190,14 @@ namespace green_function {
                 }}} // i4x i4y i4z
             } // irhs
 
-            int const command_exchange = control::get("green_function.potential.exchange", 1.);
-            if (command_exchange) {
+            int const pot_exchange = control::get("green_function.potential.exchange", 1.);
+            if (pot_exchange) {
                 // green_parallel::RequestList_t const requests(p.global_target_indices,  // requests
                 //                                              p.global_source_indices, // offerings
                 //                                              owner_rank.data(), nb, echo);
                 green_parallel::potential_exchange(p.Veff, Vinp, p.potential_requests, Noco, echo);
             } else {
-                warn("# +green_function.potential.exchange=%d --> skip\n", command_exchange);
+                warn("# +green_function.potential.exchange=%d --> skip\n", pot_exchange);
             } // needs exchange
 
             delete[] Vinp;
@@ -211,6 +217,21 @@ namespace green_function {
         } else {
             warn("wrong number of potential grid points found %ld expect %lld", Veff.size(), n_all_grid_points);
         }
+
+        int const mat_exchange = control::get("green_function.matrices.exchange", 1.);
+        if (mat_exchange) {
+            auto const count = p.dyadic_plan.AtomMatrices_.stride();
+            view2D<double> input(AtomMatrices.size(), count, 0.0);
+            for (size_t iam{0}; iam < AtomMatrices.size(); ++iam) { 
+                auto const & am = AtomMatrices.at(iam);
+                auto const nc2 = am.size();
+                set(input[iam], nc2, am.data()); // copy
+            } // iam
+            green_parallel::exchange(p.dyadic_plan.AtomMatrices_.data(), input.data(), p.matrices_requests, count, echo, "atom_mat");
+        } else {
+            warn("# +green_function.matrices.exchange=%d --> skip\n", mat_exchange);
+        } // needs exchange
+
         return 0;
     } // update_potential
 

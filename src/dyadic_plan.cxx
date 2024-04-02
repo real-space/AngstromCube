@@ -17,7 +17,7 @@
 #include "display_units.h" // Ang, _Ang
 #include "boundary_condition.hxx" // Periodic_Boundary, Repeat_B*, Wrap_B*
 #include "action_plan.hxx" // ::atom_t
-
+#include "mpi_parallel.hxx" // ::max, MPI_COMM_WORLD
 
 
 #if 0
@@ -77,6 +77,7 @@
         std::swap(this->global_atom_ids     , rhs.global_atom_ids     );
         std::swap(this->global_atom_index   , rhs.global_atom_index   );
         std::swap(this->original_atom_index , rhs.original_atom_index );
+        std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
         this->update_flop_counts();
         return *this;
     } // move assignment
@@ -441,8 +442,8 @@
       // store the atomic image positions in GPU memory
       p.AtomImageLmax  = get_memory<int8_t>(nai, echo, "AtomImageLmax");
       p.AtomImagePos   = get_memory<double[3+1]>(nai, echo, "AtomImagePos");
-      p.AtomImagePhase = get_memory<double[4]>(nai, echo, "AtomImagePhase");
-      p.AtomImageShift = get_memory<int8_t[4]>(nai, echo, "AtomImageShift");
+      p.AtomImagePhase = get_memory<double[4]>(  nai, echo, "AtomImagePhase");
+      p.AtomImageShift = get_memory<int8_t[3+1]>(nai, echo, "AtomImageShift");
       double const phase0[] = {1, 0, 0, 0};
 
       std::vector<std::vector<uint32_t>> SHOsum(nac);
@@ -465,13 +466,14 @@
       SHOsum.resize(0);
 
 
-      // get memory for the matrices and fill
+      // get GPU memory for the matrices
       p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
       p.AtomLmax     = get_memory<int8_t>(nac, echo, "AtomLmax");
       p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
       p.AtomStarts[0] = 0; // init prefetch sum
       // p.AtomSigma.resize(nac);
 
+      size_t nc2_max{1}; // routines do not work with count==0
       for (uint32_t iac = 0; iac < nac; ++iac) { // parallel loop
           auto const iaa = p.global_atom_index[iac];
           // p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
@@ -482,8 +484,12 @@
           char name[64]; std::snprintf(name, 64, "AtomMatrices[iac=%d/iaa=%d]", iac, iaa);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
+          nc2_max = std::max(nc2_max, size_t(2*nc*nc));
       } // iac
       p.nAtoms = nac; // number of contributing atom copies
+
+      auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
+      p.AtomMatrices_ = view2D<double>(nac, count); // CPU memory for atomic matrices
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
 

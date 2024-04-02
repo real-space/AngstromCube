@@ -32,6 +32,7 @@ namespace green_parallel {
       uint32_t window_size;
   }; // RequestList_t
 
+  // this functions could be a class method
   template <typename real_t=double>
   status_t exchange(
         real_t       *const data_out // output data, data layout data_out[nrequests*count]
@@ -42,6 +43,7 @@ namespace green_parallel {
       , char const *what=nullptr // quantity
   ); // declaration only
 
+  // this functions could be a class method
   status_t potential_exchange(
         double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nrows][64]
       , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2 ][64]

@@ -72,18 +72,17 @@ namespace energy_contour {
         view2D<double> rho(nblocks, 4*4*4, 0.0);
 
         int constexpr Noco = 1;
-        double constexpr scale_H = 1;
 
-        std::vector<double> Veff(nblocks*4*4*4, 0.); // ToDo: fille Veff with Vtot
-        stat += green_function::update_potential(plan, pg.grid_blocks(), Veff, lb.owner_rank(), echo, Noco);
+        std::vector<double> Veff(nblocks*4*4*4, 0.); // ToDo: fill Veff with Vtot
+        stat += green_function::update_potential(plan, pg.grid_blocks(), Veff, lb.owner_rank(), AtomMatrices, echo, Noco);
 
         for (int ienergy{0}; ienergy < 1; ++ienergy) {
             double const energy_weight = 1;
             
             std::complex<double> const energy((ienergy + 1)*0.5, 0.125);
             if (echo > 5) std::printf("# energy parameter  (%g %s, %g %s)\n", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
-            // ToDo: we should keep copies of the atom matrices in CPU memory so that energy parameters can be adjusted without MPI communication
-            stat += green_function::update_energy_parameter(plan, energy, AtomMatrices, dV, scale_H, echo, Noco, &plan.matrices_requests);
+
+            stat += green_function::update_energy_parameter(plan, energy, dV, echo, Noco);
 
             view2D<double> rho_E(nblocks, 4*4*4, 0.0);
 

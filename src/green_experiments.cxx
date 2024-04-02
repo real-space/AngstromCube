@@ -17,13 +17,10 @@
 
     #ifdef    HAS_NO_CUDA
         #include "tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
-        #define devPtr const __restrict__
     #else  // HAS_NO_CUDA
         #include <cuda.h>
-        #define devPtr const __restrict__
     #endif // HAS_NO_CUDA
-    #include "tfqmrgpu_memWindow.h" // memWindow_t
-    #include "tfqmrgpu_linalg.hxx" // ...
+    #define devPtr const __restrict__
     #include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
 #endif // HAS_TFQMRGPU
@@ -42,7 +39,6 @@ namespace green_experiments {
   template <typename real_t=double, int Noco=1>
   status_t bandstructure(
         action_plan_t & p
-      , std::vector<std::vector<double>> const & AtomMatrices
       , uint32_t const ng[3] // grid points
       , double const hg[3] // grid spacings
       , int const echo=0
@@ -98,7 +94,8 @@ namespace green_experiments {
               double const E_real = iE*dE + E0;
               std::complex<double> E_param(E_real, E_imag);
 
-              green_function::update_energy_parameter(p, E_param, AtomMatrices, hg[2]*hg[1]*hg[0], Noco, 1.0, echo);
+//            green_function::update_energy_parameter(p, E_param, AtomMatrices, hg[2]*hg[1]*hg[0], 1.0, Noco, echo);
+              green_function::update_energy_parameter(p, E_param, hg[2]*hg[1]*hg[0], echo, Noco);
 
 #ifdef    HAS_TFQMRGPU
               if (maxiter >= 0) {
@@ -414,7 +411,6 @@ namespace green_experiments {
   status_t eigensolver(
         action_plan_t & pH
       , action_plan_t & pS
-      , std::vector<std::vector<double>> const & AtomMatrices
       , uint32_t const ng[3] // grid points
       , double const hg[3] // grid spacings
       , int const nb=1 // number of bands == 64*nb
@@ -513,8 +509,8 @@ namespace green_experiments {
       green_action::action_t<real_t,R1C2,Noco,64> action_H(&pH); // constructor
       green_action::action_t<real_t,R1C2,Noco,64> action_S(&pS); // constructor
       double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
-      green_function::update_energy_parameter(pH,  0.0, AtomMatrices, dVol, Noco, 1.0, echo); // prepare for H: A = (1*H - (0)*S)
-      green_function::update_energy_parameter(pS, -1.0, AtomMatrices, dVol, Noco, 0.0, echo); // prepare for S: A = (0*H - (-1)*S)
+      green_function::update_energy_parameter(pH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H - (0)*S)
+      green_function::update_energy_parameter(pS, -1.0, dVol, echo, Noco, 0.0); // prepare for S: A = (0*H - (-1)*S)
 
       auto psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
 
@@ -809,17 +805,17 @@ namespace green_experiments {
       } // plan_stat
 
       uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
-      view3D<uint16_t> owner_rank(nb[2], nb[1], nb[0], 0); // all owners are the MPI master
-      auto const pot_stat = green_function::update_potential(p, nb, Veff, owner_rank, echo, Noco);
+      view3D<uint16_t> owner_rank(nb[2], nb[1], nb[0], uint16_t(0)); // all owners are the MPI master
+      auto const pot_stat = green_function::update_potential(p, nb, Veff, owner_rank, AtomMatrices, echo, Noco);
       if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
 
-      auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), AtomMatrices, dVol, 1.0, echo, Noco);
+      auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), dVol, echo, Noco);
       if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
 
       if ('g' == how) {
           // compute the bandstructure as a density of states using the Green function method
-          return (1 == Noco) ? bandstructure<double,1>(p, AtomMatrices, ng, hg, echo):
-                               bandstructure<double,2>(p, AtomMatrices, ng, hg, echo);
+          return (1 == Noco) ? bandstructure<double,1>(p, ng, hg, echo):
+                               bandstructure<double,2>(p, ng, hg, echo);
       } else {
           // compute a bandstructure using an eigenstate method
           // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S
@@ -832,7 +828,8 @@ namespace green_experiments {
               return plan_stat;
           } // plan_stat
 
-          auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), AtomMatrices, dVol, 0.0, echo, Noco);
+          auto const scale_H = 0.0;
+          auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), dVol, echo, Noco, scale_H);
           if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
 
           int const r1c2 = (2 == Noco) ? 2 : (2 - (control::get("green_experiments.eigen.real", 0.) > 0));
@@ -840,13 +837,13 @@ namespace green_experiments {
           int const bits_r1c2_noco = bits*100 + r1c2*10 + Noco;
           switch (bits_r1c2_noco) {
 #ifndef   HAS_TFQMRGPU
-              case 3211: return eigensolver<float ,1,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-              case 6411: return eigensolver<double,1,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 3211: return eigensolver<float ,1,1>(p, pS, ng, hg, p.nCols, echo);
+              case 6411: return eigensolver<double,1,1>(p, pS, ng, hg, p.nCols, echo);
 #endif // HAS_TFQMRGPU
-              case 3221: return eigensolver<float ,2,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-              case 6421: return eigensolver<double,2,1>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-              case 3222: return eigensolver<float ,2,2>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
-              case 6422: return eigensolver<double,2,2>(p, pS, AtomMatrices, ng, hg, p.nCols, echo);
+              case 3221: return eigensolver<float ,2,1>(p, pS, ng, hg, p.nCols, echo);
+              case 6421: return eigensolver<double,2,1>(p, pS, ng, hg, p.nCols, echo);
+              case 3222: return eigensolver<float ,2,2>(p, pS, ng, hg, p.nCols, echo);
+              case 6422: return eigensolver<double,2,2>(p, pS, ng, hg, p.nCols, echo);
               default: error("no such case %s%d with Noco=%d", (1 == r1c2)?"real":"complex", bits, Noco);
           } // fp32 or fp64
       } // how
@@ -869,7 +866,7 @@ namespace green_experiments {
       int const n = control::get("green_experiments.cube.n", 3.);
       assert(n > 0);
       size_t const n_all = n*size_t(n)*size_t(n);
-      if (echo > 0) std::printf("# %s: all= %ld\n", __func__, n_all);
+      if (echo > 0) std::printf("\n# %s: all= %ld\n", __func__, n_all);
       uint8_t constexpr unity = 1, t49 = 49;
       view3D<uint8_t> rhs(n, n, n, unity);
 

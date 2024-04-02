@@ -9,22 +9,23 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_sparse.hxx" // ::sparse_t<>
 #include "inline_math.hxx" // pow2, pow3
+#include "data_view.hxx" // view2D<T>
 
 class dyadic_plan_t {
 public: // members
 
     uint32_t* AtomStarts          = nullptr; // [nAtoms + 1]
     int8_t*   AtomLmax            = nullptr; // [nAtoms]
-    double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc: number of SHO coefficients of this atom
+    double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices in GPU memory, nc: number of SHO coefficients of this atom
     uint32_t nAtoms               = 0;
     // std::vector<double> AtomSigma;
 
     uint32_t* AtomImageIndex      = nullptr; // [nAtomImages]
     uint32_t* AtomImageStarts     = nullptr; // [nAtomImages + 1]
-    double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages][4]
+    double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages][3+1]
     int8_t*   AtomImageLmax       = nullptr; // [nAtomImages]
     double  (*AtomImagePhase)[4]  = nullptr; // [nAtomImages][4]
-    int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages][4]
+    int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages][3+1]
     uint32_t nAtomImages          = 0;
 
     double* grid_spacing          = nullptr; // [3+1] hx,hy,hz,rcut/sigma
@@ -37,6 +38,8 @@ public: // members
     std::vector<int64_t> global_atom_ids; // [nAtoms]
     std::vector<int32_t> global_atom_index;
     std::vector<int32_t> original_atom_index;
+
+    view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2)
 
     size_t  flop_count_SHOgen = 0,
             flop_count_SHOsum = 0,
