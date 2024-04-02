@@ -40,7 +40,7 @@
   #include "bitmap.hxx" // ::write_bmp_file
 #endif // HAS_BITMAP_EXPORT
 
-// #define   GREEN_FUNCTION_SVG_EXPORT
+#define   GREEN_FUNCTION_SVG_EXPORT
 
  /*
   *  Future plan:
@@ -98,20 +98,26 @@ namespace green_function {
             output = view2D<double>(requests->size(), count, 0.0);
             green_parallel::exchange(output.data(), input.data(), *requests, count, echo, "atom_mat");
         } else {
-            if (echo > 0) std::printf("# skip green_function.matrices.exchange\n");
+#ifdef    HAS_NO_MPI
+            if (echo > 3) std::printf("# skip green_function.matrices.exchange\n");
+#else  // HAS_NO_MPI
+            warn("# skip green_function.matrices.exchange", 0);
+#endif // HAS_NO_MPI
         } // requests
 
         auto const f = dVol; // we multiply the matrices by dVol so we can omit this factor in SHOprj
         for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
             int const lmax = p.AtomLmax[iac];
-            // auto const sigma = p.AtomSigma[iac];
             int const nc = sho_tools::nSHO(lmax);
             assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
+
+            // auto const sigma = p.AtomSigma[iac];
             // auto sho_norm = green_dyadic::sho_normalization(lmax, sigma);
             // assert(sho_norm.size() == nc);
             // for (int i = 0; i < nc; ++i) {
             //     sho_norm[i] = std::sqrt(dVol/sho_norm[i]);
             // } // i
+
             double const *hmt{nullptr};
             if (requests) {
                 hmt = output[iac];
@@ -119,7 +125,7 @@ namespace green_function {
                 auto const ia = p.original_atom_index[iac];
                 assert(2*nc*nc <= AtomMatrices.at(ia).size());
                 hmt = AtomMatrices[ia].data(); // Hamiltonian matrix elements
-            }
+            } // requests
 
             // fill this with matrix values
             auto const atomMatrix = p.AtomMatrices[iac]; // data layout [Noco*Noco*2*nc*nc], 2 for {real,imag}
@@ -131,8 +137,10 @@ namespace green_function {
                     atomMatrix[ij + nc*nc] = (          - E_param.imag() * ovl[ij])*f; // imag part
                 } // j
             } // i
+
             // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
             //                                       component 2 and 3 == V_x and V_y
+            if (Noco > 1) warn("Non-collinear matrix values are not set, Noco=", Noco);
         } // iac
 
         return 0;
@@ -155,7 +163,7 @@ namespace green_function {
 //          auto const n_all_blocks = size_t(nb[2])*size_t(nb[1])*size_t(nb[0]);
             assert(owner_rank.stride() == nb[0] && owner_rank.dim1() == nb[1]);
 
-            auto const Vinp = new double[nrhs*Noco*Noco][64];
+            auto const Vinp = new double[nrhs*Noco*Noco][4*4*4];
             // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
             for (uint16_t irhs{0}; irhs < nrhs; ++irhs) {
                 // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
@@ -176,20 +184,15 @@ namespace green_function {
                 }}} // i4x i4y i4z
             } // irhs
 
-#ifdef    HAS_NO_MPI
-            auto const default_exchange = 0.; // skip the exchange since we have no parallel processes, beware that p.Veff is set to 0.0
-#else  // HAS_NO_MPI
-            auto const default_exchange = 1.; // do the exchange of potential blocks
-#endif // HAS_NO_MPI
-            if (1. == control::get("green_function.potential.exchange", default_exchange)) {
-                // ToDo: move this into the constructors
-                green_parallel::RequestList_t const requests(p.global_target_indices,  // requests
-                                                             p.global_source_indices, // offerings
-                                                             owner_rank.data(), nb, echo);
-                green_parallel::potential_exchange(p.Veff, Vinp, requests, Noco, echo);
+            int const command_exchange = control::get("green_function.potential.exchange", 1.);
+            if (command_exchange) {
+                // green_parallel::RequestList_t const requests(p.global_target_indices,  // requests
+                //                                              p.global_source_indices, // offerings
+                //                                              owner_rank.data(), nb, echo);
+                green_parallel::potential_exchange(p.Veff, Vinp, p.potential_requests, Noco, echo);
             } else {
-                if (echo > 0) std::printf("# skip green_function.potential.exchange\n");
-            } // needs exchange?
+                warn("# +green_function.potential.exchange=%d --> skip\n", command_exchange);
+            } // needs exchange
 
             delete[] Vinp;
 
@@ -214,13 +217,10 @@ namespace green_function {
 
 
 
-#ifdef    GREEN_FUNCTION_SVG_EXPORT
-    static FILE* svg;
-#endif // GREEN_FUNCTION_SVG_EXPORT
 
 
     status_t update_phases(
-            action_plan_t & p
+          action_plan_t & p
         , double const k_point[3]
         , int const echo // =0 // verbosity
         , int const Noco // =1
@@ -257,7 +257,7 @@ namespace green_function {
 
 
     std::vector<int64_t> get_right_hand_sides(
-            uint32_t const nb[3] // number of blocks
+          uint32_t const nb[3] // number of blocks
         , std::vector<uint16_t> & owner_rank // result: who owns which RHS block
         , int const echo=0
     ) {
@@ -945,8 +945,7 @@ namespace green_function {
                     char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
 
                     // create lists for the finite-difference derivatives
-#if 0
-                    auto const new_stat = kinetic_plan::finite_difference_plan(p.kinetic[dd].sparse_, kinetic_nFD_dd // results
+                    p.kinetic[dd] = kinetic_plan_t(kinetic_nFD_dd // results
                         , dd
                         , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
                         , num_target_coords
@@ -954,22 +953,9 @@ namespace green_function {
                         , iRow_of_coords
                         , sparsity_pattern.data()
                         , nrhs, echo);
-                    if (0 == new_stat) {
-                        p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
-                        p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
-                    } else error("failed to create new kinetic_plan_t in %c-direction", 'x' + dd);
-#else
-                    p.kinetic[dd] = std::move(kinetic_plan_t(kinetic_nFD_dd // results
-                        , dd
-                        , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
-                        , num_target_coords
-                        , p.RowStart, p.colindx.data()
-                        , iRow_of_coords
-                        , sparsity_pattern.data()
-                        , nrhs, echo));
                     p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
                     p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
-#endif
+
                 } // dd derivate direction
             } // scope: set up kinetic plans
 
@@ -991,41 +977,25 @@ namespace green_function {
             set(p.Veff[mag][0], p.nRows*64, 0.0);
         } // mag
 
-        warn("potential has not been filled!", __LINE__);
+        // prepare for the MPI exchange of potential blocks
+        p.potential_requests = green_parallel::RequestList_t(p.global_target_indices,  // requests
+                                                             p.global_source_indices, // offerings
+                                                             owner_rank.data(), n_blocks, echo);
 
+        FILE* svg{nullptr};
 #ifdef    GREEN_FUNCTION_SVG_EXPORT
-        { // scope
-            assert(nullptr == svg);
-            svg = std::fopen("green_function.svg", "w");
-            if (nullptr != svg) {
-                std::fprintf(svg, "<!-- SVG code generated by %s -->\n", __FILE__); // can be viewed at https://editsvgcode.com/
-                std::fprintf(svg, "<svg viewBox=\"%d %d %d %d\" xmlns=\"http://www.w3.org/2000/svg\">\n",
-                    min_target_coords[X]*4-20, min_target_coords[Y]*4-20, num_target_coords[X]*4+20, num_target_coords[Y]*4+20);
-            } // nullptr != svg
-        } // scope
+        svg = std::fopen("green_function.svg", "w");
+        if (nullptr != svg) {
+            std::fprintf(svg, "<!-- SVG code generated by %s -->\n", __FILE__); // can be viewed at https://editsvgcode.com/
+            std::fprintf(svg, "<svg viewBox=\"%d %d %d %d\" xmlns=\"http://www.w3.org/2000/svg\">\n",
+                min_target_coords[X]*4-20, min_target_coords[Y]*4-20, num_target_coords[X]*4+20, num_target_coords[Y]*4+20);
+        } // nullptr != svg
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
-#if 0
-        auto const stat = green_function::construct_dyadic_plan(p.dyadic_plan
-                                , cell, bc, hg, xyzZinso
-                                , p.nRows, p.nCols, p.RowStart, p.colindx.data()
-                                , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
-                                , max_distance_from_center, r_trunc, echo, Noco);
-        if (stat && echo > 0) std::printf("# construct_dyadic_plan returned status= %i\n", int(stat));
-#else
         p.dyadic_plan = dyadic_plan_t(cell, bc, hg, xyzZinso
                                 , p.nRows, p.nCols, p.RowStart, p.colindx.data()
                                 , p.target_coords, global_internal_offset, r_block_circumscribing_sphere
-                                , max_distance_from_center, r_trunc, echo, Noco
-#ifdef    GREEN_FUNCTION_SVG_EXPORT
-                                , svg
-#endif // GREEN_FUNCTION_SVG_EXPORT
-                                );
-        status_t stat(0);
-#endif
-
-        auto const nerr = p.dyadic_plan.consistency_check();
-        if (nerr && echo > 0) std::printf("# dyadic_plan.consistency_check has %d errors\n", nerr);
+                                , max_distance_from_center, r_trunc, echo, Noco, svg);
 
 #ifdef    GREEN_FUNCTION_SVG_EXPORT
         if (nullptr != svg) {
@@ -1053,7 +1023,10 @@ namespace green_function {
         } // nullptr != svg
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
-        return stat;
+        auto const nerr = p.dyadic_plan.consistency_check();
+        if (nerr && echo > 0) std::printf("# dyadic_plan.consistency_check has %d errors\n", nerr);
+
+        return 0;
     } // construct_Green_function
 
     #undef str // === vec2str.c_str()

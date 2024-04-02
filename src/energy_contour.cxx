@@ -82,7 +82,8 @@ namespace energy_contour {
             
             std::complex<double> const energy((ienergy + 1)*0.5, 0.125);
             if (echo > 5) std::printf("# energy parameter  (%g %s, %g %s)\n", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
-            stat += green_function::update_energy_parameter(plan, energy, AtomMatrices, dV, scale_H, echo, Noco, &atom_req_);
+            // ToDo: we should keep copies of the atom matrices in CPU memory so that energy parameters can be adjusted without MPI communication
+            stat += green_function::update_energy_parameter(plan, energy, AtomMatrices, dV, scale_H, echo, Noco, &plan.matrices_requests);
 
             view2D<double> rho_E(nblocks, 4*4*4, 0.0);
 

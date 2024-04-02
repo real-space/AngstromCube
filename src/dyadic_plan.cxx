@@ -28,7 +28,7 @@
       int8_t shifts[3]; // periodic image shifts in [-127, 127]   OR   uint16_t phase_index;
       int8_t lmax; // SHO basis size >= -1
   }; // atom_image_t 32 Byte
-#endif
+#endif // 0
 
 
     dyadic_plan_t::dyadic_plan_t(int const echo) { // default constructor
@@ -472,7 +472,7 @@
       p.AtomStarts[0] = 0; // init prefetch sum
       // p.AtomSigma.resize(nac);
 
-      for (uint32_t iac = 0; iac < nac; ++iac) { // parallel
+      for (uint32_t iac = 0; iac < nac; ++iac) { // parallel loop
           auto const iaa = p.global_atom_index[iac];
           // p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
           uint32_t const nc = sho_tools::nSHO(atom_numax[iaa]);
@@ -484,8 +484,6 @@
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear
       } // iac
       p.nAtoms = nac; // number of contributing atom copies
-
-      warn("missing call to update_atom_matrices, Noco=%d", Noco);
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
 

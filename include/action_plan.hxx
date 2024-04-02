@@ -27,6 +27,7 @@
 
 #include "kinetic_plan.hxx" // kinetic_plan_t
 #include "dyadic_plan.hxx" // dyadic_plan_t
+#include "green_parallel.hxx" // ::RequestList_t
 
 class action_plan_t {
 public: // TODo: check which members could be private
@@ -91,6 +92,10 @@ public: // TODo: check which members could be private
     bool noncollinear_spin = false;
 
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
+
+    green_parallel::RequestList_t potential_requests; // request list to exchange potential blocks
+    green_parallel::RequestList_t matrices_requests;  // request list to exchange atomic matrices
+
 
 public:
 

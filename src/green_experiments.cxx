@@ -48,7 +48,6 @@ namespace green_experiments {
       , int const echo=0
   ) {
       int constexpr R1C2 = 2;
-
       if (echo > 1) std::printf("\n# %s:%s<%s,R1C2=%d,Noco=%d>\n", strip_path(__FILE__), __func__, real_t_name<real_t>(), R1C2, Noco);
 
       green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
@@ -80,7 +79,7 @@ namespace green_experiments {
 
       view2D<double> k_path;
       auto const nkpoints = brillouin_zone::get_kpoint_path(k_path, echo);
-      if (echo > 1) std::printf("# %s %d k-points, %d E-points, Temperature %g %s = %g %s\n",
+      if (echo > 1) std::printf("# %s %d k-points, %d E-points, temperature %g %s = %g %s\n",
                             __func__, nkpoints, nE, E_imag*Kelvin, _Kelvin, E_imag*eV, _eV);
 
       std::vector<double> bandstructure(nkpoints, -9e9);
@@ -89,7 +88,7 @@ namespace green_experiments {
           double const *const k_point = k_path[ik];
 
           if (echo > 0) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
-          green_function::update_phases(p, k_point, Noco, echo);
+          green_function::update_phases(p, k_point, echo, Noco);
 
           double E_resonance{-9};
 #ifdef    HAS_TFQMRGPU
@@ -520,7 +519,7 @@ namespace green_experiments {
       auto psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
 
       int constexpr Real = 0, Imag = R1C2 - 1;
-      if (nb < nblocks) { // scope: create start wave functions
+      if (nb < nblocks) { // create start wave functions
           warn("iterative solver has not yet achieved to converge, use the explicit solver with nb == nblocks", 0);
           // ToDo: delete failed code
           //
@@ -554,7 +553,7 @@ namespace green_experiments {
                         for (int d = 0; d < 3; ++d) {
                             kvs[d*stride + ipw] = kvec[d]*hg[d];
                         } // d
-                        ++ipw; // count a plane wave that should be stored in psi
+                        ++ipw; // count a plane wave to be stored
                       } // accept plane wave
                   } // plane wave inside sphere
                   ++mpw;
@@ -565,7 +564,7 @@ namespace green_experiments {
           if (echo > 1) std::printf("# start waves are %d of max %d (sphere) or %d (box) plane waves\n", ipw, jpw, mpw);
           auto const npws = ipw;
           assert(npws >= nb*64 && "Need to have enough plane waves to fill all bands");
-          {
+          { // scope:
               double const f = 1./std::sqrt(dVol*(ng4[2]*4.*ng4[1]*4.*ng4[0]*4.));
               for (int ib = 0; ib < nb; ++ib) {
                 for (int iz4 = 0; iz4 < ng4[2]; ++iz4) {
@@ -592,10 +591,10 @@ namespace green_experiments {
                             }}} // i4x i4y i4z
                     }}} // ix4 iy4 iz4
               } // ib
-          }
+          } // scope
           free_memory(kvs);
 
-      } else { // scope: start waves
+      } else {  // start waves
           assert(nb == nblocks); // there are as many bands as real-space grid points
           if (echo > 0) std::printf("# prepare as many wave functions as real-space grid points\n");
           set(psi[0][0][0], nblocks*nb*R1C2*64ul*64ul, real_t(0)); // clear
@@ -625,8 +624,8 @@ namespace green_experiments {
           double const *const k_point = k_path[ik];
 
           if (echo > 3) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
-          green_function::update_phases(pH, k_point, Noco, echo);
-          green_function::update_phases(pS, k_point, Noco, echo/2); // less output since it will print the same as above
+          green_function::update_phases(pH, k_point, echo, Noco);
+          green_function::update_phases(pS, k_point, echo/2, Noco); // less output since it will print the same as above
           double nops{0};
 
         int it{0}, lastiter{maxiter - 1};
@@ -794,11 +793,14 @@ namespace green_experiments {
       auto const dVol = hg[2]*hg[1]*hg[0];
 
       if ('g' != how) {
-          double const huge = 9*std::max(std::max(ng[0]*hg[0], ng[1]*hg[1]), ng[2]*hg[2]);
+          auto const huge = 9*std::max(std::max(ng[0]*hg[0], ng[1]*hg[1]), ng[2]*hg[2]);
           control::set("green_function.truncation.radius", huge, echo);
       } // how
 
-      int const Noco = 1 + (control::get("green_experiments.eigen.noco", 0.) > 0);
+      int const eigen_noco = control::get("green_experiments.eigen.noco", 0.);
+      int const Noco = 1 + (eigen_noco > 0);
+      if (echo > 0) std::printf("# +green_experiments.eigen.noco=%d --> Noco = %d\n", eigen_noco, Noco);
+
       action_plan_t p;
       auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, Noco);
       if (plan_stat) {
@@ -811,26 +813,26 @@ namespace green_experiments {
       auto const pot_stat = green_function::update_potential(p, nb, Veff, owner_rank, echo, Noco);
       if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
 
-      auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), AtomMatrices, dVol, Noco, 1.0, echo);
+      auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), AtomMatrices, dVol, 1.0, echo, Noco);
       if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
 
       if ('g' == how) {
-          // compute the bandstructure using the Green function method
+          // compute the bandstructure as a density of states using the Green function method
           return (1 == Noco) ? bandstructure<double,1>(p, AtomMatrices, ng, hg, echo):
                                bandstructure<double,2>(p, AtomMatrices, ng, hg, echo);
       } else {
           // compute a bandstructure using an eigenstate method
           // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S
+          int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.); // separate verbosity for the second initialization, default=mute
 
           action_plan_t pS; // plan for the overlap operator
-          int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.);
           auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, echo_pS, Noco); // since the copy operator is deleted we have to do it again
           if (plan_stat) {
               warn("construct_Green_function failed with status=%d for the overlap operator", int(plan_stat));
               return plan_stat;
           } // plan_stat
 
-          auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), AtomMatrices, dVol, Noco, 0.0, echo);
+          auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), AtomMatrices, dVol, 0.0, echo, Noco);
           if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
 
           int const r1c2 = (2 == Noco) ? 2 : (2 - (control::get("green_experiments.eigen.real", 0.) > 0));
@@ -928,7 +930,7 @@ namespace green_experiments {
 #endif // CODE_GENERATION
 
       // 23 symmetry operations: no inversion symmetry, but C2 and C3 symmetries
-      //                                            jx,jy,jz are negative coords
+      //               x,y,z are positive coords,      X,Y,Z are negative coords
       for         (int z = 0; z < n; ++z) {  int const Z = n - 1 - z;
           for     (int y = 0; y < n; ++y) {  int const Y = n - 1 - y;
               for (int x = 0; x < n; ++x) {  int const X = n - 1 - x;
@@ -975,8 +977,8 @@ namespace green_experiments {
           if (hist[i50] > 0) std::printf("# %9ld fields have weight %d\n", hist[i50], i50);
       } // i50
       std::printf("# %9ld fields have weight nonzero\n", nonzero);
-      assert(0 == hist[t49] && "There cannot be more than 48 symmetry operations");
-      std::printf("# %s: reduction factor %g\n", __func__, (n*n*n)/double(nonzero));
+      assert(0 == hist[t49] && "There cannot be more than 48 cubic symmetry operations");
+      std::printf("# %s: reduction factor %g (max 24)\n", __func__, (n*n*n)/double(nonzero));
 
       return 0;
   } // test_symmetric_cube

@@ -25,7 +25,6 @@ namespace energy_contour {
     public: // members TODO: go private
         action_plan_t *plan_ = nullptr;
         green_solver_t solver_;
-        green_parallel::RequestList_t atom_req_;
 
     public: // methods
 

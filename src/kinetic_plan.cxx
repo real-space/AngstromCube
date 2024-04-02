@@ -166,17 +166,17 @@ namespace kinetic_plan {
                     // =====================================================================================================
                     if (boundary_is_periodic) {
                         if (num_target_coords[dd] - 1 == last_id) { // only when the last entry was at the rightmost boundary
-                                    for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
-                                        uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
-                                        jdx[dd] = ihalo % num_target_coords[dd]; // periodic wrap around
-                                        auto const jdx3 = index3D(num_target_coords, jdx); // flat index
-                                        if (sparsity_rhs[jdx3]) {
-                                            auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
-                                            if (jnz_found >= 0) {
-                                                list[ilist][list_length + ihalo] = CUBE_NEEDS_PHASE*(jnz_found + CUBE_EXISTS);
-                                            } // block exists
-                                        } // block exists
-                                    } // ihalo
+                            for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
+                                uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
+                                jdx[dd] = ihalo % num_target_coords[dd]; // periodic wrap around
+                                auto const jdx3 = index3D(num_target_coords, jdx); // flat index
+                                if (sparsity_rhs[jdx3]) {
+                                    auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
+                                    if (jnz_found >= 0) {
+                                        list[ilist][list_length + ihalo] = CUBE_NEEDS_PHASE*(jnz_found + CUBE_EXISTS);
+                                    } // block exists
+                                } // block exists
+                            } // ihalo
                         } // rightmost boundary
                     } // boundary_is_periodic
                     // =====================================================================================================
@@ -278,7 +278,7 @@ namespace kinetic_plan {
 
 } // namespace kinetic_plan
 
-#if 1
+
     kinetic_plan_t::kinetic_plan_t(
             int16_t & FD_range // side result
           , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
@@ -304,7 +304,7 @@ namespace kinetic_plan {
               if (echo > 2) std::printf("# failed to set up finite_difference_plan for %c-direction, status= %i\n", 'x' + dd, int(stat));
           }
       } // constructor
-#endif // needs a copy assignment operator in sparse_t to work
+
 
       void kinetic_plan_t::set(
             int const dd
@@ -323,6 +323,7 @@ namespace kinetic_plan {
                 lists_[il] = &colIndex[rowStart[il]];
             } // il
       } // set
+
 
       kinetic_plan_t::~kinetic_plan_t() {
           if (lists_) {

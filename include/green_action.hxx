@@ -54,12 +54,12 @@
 
 namespace green_action {
 
-    template <typename floating_point_t=float, unsigned R1C2=2, int Noco=1, int n64=64>
+    template <typename floating_point_t=float, unsigned R1C2=2, unsigned Noco=1, unsigned n64=64>
     class action_t { // an action as used in tfQMRgpu
     public:
         typedef floating_point_t real_t;
-        static int constexpr LM = Noco*n64, // number of rows per block
-                             LN = LM;    // number of columns per block
+        static unsigned constexpr LM = Noco*n64, // number of rows per block
+                                  LN = LM;    // number of columns per block
         // action_t::LN is needed to support the rectangular blocks feature in tfQMRgpu
         //
         // This action is an implicit linear operator onto block-sparse structured data.

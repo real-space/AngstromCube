@@ -1048,9 +1048,9 @@ namespace parallel_potential {
         } // switch
 
         // load geometry from +geometry.file=atoms.xyz
-        real_space::grid_t g; // entire grid descriptor
-        view2D<double> xyzZ_all;  // coordinates for all atoms
-        int32_t n_all_atoms;  // number of all atoms
+        real_space::grid_t g;    // entire grid descriptor
+        view2D<double> xyzZ_all; // coordinates for all atoms
+        int32_t n_all_atoms;     // number of all atoms (at most 2.147483647e9)
 
         { // scope: init_geometry_and_grid
             auto const stat_init = geometry_input::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
@@ -1239,8 +1239,8 @@ namespace parallel_potential {
         if (needs_integrator) {
             if (echo > 0) std::printf("\n# Initialize energy contour integrator");
 
-            // currently the Green function method requires all atoms
-            // as it has to tell apart atomic images from atomic copies
+            // Mind: currently the Green function method requires all atoms
+            //     as it has to tell apart atomic images from atomic copies
             std::vector<double> xyzZinso(0);
             { // scope: determine additional info
                 std::vector<int32_t> numax_prj(na, 0);
@@ -1270,7 +1270,7 @@ namespace parallel_potential {
             // envoke the constructor energy_contour::Integrator
             integrator = energy_contour::Integrator(gc, xyzZinso, echo);
 
-            // setup communication infrastructure for atom_mat, TODO: also for potential elements
+            // setup communication infrastructure for atom_mat
             auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
             std::vector<int64_t> owned_global_atom_ids(na);
             for (int ia{0}; ia < na; ++ia) {
@@ -1278,14 +1278,14 @@ namespace parallel_potential {
             } // ia
             assert(0 == (xyzZinso.size() & 0x7)); // make sure it is divisible by 8
             uint32_t const n_all_atoms = xyzZinso.size() >> 3; // divide by 8
-            uint32_t const nb[] = {n_all_atoms, 0, 0};
             std::vector<green_parallel::rank_int_t> atom_owner_rank(n_all_atoms, 0);
             auto const nprocs = mpi_parallel::size(); // comm=MPI_COMM_WORLD?
             for (uint32_t gid{0}; gid < n_all_atoms; ++gid) {
                 atom_owner_rank[gid] = gid % nprocs;
             } // gid
-            integrator.atom_req_ = green_parallel::RequestList_t(target_global_atom_ids,
-                                        owned_global_atom_ids, atom_owner_rank.data(), nb, echo);
+            uint32_t const nb[] = {n_all_atoms, 0, 0};
+            integrator.plan_->matrices_requests = green_parallel::RequestList_t(
+                target_global_atom_ids, owned_global_atom_ids, atom_owner_rank.data(), nb, echo);
         } // needs_integrator
 
         xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this

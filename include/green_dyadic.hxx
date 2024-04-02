@@ -1113,7 +1113,7 @@ namespace green_dyadic {
         auto const result = SHOprj_right(Cpr_export, p.AtomImagePos, p.AtomImageLmax, p.AtomImageStarts, p.AtomImageIndex,
                                 p.AtomImagePhase, p.nAtomImages, p.AtomLmax, p.nAtoms, colCubePos, p.grid_spacing, p.nrhs, echo);
         free_memory(Cpr_export);
-        warn("missing is an MPI_Allreduce onto each atom matrix for %d local atoms", int(p.nAtoms));
+        if (p.nAtoms > 0) warn("missing an MPI_Allreduce onto each atom matrix for %d local atoms", int(p.nAtoms));
         return result;
     } // get_projection_coefficients
 

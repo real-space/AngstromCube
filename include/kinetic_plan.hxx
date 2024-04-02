@@ -50,7 +50,7 @@ namespace kinetic_plan {
           , unsigned const nrhs=1 // number of right hand sides
           , double const grid_spacing=1 // grid spacing in derivative direction
           , int const echo=0 // log level
-      );
+      ); // constructor
 
       ~kinetic_plan_t(); // destructor
 
@@ -59,7 +59,7 @@ namespace kinetic_plan {
           , double const grid_spacing=1
           , size_t const nnzbX=1
           , int const echo=0 // log level
-      );
+      ); // declaration only
 
     public: // ToDo: check which members could be private
         // members
