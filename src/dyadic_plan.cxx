@@ -473,7 +473,7 @@
       p.AtomStarts[0] = 0; // init prefetch sum
       // p.AtomSigma.resize(nac);
 
-      size_t nc2_max{1}; // routines do not work with count==0
+      size_t nc2_max{1}; // green_parallel::exchange does not work with count==0
       for (uint32_t iac = 0; iac < nac; ++iac) { // parallel loop
           auto const iaa = p.global_atom_index[iac];
           // p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
@@ -489,6 +489,7 @@
       p.nAtoms = nac; // number of contributing atom copies
 
       auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
+      if (echo > 2) std::printf("# MPI data exchange for atom matrices with %d doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
       p.AtomMatrices_ = view2D<double>(nac, count); // CPU memory for atomic matrices
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
