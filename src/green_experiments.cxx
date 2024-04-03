@@ -34,6 +34,11 @@
     #include "linear_algebra.hxx" // ::eigenvalues
 #endif // HAS_LAPACK
 
+#ifdef    HAS_BITMAP_EXPORT
+    #include "bitmap.hxx" // ::write_bmp_file   
+#endif // HAS_BITMAP_EXPORT
+
+
 namespace green_experiments {
 
   template <typename real_t=double, int Noco=1>
@@ -49,6 +54,20 @@ namespace green_experiments {
       green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
 
+      auto const E0     = control::get("green_experiments.bandstructure.energy.offset", 0.0);
+      auto const dE     = control::get("green_experiments.bandstructure.energy.spacing", 0.01);
+      int  const nE     = control::get("green_experiments.bandstructure.energy.points", 1.);
+      auto const E_imag = control::get("green_experiments.bandstructure.energy.imag", 1e-3); // 1e-3==room temperature
+
+      if (E_imag <= 0) warn("imaginary part of the energy parameter is %.1e Ha", E_imag);
+
+      if (echo > 1) std::printf("# %d E-points in [%g, %g] %s\n", nE, E0*eV, (E0 + (nE - 1)*dE)*eV, _eV);
+
+      view2D<double> k_path;
+      auto const nkpoints = brillouin_zone::get_kpoint_path(k_path, echo);
+      if (echo > 1) std::printf("# %s %d k-points, %d E-points, temperature %g %s = %g %s\n",
+                            __func__, nkpoints, nE, E_imag*Kelvin, _Kelvin, E_imag*eV, _eV);
+
       p.gpu_mem = 0;
 #ifdef    HAS_TFQMRGPU
       p.echo = echo - 5;
@@ -62,21 +81,11 @@ namespace green_experiments {
       set(rho[0][0][0], p.nCols*Noco*Noco*64, 0.0);
       int const maxiter = control::get("tfqmrgpu.max.iterations", 99.);
       if (echo > 3) std::printf("# +tfqmrgpu.max.iterations=%d\n", maxiter);
+      view2D<float> spectral_function(nE, nkpoints, 0.f);
+      double max_resonance_k{-99}, max_deviation{0};
+      int iE_res{-1}, ik_res{-1}, iE_dev{-1}, ik_dev{-1};
 #endif // HAS_TFQMRGPU
       auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
-
-      auto const E0     = control::get("green_experiments.bandstructure.energy.offset", 0.0);
-      auto const dE     = control::get("green_experiments.bandstructure.energy.spacing", 0.01);
-      int const nE      = control::get("green_experiments.bandstructure.energy.points", 1.);
-      auto const E_imag = control::get("green_experiments.bandstructure.energy.imag", 1e-3); // 1e-3==room temperature
-      if (E_imag <= 0) warn("imaginary part of the energy parameter is %.1e Ha", E_imag);
-
-      if (echo > 1) std::printf("# %d E-points in [%g, %g] %s\n", nE, E0*eV, (E0 + (nE - 1)*dE)*eV, _eV);
-
-      view2D<double> k_path;
-      auto const nkpoints = brillouin_zone::get_kpoint_path(k_path, echo);
-      if (echo > 1) std::printf("# %s %d k-points, %d E-points, temperature %g %s = %g %s\n",
-                            __func__, nkpoints, nE, E_imag*Kelvin, _Kelvin, E_imag*eV, _eV);
 
       std::vector<double> bandstructure(nkpoints, -9e9);
 
@@ -116,17 +125,28 @@ namespace green_experiments {
                   } // i64
               } // icol
               // ToDo: MPIallreduce rho_stats
-              auto const resonance = rho_stats.mean();
-              if (echo > 0) std::printf("%.6f %.9f %.1e\n", E_real*eV, resonance, rho_stats.dev());
-              if (resonance > max_resonance) { E_resonance = E_real; max_resonance = resonance; }
+              auto const resonance = rho_stats.mean(), deviation = rho_stats.dev();
+              if (echo > 0) std::printf("%.6f %.9f %.1e\n", E_real*eV, resonance, deviation);
+              if (resonance > max_resonance) { iE_res = iE; ik_res = ik; max_resonance = resonance; E_resonance = E_real; }
+              if (deviation > max_deviation) { iE_dev = iE; ik_dev = ik; max_deviation = deviation; }
+              spectral_function(iE,ik) = resonance;
 
-              auto const pGp = green_dyadic::get_projection_coefficients<real_t,R1C2,Noco>(Green, p.dyadic_plan, p.rowindx, p.rowCubePos, p.colCubePos, echo);
+         //   auto const pGp = green_dyadic::get_projection_coefficients<real_t,R1C2,Noco>(Green, p.dyadic_plan, p.rowindx, p.rowCubePos, p.colCubePos, echo);
 #else  // HAS_TFQMRGPU
               if (echo > 0) std::printf("# solve for k={%9.6f,%9.6f,%9.6f}, E=(%g, %g) %s\n",
                               k_point[0], k_point[1], k_point[2], E_real*eV, E_imag*eV, _eV);
 #endif // HAS_TFQMRGPU
           } // iE
           bandstructure[ik] = E_resonance;
+
+#ifdef    HAS_TFQMRGPU
+          if (max_resonance > max_resonance_k) { max_resonance_k = max_resonance; ik_res = ik; }
+#ifdef    HAS_BITMAP_EXPORT
+          // preview bitmap export after every k-point (no non-linear function applied for better visibility, but data range in [0, 511] gets truncated to [0, 255])
+          bitmap::write_bmp_file("spectral_function", spectral_function.data(), nE, ik+1, nkpoints, 511/max_resonance_k, ".bmp", false, echo, 1, true);
+#endif // HAS_BITMAP_EXPORT
+#endif // HAS_TFQMRGPU
+
       } // ik
       free_memory(memory_buffer);
 
@@ -150,6 +170,21 @@ namespace green_experiments {
       } // echo
 
 #ifdef    HAS_TFQMRGPU
+      if (echo > 0) std::printf("# largest resonance is %g at iE= %d ik= %d\n", max_resonance_k, iE_res, ik_res);
+      if (echo > 0) std::printf("# largest deviation is %g at iE= %d ik= %d\n", max_deviation,   iE_dev, ik_dev);
+
+#ifdef    HAS_BITMAP_EXPORT
+      if (0) { // scope: bitmap export
+          view2D<float> sf(nE, nkpoints, 0.f);
+          auto const f = 1./max_resonance_k;
+          for (int iE{0}; iE < nE; ++iE) {
+              for (int ik{0}; ik < nkpoints; ++ik) {
+                  sf(iE,ik) = std::sqrt(std::max(0., f*spectral_function(iE,ik))); // sqrt to enhance visibility of smaller values
+              } // ik
+          } // iE
+          bitmap::write_bmp_file("spectral_function", sf.data(), nE, nkpoints, -1, 255, ".bmp", false, echo, 1, true);
+      } // scope
+#endif // HAS_BITMAP_EXPORT
       free_memory(rho);
 #else  // HAS_TFQMRGPU
       warn("%s needs tfQMRgpu", __func__);
@@ -838,12 +873,12 @@ namespace green_experiments {
           switch (bits_r1c2_noco) {
 #ifndef   HAS_TFQMRGPU
               case 3211: return eigensolver<float ,1,1>(p, pS, ng, hg, p.nCols, echo);
-              case 6411: return eigensolver<double,1,1>(p, pS, ng, hg, p.nCols, echo);
+              case 6411: return eigensolver<double,1,1>(p, pS, ng, hg, p.nCols, echo); // real
 #endif // HAS_TFQMRGPU
               case 3221: return eigensolver<float ,2,1>(p, pS, ng, hg, p.nCols, echo);
-              case 6421: return eigensolver<double,2,1>(p, pS, ng, hg, p.nCols, echo);
+              case 6421: return eigensolver<double,2,1>(p, pS, ng, hg, p.nCols, echo); // complex
               case 3222: return eigensolver<float ,2,2>(p, pS, ng, hg, p.nCols, echo);
-              case 6422: return eigensolver<double,2,2>(p, pS, ng, hg, p.nCols, echo);
+              case 6422: return eigensolver<double,2,2>(p, pS, ng, hg, p.nCols, echo); // complex non-collinear
               default: error("no such case %s%d with Noco=%d", (1 == r1c2)?"real":"complex", bits, Noco);
           } // fp32 or fp64
       } // how

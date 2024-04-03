@@ -489,8 +489,8 @@
       p.nAtoms = nac; // number of contributing atom copies
 
       auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
-      if (echo > 2) std::printf("# MPI data exchange for atom matrices with %d doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
-      p.AtomMatrices_ = view2D<double>(nac, count); // CPU memory for atomic matrices
+      if (echo > 2) std::printf("# MPI data exchange for atom matrices with %ld doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
+      p.AtomMatrices_ = view2D<double>(nac, count); // get CPU memory for atomic matrices
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
 
