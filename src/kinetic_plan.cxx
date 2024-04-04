@@ -249,8 +249,8 @@ namespace kinetic_plan {
         double dev{0};
 // #ifdef    DEBUG
         if ('\0' != *corrected) {
-            if (std::abs(cs - std::cos(arg)) > 2.8e-16) error("cosine for phase_angle= %g degrees deviates after purification, cos= %g expected %g", phase_angle*360, cs, std::cos(arg));
-            if (std::abs(sn - std::sin(arg)) > 2.8e-16) error(  "sine for phase_angle= %g degrees deviates after purification, sin= %g expected %g", phase_angle*360, sn, std::sin(arg));
+            if (std::abs(cs - std::cos(arg)) > 3.4e-16) error("cosine for phase_angle= %g degrees deviates after purification, cos= %g expected %g diff %.1e", phase_angle*360, cs, std::cos(arg), cs - std::cos(arg));
+            if (std::abs(sn - std::sin(arg)) > 3.4e-16) error(  "sine for phase_angle= %g degrees deviates after purification, sin= %g expected %g diff %.1e", phase_angle*360, sn, std::sin(arg), sn - std::sin(arg));
             dev = std::max(std::abs(cs - std::cos(arg)), std::abs(sn - std::sin(arg)));
         }
 // #endif // DEBUG

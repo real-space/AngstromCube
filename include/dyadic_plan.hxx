@@ -51,7 +51,7 @@ public: // methods
     dyadic_plan_t(int const echo=0); // default constructor
 
     dyadic_plan_t( // constructor
-        double const cell[3]
+        uint32_t const grid_blocks[3]
       , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
       , std::vector<double> const & xyzZinso // [natoms*8]
@@ -59,8 +59,7 @@ public: // methods
       , uint32_t const nrhs
       , uint32_t const *const rowStartGreen
       , uint16_t const *const colIndexGreen
-      , int16_t const (*internal_target_coords)[3+1]
-      , int32_t const global_internal_offset[3]
+      , float const (*rowCubePos)[3+1]
       , double const r_block_circumscribing_sphere
       , double const max_distance_from_center
       , double const r_trunc

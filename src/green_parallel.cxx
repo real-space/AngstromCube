@@ -36,6 +36,7 @@ namespace green_parallel {
       , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
       , uint32_t const nb[3] // global bounding box or {natoms,0,0}
       , int const echo // =0 // log-level
+      , char const *const what // ="?"
     ) {
         auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const me   = mpi_parallel::rank(comm);
@@ -47,9 +48,10 @@ namespace green_parallel {
         int constexpr X=0, Y=1, Z=2;
         auto const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
-        if (echo > 7) std::printf("# rank#%i RequestList_t [%d %d %d], nall= %ld\n", me, nb[X], nb[Y], nb[Z], nall);
         auto const nown = offerings.size(); // number of offerings
         auto const nreq = requests.size(); // number of requests
+        if (echo > 7) std::printf("# rank#%i RequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
+                                          me,       nb[X],nb[Y],nb[Z], nall,              nown,           nreq);
 
 #ifndef   HAS_NO_MPI
         bool const debug = 1;
@@ -147,7 +149,7 @@ namespace green_parallel {
                 for (size_t iown = 0; iown < nown && iloc < 0; ++iown) {
                     if (global_id == offerings[iown]) iloc = iown;
                 } // iown
-                if (-1 == iloc) error("failed to find global_id= %li in offerings", global_id);
+                if (-1 == iloc) error("failed to find global_id= %li in offerings of %s", global_id, what);
                 assert(iloc > -1 && "index not found in local offerings");
                 owner[ireq] = me;
 

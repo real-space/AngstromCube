@@ -16,13 +16,13 @@
 namespace kinetic_plan {
 
     double set_phase(
-          double phase[2][2]
-        , double const phase_angle=0
-        , char const direction='?'
-        , int const echo=0
+          double phase[2][2] // resulting phase factors[forward+backward][real+imag]
+        , double const phase_angle=0 // phase_angle in units of 2*pi
+        , char const direction='?' // should be 'x', 'y', or 'z'
+        , int const echo=0 // verbosity
     ); // declaration only
 
-    void set_phase(
+    void set_phase( // wrapper for set_phase defined above
           double phase[3][2][2]
         , double const phase_angles[3]=nullptr
         , int const echo=0

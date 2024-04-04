@@ -77,11 +77,11 @@ public: // TODo: check which members could be private
 
     uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
     uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
-    int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
-    int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
+    // int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
+    // int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
     float   (*rowCubePos)[3+1]    = nullptr; // [nRows][3+1] internal coordinates in float, could be int16_t for most applications
     float   (*colCubePos)[3+1]    = nullptr; // [nCols][3+1] internal coordinates in float, could be int16_t for most applications
-    int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences
+    int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences                                               TODO: remove target_minus_source
     double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
     // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
     int32_t*  veff_index          = nullptr; // [nnzbX] indirection list, values -1 for non-existent indices

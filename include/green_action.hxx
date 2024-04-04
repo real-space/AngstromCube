@@ -110,24 +110,12 @@ namespace green_action {
           auto const & dp = p_->dyadic_plan;
           auto const natomcoeffs = dp.AtomImageStarts ? dp.AtomImageStarts[dp.nAtomImages] : 0;
           auto const n = size_t(natomcoeffs) * p_->nCols;
-          // ToDo: could be using GPU memory taking it from the buffer
-          // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
           apc_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "apc");
 //        aac_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "aac"); // currently not used
-          // ToDo: alternatively, we could take GPU device memory from the buffer
       } // take_memory
 
       void transfer(char* const buffer, cudaStream_t const streamId=0) {
           // no transfers needed since we are using managed memory
-          // but we could fill matB with unit blocks here
-          // assert(p_->subset.size() == p_->nCols);
-          // clear_on_gpu<real_t[2][LM][LM]>(matB, p_->nCols);
-          // assert(LM == LM);
-          // for (int icol = 0; icol < p_->nCols; ++icol) {
-          //     for (int i = 0; i < LM; ++i) {
-          //        matB[icol][0][i][i] = real_t(1);
-          //     } // i
-          // } // icol
       } // transfer
 
       bool has_preconditioner() const { return false; }
@@ -278,7 +266,8 @@ namespace green_action {
       // temporary device memory needed for dyadic operations
       real_t (*apc_)[R1C2][Noco][LM] = nullptr; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
 //    real_t (*aac_)[R1C2][Noco][LM] = nullptr; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
-      // (we could live with a single copy if the application of the atom-centered matrices is in-place)
+      // (we can live with a single copy as the application of the atom-centered matrices is in-place)
+
       char* memory_buffer_ = nullptr;
 
   }; // class action_t

@@ -1285,7 +1285,7 @@ namespace parallel_potential {
             } // gid
             uint32_t const nb[] = {n_all_atoms, 0, 0};
             integrator.plan_->matrices_requests = green_parallel::RequestList_t(
-                target_global_atom_ids, owned_global_atom_ids, atom_owner_rank.data(), nb, echo);
+                target_global_atom_ids, owned_global_atom_ids, atom_owner_rank.data(), nb, echo, "atom matrices");
         } // needs_integrator
 
         xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this

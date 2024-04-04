@@ -64,11 +64,11 @@ namespace green_dyadic {
             assert(i4 >= 0); assert(i4 < n4);
 
             double const grid_spacing  = hxyz[idir]; // load a float and convert to double
-            double const cube_position = xyzc[idir]; // position of the target block, lower left front corner
-            double const atom_position = xyza[idir]; // load atomic coordinate
+            double const cube_position = xyzc[idir]; // position of the target block, lower left front corner, in units of 4 grid spacings
+            double const atom_position = xyza[idir]; // load atomic image coordinate
             double const sigma_inverse = xyza[3]*xyza[3]; // sigma_inverse = inverse of the Gaussian width sigma
 
-            double const xi = sigma_inverse*(grid_spacing*(cube_position*n4 + i4 + 0.5) - atom_position); // center of the grid cell // 6 flop
+            double const xi = sigma_inverse*((cube_position*n4 + i4 + 0.5)*grid_spacing - atom_position); // center of the grid cell // 6 flop
             double const xi2 = xi*xi; // 1 flop
             xi_squared[idir][i4] = xi2; // export the square of the distance in units of sigma
             double const H0 = (xi2 < R2_projection) ? std::exp(-0.5*xi2) : 0; // Gaussian envelope function // ? flop
@@ -117,7 +117,7 @@ namespace green_dyadic {
           real_t         (*const __restrict__ Cpr)[R1C2][Noco   ][Noco*64] // result: projection coefficients, layout[natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
         , real_t   const (*const __restrict__ Psi)[R1C2][Noco*64][Noco*64] // input:  Green function,               layout[ncubes*nrhs][R1C2][Noco*64][Noco*64]
         , green_sparse::sparse_t<> const (*const __restrict__ sparse)
-        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], sigma^{-1/2} [3]
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
         , uint32_t const (*const __restrict__ irow_of_inzb) // row index of the Green function as a function of the non-zero index
@@ -291,7 +291,7 @@ namespace green_dyadic {
     void __host__ SHOprj_driver(
           real_t         (*const __restrict__ Cpr)[R1C2][Noco   ][Noco*64] // result: projection coefficients
         , real_t   const (*const __restrict__ Psi)[R1C2][Noco*64][Noco*64] // input: Green function
-        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], sigma^{-1/2} [3]
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
         , uint32_t const natoms // number of atom images
@@ -333,7 +333,7 @@ namespace green_dyadic {
         , uint32_t const (*const __restrict__ iatom_of_bsr)
         , uint32_t const (*const __restrict__ irow_of_inzb) // row indices of the Green function
         , uint16_t const (*const __restrict__ irhs_of_inzb) // col indices of the Green function
-        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2] and decay parameter [3]
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], sigma^{-1/2} [3]
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
@@ -522,7 +522,7 @@ namespace green_dyadic {
     void __host__ SHOadd_driver(
           real_t         (*const __restrict__ Psi)[R1C2][Noco*64][Noco*64] // result: Green functions to modify
         , real_t   const (*const __restrict__ Cad)[R1C2][Noco   ][Noco*64] // input: addition coefficients
-        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], sigma^{-1/2} [3]
         , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
         , uint32_t const (*const __restrict__ RowStartCubes) // rows==cubes
@@ -953,7 +953,7 @@ namespace green_dyadic {
     template <int R1C2=2, int Noco=1>
     std::vector<std::vector<double>> __host__ SHOprj_right( // result: density matrices
           double   const (*const __restrict__ pGreen)[R1C2][Noco][Noco*64] // input: projected Green function <p|G, layout[natomcoeffs*nrhs][R1C2][Noco][Noco*64]
-        , double   const (*const __restrict__ AtomImagePos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , double   const (*const __restrict__ AtomImagePos)[3+1] // atomic positions [0],[1],[2], sigma^{-1/2} [3]
         , int8_t   const (*const __restrict__ AtomImageLmax) // SHO basis size [nAtomImages]
         , uint32_t const (*const __restrict__ AtomImageStarts) // prefix sum over nSHO(AtomImageLmax[:])
         , uint32_t const (*const __restrict__ AtomImageIndex) // [nAtomImages]
