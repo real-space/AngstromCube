@@ -357,7 +357,7 @@ namespace green_function {
             assert(ng[d] == 4*n_blocks[d] && "All grid dimensions must be a multiple of 4!");
             assert(n_blocks[d] <= (1ul << 21) && "Max grid is 2^21 blocks due to global_coordinates");
             assert(hg[d] > 0. && "Needs a positive grid spacing");
-            assert(Isolated_Boundary <= bc[d] && bc[d] <= Repeat_Boundary);
+            assert(Isolated_Boundary <= bc[d] && bc[d] <= Repeat_Boundary); // only {iso, peri, vacuum, repeat} allowed
         } // d
         if (echo > 3) std::printf("# n_blocks %s\n", str(n_blocks));
 
@@ -800,6 +800,23 @@ namespace green_function {
 
             view3D<int32_t> iRow_of_coords(num_target_coords[Z],num_target_coords[Y],num_target_coords[X], -1); // init as non-existing
 
+            std::vector<int32_t> target_axes[3]; // mappings from [0, num_target_coords) --> global coordinates in [0, n_blocks) or -1
+            for (int d{0}; d < 3; ++d) {
+                target_axes[d] = std::vector<int32_t>(num_target_coords[d]);
+                for (int ii{0}; ii < num_target_coords[d]; ++ii) {
+                    auto const global_target_coord = ii + min_target_coords[d];
+                    if (Periodic_Boundary == bc[d]) {
+                        target_axes[d][ii] = global_target_coord % n_blocks[d];
+                    } else {
+                        if (global_target_coord >= 0 && global_target_coord < n_blocks[d]) {
+                            target_axes[d][ii] = global_target_coord;
+                        } else {
+                            target_axes[d][ii] = -1; // non-existing (vacuum)
+                        }
+                    }
+                } // ii
+            } // d
+
             { // scope: fill BSR tables
                 simple_stats::Stats<> st;
                 uint32_t iRow{0}; // init as 1st index
@@ -936,12 +953,12 @@ namespace green_function {
                     // create lists for the finite-difference derivatives
                     p.kinetic[dd] = kinetic_plan_t(kinetic_nFD_dd // results
                         , dd
-                        , (Periodic_Boundary == bc[dd]) // derivative direction is periodic? (not wrapped)
-                        , num_target_coords
+                        , (Periodic_Boundary == bc[dd])*n_blocks[dd] // derivative direction is periodic? (not wrapped)
+                        , target_axes
                         , p.RowStart, p.colindx.data()
                         , iRow_of_coords
-                        , sparsity_pattern.data()
-                        , nrhs, echo);
+                        , sparsity_pattern
+                        , echo);
                     p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
                     p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
 

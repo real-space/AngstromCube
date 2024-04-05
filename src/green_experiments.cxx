@@ -637,13 +637,7 @@ namespace green_experiments {
 
       } else {  // start waves
           assert(nb == nblocks); // there are as many bands as real-space grid points
-          if (echo > 0) std::printf("# prepare as many wave functions as real-space grid points\n");
-          set(psi[0][0][0], nblocks*nb*R1C2*64ul*64ul, real_t(0)); // clear
-          for (int iband = 0; iband < nbands; ++iband) {
-              int const ib   = iband >> 6; // divide 64
-              int const ib64 = iband & 63; // modulo 64
-              psi[ib*nb + ib][Real][ib64][ib64] = 1; // Kronecker
-          } // iband
+          if (echo > 0) std::printf("# prepare as many wave functions as real-space grid points\n"); // every time again --> see below
       } // start waves
 
       simple_stats::Stats<> Gflop_count;
@@ -666,8 +660,18 @@ namespace green_experiments {
 
           if (echo > 3) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
           green_function::update_phases(pH, k_point, echo, Noco);
-          green_function::update_phases(pS, k_point, echo/2, Noco); // less output since it will print the same as above
+          green_function::update_phases(pS, k_point, echo/2, Noco); // less output since it will print the same as the line above
           double nops{0};
+
+            if (nb == nblocks) {
+                // prepare wave functions as Kronecker deltas every time again
+                set(psi[0][0][0], nblocks*nb*R1C2*64ul*64ul, real_t(0)); // clear
+                for (int iband = 0; iband < nbands; ++iband) {
+                    int const ib   = iband >> 6; // divide 64
+                    int const ib64 = iband & 63; // modulo 64
+                    psi[ib*nb + ib][Real][ib64][ib64] = 1; // Kronecker
+                } // iband
+            }
 
             int it{0}, lastiter{maxiter - 1};
             for (; it <= lastiter && lastiter >= 0; ++it) { // Davidson iterations
@@ -695,8 +699,8 @@ namespace green_experiments {
                 warn("failed to diagonalize the overlap for k-point #%i in Davidson iteration #%i", ik, it);
                 it = maxiter; // stop
             } else { // standard eigenvalue problem failed
-                if (echo > 7) std::printf("# in Davidson iteration #%i overlap eigenvalues:  %g %g %g %g ...\n",
-                                                                    it,     Sval[0], Sval[1], Sval[2], Sval[3]);
+                if (echo > 7) std::printf("# in Davidson iteration #%i overlap eigenvalues:  %g %g %g %g %g %g %g ... %g\n",
+                    it, Sval[0], Sval[1], Sval[2], Sval[3], Sval[4], Sval[5], Sval[6], Sval[nbands - 1]);
                 if (Sval[0] > 0.0) {
                     // overlap matrix is stable
                     if (2 == R1C2) { // Hermitian generalized eigenvalue problem
@@ -714,7 +718,7 @@ namespace green_experiments {
                         if (echo > 5) std::printf("# failed to diagonalize in Davidson iteration #%i, set to last iteration\n", it);
                     } else { // generalized eigenvalue problem failed
                         if (echo > 6) std::printf("# in Davidson iteration #%i energy eigenvalues:  %g %g %g %g %g %g %g ... %g %s\n",
-                            it, Eval[0]*eV, Eval[1]*eV, Eval[2]*eV, Eval[3]*eV, Eval[4]*eV, Eval[5]*eV, Eval[6]*eV,   Eval[63]*eV, _eV);
+                            it, Eval[0]*eV, Eval[1]*eV, Eval[2]*eV, Eval[3]*eV, Eval[4]*eV, Eval[5]*eV, Eval[6]*eV, Eval[nbands - 1]*eV, _eV);
                         set(bandstructure[ik].data(), nbands, Eval.data()); // copy
                         // ToDo: rotate 1st half of bands and generate the 2nd half from gradients
                         //        gradient: phi_i = (H - E_i*S) psi_i
@@ -833,7 +837,7 @@ namespace green_experiments {
 
       if ('g' != how) {
           auto const huge = 9*std::max(std::max(ng[0]*hg[0], ng[1]*hg[1]), ng[2]*hg[2]);
-          control::set("green_function.truncation.radius", huge, echo);
+          control::set("green_function.truncation.radius", huge, echo); // still needed?
       } // how
 
       int const eigen_noco = control::get("green_experiments.eigen.noco", 0.);
@@ -849,16 +853,16 @@ namespace green_experiments {
 
       { // scope: atom ownership distribution
           auto const na = AtomMatrices.size();
-          std::vector<int64_t> target_global_atom_ids(na), owned_global_atom_ids(na);
-          for (int64_t ia{0}; ia < na; ++ia) { target_global_atom_ids[ia] = ia; owned_global_atom_ids[ia] = ia; }
+          std::vector<int64_t> target_global_atom_ids(na, -1), owned_global_atom_ids(na);
+          for (int64_t ia{0}; ia < na; ++ia) { owned_global_atom_ids[ia] = ia; } // target_global_atom_ids[ia] = ia; } // all targets are cleared
           uint32_t const nb[] = {uint32_t(na), 0, 0};
-          std::vector<uint16_t> atom_owner_rank(na, 0); // all atoms owned by the MPI master
+          std::vector<uint16_t> atom_owner_rank(na, uint16_t(0)); // all atoms owned by the MPI master
           p.matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
               owned_global_atom_ids, atom_owner_rank.data(), nb, echo, "atom matrices");
       } // scope
 
       uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
-      view3D<uint16_t> owner_rank(nb[2], nb[1], nb[0], uint16_t(0)); // owner is always the MPI master
+      view3D<uint16_t> owner_rank(nb[2], nb[1], nb[0], uint16_t(0)); // all grid blocks owned by the MPI master
       auto const pot_stat = green_function::update_potential(p, nb, Veff, owner_rank, AtomMatrices, echo, Noco);
       if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
 

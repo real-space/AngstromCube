@@ -41,14 +41,12 @@ namespace kinetic_plan {
         kinetic_plan_t(
             int16_t & FD_range // side result
           , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
-          , bool const boundary_is_periodic
-          , uint32_t const num_target_coords[3]
+          , uint32_t const periodicity
+          , std::vector<int32_t> const target_axes[3]
           , uint32_t const RowStart[]
           , uint16_t const ColIndex[]
           , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
-          , std::vector<bool> const sparsity_pattern[] // memory saving bit-arrays sparsity_pattern[irhs][idx3]
-          , unsigned const nrhs=1 // number of right hand sides
-          , double const grid_spacing=1 // grid spacing in derivative direction
+          , std::vector<std::vector<bool>> const & sparsity_pattern // memory saving bit-arrays sparsity_pattern[nrhs][idx3]
           , int const echo=0 // log level
       ); // constructor
 

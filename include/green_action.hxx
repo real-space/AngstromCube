@@ -261,7 +261,7 @@ namespace green_action {
 
     private: // members
 
-      action_plan_t *p_ = nullptr; // the plan is independent of real_t and R1C2
+      action_plan_t *p_ = nullptr; // the action_plan is independent of real_t and R1C2 and stores Noco as member (to check the matching)
 
       // temporary device memory needed for dyadic operations
       real_t (*apc_)[R1C2][Noco][LM] = nullptr; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]

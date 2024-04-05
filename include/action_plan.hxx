@@ -72,7 +72,6 @@ public: // TODo: check which members could be private
     float V_confinement   = 1; // potential prefactor
     std::complex<double> E_param; // energy parameter
 
-    // green_kinetic::kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
     kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
 
     uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
@@ -87,7 +86,7 @@ public: // TODo: check which members could be private
     int32_t*  veff_index          = nullptr; // [nnzbX] indirection list, values -1 for non-existent indices
 
     double *grid_spacing_trunc = nullptr; // [3]
-    double (*phase)[2][2]      = nullptr; // [3]
+    double (*phase)[2][2]      = nullptr; // [3] // phase factors for the 3 directions across the boundaries, used in kinetic and dyadic phases are derived from it
 
     bool noncollinear_spin = false;
 
