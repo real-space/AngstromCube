@@ -521,21 +521,28 @@ namespace green_function {
             if (echo > 0) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
             if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
-            int32_t itr[3];
+            int32_t itr[3], mitr[3];
             for (int d = 0; d < 3; ++d) { // spatial directions
 
                 // how many blocks around each source block do we need to check
                 itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : (n_blocks[d]/2);
                 assert(itr[d] >= 0);
 
-                min_target_coords[d] = min_global_source_coords[d] - itr[d];
-                max_target_coords[d] = max_global_source_coords[d] + itr[d];
+                if (Periodic_Boundary == bc[d]) {
+                    // the target region can be constructed smaller (independent of r_trunc)
+                    itr[d] =   std::min(itr[d],  int32_t(n_blocks[d])     /2);
+                    mitr[d] = -std::min(itr[d], (int32_t(n_blocks[d]) - 1)/2);
+                } else {
+                    mitr[d] = -itr[d];
+                } // periodic
+
+                min_target_coords[d] = min_global_source_coords[d] + mitr[d];
+                max_target_coords[d] = max_global_source_coords[d] +  itr[d];
 
                 if (Isolated_Boundary == bc[d]) {
-                    int32_t const nb = n_blocks[d];
-                    // limit to global coordinates in [0, nb)
+                    // limit to global coordinates in [0, n_blocks)
                     min_target_coords[d] = std::max(min_target_coords[d], 0);
-                    max_target_coords[d] = std::min(max_target_coords[d], nb - 1);
+                    max_target_coords[d] = std::min(max_target_coords[d], int32_t(n_blocks[d]) - 1);
                 } // Isolated_Boundary
 
                 num_target_coords[d] = std::max(0, max_target_coords[d] + 1 - min_target_coords[d]);
@@ -579,16 +586,12 @@ namespace green_function {
                 int32_t b_first[3], b_last[3]; // box extent relative to source block
                 for (int d = 0; d < 3; ++d) {
                     if (Isolated_Boundary == bc[d]) {
-                        b_first[d] = std::max(-itr[d], min_target_coords[d] - source_coords[d]);
+                        b_first[d] = std::max(mitr[d], min_target_coords[d] - source_coords[d]);
                         b_last[d]  = std::min( itr[d], max_target_coords[d] - source_coords[d]);
-                    } else
-                    if (Periodic_Boundary == bc[d]) {
-                        b_first[d] = (1 - int32_t(n_blocks[d]))/2;
-                        b_last[d]  =      int32_t(n_blocks[d]) /2;
                     } else { // boundary_condition
-                        assert(Wrap_Boundary == bc[d] || Repeat_Boundary == bc[d] || Vacuum_Boundary == bc[d]);
-                        b_first[d] = -itr[d]; 
+                        b_first[d] = mitr[d]; // in most cases mitr == -itr
                         b_last[d]  =  itr[d];
+                        if (Periodic_Boundary == bc[d]) assert(b_last[d] - b_first[d] + 1 == n_blocks[d]); // make sure all are covered
                     } // boundary_condition
                 } // d
                 if (echo > 7) std::printf("# RHS#%i checks target box from (%s) to (%s)\n", irhs, str(b_first), str(b_last));
@@ -834,16 +837,14 @@ namespace green_function {
 
                         p.RowStart[iRow + 1] = p.RowStart[iRow] + ncols;
                         // copy the column indices
-                        set(p.colindx.data() + p.RowStart[iRow], ncols, column_indices[idx3].data());
+                        set(p.colindx.data() + p.RowStart[iRow], ncols, column_indices[idx3].data()); // ToDo: is this BSR or is this BSC?
                         // copy the target block coordinates
                         int32_t global_target_coords[3];
                         for (int d{0}; d < 3; ++d) {
                             global_target_coords[d] = idx[d] + min_target_coords[d];
                             auto const internal_coord = global_target_coords[d] - global_internal_offset[d];
-                         // p.target_coords[iRow][d] = internal_coord; assert(internal_coord == p.target_coords[iRow][d] && "safe assign");
                             p.rowCubePos[iRow][d] = internal_coord - n_blocks[d]*0.5; // may be half-integer
                         } // d
-                     // p.target_coords[iRow][3] = 0; // not used
                         p.rowCubePos[iRow][3] = 0; // not used
 
                         { // scope: determine the diagonal entry (source == target)
@@ -887,10 +888,11 @@ namespace green_function {
                                 } else {
                                     assert(Periodic_Boundary == bc[d] || Wrap_Boundary == bc[d] || Repeat_Boundary == bc[d]);
                                 } // bc
-                                mod[d] += (mod[d] < 0)*n_blocks[d]; // cast into range [0, n_blocks[d] - 1]
                                 mod[d] = global_target_coords[d] % n_blocks[d];
+                                mod[d] += (mod[d] < 0)*n_blocks[d]; // cast into range [0, n_blocks[d] - 1]
                             } // d
                             if (potential_given) {
+                                for (int d{0}; d < 3; ++d) { assert(mod[d] >= 0 && mod[d] < n_blocks[d]); }
                                 auto const iloc = index3D(n_blocks, mod);
                                 p.global_target_indices[iRow] = global_coordinates::get(mod);
                                 // global_target_indices are needed to gather the local potential data from other MPI processes

@@ -8,17 +8,16 @@
 #include "status.hxx" // status_t
 #include "green_sparse.hxx" // ::sparse_t<T>
 #include "data_view.hxx" // view3D<T>
-#include "kinetic_plan.hxx" // kinetic_plan_t
+#include "kinetic_plan.hxx" // kinetic_plan_t, ::...
 #include "green_cuda.hxx" // __global__, __host__, __device__
 #include "inline_math.hxx" // pow2
 
 namespace green_kinetic {
 
-    int constexpr nhalo = kinetic_plan_t::nhalo;
-
-    int32_t constexpr CUBE_EXISTS = 1;
-    int32_t constexpr CUBE_IS_ZERO = 0;
-    int32_t constexpr CUBE_NEEDS_PHASE = -1;
+    int     constexpr nhalo             = kinetic_plan::nhalo;
+    int32_t constexpr CUBE_EXISTS       = kinetic_plan::CUBE_EXISTS;
+    int32_t constexpr CUBE_IS_ZERO      = kinetic_plan::CUBE_IS_ZERO;
+    int32_t constexpr CUBE_NEEDS_PHASE  = kinetic_plan::CUBE_NEEDS_PHASE;
 
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
@@ -79,15 +78,13 @@ namespace green_kinetic {
 
         real_t w0{0}, w1{0}, w2{0}, w3{0}; // 4 registers for one cube
 
-        int ilist{nhalo - 1}; // counter for index_list, use only the last entry of the halo
-
-        int ii = list[ilist++]; // the 1st block can be 0 (non-existent) or <0 for a periodic image
+        int ii = list[nhalo - 1]; // the 1st block can be 0 (non-existent) or <0 for a periodic image
         // =========================================================================================
         // === periodic boundary conditions ========================================================
         if (CUBE_IS_ZERO == ii) {
             // cube does not exist (isolated/vacuum boundary condition), registers w0...w3 are initialized 0
         } else { // is periodic
-            if (ii > 0) std::printf("# Error: ii= %d ilist= %i\n", ii, ilist);
+            if (ii > 0) std::printf("# Error: ii= %d ilist= %i\n", ii, nhalo - 1);
             assert(ii <= CUBE_NEEDS_PHASE && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
             int const jj = CUBE_NEEDS_PHASE*ii - CUBE_EXISTS; // index of the periodic image of a block
             assert(jj >= 0); // must be a valid index to dereference psi[]
@@ -113,18 +110,18 @@ namespace green_kinetic {
 
         real_t w4, w5, w6, w7, wn; // 4 + 1 registers, wn is the register that always receives the most recently loaded value
 
-        ii = list[ilist++] - CUBE_EXISTS; assert(ii >= 0); // this block must be a regular index since it is the 1st block for which we store a result
+        ii = list[nhalo] - CUBE_EXISTS; assert(ii >= 0); // this block must be a regular index since it is the 1st block for which we store a result
         // initially load one block in advance
         w4 = psi[ii]INDICES(0);
         w5 = psi[ii]INDICES(1);
         w6 = psi[ii]INDICES(2);
         w7 = psi[ii]INDICES(3);
 
-        assert(nhalo + 1 == ilist);
+        int ilist{nhalo + 1};
         // main loop
         while (ii >= 0) {
             int const i0 = ii; // set central index
-            ii = list[ilist++] - CUBE_EXISTS; // get next index
+            ii = list[ilist] - CUBE_EXISTS; // get next index
 //          if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# loop: ii= %d ilist= %i\n", ii, ilist);
             bool const load = (ii >= 0);
             // use a rotating register file, see figs/rotating_register_file.fig or *.pdf
@@ -135,12 +132,12 @@ namespace green_kinetic {
             Tpsi[i0]INDICES(i4) += c0*W0 + c1*M1 + c1*P1 + c2*M2 + c2*P2 + c3*M3 + c3*P3 + c4*M4 + c4*P4; \
             M4 = P4;
 
-            if (0 == (ilist & 0x1)) { // even
+            if (ilist & 0x1) { // odd
                 FD9POINT(0,  w0, w1, w2, w3, w4, w5, w6, w7, wn)
                 FD9POINT(1,  w1, w2, w3, w4, w5, w6, w7, w0, wn)
                 FD9POINT(2,  w2, w3, w4, w5, w6, w7, w0, w1, wn)
                 FD9POINT(3,  w3, w4, w5, w6, w7, w0, w1, w2, wn)
-            } else {                // odd
+            } else {           // even
                 FD9POINT(0,  w4, w5, w6, w7, w0, w1, w2, w3, wn)
                 FD9POINT(1,  w5, w6, w7, w0, w1, w2, w3, w4, wn)
                 FD9POINT(2,  w6, w7, w0, w1, w2, w3, w4, w5, wn)
@@ -148,6 +145,8 @@ namespace green_kinetic {
             } // ilist is even or odd
 #undef  FD9POINT
             // if (0 == threadIdx.x && 0 == blockIdx.y) std::printf("# loop: ii= %d, i0= %d, ilist= %i\n", ii, i0, ilist);
+
+            ++ilist;
         } // while loop
 
         // =========================================================================================

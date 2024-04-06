@@ -15,6 +15,13 @@
 
 namespace kinetic_plan {
 
+    int constexpr nhalo = 4;
+
+    int32_t constexpr CUBE_EXISTS = 1;
+    int32_t constexpr CUBE_IS_ZERO = 0;
+    int32_t constexpr CUBE_NEEDS_PHASE = -1;
+
+
     double set_phase(
           double phase[2][2] // resulting phase factors[forward+backward][real+imag]
         , double const phase_angle=0 // phase_angle in units of 2*pi
@@ -34,7 +41,7 @@ namespace kinetic_plan {
     class kinetic_plan_t {
     public:
 
-        static int constexpr nhalo = 4; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
+        static int constexpr nhalo = kinetic_plan::nhalo; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
 
         kinetic_plan_t() {} // default constructor
 

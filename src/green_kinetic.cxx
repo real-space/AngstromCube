@@ -96,9 +96,12 @@ namespace green_kinetic {
             reference_result[reim].resize(n1D_all, 0.0);
         } // reim
 
-        int constexpr Re = 0, Im = R1C2 - 1, j64 = 0;
 
         auto phase = get_memory<double[2][2]>(3, echo, "phase");
+
+//      for (int j64 = 0; j64 < 64; ++j64) {
+        { int constexpr j64 = 0; // perform all derivatives only in the vector component zero       
+        int constexpr Re = 0, Im = R1C2 - 1;
 
         auto const is_double = int(8 == sizeof(real_t));
         float const threshold[][4] = {{1.6e-5f, 1.5e-5f, 4.5e-3f, 0.f},  // thresholds for float
@@ -183,15 +186,16 @@ namespace green_kinetic {
             int failed{0};
             { // scope: compare result of multiply with reference_result
                 double dev2{0}, deva{0}, norm2{0};
-                if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im  psi_Re, psi_Im:\n"); // plot header
+                if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im,  reference Tpsi_Re Tpsi_Im,  psi_Re psi_Im:\n"); // plot header
                 for (size_t inzb = border; inzb < nnzb - border; ++inzb) {
                     for (int i4 = 0; i4 < 4; ++i4) {
                         auto const i64 = i4*stride; // two block indices are zero
                         auto const i1D = inzb*4 + i4;
                         if (echo > 9) { // plot
-                            std::printf("%g  %.15e %g  %.15e %g\n", i1D*hgrid[0],
-                                Tpsi[inzb][Re][i64][j64],  Tpsi[inzb][Im][i64][j64]*Im,
-                                reference_result[Re][i1D], reference_result[Im][i1D]*Im);
+                            std::printf("%g  %.15e %g  %.15e %g  %.15e %g\n", i1D*hgrid[0],
+                                Tpsi[inzb][Re][i64][j64],   Tpsi[inzb][Im][i64][j64]*Im,
+                                reference_result[Re][i1D], reference_result[Im][i1D]*Im,
+                                psi[inzb][Re][i64][j64],     psi[inzb][Re][i64][j64]*Im);
                         } // echo
                         for (int reim = 0; reim < R1C2; ++reim) {
                             auto const dev = Tpsi[inzb][reim][i64][j64] - reference_result[reim][i1D]; // deviation
@@ -211,6 +215,7 @@ namespace green_kinetic {
             stat += failed;
 
         } // itest
+        } // j64
 
         free_memory(phase);
         free_memory(Tpsi);

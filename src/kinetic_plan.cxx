@@ -34,12 +34,6 @@ namespace kinetic_plan {
         return -1; // not found
     } // get_inz
 
-    int constexpr nhalo = kinetic_plan_t::nhalo;
-
-    int32_t constexpr CUBE_EXISTS = 1;
-    int32_t constexpr CUBE_IS_ZERO = 0;
-    int32_t constexpr CUBE_NEEDS_PHASE = -1;
-
 
     status_t finite_difference_plan(
           green_sparse::sparse_t<int32_t> & sparse // result
@@ -118,7 +112,7 @@ namespace kinetic_plan {
 
         size_t ilist{0}, boundary_block_missing{0};
         for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
-//                if (echo > 0) std::printf("# FD list for RHS #%i\n", irhs);
+//          if (echo > 0) std::printf("# FD list for RHS #%i\n", irhs);
             auto const & sparsity_rhs = sparsity_pattern[irhs];
             assert(number_all_target_coords == sparsity_rhs.size());
             for (uint32_t iz = 0; iz < num[Z]; ++iz) { //
