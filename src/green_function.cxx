@@ -502,6 +502,7 @@ namespace green_function {
                                 assert(deformed_cell > 0);
                             } else { // h[d] > 0
                                 assert(0 == h[d]); // truncation in this direction has been switched off manually --> no warning
+                                if (echo > 1) std::printf("# no truncation in %c-direction\n", 'x' + d);
                             }
                         } else {
                             bc[d] = Wrap_Boundary; // now bc[d] may differ from boundary_condition[d]
@@ -522,13 +523,14 @@ namespace green_function {
 
             int32_t itr[3]; // translate the truncation radius into a number of blocks
             for (int d = 0; d < 3; ++d) { // spatial directions
+                int32_t const nbox = int32_t(n_blocks[d]) - 1;
 
                 // how many blocks around each source block do we need to check
-                itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : n_blocks[d];
+                itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : nbox;
                 assert(itr[d] >= 0);
 
                 if (Periodic_Boundary == bc[d]) {
-                    itr[d] = std::min(itr[d], int32_t(n_blocks[d]) - 1);
+                    itr[d] = std::min(itr[d], nbox);
                 } // periodic
 
                 min_target_coords[d] = min_global_source_coords[d] - itr[d];
@@ -537,7 +539,7 @@ namespace green_function {
                 if (Isolated_Boundary == bc[d] || Periodic_Boundary == bc[d]) {
                     // limit to target coordinates to [0, n_blocks) box
                     min_target_coords[d] = std::max(min_target_coords[d], 0);
-                    max_target_coords[d] = std::min(max_target_coords[d], int32_t(n_blocks[d]) - 1);
+                    max_target_coords[d] = std::min(max_target_coords[d], nbox);
                 } // Isolated_Boundary
 
                 num_target_coords[d] = std::max(0, max_target_coords[d] + 1 - min_target_coords[d]);
