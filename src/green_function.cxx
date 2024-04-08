@@ -19,8 +19,7 @@
 #include "global_coordinates.hxx" // ::get, ::nonexistent
 
 #include "action_plan.hxx" // ::atom_t
-#include "kinetic_plan.hxx" // ::set_phase
-#include "kinetic_plan.hxx" // kinetic_plan_t
+#include "kinetic_plan.hxx" // ::set_phase, kinetic_plan_t, index3D
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "progress_report.hxx" // ProgressReport
@@ -402,7 +401,7 @@ namespace green_function {
         int32_t global_internal_offset[]   = {0, 0, 0};
         double max_distance_from_comass{0}, max_distance_from_center{0};
         { // scope: determine min, max, center
-            double const by_nrhs = 1./std::max(1., double(nrhs));
+            auto const by_nrhs = 1./std::max(1u, nrhs);
             for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
                 global_coordinates::get(global_source_coords[irhs], p.global_source_indices[irhs]);
                 for (int d = 0; d < 3; ++d) {
@@ -417,7 +416,6 @@ namespace green_function {
 
             for (int d = 0; d < 3; ++d) {
                 auto const middle2 = min_global_source_coords[d] + max_global_source_coords[d];
-                global_internal_offset[d] = middle2 >> 2; // integer division by 2, "lesser half" 
                 center_of_RHSs[d] = ((middle2*0.5)*4 + 2)*hg[d];
             } // d
 
@@ -429,9 +427,9 @@ namespace green_function {
                 for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
                     double d2m{0}, d2c{0};
                     for (int d = 0; d < 3; ++d) {
-                        auto const source_coord = global_source_coords(irhs,d) - global_internal_offset[d];
-                        auto const src_coord_16 = int16_t(source_coord); // convert to shorter integer type
-                        assert(source_coord == src_coord_16 && "internal source_coords use int16_t, maybe too large");
+//                      auto const source_coord = global_source_coords(irhs,d) - global_internal_offset[d];
+//                      auto const src_coord_16 = int16_t(source_coord); // convert to shorter integer type
+//                      assert(source_coord == src_coord_16 && "internal source_coords use int16_t, maybe too large");
 //                      p.source_coords[irhs][d] = src_coord_16;
                         auto const cube_center = (global_source_coords(irhs,d)*4 + 2)*hg[d];
                         d2m += pow2(cube_center - center_of_mass_RHS[d]);
@@ -473,24 +471,25 @@ namespace green_function {
             double scale_grid_spacing[] = {1, 1, 1};
             {
                 double const def = control::get(scale_grid_spacing, "green_function.scale.grid.spacing", "xyz", 1.);
+                // this feature allows also truncation ellipsoids (e.g. by .x != .y == .z)
+                // and cylinders (e.g. .x=1, .y=1, .z=0) and planes (e.g. .x=0, .y=0, .z=1)
                 if (1. != def) warn("using +green_function.scale.grid.spacing=%g without .x, .y or .z may be confusing", def);
             }
 
             double h[] = {hg[X], hg[Y], hg[Z]}; // customize grid spacing for the truncation sphere, also used in green_potential::multiply
             for (int d = 0; d < 3; ++d) { // spatial directions
 
-                if (r_trunc >= 0) {
-                    // char keyword[64]; std::snprintf(keyword, 64, "green_function.scale.grid.spacing.%c", 'x' + d);
-                    // auto const scale_h = control::get(keyword, 1.);
-                    // this feature allows also truncation ellipsoids (e.g. by .x != .y == .z)
-                    // and cyliders (e.g. .x=1, .y=1, .z=0) and planes (e.g. .x=0, .y=0, .z=1)
+                if (r_trunc >= 0) { // truncation is on
                     auto const scale_h = scale_grid_spacing[d];
                     if (scale_h >= 0) {
                         h[d] = hg[d]*scale_h;
                         if (1. != scale_h) {
-                            if (echo > 1) std::printf("# scale grid spacing in %c-direction for truncation from %g to %g %s\n", 'x'+d, hg[d]*Ang, h[d]*Ang, _Ang);
+                            if (echo > 1) std::printf("# scale grid spacing in %c-direction for truncation %g * %g = %g %s\n",
+                                                                                'x' + d, hg[d]*Ang, scale_h, h[d]*Ang, _Ang);
                         } // scale factor deviates from unity
-                    } else error("cannot use +green_function.scale.grid.spacing.%c=%g with a negative number", 'x'+d, scale_h);
+                    } else {
+                        error("cannot use +green_function.scale.grid.spacing.%c=%g with a negative number", 'x' + d, scale_h);
+                    }
 
                     if (Periodic_Boundary == bc[d]) { // periodic boundary conditions
                         auto const deformed_cell = h[d]*ng[d];
@@ -521,26 +520,22 @@ namespace green_function {
             if (echo > 0) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
             if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
-            int32_t itr[3], mitr[3];
+            int32_t itr[3]; // translate the truncation radius into a number of blocks
             for (int d = 0; d < 3; ++d) { // spatial directions
 
                 // how many blocks around each source block do we need to check
-                itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : (n_blocks[d]/2);
+                itr[d] = (h[d] > 0) ? std::floor(rtrunc_plus/(4*h[d])) : n_blocks[d];
                 assert(itr[d] >= 0);
 
                 if (Periodic_Boundary == bc[d]) {
-                    // the target region can be constructed smaller (independent of r_trunc)
-                    itr[d] =   std::min(itr[d],  int32_t(n_blocks[d])     /2);
-                    mitr[d] = -std::min(itr[d], (int32_t(n_blocks[d]) - 1)/2);
-                } else {
-                    mitr[d] = -itr[d];
+                    itr[d] = std::min(itr[d], int32_t(n_blocks[d]) - 1);
                 } // periodic
 
-                min_target_coords[d] = min_global_source_coords[d] + mitr[d];
-                max_target_coords[d] = max_global_source_coords[d] +  itr[d];
+                min_target_coords[d] = min_global_source_coords[d] - itr[d];
+                max_target_coords[d] = max_global_source_coords[d] + itr[d];
 
-                if (Isolated_Boundary == bc[d]) {
-                    // limit to global coordinates in [0, n_blocks)
+                if (Isolated_Boundary == bc[d] || Periodic_Boundary == bc[d]) {
+                    // limit to target coordinates to [0, n_blocks) box
                     min_target_coords[d] = std::max(min_target_coords[d], 0);
                     max_target_coords[d] = std::min(max_target_coords[d], int32_t(n_blocks[d]) - 1);
                 } // Isolated_Boundary
@@ -585,13 +580,12 @@ namespace green_function {
 
                 int32_t b_first[3], b_last[3]; // box extent relative to source block
                 for (int d = 0; d < 3; ++d) {
-                    if (Isolated_Boundary == bc[d]) {
-                        b_first[d] = std::max(mitr[d], min_target_coords[d] - source_coords[d]);
+                    if (Isolated_Boundary == bc[d] || Periodic_Boundary == bc[d]) {
+                        b_first[d] = std::max(-itr[d], min_target_coords[d] - source_coords[d]);
                         b_last[d]  = std::min( itr[d], max_target_coords[d] - source_coords[d]);
                     } else { // boundary_condition
-                        b_first[d] = mitr[d]; // in most cases mitr == -itr
+                        b_first[d] = -itr[d];
                         b_last[d]  =  itr[d];
-                        if (Periodic_Boundary == bc[d]) assert(b_last[d] - b_first[d] + 1 == n_blocks[d]); // make sure all are covered
                     } // boundary_condition
                 } // d
                 if (echo > 7) std::printf("# RHS#%i checks target box from (%s) to (%s)\n", irhs, str(b_first), str(b_last));
@@ -641,7 +635,7 @@ namespace green_function {
 
                     if (nci > 0) {
                         // at least one grid point in target block (bx,by,bz) is closer than rtrunc to a grid point in the source block
-                        int32_t idx[3]; // internal coordinates
+                        int32_t idx[3]; // internal coordinates inside the target box
                         for (int d = 0; d < 3; ++d) {
                             idx[d] = target_coords[d] - min_target_coords[d];
                             assert(0 <= idx[d]); assert(idx[d] < num_target_coords[d]);
@@ -676,7 +670,7 @@ namespace green_function {
 
                 }}} // bx // by // bz
                 if (echo > 8) std::printf("# RHS#%i has %ld single and %ld multiple hits\n", irhs, hit_single, hit_multiple);
-                assert(0 == hit_multiple); // in this version, target blocks may not be hit more than once
+                assert(0 == hit_multiple); // in this version, target blocks may not be hit more than once. In earlier version, hit_multiple was default for periodic BCs
                 assert(hit_single <= product_target_blocks);
                 if (echo > 7) {
                     std::printf("# RHS#%i at %s reaches from (%g, %g, %g) to (%g, %g, %g)\n",
@@ -888,7 +882,7 @@ namespace green_function {
                                 } else {
                                     assert(Periodic_Boundary == bc[d] || Wrap_Boundary == bc[d] || Repeat_Boundary == bc[d]);
                                 } // bc
-                                mod[d] = global_target_coords[d] % n_blocks[d];
+                                mod[d] = global_target_coords[d] % int32_t(n_blocks[d]); // we have to convert to int32_t since int32_t % uint32_t behaves wrong for negative coords
                                 mod[d] += (mod[d] < 0)*n_blocks[d]; // cast into range [0, n_blocks[d] - 1]
                             } // d
                             if (potential_given) {
@@ -911,6 +905,7 @@ namespace green_function {
                                 // auto const diff = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d];
                                 auto const diff = double(p.rowCubePos[iRow][d]) - double(p.colCubePos[iCol][d]);
                                 p.target_minus_source[inz][d] = diff; // assert(diff == p.target_minus_source[inz][d] && "safe assign");
+                                assert(diff == int(diff)); // both, rowCubePos and colCubePos may be half-integer but their difference must be integer exactly
                             } // d
                             p.target_minus_source[inz][3] = 0; // component #3 not used
                             p.rowindx[inz] = iRow;

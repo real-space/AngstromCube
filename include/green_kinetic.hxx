@@ -80,12 +80,12 @@ namespace green_kinetic {
 
         int ii = list[nhalo - 1]; // the 1st block can be 0 (non-existent) or <0 for a periodic image
         // =========================================================================================
-        // === periodic boundary conditions ========================================================
         if (CUBE_IS_ZERO == ii) {
             // cube does not exist (isolated/vacuum boundary condition), registers w0...w3 are initialized 0
         } else { // is periodic
-            if (ii > 0) std::printf("# Error: ii= %d ilist= %i\n", ii, nhalo - 1);
-            assert(ii <= CUBE_NEEDS_PHASE && "list[3] must be either 0 (isolated BC) or negative (periodic BC)");
+            // === periodic boundary conditions ========================================================
+            if (ii > 0) std::printf("# Error: list[%i]= %i\n", nhalo - 1, ii);
+            assert(ii <= CUBE_NEEDS_PHASE && "first list item must be either 0 (isolated/vacuum BC) or negative (periodic BC)");
             int const jj = CUBE_NEEDS_PHASE*ii - CUBE_EXISTS; // index of the periodic image of a block
             assert(jj >= 0); // must be a valid index to dereference psi[]
             assert(phase && "a phase must be given for complex BCs");
@@ -104,8 +104,8 @@ namespace green_kinetic {
                 w2 -= ph_Im * psi[jj]INDICES_Im(2);
                 w3 -= ph_Im * psi[jj]INDICES_Im(3);
             } // is complex
+            // === periodic boundary conditions ========================================================
         } // is periodic
-        // === periodic boundary conditions ========================================================
         // =========================================================================================
 
         real_t w4, w5, w6, w7, wn; // 4 + 1 registers, wn is the register that always receives the most recently loaded value
@@ -150,13 +150,13 @@ namespace green_kinetic {
         } // while loop
 
         // =========================================================================================
-        // === periodic boundary conditions ========================================================
         // correct for the tail part if periodic
         ii = list[ilist - 1]; // recover the list entry which stopped the while-loop
         if (CUBE_IS_ZERO == ii) {
             // block does not exist (isolated/vacuum boundary condition), no further action necessary
         } else {
-            assert(ii < 0 && "last list item must be either 0 (isolated BC) or negative (periodic BC)");
+            // === periodic boundary conditions ========================================================
+            assert(ii < 0 && "last list item must be either 0 (isolated/vacuum BC) or negative (periodic BC)");
             int const jj = CUBE_NEEDS_PHASE*ii - CUBE_EXISTS; // index of the periodic image of a block
             assert(jj >= 0); // must be a valid index to dereference psi[]
             int const i0 = list[ilist - 2] - CUBE_EXISTS; // recover the last central index
@@ -183,8 +183,8 @@ namespace green_kinetic {
             Tpsi[i0]INDICES(1) += c3*w0 + c4*w1;
             Tpsi[i0]INDICES(2) += c2*w0 + c3*w1 + c4*w2;
             Tpsi[i0]INDICES(3) += c1*w0 + c2*w1 + c3*w2 + c4*w3;
+            // === periodic boundary conditions ========================================================
         } // is periodic
-        // === periodic boundary conditions ========================================================
         // =========================================================================================
 
 #undef  INDICES
@@ -363,7 +363,7 @@ namespace green_kinetic {
                    <<< gridDim, blockDim >>> (
 #endif // HAS_NO_CUDA
                    Tpsi, psi, index_list, prefactor, Stride, phase);
-        return (8 == FD_range) ? 17 : 9; // returns the number of stencil coefficients
+        return FD_range; // returns the number of stencil coefficients
     } // Laplace_driver
 
 
@@ -378,10 +378,10 @@ namespace green_kinetic {
     ) {
         int  const stride = 1 << (2*plan.derivative_direction_); // 4^dd: X:1, Y:4, Z:16
         auto const nFD = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, plan.lists_, plan.prefactor_, plan.sparse_.nRows(), stride, phase, plan.FD_range_);
-        size_t const nops = plan.nnzb_*nFD*R1C2*pow2(Noco*64ul)*2ul;
+        size_t const nops = plan.nnzb_*(2*nFD + 1ul)*R1C2*pow2(Noco*64ul)*2ul;
         if (echo > 7) {
             char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
-            std::printf("# green_kinetic::%s dd=\'%c\', nFD= %d, number= %d, %.3f M%clop\n",
+            std::printf("# green_kinetic::%s dd=\'%c\', nFD= %d, number_of_rows= %d, %.3f M%clop\n",
                 __func__, 'x' + plan.derivative_direction_, nFD, plan.sparse_.nRows(), nops*1e-6, fF);
         } // echo
         return nops; // return the total number of floating point operations performed

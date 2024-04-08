@@ -40,7 +40,7 @@ namespace kinetic_plan {
         , int16_t & FD_range // side result
         , int const dd // direction of derivative
         , uint32_t const periodicity // periodicity in derivative direction, 0 if not periodic
-        , std::vector<int32_t> const target_axes[3] // contain the global indices w.r.t. the box and -1 if outside
+        , std::vector<int32_t> const target_axes[3] // contain the global indices w.r.t. the box and -1 if outside, not used except for their .size()
         , uint32_t const RowStart[]
         , uint16_t const ColIndex[]
         , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
@@ -97,7 +97,7 @@ namespace kinetic_plan {
                                               uint32_t(target_axes[Y].size()),
                                               uint32_t(target_axes[Z].size())};
         assert(num_target_coords[X] > 0); assert(num_target_coords[Y] > 0); assert(num_target_coords[Z] > 0);
-   //   auto const & target_axis = target_axes[dd]; // in derivative direction
+   //   auto const & target_axis = target_axes[dd]; // in derivative direction (not used)
 
         auto const number_all_target_coords = (num_target_coords[Z])*size_t(num_target_coords[Y])*size_t(num_target_coords[X]);
         int num[3];
@@ -153,6 +153,8 @@ namespace kinetic_plan {
                     if (periodicity) {
 //                      if (echo > 0) std::printf("# FD list of length %d for RHS#%i in %c-direction first=%i last=%i\n", list_length - nhalo, irhs, direction, first_id, last_id);
                         assert(first_id >= 0); assert(last_id >= 0);
+                        if(last_id + 1 - first_id != periodicity) error("last_id= %i first_id= %i periodicity= %d RHS#%i xyz={%i %i %i} dd=%c",
+                                                                         last_id,    first_id,    periodicity,   irhs,        ix,iy,iz, dd+'x');
                         assert(last_id + 1 - first_id == periodicity); // if the direction is periodic, exactly periodicity adjacent blocks must be nonzero
                         for (int i01{0}; i01 < 2; ++i01) { // i01==0:start and i01==1:end
                             for (int ihalo = 0; ihalo < nhalo; ++ihalo) {

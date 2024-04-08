@@ -10,6 +10,7 @@
 
     template <typename uint_t, typename int_t> inline
     size_t index3D(uint_t const n[3], int_t const i[3]) {
+        for (int d{0}; d < 3; ++d) { assert(i[d] >= 0); assert(i[d] < n[d]); }
         return size_t(i[2]*n[1] + i[1])*n[0] + i[0]; // usual 3D indexing
     } // index3D
 

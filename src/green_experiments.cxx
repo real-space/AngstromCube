@@ -12,6 +12,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "brillouin_zone.hxx" // ::get_kpoint_path
 #include "simple_stats.hxx" // ::Stats
+#include "print_tools.hxx" // printf_vector
 
 #ifdef    HAS_TFQMRGPU
 
@@ -202,13 +203,14 @@ namespace green_experiments {
 
   template <typename real_t=double, int R1C2=1, int Noco=1>
   size_t inner_products(
-        double Hmatrix[][R1C2]
-      , double Smatrix[][R1C2]
-      , real_t const  psi[][R1C2][Noco*4*4*4][Noco*64]
-      , real_t const Hpsi[][R1C2][Noco*4*4*4][Noco*64]
-      , real_t const Spsi[][R1C2][Noco*4*4*4][Noco*64]
+        double Hmatrix[][R1C2] // result: Hmatrix[(nb*64)*(nb*64)][1:real/2:complex]
+      , double Smatrix[][R1C2] // result: Overlap[(nb*64)*(nb*64)][1:real/2:complex]
+      , real_t const  psi[][R1C2][Noco*64][Noco*64] // input: Green function[nb*nblocks][][][]
+      , real_t const Hpsi[][R1C2][Noco*64][Noco*64] // input: H*G
+      , real_t const Spsi[][R1C2][Noco*64][Noco*64] // input: S*G
       , int const nblocks
       , int const nb
+      , view2D<int> const & block_index // [nb][nblocks]
       , double const dV=1.0 // volume element
       , int const echo=0 // verbosity level
   )
@@ -216,29 +218,37 @@ namespace green_experiments {
   {
       int constexpr Real = 0, Imag = R1C2 - 1;
       int const nbands = nb*64;
+      assert(nblocks >= nb);
 
       // integrate over the real space grid
       for (int ib = 0; ib < nb; ++ib) {
           for (int jb = 0; jb < nb; ++jb) {
+
+                for (int k = 0; k < nblocks; ++k) { // block contraction index
+                    int const izyxb = block_index(ib,k);
+                    int const jzyxb = block_index(jb,k);
+                    assert((izyxb == jzyxb) == (ib == jb)); // must only be the same indices exactly when ib==jb
+                } // k
+
               for (int ib64 = 0; ib64 < 64; ++ib64) {
                   int const iband = ib*64 + ib64;
                   for (int jb64 = 0; jb64 < 64; ++jb64) {
                       int const jband = jb*64 + jb64;
                       int const ij = iband*nbands + jband;
                       double H_re{0}, H_im{0}, S_re{0}, S_im{0};
-                      for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
-                              int const izyxb = kzyx4*nb + ib;
-                              int const jzyxb = kzyx4*nb + jb;
-                              for (int kzyx = 0; kzyx < 64; ++kzyx) {
+                      for (int k = 0; k < nblocks; ++k) { // contract over target blocks
+                              int const izyxb = block_index(ib,k);
+                              int const jzyxb = block_index(jb,k);
+                              for (int k64 = 0; k64 < 64; ++k64) { // contract over target grid points inside each block
 
-                                    double const psi_re  =  psi[izyxb][Real][kzyx][ib64],
-                                                 psi_im  = -psi[izyxb][Imag][kzyx][ib64];
+                                    double const psi_re  =  psi[izyxb][Real][k64][ib64],
+                                                 psi_im  = -psi[izyxb][Imag][k64][ib64];
 
-                                    double const Hpsi_re = Hpsi[jzyxb][Real][kzyx][jb64],
-                                                 Hpsi_im = Hpsi[jzyxb][Imag][kzyx][jb64];
+                                    double const Hpsi_re = Hpsi[jzyxb][Real][k64][jb64],
+                                                 Hpsi_im = Hpsi[jzyxb][Imag][k64][jb64];
 
-                                    double const Spsi_re = Spsi[jzyxb][Real][kzyx][jb64],
-                                                 Spsi_im = Spsi[jzyxb][Imag][kzyx][jb64];
+                                    double const Spsi_re = Spsi[jzyxb][Real][k64][jb64],
+                                                 Spsi_im = Spsi[jzyxb][Imag][k64][jb64];
 
                                     H_re += psi_re * Hpsi_re; // 2 flop
                                     S_re += psi_re * Spsi_re; // 2 flop
@@ -248,8 +258,8 @@ namespace green_experiments {
                                         H_im += psi_re * Hpsi_im + psi_im * Hpsi_re;  // 4 flop
                                         S_im += psi_re * Spsi_im + psi_im * Spsi_re;  // 4 flop
                                     } // is complex
-                              } // kzyx
-                      } // kzyx4
+                              } // k64
+                      } // k
                       Hmatrix[ij][Real] = H_re*dV; // 1 flop
                       Smatrix[ij][Real] = S_re*dV; // 1 flop
                       if (Imag) {
@@ -284,11 +294,12 @@ namespace green_experiments {
 
   template <typename real_t=double, int R1C2=1, int Noco=1>
   size_t rotate_waves(
-        real_t       Rpsi[][R1C2][Noco*4*4*4][Noco*64]
-      , real_t const  psi[][R1C2][Noco*4*4*4][Noco*64]
+        real_t       Rpsi[][R1C2][Noco*64][Noco*64]
+      , real_t const  psi[][R1C2][Noco*64][Noco*64]
       , double const Rmat[][R1C2] // data layout [(nb*64)(nb*64)][R1C2], equivalent to std::complex<double> for R1C2==2
       , int const nblocks
       , int const nb
+      , view2D<int> const & block_index // [nb][nblocks]
   ) { // Rpsi_i = sum_j Rmat[i][j] * psi_j
       int constexpr Real = 0, Imag = R1C2 - 1;
       int const nbands = nb*64;
@@ -297,18 +308,18 @@ namespace green_experiments {
       for (int ib = 0; ib < nb; ++ib) {
           for (int ib64 = 0; ib64 < 64; ++ib64) {
               int const iband = ib*64 + ib64;
-              for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
-                  int const izyxb = kzyx4*nb + ib;
-                  for (int kzyx = 0; kzyx < 64; ++kzyx) {
+              for (int k = 0; k < nblocks; ++k) {
+                  int const izyxb = block_index(ib,k);
+                  for (int k64 = 0; k64 < 64; ++k64) {
 
                       double re{0}, im{0};
                       for (int jb = 0; jb < nb; ++jb) {
-                          int const jzyxb = kzyx4*nb + jb;
+                          int const jzyxb = block_index(jb,k);
                           for (int jb64 = 0; jb64 < 64; ++jb64) {
                               int const jband = jb*64 + jb64;
 
-                              double const psi_re = psi[jzyxb][Real][kzyx][jb64],
-                                           psi_im = psi[jzyxb][Imag][kzyx][jb64];
+                              double const psi_re = psi[jzyxb][Real][k64][jb64],
+                                           psi_im = psi[jzyxb][Imag][k64][jb64];
 
                               auto const Rmat_re = Rmat[iband*nbands + jband][Real],
                                          Rmat_im = Rmat[iband*nbands + jband][Imag];
@@ -322,8 +333,8 @@ namespace green_experiments {
                           } // jb64
                       } // jb
                       if (Imag)
-                      Rpsi[izyxb][Imag][kzyx][ib64] = im;
-                      Rpsi[izyxb][Real][kzyx][ib64] = re;
+                      Rpsi[izyxb][Imag][k64][ib64] = im;
+                      Rpsi[izyxb][Real][k64][ib64] = re;
 
                   } // k4x k4y k4z
               } // kx4 ky4 kz4
@@ -341,6 +352,7 @@ namespace green_experiments {
       , double const Eval[] // eigenvalues
       , int const nblocks
       , int const nb
+      , view2D<int> const & block_index
       , float min_max_res[] // side result
       , int const echo=0
   )
@@ -357,17 +369,17 @@ namespace green_experiments {
           int const ib64 = iband & 63; // modulo 64
 
           double norm2{0};
-          for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
-              int const izyxb = kzyx4*nb + ib;
-              for (int kzyx = 0; kzyx < 64; ++kzyx) {
+          for (int k = 0; k < nblocks; ++k) {
+              int const izyxb = block_index(ib,k);
+              for (int k64 = 0; k64 < 64; ++k64) {
                   for (int reim = 0; reim < R1C2; ++reim) {
                       // create the residual vector
-                      auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64]
-                           - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64]; // 2 flop
+                      auto const new_psi = Hpsi[izyxb][reim][k64][ib64]
+                           - Eval[iband] * Spsi[izyxb][reim][k64][ib64]; // 2 flop
                       norm2 += pow2(new_psi); // 2 flop
                   } // reim
-              }// kzyx
-          } // kzyx4
+              }// k64
+          } // k
 
           if (norm2 <= 0) {
               error("Residual zero for iband=%i", iband);
@@ -425,18 +437,18 @@ namespace green_experiments {
 
           real_t const f = 1./Eval[iband];
           // double const f = 1./std::sqrt(res_norm2[iband]);
-          for (int kzyx4 = 0; kzyx4 < nblocks; ++kzyx4) {
-              int const izyxb = kzyx4*nb + ib;
-              int const jzyxb = kzyx4*nb + jb;
-              for (int kzyx = 0; kzyx < 64; ++kzyx) {
+          for (int k = 0; k < nblocks; ++k) {
+              int const izyxb = block_index(ib,k);
+              int const jzyxb = block_index(jb,k);
+              for (int k64 = 0; k64 < 64; ++k64) {
                   for (int reim = 0; reim < R1C2; ++reim) {
-                      auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64];
-                      // auto const new_psi = Hpsi[izyxb][reim][kzyx][ib64];
-                           // - Eval[iband] * Spsi[izyxb][reim][kzyx][ib64]; // 2 flop
-                      psi[jzyxb][reim][kzyx][jb64] = f*new_psi; // 1 flop
+                      auto const new_psi = Hpsi[izyxb][reim][k64][ib64];
+                      // auto const new_psi = Hpsi[izyxb][reim][k64][ib64];
+                           // - Eval[iband] * Spsi[izyxb][reim][k64][ib64]; // 2 flop
+                      psi[jzyxb][reim][k64][jb64] = f*new_psi; // 1 flop
                   } // reim
-              } // kzyx
-          } // kzyx4
+              } // k64
+          } // k
       } // iband
       } // threshold2 > 1e-30
 
@@ -504,6 +516,7 @@ namespace green_experiments {
       auto const nkpoints = brillouin_zone::get_kpoint_path(k_path, echo);
       if (echo > 1) std::printf("# %s %d k-points, %d bands\n", __func__, nkpoints, nbands);
 
+
       std::vector<double> Sval(nbands, 1.0); // eigenvalues of the overlap operator
       std::vector<double> Eval(nbands, 0.0); // eigenvalues
       std::vector<std::vector<double>> bandstructure(nkpoints, Eval); // result array
@@ -513,20 +526,42 @@ namespace green_experiments {
       if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld blocks\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
  //   size_t const nnzb = nblocks * nb;
       size_t const nnzb = pH.colindx.size();
+      if (echo > 1) std::printf("# %s nnzb= %d\n", __func__, nnzb);
       assert(nnzb == nblocks * nb && "This solver can only run with a dense Green function");
 
       // create a trivial list for the colIndex
       assert(nb <= (1ul << 16) && "too many bands for using uint16_t as colIndex");
       auto colIndex = get_memory<uint16_t>(nnzb, echo, "colIndex");
-    //   for (int iblock = 0; iblock < nblocks; ++iblock) {
-    //       for (int ib = 0; ib < nb; ++ib) {
-    //           int const inzb = iblock*nb + ib;
-    //           colIndex[inzb] = ib;
-    //       } // ib
-    //   } // iblock
       for (size_t inzb{0}; inzb < nnzb; ++inzb) {
           colIndex[inzb] = pH.colindx.at(inzb); // copy
       } // inzb
+      if (echo > 3) { std::printf("# pH.colindx= "); printf_vector(" %d", pH.colindx); }
+      if (echo > 3) { std::printf("# pH.subset= "); printf_vector(" %d", pH.subset); }
+
+      view2D<int> block_index(nb, nblocks, -1);
+      { // scope: prepare block_index which helps to admin the dense Green function
+          std::vector<int> nbl(nb, 0);
+          for (int inzb{0}; inzb < nb*nblocks; ++inzb) {
+              auto const iCol = colIndex[inzb];
+              if (inzb >= pH.subset[iCol]) {
+                  block_index(iCol,(iCol + nbl[iCol])%nblocks) = inzb;
+                  ++nbl[iCol];
+              }
+          } // inzb
+          for (int inzb{0}; inzb < nb*nblocks; ++inzb) {
+              auto const iCol = colIndex[inzb];
+              if (inzb < pH.subset[iCol]) {
+                  block_index(iCol,(iCol + nbl[iCol])%nblocks) = inzb;
+                  ++nbl[iCol];
+              }
+          } // inzb
+          for (int ib{0}; ib < nb; ++ib) {
+              assert(nblocks == nbl[ib]); // since the Green function is supposed to be dense, all columns must have nblocks
+              if (echo > 5) { std::printf("# inner_product: block_index="); printf_vector(" %d", block_index[ib], nblocks); }
+              for (int iblock{0}; iblock < nblocks; ++iblock) { assert(-1 != block_index(ib,iblock)); } // no table element may be unassigned
+          } // ib
+      } // scope
+
 
       if (1) { // scope: up to now, pH and pS are the same plan. We need to modify pS now
           // delete the kinetic energy lists
@@ -561,7 +596,7 @@ namespace green_experiments {
       auto psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
 
       int constexpr Real = 0, Imag = R1C2 - 1;
-      if (nb < nblocks) { // create start wave functions
+      if (nb < nblocks) { // create start wave functions for the Gamma point
           warn("iterative solver has not yet achieved to converge, use the explicit solver with nb == nblocks", 0);
           // ToDo: delete failed code
           //
@@ -611,7 +646,8 @@ namespace green_experiments {
                   for (int iz4 = 0; iz4 < ng4[2]; ++iz4) {
                   for (int iy4 = 0; iy4 < ng4[1]; ++iy4) {
                   for (int ix4 = 0; ix4 < ng4[0]; ++ix4) {
-                      int const izyxb = ((iz4*ng4[1] + iy4)*ng4[0] + ix4)*nb + ib;
+                      int const ixyz4 = (iz4*ng4[1] + iy4)*ng4[0] + ix4;
+                      int const izyxb = block_index(ib,ixyz4);
                       for (int i4z = 0; i4z < 4; ++i4z) {     int const iz = iz4*4 + i4z;
                       for (int i4y = 0; i4y < 4; ++i4y) {     int const iy = iy4*4 + i4y;
                       for (int i4x = 0; i4x < 4; ++i4x) {     int const ix = ix4*4 + i4x;
@@ -638,20 +674,23 @@ namespace green_experiments {
       } else {  // start waves
           assert(nb == nblocks); // there are as many bands as real-space grid points
           if (echo > 0) std::printf("# prepare as many wave functions as real-space grid points\n"); // every time again --> see below
+          assert(pH.subset.size() == nb);
       } // start waves
 
       simple_stats::Stats<> Gflop_count;
       simple_stats::Stats<> Wtime_count;
 
-      auto Hpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "H * waves");
-      auto Spsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "S * waves");
-      auto tpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "temp waves");
+      auto Hpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "H * waves");
+      auto Spsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "S * waves");
+      auto tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "temp waves");
 
       auto Hmat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Hamiltonian");
       auto Smat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Overlap op");
       auto  mat = get_memory<double[R1C2]>(pow2(nbands), echo, "matrix copy");
 
 #ifdef    HAS_LAPACK
+      int const echo_Hmat = control::get("green_experiments.eigensolver.echo.hmat", 0.);
+      int const echo_Smat = control::get("green_experiments.eigensolver.echo.smat", 0.);
       int const maxiter = control::get("green_experiments.eigen.maxiter", (nb == nblocks) ? 1. : 9.);
 
       for (int ik = 0; ik < nkpoints; ++ik) {
@@ -665,12 +704,13 @@ namespace green_experiments {
 
             if (nb == nblocks) {
                 // prepare wave functions as Kronecker deltas every time again
-                set(psi[0][0][0], nblocks*nb*R1C2*64ul*64ul, real_t(0)); // clear
-                for (int iband = 0; iband < nbands; ++iband) {
-                    int const ib   = iband >> 6; // divide 64
-                    int const ib64 = iband & 63; // modulo 64
-                    psi[ib*nb + ib][Real][ib64][ib64] = 1; // Kronecker
-                } // iband
+                set(psi[0][0][0], nnzb*R1C2*pow2(Noco*64ul), real_t(0)); // clear
+                for (int ib{0}; ib < nb; ++ib) {
+                    int const jb = pH.subset.at(ib); // index of diagonal block
+                    for (int ib64{0}; ib64 < 64; ++ib64) {
+                        psi[jb][Real][ib64][ib64] = 1; // Kronecker
+                    } // ib64
+                } // ib
             }
 
             int it{0}, lastiter{maxiter - 1};
@@ -683,7 +723,19 @@ namespace green_experiments {
 
             // create inner products <psi_i|Hpsi_j> and <psi_i|Spsi_j>
             nops += inner_products<real_t,R1C2,Noco>(Hmat, Smat,
-                                    psi, Hpsi, Spsi, nblocks, nb, dVol, echo);
+                                    psi, Hpsi, Spsi, nblocks, nb, block_index, dVol, echo);
+
+            if (echo_Smat) {
+                std::printf("## Overlap_op (%d x %d) in iteration#%i\n", nbands, nbands, it);
+                for (int i = 0; i < nbands; ++i) {
+                    std::printf("%i \t", i);
+                    for (int j = 0; j < nbands; ++j) {
+                        std::printf(" %g", Smat[i*nbands + j][Real]);
+                        if (echo_Smat > 4) std::printf(" %g ", Smat[i*nbands + j][Imag]*Imag);
+                    } // j
+                    std::printf("\n");
+                } // i
+            } // echo_Smat
 
             set(mat[0], pow2(nbands)*R1C2, Smat[0]); // deep copy of the overlap operator
             // we need a deep copy here because the dense eigenvalue solver changes the matrix
@@ -703,14 +755,29 @@ namespace green_experiments {
                     it, Sval[0], Sval[1], Sval[2], Sval[3], Sval[4], Sval[5], Sval[6], Sval[nbands - 1]);
                 if (Sval[0] > 0.0) {
                     // overlap matrix is stable
+
+                    if (echo_Hmat) {
+                        std::printf("## Hamiltonian (%d x %d) in iteration#%i\n", nbands, nbands, it);
+                        for (int i = 0; i < nbands; ++i) {
+                            if (0 == (i & 3)) std::printf("\n"); // make the spatial structure more visible
+                            std::printf("%i \t", i);
+                            for (int j = 0; j < nbands; ++j) {
+                                if (0 == (j & 3)) std::printf("  "); // make the spatial structure more visible
+                                std::printf(" %g", Hmat[i*nbands + j][Real]);
+                                if (echo_Hmat > 4) std::printf(" %g ", Hmat[i*nbands + j][Imag]*Imag);
+                            } // j
+                            std::printf("\n");
+                        } // i  
+                    } // echo_Hmat
+
                     if (2 == R1C2) { // Hermitian generalized eigenvalue problem
                         stat = linear_algebra::eigenvalues(Eval.data(), nbands,
-                                        (std::complex<double>*)Hmat, nbands,
-                                        (std::complex<double>*)Smat, nbands);
+                                           (std::complex<double>*)Hmat, nbands,
+                                           (std::complex<double>*)Smat, nbands);
                     } else {    // real-symmetric generalized eigenvalue problem
                         stat = linear_algebra::eigenvalues(Eval.data(), nbands,
-                                                        (double*)Hmat, nbands,
-                                                        (double*)Smat, nbands);
+                                                         (double*)Hmat, nbands,
+                                                         (double*)Smat, nbands);
                     } // real or complex
                     if (0 != stat) { // generalized eigenvalue problem failed
                         warn("failed to diagonalize for k-point #%i in Davidson iteration #%i", ik, it);
@@ -723,7 +790,7 @@ namespace green_experiments {
                         // ToDo: rotate 1st half of bands and generate the 2nd half from gradients
                         //        gradient: phi_i = (H - E_i*S) psi_i
                         if (echo > 5) std::printf("# rotate_waves in Davidson iteration #%i\n", it);
-                        nops += rotate_waves<real_t,R1C2,Noco>(tpsi, psi, Hmat, nblocks, nb); // Spsi is a dummy here for a new version of psi
+                        nops += rotate_waves<real_t,R1C2,Noco>(tpsi, psi, Hmat, nblocks, nb, block_index); // Spsi is a dummy here for a new version of psi
                         std::swap(psi, tpsi); // pointer swap
 
                         if (Sval[0] > .01) {
@@ -733,7 +800,7 @@ namespace green_experiments {
 
                             nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
                             nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
-                            nops += gradient_waves<real_t,R1C2,Noco>(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, min_max_res, echo);
+                            nops += gradient_waves<real_t,R1C2,Noco>(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, block_index, min_max_res, echo);
                             if (echo > 5) std::printf("# gradient_waves in iteration #%i has residual norms in [%.1e, %.1e]\n",
                                                         it, min_max_res[0], min_max_res[1]);
                             }
