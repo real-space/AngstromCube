@@ -1235,6 +1235,8 @@ namespace parallel_potential {
 
 
 
+        std::vector<int32_t> numax_prj;
+        std::vector<double>  sigma_prj;
         energy_contour::Integrator integrator;
         if (needs_integrator) {
             if (echo > 0) std::printf("\n# Initialize energy contour integrator");
@@ -1243,8 +1245,8 @@ namespace parallel_potential {
             //     as it has to tell apart atomic images from atomic copies
             std::vector<double> xyzZinso(0);
             { // scope: determine additional info
-                std::vector<int32_t> numax_prj(na, 0);
-                std::vector<double>  sigma_prj(na, 0);
+                numax_prj.resize(na, 0);
+                sigma_prj.resize(na, 1);
                 stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
@@ -1499,8 +1501,8 @@ namespace parallel_potential {
                 } // ilb
                 print_stats(V_coarse[0], n_blocks*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
                 // call energy-contour integration to find a new density
-                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat,
-                                                        lb, pg_Interpolation, n_valence_electrons, g.dV(), echo);
+                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
+                                                          lb, pg_Interpolation, n_valence_electrons, g.dV(), echo);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }

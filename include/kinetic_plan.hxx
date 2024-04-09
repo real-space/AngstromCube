@@ -65,6 +65,7 @@ namespace kinetic_plan {
           , double const grid_spacing=1
           , size_t const nnzbX=1
           , int const echo=0 // log level
+          , double const scale_T=1 // scaling
       ); // declaration only
 
     public: // ToDo: check which members could be private

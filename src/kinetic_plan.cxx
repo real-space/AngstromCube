@@ -306,10 +306,11 @@ namespace kinetic_plan {
           , double const grid_spacing // =1
           , size_t const nnzbX // =1
           , int const echo // =0 // log level
+          , double const scale_T // =1
       ) {
             derivative_direction_ = dd;
             nnzb_ = nnzbX;
-            prefactor_ = -0.5/(grid_spacing*grid_spacing);
+            prefactor_ = -0.5*scale_T/(grid_spacing*grid_spacing);
             char _lists[8] = "list[?]"; _lists[5] = 'x' + dd;
             if (lists_) free_memory(lists_);
             lists_ = get_memory<int32_t const *>(sparse_.nRows(), echo, _lists);

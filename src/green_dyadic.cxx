@@ -9,7 +9,7 @@
 #include "green_dyadic.hxx"
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
     #include "dyadic_plan.hxx" // dyadic_plan_t
     #include "green_memory.hxx" // get_memory, free_memory, dim3, real_t_name
     #include "green_sparse.hxx" // ::sparse_t<>
@@ -20,10 +20,10 @@
     #include "control.hxx" // ::get
 #endif // NO_UNIT_TESTS
 
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
     #include <cuda/std/complex> // std::complex
     #define std__complex cuda::std::complex
-#else
+#else  // HAS_NO_CUDA
     #include <complex> // std::complex
     #define std__complex std::complex
 #endif // HAS_NO_CUDA
@@ -31,9 +31,9 @@
 namespace green_dyadic {
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
 
   status_t test_Hermite_polynomials_1D(int const echo=0, double const sigma=16) {
@@ -117,6 +117,34 @@ namespace green_dyadic {
 
 
 
+    inline std::vector<double> __host__ sho_normalization(int const lmax, double const sigma=1) {
+        int const n1ho = sho_tools::n1HO(lmax);
+        std::vector<double> v1(n1ho, constants::sqrtpi*sigma);
+        {
+            double fac{1};
+            for (int nu = 0; nu <= lmax; ++nu) {
+                // fac == factorial(nu) / 2^nu
+                v1[nu] *= fac;
+                // now v1[nu] == sqrt(pi) * sigma * factorial(nu) / 2^nu
+                fac *= 0.5*(nu + 1); // update fac for the next iteration
+            } // nu
+        }
+
+        std::vector<double> vec(sho_tools::nSHO(lmax), 1.);
+        {
+            int sho{0};
+            for (int iz = 0; iz <= lmax; ++iz) {
+                for (int iy = 0; iy <= lmax - iz; ++iy) {
+                    for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
+                        vec[sho] = v1[ix] * v1[iy] * v1[iz];
+                        ++sho;
+            }}} // ix iy iz
+            assert(vec.size() == sho);
+        }
+        return vec;
+    } // sho_normalization
+
+
   template <typename real_t, int R1C2=2, int Noco=1>
   status_t test_SHOprj_and_SHOadd(int const echo=0, int8_t const lmax=6) {
       // check if drivers compile and the normalization of the lowest (up to 64) SHO functions
@@ -161,7 +189,7 @@ namespace green_dyadic {
       // see if these drivers compile and can be executed without segfaults
       if (echo > 11) std::printf("# here %s:%d\n", __func__, __LINE__);
       {
-          auto const dVol = hGrid[0]*hGrid[1]*hGrid[2];
+          auto const dVol = hGrid[2]*hGrid[1]*hGrid[0];
           auto const sho_norm = sho_normalization(lmax, sigma);
           // now sho_norm = product_d=0..2 sqrt(pi) * sigma * factorial(nu[d]) / 2^nu[d]
           for (int isho = 0; isho < std::min(nsho, 64); ++isho) {
@@ -236,9 +264,7 @@ namespace green_dyadic {
               set(AtomMatrices[ia], pow2(Noco)*2*pow2(nsho), 0.0);
           } // ia
           multiply<real_t,R1C2,Noco>(Vpsi, apc, psi, AtomPos, AtomLmax, AtomStarts, natoms, sparse_SHOprj, AtomMatrices, sparse_SHOadd, RowIndexCubes, ColIndexCubes, CubePos, hGrid, nnzb, nrhs, echo);
-          for (int ia = 0; ia < natoms; ++ia) {
-              free_memory(AtomMatrices[ia]);
-          } // ia
+          for (int ia = 0; ia < natoms; ++ia) { free_memory(AtomMatrices[ia]); }
           free_memory(AtomMatrices);
       } // 0
 
@@ -270,12 +296,12 @@ namespace green_dyadic {
 
 
   template <int R1C2=2, int Noco=1>
-  status_t test_SHOprj_right(int const echo=0, int8_t const lmax=5) {
+  status_t test_SHOprj_right(int const echo=0, int8_t const lmax=5, double const sigma=.5) {
       if (echo > 0) std::printf("\n# %s<R1C2=%d,Noco=%d>\n", __func__, R1C2, Noco);
       uint32_t constexpr nAtoms = 2, nrhs = 1; // two atoms, atom#0 at origin, atom#1 at space diagonal of cube
       auto const nsho = sho_tools::nSHO(int(lmax));
       uint32_t const natomcoeffs = nAtoms*nsho;
-      double const AtomPos[nAtoms][3+1] = {{4,4,4, .5}, {0,0,0, .5}};
+      double const AtomPos[nAtoms][3+1] = {{4,4,4, 1./std::sqrt(sigma)}, {0,0,0, 1./std::sqrt(sigma)}};
       int8_t const AtomLmax[nAtoms] = {lmax, lmax};
       uint32_t const AtomStarts[nAtoms + 1] = {0, uint32_t(nsho), uint32_t(2*nsho)};
       uint32_t const AtomIndex[nAtoms] = {0, 1};

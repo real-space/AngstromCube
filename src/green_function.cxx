@@ -9,7 +9,7 @@
 #include <vector>     // std::vector<T>
 #include <complex>    // std::complex
 
-#include "green_function.hxx" // ::update_energy_parameter
+#include "green_function.hxx"
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
@@ -24,7 +24,7 @@
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "progress_report.hxx" // ProgressReport
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_B*, Vacuum_B*, Repeated_B*, Wrap_B*
-
+#include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 
 #ifndef NO_UNIT_TESTS
@@ -73,6 +73,8 @@ namespace green_function {
         , double const scale_H // =1
     ) {
         plan.E_param = E_param;
+        if (echo > 11) std::printf("# %s(E_param=(%g, %g), dVol=%g, Noco=%d, scale_H=%g)\n",
+                 __func__, E_param.real(), E_param.imag(), dVol,    Noco,    scale_H);
 
         auto & p = plan.dyadic_plan;
         if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
@@ -86,7 +88,7 @@ namespace green_function {
             assert(Noco*Noco*2*nc*nc <= count && "Maybe set up with wrong Noco");
 
             // use the atom matrices stored in CPU memory which are filled by green_parallel::exchange
-            double const *const hmt = p.AtomMatrices_[iac]; // in CPU memory
+            double const *const hmt = p.AtomMatrices_[iac]; // in CPU memory, sho_tools::zyx_order
 
             // fill this with matrix values
             auto const atomMatrix = p.AtomMatrices[iac]; // data layout [Noco*Noco*2*nc*nc], 2 for {real,imag}, in GPU memory
@@ -97,6 +99,7 @@ namespace green_function {
                     int const ij = i*nc + j;
                     atomMatrix[ij] = (scale_H * hmt[ij] - E_param.real() * ovl[ij])*f; // real part
                     atomMatrix[ij + nc*nc] = (          - E_param.imag() * ovl[ij])*f; // imag part
+//                  std::printf("# atom iac=%i matrix[i=%i][j=%i]= %g %g \thmt= %g ovl= %g\n", iac, i, j, atomMatrix[ij], atomMatrix[ij + nc*nc], hmt[ij], ovl[ij]);
                 } // j
             } // i
 
@@ -115,7 +118,6 @@ namespace green_function {
           action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
         , std::vector<double> const & Veff // [nb[2]*4 * nb[1]*4 * nb[0]*4]
-        , view3D<uint16_t> const & owner_rank // [nb[2]][nb[1]][nb[0]]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
         , int const Noco // =2
@@ -124,7 +126,9 @@ namespace green_function {
         if (Veff.size() == n_all_grid_points) { // scope: restructure and communicate potential
             auto const nrhs = p.nCols;
 //          auto const n_all_blocks = size_t(nb[2])*size_t(nb[1])*size_t(nb[0]);
-            assert(owner_rank.stride() == nb[0] && owner_rank.dim1() == nb[1]);
+
+            auto const scale_V = control::get("hamiltonian.scale.potential", 1.);
+            if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
 
             auto const Vinp = new double[nrhs*Noco*Noco][4*4*4];
             // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
@@ -179,6 +183,7 @@ namespace green_function {
             for (size_t iam{0}; iam < AtomMatrices.size(); ++iam) { 
                 auto const & am = AtomMatrices.at(iam);
                 auto const nc2 = am.size();
+                // ToDo: insert sho_prefactors here instead of in update_energy_parameter. But how to need numax and sigma?
                 assert(nc2 <= count);
                 set(input[iam], nc2, am.data()); // copy
             } // iam
@@ -210,8 +215,8 @@ namespace green_function {
     //        double const arg = 2*constants::pi*k_point[d];
     //        phase[d][0] = std::complex<double>(std::cos(arg), std::sin(arg));
     //        phase[d][1] = std::conj(phase[d][0]); // must be the inverse if the k_point gets an imaginary part
-            phase[d][0] = std::complex<double>(p.phase[d][0][0], p.phase[d][0][1]);
-            phase[d][1] = std::complex<double>(p.phase[d][1][0], p.phase[d][1][1]);
+            phase[d][0] = std::complex<double>(p.phase[d][0][0], p.phase[d][0][1]); // forward
+            phase[d][1] = std::complex<double>(p.phase[d][1][0], p.phase[d][1][1]); // backward
         } // d
 
         auto & dp = p.dyadic_plan;
@@ -225,8 +230,8 @@ namespace green_function {
             set(dp.AtomImagePhase[iai], 4, 0.0);
             dp.AtomImagePhase[iai][0] = ph.real();
             dp.AtomImagePhase[iai][1] = ph.imag();
-            assert(1 == Noco);
         } // iai
+        assert(1 == Noco);
 
         return 0;
     } // update_phases
@@ -774,7 +779,7 @@ namespace green_function {
 
             // resize BSR tables: (Block-compressed Sparse Row format)
             if (echo > 3) std::printf("# memory of a complex Green function is %.6f (float) and %.6f %s (double)\n",
-                                nnzb*2.*64.*64.*sizeof(float)*GByte, nnzb*2.*64.*64.*sizeof(double)*GByte, _GByte);
+                    nnzb*2.*64.*64.*sizeof(float)*GByte, nnzb*2.*64.*64.*sizeof(double)*GByte, _GByte); // Noco==1
             p.colindx.resize(nnzb);
             p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
             p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
@@ -943,6 +948,9 @@ namespace green_function {
             // Green function is stored sparse as real_t green[nnzb][2][Noco*64][Noco*64];
 
             { // scope: set up kinetic plans
+                auto const scale_T = control::get("hamiltonian.scale.kinetic", 1.);
+                if (1 != scale_T) warn("kinetic energy is scaled by factor +hamiltonian.scale.kinetic=%g", scale_T);
+
                 auto const keyword = "green_kinetic.range";
                 int16_t const kinetic_nFD_default = control::get(keyword, 8.); // if possible use 16th order Laplace operator
                 for (int dd = 0; dd < 3; ++dd) { // derivate direction
@@ -959,7 +967,7 @@ namespace green_function {
                         , sparsity_pattern
                         , echo);
                     p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
-                    p.kinetic[dd].set(dd, hg[dd], nnzb, echo);
+                    p.kinetic[dd].set(dd, hg[dd], nnzb, echo, scale_T);
 
                 } // dd derivate direction
             } // scope: set up kinetic plans
@@ -1030,8 +1038,10 @@ namespace green_function {
         } // nullptr != svg
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
-        auto const nerr = p.dyadic_plan.consistency_check();
-        if (nerr && echo > 0) std::printf("# dyadic_plan.consistency_check has %d errors\n", nerr);
+        {
+            auto const nerr = p.dyadic_plan.consistency_check();
+            if (nerr) warn("dyadic_plan.consistency_check returned %d errors", nerr);
+        }
 
         return 0;
     } // construct_Green_function

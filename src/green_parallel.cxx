@@ -50,9 +50,8 @@ namespace green_parallel {
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
         auto const nown = offerings.size(); // number of offerings
         auto const nreq = requests.size(); // number of requests
-        if (echo > 7) std::printf("# rank#%i RequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
-                                          me,       nb[X],nb[Y],nb[Z], nall,              nown,           nreq);
-
+        if (echo > 7) std::printf("# rank#%i \tRequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
+                                          me,         nb[X],nb[Y],nb[Z], nall,              nown,           nreq);
 
 #ifndef   HAS_NO_MPI
         bool const debug = 1;

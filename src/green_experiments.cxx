@@ -13,6 +13,7 @@
 #include "brillouin_zone.hxx" // ::get_kpoint_path
 #include "simple_stats.hxx" // ::Stats
 #include "print_tools.hxx" // printf_vector
+#include "debug_output.hxx" // here
 
 #ifdef    HAS_TFQMRGPU
 
@@ -29,7 +30,7 @@
 #include "green_memory.hxx" // get_memory, free_memory
 #include "action_plan.hxx" // action_plan_t
 #include "green_action.hxx" // ::action_t
-#include "green_function.hxx" // ::construct_Green_function, ::update_energy_parameter, ::update_phases
+#include "green_function.hxx" // ::construct_Green_function, ::update_energy_parameter, ::update_phases, ::update_potential
 #include "control.hxx" // ::get
 #ifdef    HAS_LAPACK
     #include "linear_algebra.hxx" // ::eigenvalues
@@ -344,6 +345,7 @@ namespace green_experiments {
       return nblocks*64ul * 2ul * pow2(R1C2*1ul*nbands); // returns the number of floating point operations
   } // rotate_waves
 
+
   template <typename real_t=double, int R1C2=1, int Noco=1>
   size_t gradient_waves(
         real_t        psi[][R1C2][Noco*4*4*4][Noco*64]
@@ -470,6 +472,8 @@ namespace green_experiments {
   ) {
       if (echo > 1) std::printf("\n# %s:%s<%s,R1C2=%d,Noco=%d>\n", strip_path(__FILE__), __func__, real_t_name<real_t>(), R1C2, Noco);
 
+      here;
+
       assert(1 == Noco && "Not prepared for Noco");
       for (int d = 0; d < 3; ++d) assert(0 == (ng[d] & 0x3)); // all grid numbers must be a multiple of 4
 
@@ -524,7 +528,6 @@ namespace green_experiments {
       int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)}; // convert #gridpoints to #blocks
       auto const nblocks = size_t(ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
       if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld blocks\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
- //   size_t const nnzb = nblocks * nb;
       size_t const nnzb = pH.colindx.size();
       if (echo > 1) std::printf("# %s nnzb= %d\n", __func__, nnzb);
       assert(nnzb == nblocks * nb && "This solver can only run with a dense Green function");
@@ -699,7 +702,10 @@ namespace green_experiments {
 
           if (echo > 3) std::printf("\n## k-point %g %g %g\n", k_point[0], k_point[1], k_point[2]);
           green_function::update_phases(pH, k_point, echo, Noco);
-          green_function::update_phases(pS, k_point, echo/2, Noco); // less output since it will print the same as the line above
+          green_function::update_phases(pS, k_point, echo >> 3, Noco); // less output since it will print the same as the line above
+
+          if (1 == R1C2 && brillouin_zone::needs_complex(k_point)) { warn("kpoint#%i needs complex numbers", ik); }
+
           double nops{0};
 
             if (nb == nblocks) {
@@ -753,7 +759,7 @@ namespace green_experiments {
             } else { // standard eigenvalue problem failed
                 if (echo > 7) std::printf("# in Davidson iteration #%i overlap eigenvalues:  %g %g %g %g %g %g %g ... %g\n",
                     it, Sval[0], Sval[1], Sval[2], Sval[3], Sval[4], Sval[5], Sval[6], Sval[nbands - 1]);
-                if (Sval[0] > 0.0) {
+                if (Sval[0] > 0) {
                     // overlap matrix is stable
 
                     if (echo_Hmat) {
@@ -902,6 +908,8 @@ namespace green_experiments {
       } // load_stat
       auto const dVol = hg[2]*hg[1]*hg[0];
 
+      here;
+
       if ('g' != how) {
           auto const huge = 9*std::max(std::max(ng[0]*hg[0], ng[1]*hg[1]), ng[2]*hg[2]);
           control::set("green_function.truncation.radius", huge, echo); // still needed?
@@ -911,6 +919,8 @@ namespace green_experiments {
       int const Noco = 1 + (eigen_noco > 0);
       if (echo > 0) std::printf("# +green_experiments.eigen.noco=%d --> Noco = %d\n", eigen_noco, Noco);
 
+      here;
+
       action_plan_t p;
       auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, Noco);
       if (plan_stat) {
@@ -918,10 +928,13 @@ namespace green_experiments {
           return plan_stat;
       } // plan_stat
 
+      here;
+
+      green_parallel::RequestList_t pSmatrices_requests;
       { // scope: atom ownership distribution
           auto const na = AtomMatrices.size();
           std::vector<int64_t> target_global_atom_ids(na, -1), owned_global_atom_ids(na);
-          for (int64_t ia{0}; ia < na; ++ia) { owned_global_atom_ids[ia] = ia; } // target_global_atom_ids[ia] = ia; } // all targets are cleared
+          for (int64_t ia{0}; ia < na; ++ia) { owned_global_atom_ids[ia] = ia; target_global_atom_ids[ia] = ia; }
           uint32_t const nb[] = {uint32_t(na), 0, 0};
           std::vector<uint16_t> atom_owner_rank(na, uint16_t(0)); // all atoms owned by the MPI master
           p.matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
@@ -929,12 +942,13 @@ namespace green_experiments {
       } // scope
 
       uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
-      view3D<uint16_t> owner_rank(nb[2], nb[1], nb[0], uint16_t(0)); // all grid blocks owned by the MPI master
-      auto const pot_stat = green_function::update_potential(p, nb, Veff, owner_rank, AtomMatrices, echo, Noco);
+      auto const pot_stat = green_function::update_potential(p, nb, Veff, AtomMatrices, echo, Noco);
       if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
 
-      auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), dVol, echo, Noco);
-      if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
+    //   auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), dVol, echo, Noco);
+    //   if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
+
+      here;
 
       if ('g' == how) {
           // compute the bandstructure as a density of states using the Green function method
@@ -952,24 +966,40 @@ namespace green_experiments {
               return plan_stat;
           } // plan_stat
 
-          auto const scale_H = 0.0;
-          auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), dVol, echo, Noco, scale_H);
-          if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
+          here;
 
-          int const r1c2 = (2 == Noco) ? 2 : (2 - (control::get("green_experiments.eigen.real", 0.) > 0));
+          pS.matrices_requests = p.matrices_requests; // deep copy
+
+          // this needs to be done to get the AtomMatrices into the overlap operators
+          auto const pot_stat = green_function::update_potential(pS, nb, Veff, AtomMatrices, echo, Noco);
+          if (pot_stat) warn("green_function::update_potential (pS) failed with status=%d", int(pot_stat));
+
+          here;
+
+        //   auto const scale_H = 0.0;
+        //   auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), dVol, echo, Noco, scale_H);
+        //   if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
+
+          here;
+
+          int const nbands  = control::get("green_experiments.eigen.nbands", p.nCols*64.)/64;
+          int const is_real = control::get("green_experiments.eigen.real", 0.);
+          int const r1c2 = (2 == Noco) ? 2 : (2 - (is_real > 0));
           int const bits = control::get("green_experiments.eigen.floating.point.bits", 64.);
-          int const bits_r1c2_noco = bits*100 + r1c2*10 + Noco;
-          switch (bits_r1c2_noco) {
-#ifndef   HAS_TFQMRGPU
-              case 3211: return eigensolver<float ,1,1>(p, pS, ng, hg, p.nCols, echo);
-              case 6411: return eigensolver<double,1,1>(p, pS, ng, hg, p.nCols, echo); // real
+          switch (bits*100 + r1c2*10 + Noco) {
+#ifndef   HAS_TFQMRGPU           
+              case 3211: return eigensolver<float ,1,1>(p, pS, ng, hg, nbands, echo);
+              case 6411: return eigensolver<double,1,1>(p, pS, ng, hg, nbands, echo); // real
+#else  // HAS_TFQMRGPU
+              case 3211:
+              case 6411: error("cannot instantiate action_t with R1C2==1 with -D HAS_TFQMRGPU", 0);
 #endif // HAS_TFQMRGPU
-              case 3221: return eigensolver<float ,2,1>(p, pS, ng, hg, p.nCols, echo);
-              case 6421: return eigensolver<double,2,1>(p, pS, ng, hg, p.nCols, echo); // complex
-              case 3222: return eigensolver<float ,2,2>(p, pS, ng, hg, p.nCols, echo);
-              case 6422: return eigensolver<double,2,2>(p, pS, ng, hg, p.nCols, echo); // complex non-collinear
-              default: error("no such case %s%d with Noco=%d", (1 == r1c2)?"real":"complex", bits, Noco);
-          } // fp32 or fp64
+              case 3221: return eigensolver<float ,2,1>(p, pS, ng, hg, nbands, echo);
+              case 6421: return eigensolver<double,2,1>(p, pS, ng, hg, nbands, echo); // complex
+              case 3222: return eigensolver<float ,2,2>(p, pS, ng, hg, nbands, echo);
+              case 6422: return eigensolver<double,2,2>(p, pS, ng, hg, nbands, echo); // complex non-collinear
+              default:   error("no such case %s%d with Noco=%d", (1 == r1c2)?"real":"complex", bits, Noco);
+          } // fp32 or fp64, complex or real, Noco 1 or 2
       } // how
 
   } // test_experiment

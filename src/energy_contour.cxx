@@ -20,6 +20,8 @@
 #include "inline_math.hxx" // set, add_product
 #include "green_solver.hxx" // green_solver_t
 #include "recorded_warnings.hxx" // error, warn
+#include "sho_tools.hxx" // ::nSHO
+#include "sho_projection.hxx" // ::get_sho_prefactors
 
 namespace energy_contour {
 
@@ -43,6 +45,8 @@ namespace energy_contour {
         , double & Fermi_level // Fermi level
         , double const Vtot[] // input potential in [nblocks][4*4*4]
         , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
+        , std::vector<int32_t> const & numax_prj
+        , std::vector<double> const & sigma_prj
         , parallel_poisson::load_balancing_t const & lb
         , parallel_poisson::parallel_grid_t const & pg
         , double const n_electrons // =1 // required total number of electrons 
@@ -65,8 +69,20 @@ namespace energy_contour {
         std::vector<std::vector<double>> AtomMatrices(nAtoms);
         for (int iAtom{0}; iAtom < nAtoms; ++iAtom) {
             auto const nc2 = atom_mat.ncols(iAtom);
+            auto const numax = numax_prj.at(iAtom);
+            auto const nc = sho_tools::nSHO(numax);
+            assert(nc2 == 2*nc*nc);
+            auto const rescale = sho_projection::get_sho_prefactors(numax, sigma_prj.at(iAtom));
             AtomMatrices[iAtom] = std::vector<double>(nc2);
-            set(AtomMatrices[iAtom].data(), nc2, atom_mat[iAtom]); // copy
+            for (int i{0}; i < nc; ++i) {
+                auto const rescale_i = rescale.at(i);
+                for (int j{0}; j < nc; ++j) {
+                    // atom matrices need to be prepared for projection with unnormalized Gauss-Hermite functions
+                    AtomMatrices[iAtom][(0*nc + i)*nc + j] = rescale_i * atom_mat[iAtom][(0*nc + i)*nc + j] * rescale[j]; // hmt
+                    AtomMatrices[iAtom][(1*nc + i)*nc + j] = rescale_i * atom_mat[iAtom][(1*nc + i)*nc + j] * rescale[j]; // ovl
+                } // j
+            } // i
+            // ToDo: treat Noco correctly
         } // iAtom
 
         view2D<double> rho(nblocks, 4*4*4, 0.0);
@@ -74,7 +90,7 @@ namespace energy_contour {
         int constexpr Noco = 1;
 
         std::vector<double> Veff(nblocks*4*4*4, 0.); // ToDo: fill Veff with Vtot
-        stat += green_function::update_potential(plan, pg.grid_blocks(), Veff, lb.owner_rank(), AtomMatrices, echo, Noco);
+        stat += green_function::update_potential(plan, pg.grid_blocks(), Veff, AtomMatrices, echo, Noco);
 
         for (int ienergy{0}; ienergy < 1; ++ienergy) {
             double const energy_weight = 1;
@@ -126,8 +142,10 @@ namespace energy_contour {
         view2D<double> rhov_new(lb.n_local(), 8*8*8, 0.0);
         std::vector<uint32_t> num(0);
         data_list<double> atom_mat(num);
+        std::vector<int32_t> numax_prj(0, 0);
+        std::vector<double> sigma_prj(0, 1.);
         Integrator integrator;
-        return integrator.integrate(rhov_new[0], E_Fermi, V_coarse[0], atom_mat, lb, pg, 1., 1., echo);
+        return integrator.integrate(rhov_new[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj, lb, pg, 1., 1., echo);
     } // test_integration
 
     status_t all_tests(int const echo) {

@@ -17,8 +17,8 @@ public: // members
     uint32_t* AtomStarts          = nullptr; // [nAtoms + 1]
     int8_t*   AtomLmax            = nullptr; // [nAtoms]
     double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices in GPU memory, nc: number of SHO coefficients of this atom
+    double*   AtomSigma           = nullptr; // [nAtoms]
     uint32_t nAtoms               = 0;
-    // std::vector<double> AtomSigma;
 
     uint32_t* AtomImageIndex      = nullptr; // [nAtomImages]
     uint32_t* AtomImageStarts     = nullptr; // [nAtomImages + 1]
@@ -39,7 +39,7 @@ public: // members
     std::vector<int32_t> global_atom_index;
     std::vector<int32_t> original_atom_index;
 
-    view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2)
+    view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2), CPU memory, prepared for SHO projection with unnormalized Gauss-Hermite functions
 
     size_t  flop_count_SHOgen = 0,
             flop_count_SHOsum = 0,

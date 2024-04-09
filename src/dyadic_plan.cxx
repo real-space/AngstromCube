@@ -52,6 +52,7 @@
         free_memory(AtomImagePhase);
         free_memory(AtomImageShift);
         free_memory(AtomLmax);
+        free_memory(AtomSigma);
         if (sparse_SHOprj) for (int32_t irhs = 0; irhs < nrhs; ++irhs) sparse_SHOprj[irhs].~sparse_t<>();
         free_memory(sparse_SHOprj);
     } // constructor
@@ -61,6 +62,7 @@
         std::swap(this->AtomStarts          , rhs.AtomStarts          );
         std::swap(this->AtomLmax            , rhs.AtomLmax            );
         std::swap(this->AtomMatrices        , rhs.AtomMatrices        );
+        std::swap(this->AtomSigma           , rhs.AtomSigma           );
         std::swap(this->nAtoms              , rhs.nAtoms              );
         std::swap(this->AtomImageIndex      , rhs.AtomImageIndex      );
         std::swap(this->AtomImageStarts     , rhs.AtomImageStarts     );
@@ -478,19 +480,20 @@
       // get GPU memory for the matrices
       p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
       p.AtomLmax     = get_memory<int8_t>(nac, echo, "AtomLmax");
+      p.AtomSigma    = get_memory<double>(nac, echo, "AtomSigma");
       p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
       p.AtomStarts[0] = 0; // init prefetch sum
-      // p.AtomSigma.resize(nac);
 
       size_t nc2_max{1}; // green_parallel::exchange does not work with count==0
       for (uint32_t iac = 0; iac < nac; ++iac) { // parallel loop
           auto const iaa = p.global_atom_index[iac];
-          // p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
+          auto const ia = p.global_atom_ids[iac];
+          p.AtomSigma[iac] = xyzZinso[ia*8 + 6];
           uint32_t const nc = sho_tools::nSHO(atom_numax[iaa]);
           assert(nc > 0); // the number of coefficients of a contributing atom copy must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
           p.AtomLmax[iac] = atom_numax[iaa];
-          char name[64]; std::snprintf(name, 64, "AtomMatrices[iac=%d/iaa=%d]", iac, iaa);
+          char name[64]; std::snprintf(name, 64, "AtomMatrices[a#%d]", ia);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear GPU memory
           nc2_max = std::max(nc2_max, size_t(2*nc*nc));
