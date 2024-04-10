@@ -13,6 +13,8 @@
 #include "brillouin_zone.hxx" // ::get_kpoint_path
 #include "simple_stats.hxx" // ::Stats
 #include "print_tools.hxx" // printf_vector
+
+#define   DEBUG
 #include "debug_output.hxx" // here
 
 #ifdef    HAS_TFQMRGPU
@@ -906,7 +908,6 @@ namespace green_experiments {
           warn("failed to load_Hamiltonian with status=%d", int(load_stat));
           return load_stat;
       } // load_stat
-      auto const dVol = hg[2]*hg[1]*hg[0];
 
       here;
 
@@ -945,9 +946,6 @@ namespace green_experiments {
       auto const pot_stat = green_function::update_potential(p, nb, Veff, AtomMatrices, echo, Noco);
       if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
 
-    //   auto const mat_stat = green_function::update_energy_parameter(p, std::complex<double>(0,0), dVol, echo, Noco);
-    //   if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
-
       here;
 
       if ('g' == how) {
@@ -976,23 +974,17 @@ namespace green_experiments {
 
           here;
 
-        //   auto const scale_H = 0.0;
-        //   auto const mat_stat = green_function::update_energy_parameter(pS, std::complex<double>(-1,0), dVol, echo, Noco, scale_H);
-        //   if (mat_stat) warn("green_function::update_energy_parameter failed with status=%d", int(mat_stat));
-
-          here;
-
           int const nbands  = control::get("green_experiments.eigen.nbands", p.nCols*64.)/64;
           int const is_real = control::get("green_experiments.eigen.real", 0.);
           int const r1c2 = (2 == Noco) ? 2 : (2 - (is_real > 0));
           int const bits = control::get("green_experiments.eigen.floating.point.bits", 64.);
           switch (bits*100 + r1c2*10 + Noco) {
-#ifndef   HAS_TFQMRGPU           
+#ifdef    HAS_TFQMRGPU
+              case 3211:
+              case 6411: error("cannot instantiate action_t with R1C2==1 with -D HAS_TFQMRGPU (fp%d)", bits);
+#else  // HAS_TFQMRGPU
               case 3211: return eigensolver<float ,1,1>(p, pS, ng, hg, nbands, echo);
               case 6411: return eigensolver<double,1,1>(p, pS, ng, hg, nbands, echo); // real
-#else  // HAS_TFQMRGPU
-              case 3211:
-              case 6411: error("cannot instantiate action_t with R1C2==1 with -D HAS_TFQMRGPU", 0);
 #endif // HAS_TFQMRGPU
               case 3221: return eigensolver<float ,2,1>(p, pS, ng, hg, nbands, echo);
               case 6421: return eigensolver<double,2,1>(p, pS, ng, hg, nbands, echo); // complex

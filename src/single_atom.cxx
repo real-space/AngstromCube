@@ -1638,7 +1638,7 @@ namespace single_atom {
             } // ics
 
             if (E_hpos < E_hfos && ics_hfos >= 0 && ics_hpos >= 0) {
-                warn("%s Energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
+                warn("%s energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
                     spherical_state[ics_hpos].tag, E_hpos*eV, E_hfos*eV, _eV, spherical_state[ics_hfos].tag);
             } // the state occupation is not the ground state, partially occupied states are not at the Fermi level
 

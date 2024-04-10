@@ -58,7 +58,7 @@ namespace green_kinetic {
 
     template <typename real_t, int R1C2=2, int Noco=1>
     status_t test_finite_difference(int const echo=0, int const dd=0) {
-        uint32_t const nnzb = std::max(2., control::get("green_kinetic.test.nnzb", 35.)); // as test we use a 1D chain of nnzb blocks, TODO: segfault for nnzb=1
+        int32_t const nnzb = std::max(2., control::get("green_kinetic.test.nnzb", 35.)); // as test we use a 1D chain of nnzb blocks, TODO: segfault for nnzb=1
         if (echo > 4) std::printf("\n# %s<%s,R1C2=%d,Noco=%d>(derivative_direction=\'%c\'), nnzb= %d\n",
                                         __func__, real_t_name<real_t>(), R1C2, Noco, 'x' + dd, nnzb);
         assert(nnzb > 0); // later we will divide by nnzb

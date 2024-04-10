@@ -6,7 +6,7 @@
 #include "display_units.h" // Ang, _Ang
 #include "complex_tools.hxx" // is_complex
 
-#ifdef DEBUG
+#ifdef    DEBUG
     #define here \
         if (echo > 5) { \
             std::printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); \

@@ -387,11 +387,11 @@ namespace green_dyadic {
         { // thread loops
 
         real_t czyx[4][4][4]; // get 64 accumulator registers --> 128 registers when real_t==double
-        __unroll__
+        // __unroll__
         for (int z = 0; z < 4; ++z) {
-            __unroll__
+            // __unroll__
             for (int y = 0; y < 4; ++y) {
-                __unroll__
+                // __unroll__
                 for (int x = 0; x < 4; ++x) {
                     czyx[z][y][x] = 0; // init accumulator registers
                 } // x
@@ -434,9 +434,9 @@ namespace green_dyadic {
             for (int iz = 0; iz <= lmax; ++iz) { // executes (L+1) times
 
                 real_t byx[4][4]; // get 16 accumulator registers --> 32 registers if double
-                __unroll__
+                // __unroll__
                 for (int y = 0; y < 4; ++y) {
-                    __unroll__
+                    // __unroll__
                     for (int x = 0; x < 4; ++x) {
                         byx[y][x] = 0; // init
                     } // x
@@ -449,17 +449,17 @@ namespace green_dyadic {
                     for (int ix = 0; ix <= lmax - iz - iy; ++ix) { // executes (L+1)*(L+2)*(L+3)/6 times
                         real_t const ca = Cad[(a0 + sho)*nrhs + irhs][reim][spin][j]; // load Noco*64 numbers from global memory
                         ++sho;
-                        __unroll__
+                        // __unroll__
                         for (int x = 0; x < 4; ++x) {
                             real_t const Hx = H1D[ix][X][x]; // load Hx from shared memory
                             ax[x] += Hx * ca; // FMA: 2 flop * 4 * (L+1)*(L+2)*(L+3)/6
                         } // x
                     } // ix
 
-                    __unroll__
+                    // __unroll__
                     for (int y = 0; y < 4; ++y) {
                         real_t const Hy = H1D[iy][Y][y]; // load Hy from shared memory
-                        __unroll__
+                        // __unroll__
                         for (int x = 0; x < 4; ++x) {
                             byx[y][x] += Hy * ax[x]; // FMA: 2 flop * 4**2 * (L+1)*(L+2)/2
                         } // x
@@ -468,16 +468,16 @@ namespace green_dyadic {
                 } // iy
 
                 int64_t mask_atom{0}; // occupy 2 GPU registers
-                __unroll__
+                // __unroll__
                 for (int z = 0; z < 4; ++z) {
                     real_t const Hz = H1D[iz][Z][z]; // load Hz from shared memory
                     auto const d2z = xi_squared[Z][z] - R2_proj;
                     if (d2z < 0) {
-                        __unroll__
+                        // __unroll__
                         for (int y = 0; y < 4; ++y) {
                             auto const d2yz = xi_squared[Y][y] + d2z;
                             if (d2yz < 0) {
-                                __unroll__
+                                // __unroll__
                                 for (int x = 0; x < 4; ++x) {
                                     auto const d2xyz = xi_squared[X][x] + d2yz;
                                     if (d2xyz < 0) {
