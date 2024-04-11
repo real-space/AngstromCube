@@ -4,13 +4,15 @@
 #include <cstdio> // std::printf, ::snprintf, ::fprintf, ::fopen, ::fclose, ::remove
 #include <vector> // std::vector<T>
 #include <cerrno> // errno, ERANGE
+#include <cstdlib> // std::strtod
+
 #ifndef   NO_UNIT_TESTS
   #include <ctime> // std::strftime, ::time, ::gmtime
   #include <cmath> // std::cos
+#include <cstdlib> // std::atof
 #endif // NO_UNIT_TESTS
 
 #ifdef    HAS_RAPIDXML
-  #include <cstdlib> // std::atof, ::strtod
   #include <cstring> // std::strcmp
   // git clone https://github.com/dwd/rapidxml
   #include "rapidxml.hpp" // ::xml_document<>
@@ -45,6 +47,7 @@ namespace xml_reading {
         return default_value;
     } // find_attribute
 
+
     inline rapidxml::xml_node<> const * find_child(
           rapidxml::xml_node<> const *const node
         , char const *const name
@@ -62,23 +65,33 @@ namespace xml_reading {
 
     template <typename real_t=double>
     std::vector<real_t> read_sequence(
-          char const *sequence
+          char const *const sequence
         , int const echo=0
         , size_t const reserve=0
     ) {
-        char *end;
-        char const *seq{sequence};
         std::vector<real_t> v;
         v.reserve(reserve);
-        for (double f = std::strtod(seq, &end); seq != end; f = std::strtod(seq, &end)) {
-            seq = end;
+
+        // check for irregular ascii-character 17
+        for (char const *c = sequence; *c != 0; ++c) {
+            if (17 == *c) {
+                warn("# found irregular ascii char 17 in sequence at %d", int(c - sequence));
+                std::printf("# sequence:\n%s\n\n", sequence);
+            }
+        } // c
+
+        char const *str{sequence};
+        char *str_end;
+        for (double f = std::strtod(str, &str_end); str != str_end; f = std::strtod(str, &str_end)) {
+            if (echo > 99) std::printf("# std::strtod(str=%p, str_end)= %g, str_end=%p, *str_end=\'%c\'=ascii(%d)\n", str, f, str_end, *str_end, int(*str_end));
+            str = str_end;
             if (errno == ERANGE) {
                 warn("range error, got %g", f);
                 errno = 0;
             } else {
                 v.push_back(real_t(f));
             } // errno
-        } // f
+        } // for
         return v;
     } // read_sequence
 
@@ -260,7 +273,7 @@ namespace xml_reading {
                       auto const matrix = find_child(atom, matrix_name, echo);
                       if (matrix) {
                           if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
-                          auto const v = read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
+                          auto const v = read_sequence(matrix->value(), echo, nSHO*nSHO);
                           int const as_expected = (v.size() == nSHO*nSHO);
                           if (echo > 3 + 4*as_expected) std::printf("# %s matrix has %ld values, %s expected %d x %d = %d\n",
                               matrix_name, v.size(), as_expected?"as":"but", nSHO, nSHO, nSHO*nSHO);
@@ -297,7 +310,7 @@ namespace xml_reading {
               } // d
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               int const nzyx = ng[2]*ng[1]*ng[0];
-              Veff = read_sequence<double>(potential->value(), echo, nzyx);
+              Veff = read_sequence(potential->value(), echo, nzyx);
               int const as_expected = (Veff.size() == nzyx);
               if (echo > 3 + 4*as_expected) std::printf("# potential has %ld values, %s expected %d x %d x %d = %d\n",
                   Veff.size(), as_expected?"as":"but", ng[0], ng[1], ng[2], nzyx);

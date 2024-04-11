@@ -133,8 +133,13 @@ namespace green_input {
                       auto const matrix_name = h0s1 ? "overlap" : "hamiltonian";
                       auto const matrix = xml_reading::find_child(atom, matrix_name, echo);
                       if (matrix) {
-                          if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
-                          auto const v = xml_reading::read_sequence(matrix->value(), echo, nSHO*nSHO);
+                          char const *const matrix_value = matrix->value();
+                          if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix_value);
+
+        // check for irregular ascii-character 17
+        for (char const *c = matrix_value; *c != 0; ++c) { if (17 == *c) { warn("# found irregular ascii char 17 in matrix->value() at position %d", int(c - matrix_value)); } }
+
+                          auto const v = xml_reading::read_sequence(matrix_value, echo, nSHO*nSHO);
                           if (echo > 5) std::printf("# %s matrix has %ld values, expect %d x %d = %d\n",
                                                        matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
