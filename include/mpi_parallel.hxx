@@ -37,7 +37,7 @@
                            MPI_UINT64_T = 64;
   void const * const MPI_IN_PLACE = nullptr;
 
-  inline size_t const size_of(MPI_Datatype const datatype) {
+  inline size_t size_of(MPI_Datatype const datatype) {
      switch (datatype) {
        case 0:                                      return 1; // 1 Byte
        case MPI_INT8_T : case MPI_UINT8_T :         return 1; // 1 Byte
