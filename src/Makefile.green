@@ -125,7 +125,7 @@ OPTFLAGS += -Wno-unknown-pragmas
 
 # LDFLAGS += -mkl
 LDFLAGS += ## -lmkl_intel_thread
-//LDFLAGS += -L. -lliveatom.so
+# LDFLAGS += -L/Users/pbaum/Codes/a43/src -lliveatom
 LDFLAGS += libliveatom.a
 LDFLAGS += -lblas
 LDFLAGS += -llapack

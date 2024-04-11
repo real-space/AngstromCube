@@ -698,6 +698,8 @@ namespace green_experiments {
       int const echo_Smat = control::get("green_experiments.eigensolver.echo.smat", 0.);
       int const maxiter = control::get("green_experiments.eigen.maxiter", (nb == nblocks) ? 1. : 9.);
 
+      size_t warn_instable_overlap{0};
+
       for (int ik = 0; ik < nkpoints; ++ik) {
           SimpleTimer timer(__FILE__, __LINE__, __func__, 0);
           double const *const k_point = k_path[ik];
@@ -720,6 +722,8 @@ namespace green_experiments {
                     } // ib64
                 } // ib
             }
+
+            bool instable_overlap{false}, bandstructure_set{false};
 
             int it{0}, lastiter{maxiter - 1};
             for (; it <= lastiter && lastiter >= 0; ++it) { // Davidson iterations
@@ -756,7 +760,7 @@ namespace green_experiments {
                                                   (double*)mat, nbands);
             } // real or complex
             if (0 != stat) { // standard eigenvalue problem failed
-                warn("failed to diagonalize the overlap for k-point #%i in Davidson iteration #%i", ik, it);
+                instable_overlap = true;
                 it = maxiter; // stop
             } else { // standard eigenvalue problem failed
                 if (echo > 7) std::printf("# in Davidson iteration #%i overlap eigenvalues:  %g %g %g %g %g %g %g ... %g\n",
@@ -795,6 +799,7 @@ namespace green_experiments {
                         if (echo > 6) std::printf("# in Davidson iteration #%i energy eigenvalues:  %g %g %g %g %g %g %g ... %g %s\n",
                             it, Eval[0]*eV, Eval[1]*eV, Eval[2]*eV, Eval[3]*eV, Eval[4]*eV, Eval[5]*eV, Eval[6]*eV, Eval[nbands - 1]*eV, _eV);
                         set(bandstructure[ik].data(), nbands, Eval.data()); // copy
+                        bandstructure_set = true;
                         // ToDo: rotate 1st half of bands and generate the 2nd half from gradients
                         //        gradient: phi_i = (H - E_i*S) psi_i
                         if (echo > 5) std::printf("# rotate_waves in Davidson iteration #%i\n", it);
@@ -820,6 +825,7 @@ namespace green_experiments {
 
                 } else { // overlap matrix is stable
                     if (echo > 7) std::printf("# in Davidson iteration #%i overlap eigenvalues are instable: %g, exit\n", it, Sval[0]);
+                    instable_overlap = true;
 
                     if (echo > 99) {
                         auto const Omat = Smat; char const M = 'S';
@@ -852,14 +858,20 @@ namespace green_experiments {
 
           if (echo > 3) std::printf("# Davidson method ran %d of max %d iterations\n", it, maxiter);
 
-          if (echo > 0) {
+          if (instable_overlap) {
+              warn("failed to diagonalize the overlap for k-point #%i", ik);
+              ++warn_instable_overlap;
+          }
+          if (bandstructure_set && echo > 0) {
               std::printf("# solve for k={%9.6f,%9.6f,%9.6f}, spectrum(%s) ", k_point[0], k_point[1], k_point[2], _eV);
               printf_vector(" %g", bandstructure[ik], "\n", eV);
-          } // echo
+          }
 
           Gflop_count.add(1e-9*nops);
           Wtime_count.add(timer.stop());
       } // ik
+
+      if (warn_instable_overlap) warn("failed to diagonalize for %ld kpoints", warn_instable_overlap);
 
 #else  // HAS_LAPACK
       warn("cannot run this test without -DHAS_LAPACK", 0); return -1;
@@ -956,6 +968,7 @@ namespace green_experiments {
           // compute a bandstructure using an eigenstate method
           // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S
           int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.); // separate verbosity for the second initialization, default=mute
+          if (echo > 4) std::printf("# verbosity for second call to construct_Green_function is +green_experiments.overlap.echo=%d\n", echo_pS);
 
           action_plan_t pS; // plan for the overlap operator
           auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, echo_pS, Noco); // since the copy operator is deleted we have to do it again
