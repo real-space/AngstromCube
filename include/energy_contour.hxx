@@ -25,7 +25,6 @@ namespace energy_contour {
     public: // members TODO: go private
         action_plan_t *plan_ = nullptr;
         green_solver_t solver_;
-        green_parallel::RequestList_t atom_req_;
 
     public: // methods
 
@@ -34,6 +33,8 @@ namespace energy_contour {
             , double & Fermi_level // Fermi level
             , double const Vtot[] // input potential in [nblocks][4*4*4], coarsening could be performed here...
             , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
+            , std::vector<int32_t> const & numax_prj
+            , std::vector<double> const & sigma_prj
             , parallel_poisson::load_balancing_t const & lb
             , parallel_poisson::parallel_grid_t const & pg
             , double const n_electrons=1 // required total number of electrons 

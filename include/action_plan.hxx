@@ -27,6 +27,7 @@
 
 #include "kinetic_plan.hxx" // kinetic_plan_t
 #include "dyadic_plan.hxx" // dyadic_plan_t
+#include "green_parallel.hxx" // ::RequestList_t
 
 class action_plan_t {
 public: // TODo: check which members could be private
@@ -71,26 +72,29 @@ public: // TODo: check which members could be private
     float V_confinement   = 1; // potential prefactor
     std::complex<double> E_param; // energy parameter
 
-    // green_kinetic::kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
     kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
 
     uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
     uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
-    int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
-    int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
+    // int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
+    // int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
     float   (*rowCubePos)[3+1]    = nullptr; // [nRows][3+1] internal coordinates in float, could be int16_t for most applications
     float   (*colCubePos)[3+1]    = nullptr; // [nCols][3+1] internal coordinates in float, could be int16_t for most applications
-    int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences
+    int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences                                               TODO: remove target_minus_source
     double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
     // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
     int32_t*  veff_index          = nullptr; // [nnzbX] indirection list, values -1 for non-existent indices
 
     double *grid_spacing_trunc = nullptr; // [3]
-    double (*phase)[2][2]      = nullptr; // [3]
+    double (*phase)[2][2]      = nullptr; // [3] // phase factors for the 3 directions across the boundaries, used in kinetic and dyadic phases are derived from it
 
     bool noncollinear_spin = false;
 
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
+
+    green_parallel::RequestList_t potential_requests; // request list to exchange potential blocks
+    green_parallel::RequestList_t matrices_requests;  // request list to exchange atomic matrices
+
 
 public:
 

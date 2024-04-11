@@ -23,7 +23,7 @@
 #include "display_units.h" // Ang, _Ang
 #include "print_tools.hxx" // printf_vector
 
-#ifdef DEVEL
+#ifdef    DEVEL
   #include "control.hxx" // ::get
 #endif // DEVEL
 
@@ -109,7 +109,7 @@ namespace grid_operators {
                           complex_t const Bloch_factor = Bloch_phase(boundary_phase, a[ia].idx(ii));
                           add_product(atom_coeff[ia].data(), ncoeff, image_coeff.data(), Bloch_factor);
                       } // ii
-#ifdef DEBUG
+#ifdef    DEBUG
                   } else if (a[ia].nimages() < 1) {
                       error("atom #%i has no image!", a[ia].atom_id());
 #endif // DEBUG
@@ -134,7 +134,7 @@ namespace grid_operators {
 
                   if (start_wave_coefficients) {
                       assert( 3 == numax ); // this option is only used for start wave functions.
-#ifdef DEVEL
+#ifdef    DEVEL
                       if (echo > 19) {
                           std::printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
                           printf_vector(" %g", start_wave_coefficients[ia], ncoeff);
@@ -154,7 +154,7 @@ namespace grid_operators {
                           for (int j = 0; j < ncoeff; ++j) {
                               real_fd_t const am = mat[i*stride + j];
                               auto const cj = vec[j];
-#ifdef DEVEL
+#ifdef    DEVEL
 //                               if (echo > 9) std::printf("# %s atomic %s matrix for atom #%i mat(%i,%i)= %g\n",
 //                                                    __func__, h0s1?"overlap":"hamiltonian", ia, i, j, am);
 #endif // DEVEL
@@ -194,13 +194,15 @@ namespace grid_operators {
   //       the same structure, whereas the latter has a FD-stencil with all positive coefficients
   //
 
-  inline status_t set_nonlocal_potential(std::vector<atom_image::sho_atom_t> & a
+  inline status_t set_nonlocal_potential(
+                  std::vector<atom_image::sho_atom_t> & a
                 , double const *const *const atom_matrices // data layout am[natoms][2*ncoeff[ia]^2]
-                , int const echo=0) {
+                , int const echo=0
+  ) {
       status_t stat(0);
       assert(atom_matrices); // may not be nullptr
 
-#ifdef DEVEL
+#ifdef    DEVEL
       double const scale_hs[] = {control::get("hamiltonian.scale.nonlocal.h", 1.),
                                  control::get("hamiltonian.scale.nonlocal.s", 1.)};
       if (1 != scale_hs[0] || 1 != scale_hs[1]) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_hs[0], scale_hs[1]);
@@ -355,7 +357,7 @@ namespace grid_operators {
 
           // the local effective potential, ToDo: separate this because we might want to call it later
           potential = std::vector<double>(g.all(), 0.0); // init as zero everywhere
-#ifdef DEVEL
+#ifdef    DEVEL
           double const scale_k = control::get("hamiltonian.scale.kinetic", 1.);
           if (1 != scale_k) {
               kinetic.scale_coefficients(scale_k);
@@ -412,7 +414,7 @@ namespace grid_operators {
           if (echo > 0) std::printf("# %s %s\n", __FILE__, __func__);
           if (nullptr != local_potential) {
               if (ng == grid.all()) {
-#ifdef DEVEL
+#ifdef    DEVEL
                   double const scale_p = control::get("hamiltonian.scale.potential", 1.);
                   if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
 #else  // DEVEL
@@ -638,9 +640,9 @@ namespace grid_operators {
 
   }; // class grid_operator_t
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t class_test(int const echo=9) {
       status_t stat(0);
@@ -719,10 +721,10 @@ namespace grid_operators {
 
 } // namespace grid_operators
 
-#ifdef DEBUG
-  #undef DEBUG
+#ifdef    DEBUG
+  #undef  DEBUG
 #endif // DEBUG
 
-#ifdef FULL_DEBUG
-  #undef FULL_DEBUG
+#ifdef    FULL_DEBUG
+  #undef  FULL_DEBUG
 #endif // FULL_DEBUG

@@ -36,6 +36,7 @@ namespace green_parallel {
       , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
       , uint32_t const nb[3] // global bounding box or {natoms,0,0}
       , int const echo // =0 // log-level
+      , char const *const what // ="?"
     ) {
         auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const me   = mpi_parallel::rank(comm);
@@ -47,9 +48,10 @@ namespace green_parallel {
         int constexpr X=0, Y=1, Z=2;
         auto const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
-        if (echo > 7) std::printf("# rank#%i RequestList_t [%d %d %d], nall= %ld\n", me, nb[X], nb[Y], nb[Z], nall);
         auto const nown = offerings.size(); // number of offerings
         auto const nreq = requests.size(); // number of requests
+        if (echo > 7) std::printf("# rank#%i \tRequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
+                                          me,         nb[X],nb[Y],nb[Z], nall,              nown,           nreq);
 
 #ifndef   HAS_NO_MPI
         bool const debug = 1;
@@ -121,6 +123,8 @@ namespace green_parallel {
         requested_id = std::vector<int64_t>(nreq, 0);
         window_size = nown; // number of owned data items
 
+        size_t stats[] = {0, 0, 0}; // {local, remote, clear}
+
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
             auto const global_id = requests[ireq];
 
@@ -147,20 +151,28 @@ namespace green_parallel {
                 for (size_t iown = 0; iown < nown && iloc < 0; ++iown) {
                     if (global_id == offerings[iown]) iloc = iown;
                 } // iown
-                if (-1 == iloc) error("failed to find global_id= %li in offerings", global_id);
+                if (-1 == iloc) error("failed to find global_id= %li in offerings of %s", global_id, what);
                 assert(iloc > -1 && "index not found in local offerings");
                 owner[ireq] = me;
 
 #endif // HAS_NO_MPI
+                ++stats[me != owner[ireq]];
+
                 index[ireq] = iloc;
             } else { // global_id > -1
                 index[ireq] = -1;
                 owner[ireq] = me;
+                ++stats[2]; // clear
             } // global_id > -1
 
             requested_id[ireq] = global_id; // copy the array of requests
         } // ireq
 
+        if (echo > 6) std::printf("# rank#%i \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
+                                          me, stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3);
+        mpi_parallel::sum(stats, 3, comm);
+        if (echo > 5) std::printf( "# total  \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
+                                              stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3);
     } // constructor implementation
 
 
@@ -174,7 +186,7 @@ namespace green_parallel {
       , char const *what // =nullptr // quantity
   ) {
       what = what ? what : "?";
-      auto const comm = MPI_COMM_WORLD;
+      auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
       auto const me = mpi_parallel::rank(comm);
 
       // The number of local atoms is limited to 2^16 == 65536
@@ -240,9 +252,12 @@ namespace green_parallel {
       status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
 
-      if (echo > 7) std::printf("# rank#%i copied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
+      if (echo > 6) std::printf("# rank#%i \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
                                         me, stats[0]*.001, stats[1]*.001, stats[2]*.001);
       assert(stats[0] + stats[1] + stats[2] == nreq);
+      mpi_parallel::sum(stats, 3, comm);
+      if (echo > 5) std::printf("# total  \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
+                                            stats[0]*.001, stats[1]*.001, stats[2]*.001);
 
       return status;
   } // exchange

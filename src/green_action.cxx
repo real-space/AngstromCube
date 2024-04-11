@@ -10,29 +10,26 @@
 #include "green_action.hxx"
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "simple_timer.hxx" // SimpleTimer
-#include "simple_stats.hxx" // ::Stats<>
-#include "display_units.h" // eV, _eV, Ang, _Ang
-#include "green_memory.hxx" // get_memory, free_memory, real_t_name
-#include "progress_report.hxx" // ProgressReport
-#include "green_parallel.hxx" // ::RequestList_t
-#include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
-#include "green_potential.hxx" // ::exchange
-#include "green_dyadic.hxx" // ::dyadic_plan_t
-#include "sho_tools.hxx" // ::nSHO
-#include "control.hxx" // ::get
-#include "load_balancer.hxx" // ::get
-#include "display_units.h" // GByte, _GByte
-
 #ifndef NO_UNIT_TESTS
+  #include "simple_timer.hxx" // SimpleTimer
+  #include "simple_stats.hxx" // ::Stats<>
+  #include "display_units.h" // eV, _eV, Ang, _Ang
+  #include "green_memory.hxx" // get_memory, free_memory, real_t_name
+  #include "progress_report.hxx" // ProgressReport
+  #include "green_parallel.hxx" // ::RequestList_t
+  #include "green_action.hxx" // ::plan_t, ::action_t, ::atom_t
+  #include "green_potential.hxx" // ::exchange
+  #include "green_dyadic.hxx" // ::dyadic_plan_t
+  #include "sho_tools.hxx" // ::nSHO
+  #include "control.hxx" // ::get
+  #include "load_balancer.hxx" // ::get
+  #include "display_units.h" // GByte, _GByte
   #include "green_input.hxx" // ::load_Hamiltonian
   #include "green_function.hxx" // ::construct_Green_function
   #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
 
   #ifdef    HAS_TFQMRGPU
 
-//  #define DEBUG
-//  #define DEBUGGPU
     #ifdef    HAS_NO_CUDA
         #include "tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
@@ -40,8 +37,6 @@
         #include <cuda.h>
         #define devPtr const __restrict__
     #endif // HAS_NO_CUDA
-    #include "tfqmrgpu.h" // ...
-    #include "tfqmrgpu.hxx" // ...
     #include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
   #endif // HAS_TFQMRGPU

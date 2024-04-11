@@ -9,7 +9,6 @@
 #include "data_view.hxx" // view2D, view4D
 #include "inline_math.hxx" // set, pow2, product, is_integer
 #include "print_tools.hxx" // printf_vector
-
 #include "control.hxx" // ::get
 
 namespace brillouin_zone {
@@ -213,20 +212,13 @@ namespace brillouin_zone {
       v[0] = 0; v[1] = 0; v[2] = 0; // clear
       char const cin = *control::get(keyword, def);
       switch (cin | 32) { // convert to lower case
-        case 'g': case '0':                           return 'G';
+        case 'g': case '0':                           return '0';
         case 'x': case '1':               v[0] = 0.5; return 'X';
         case 'm':             v[1] = 0.5; v[0] = 0.5; return 'M';
         case 'r': v[2] = 0.5; v[1] = 0.5; v[0] = 0.5; return 'R';
-        default:
-            { // scope: get keyword.x, keyword.y, keyword.z
-                char extended_keyword[64];
-                for (int d = 0; d < 3; ++d) {
-                    std::snprintf(extended_keyword, 64, "%s.%c", keyword, 'x' + d);
-                    v[d] = control::get(extended_keyword, 0.0);
-                } // d
-            } // scope
+        default : control::get(v, keyword);           return 'c';
+            //    control::get(double v[], keyword) --> {keyword.x, keyword.y, keyword.z}
       } // switch
-      return cin;
   } // get_special_kpoint
 
 
@@ -238,6 +230,7 @@ namespace brillouin_zone {
       auto const c_from = get_special_kpoint(from, "hamiltonian.kpath.from", "Gamma");
       auto const c_to   = get_special_kpoint(to,   "hamiltonian.kpath.to",   "X");
       auto const dk = control::get("hamiltonian.kpath.spacing", 0.05);
+      if (echo > 2) std::printf("# +hamiltonian.kpath.from=%c .to=%c .spacing=%g\n", c_from, c_to, dk);
       auto const length = std::sqrt(pow2(to[0] - from[0]) + pow2(to[1] - from[1]) + pow2(to[2] - from[2]));
       int const nk = std::ceil(length/std::max(dk, 1e-9));
       int const npath = nk + 1;

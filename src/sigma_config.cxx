@@ -109,7 +109,7 @@ namespace sigma_config {
             case 81: return "6s* 2 6p* 1 0 5d 10 5f | 2.25 sigma .718";                 // Tl
             case 82: return "6s* 2 6p* 2 0 5d* 10 | 2.3 sigma .59";                     // Pb
             case 83: return "6s* 2 6p* 3 0 5d* 10 | 2.41 sigma .605";                   // Bi
-            case 84: return "6s* 2 6p* 3 1 5d* 10 | 2.3 sigma .54";                     // Po
+            case 84: return "6s* 2 6p 3 1 5d 10 | 2.4 sigma .6 V=sinc";              // Po
             case 85: return "6s* 2 6p* 3 2 5d* 10 | 2.3 sigma .54";                     // At
             case 86: return "6s* 2 6p* 6 6d | 2.29 sigma .54";                          // Rn
 #ifdef EXPERIMENTAL

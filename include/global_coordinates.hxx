@@ -15,6 +15,8 @@ namespace global_coordinates {
   // Each coordinate is in the range [0, 2^21)
   // Negative values are allowed as input but will be folded back into the positive range.
 
+  int64_t constexpr nonexistent = -1;
+
   inline int64_t get(int32_t x, int32_t y, int32_t z) {
       // interleave bit pattern of the lowest 21 bits to 63 bits:
       // result: sign,z20,y20,x20,z19,y19,x19, ... ,z1,y1,x1,z0,y0,x0

@@ -1048,9 +1048,9 @@ namespace parallel_potential {
         } // switch
 
         // load geometry from +geometry.file=atoms.xyz
-        real_space::grid_t g; // entire grid descriptor
-        view2D<double> xyzZ_all;  // coordinates for all atoms
-        int32_t n_all_atoms;  // number of all atoms
+        real_space::grid_t g;    // entire grid descriptor
+        view2D<double> xyzZ_all; // coordinates for all atoms
+        int32_t n_all_atoms;     // number of all atoms (at most 2.147483647e9)
 
         { // scope: init_geometry_and_grid
             auto const stat_init = geometry_input::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
@@ -1235,16 +1235,18 @@ namespace parallel_potential {
 
 
 
+        std::vector<int32_t> numax_prj;
+        std::vector<double>  sigma_prj;
         energy_contour::Integrator integrator;
         if (needs_integrator) {
             if (echo > 0) std::printf("\n# Initialize energy contour integrator");
 
-            // currently the Green function method requires all atoms
-            // as it has to tell apart atomic images from atomic copies
+            // Mind: currently the Green function method requires all atoms
+            //     as it has to tell apart atomic images from atomic copies
             std::vector<double> xyzZinso(0);
             { // scope: determine additional info
-                std::vector<int32_t> numax_prj(na, 0);
-                std::vector<double>  sigma_prj(na, 0);
+                numax_prj.resize(na, 0);
+                sigma_prj.resize(na, 1);
                 stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
@@ -1270,7 +1272,7 @@ namespace parallel_potential {
             // envoke the constructor energy_contour::Integrator
             integrator = energy_contour::Integrator(gc, xyzZinso, echo);
 
-            // setup communication infrastructure for atom_mat, TODO: also for potential elements
+            // setup communication infrastructure for atom_mat
             auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
             std::vector<int64_t> owned_global_atom_ids(na);
             for (int ia{0}; ia < na; ++ia) {
@@ -1278,14 +1280,14 @@ namespace parallel_potential {
             } // ia
             assert(0 == (xyzZinso.size() & 0x7)); // make sure it is divisible by 8
             uint32_t const n_all_atoms = xyzZinso.size() >> 3; // divide by 8
-            uint32_t const nb[] = {n_all_atoms, 0, 0};
             std::vector<green_parallel::rank_int_t> atom_owner_rank(n_all_atoms, 0);
             auto const nprocs = mpi_parallel::size(); // comm=MPI_COMM_WORLD?
             for (uint32_t gid{0}; gid < n_all_atoms; ++gid) {
                 atom_owner_rank[gid] = gid % nprocs;
             } // gid
-            integrator.atom_req_ = green_parallel::RequestList_t(target_global_atom_ids,
-                                        owned_global_atom_ids, atom_owner_rank.data(), nb, echo);
+            uint32_t const nb[] = {n_all_atoms, 0, 0};
+            integrator.plan_->matrices_requests = green_parallel::RequestList_t(
+                target_global_atom_ids, owned_global_atom_ids, atom_owner_rank.data(), nb, echo, "atom matrices");
         } // needs_integrator
 
         xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this
@@ -1499,8 +1501,8 @@ namespace parallel_potential {
                 } // ilb
                 print_stats(V_coarse[0], n_blocks*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
                 // call energy-contour integration to find a new density
-                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat,
-                                                        lb, pg_Interpolation, n_valence_electrons, g.dV(), echo);
+                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
+                                                          lb, pg_Interpolation, n_valence_electrons, g.dV(), echo);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }

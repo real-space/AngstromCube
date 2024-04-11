@@ -7,7 +7,6 @@
 #include <string> // std::string
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-// #include "mpi_parallel.hxx" // ::max, ::sum
 
 namespace simple_stats {
 
@@ -16,15 +15,6 @@ namespace simple_stats {
     public:
 
     Stats(int const value=0) { set(); } // default constructor
-
-//     void clear() {
-//         times = 0;
-//         for (int p = 0; p < 3; ++p) {
-//             v[p] = 0;
-//         } // p
-//         mini =  1.7e38;
-//         maxi = -1.7e38;
-//     } // clear
 
     void add(real_t const x, real_t const weight=1) {
         auto const w8 = std::abs(weight);
@@ -37,19 +27,7 @@ namespace simple_stats {
         ++times;
     } // add
 
-//     int allreduce(MPI_Comm const comm=MPI_COMM_WORLD) {
-// #ifdef    HAS_NO_MPI
-//         return 0;
-// #else  // HAS_NO_MPI
-//         real_t minmax[2] = {-mini, maxi};
-//         auto const status_max = mpi_parallel::max(minmax, 2, comm);
-//         auto const status_sum = mpi_parallel::sum(     v, 3, comm);
-//         auto const status_tim = mpi_parallel::sum(&times, 1, comm);
-//         mini = -minmax[0];
-//         maxi =  minmax[1];
-//         return status_max + status_sum + status_tim;
-// #endif // HAS_NO_MPI
-//     } // allreduce
+//  int allreduce(MPI_Comm const comm=MPI_COMM_WORLD) --> moved to mpi_parallel.hxx
 
     void get(double values[8]) const { // export values for MPI_Allreduce
         values[0] = v[0];
@@ -91,8 +69,10 @@ namespace simple_stats {
     } // variance
     double dev() const { return std::sqrt(variance()); } // standard deviation
 
-    std::string interval(double const f=1) const {
-        char buffer[96]; std::snprintf(buffer, 96, "[%g, %g +/- %g, %g]", min()*f, mean()*f, dev()*f, max()*f);
+    std::string interval(double const factor=1) const {
+        char buffer[96];
+        std::snprintf(buffer, 96, "[%g, %g +/- %g, %g]",
+            min()*factor, mean()*factor, dev()*factor, max()*factor);
         return std::string(buffer);
     } // interval
 

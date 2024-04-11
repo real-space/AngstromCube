@@ -16,14 +16,22 @@ namespace bitmap {
 
   template <typename real_t>
   status_t write_bmp_file(char const *basename
-      , real_t const data // data layout [h][stride >= w][4]
-      , unsigned const h, unsigned const w // height and width
+      , real_t const data // data layout [h][stride >= w][nc >= 1]
+      , unsigned const h // height
+      , unsigned const w // width
       , int const stride=-1 // -1:take w as stride
       , float const factor=255
       , char const *extension=".bmp"
       , bool const invert_y=true
       , int const echo=1
+      , int const nc=4 // number of colors
+      , bool const invert_colors=false
   ) {
+
+      if (nc < 1) return 1; // failed, needs at least one color
+      int constexpr RED = 0;
+      int const GREEN = (nc > 1) ? 1 : RED;
+      int const BLUE  = (nc > 2) ? 2 : GREEN;
 
       int const s = (stride < int(w)) ? int(w) : stride;
 
@@ -31,14 +39,15 @@ namespace bitmap {
       //    writing-bmp-image-in-pure-c-c-without-other-libraries
 
       size_t const filesize = 54 + 3*w*h; // w is your image width, h is image height, both int
-      if (echo > 0) std::printf("# write %d x %d (stride %d) %.3f kByte\n", h, w, s, filesize*1e-3);
 
       int constexpr MaxFilenameLenth = 1024;
       char filename[MaxFilenameLenth];
       std::snprintf(filename, MaxFilenameLenth, "%s%s", basename, extension);
       auto const f = std::fopen(filename, "wb"); // w:write, b:binary
-      if (echo > 0) std::printf("# write bitmap to file '%s'\n", filename);
       if (nullptr == f) return 1; // failed
+
+      if (echo > 0) std::printf("# write %d x %d (stride %d, %d of %d colors) %.3f kByte to '%s'\n",
+                                         h,   w,   s,   (nc > 3)?3:nc, nc, filesize*1e-3, filename);
 
       unsigned char bmpfileheader[14] = {'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0};
       transfer4Byte(bmpfileheader + 2, filesize);
@@ -53,18 +62,19 @@ namespace bitmap {
       std::vector<unsigned char> img(w*3, 0);
       for (int i = 0; i < h; ++i) {
           int const y = invert_y ? ((h - 1) - i) : i;
-          for (int j = 0; j < w; ++j) {
+          for (int x = 0; x < w; ++x) {
               // convert data into 0..255 range
-              int r = data[(y*s + j)*4 + 0]*factor;
-              int g = data[(y*s + j)*4 + 1]*factor;
-              int b = data[(y*s + j)*4 + 2]*factor;
-              if (r > 255) r=255;
-              if (g > 255) g=255;
-              if (b > 255) b=255;
-              img[j*3 + 2] = (unsigned char)(r);
-              img[j*3 + 1] = (unsigned char)(g);
-              img[j*3    ] = (unsigned char)(b);
-          } // j
+              int r = data[(y*s + x)*nc + RED  ]*factor;
+              int g = data[(y*s + x)*nc + GREEN]*factor;
+              int b = data[(y*s + x)*nc + BLUE ]*factor;
+              if (r > 255) r=255; if (r < 0) r=0;
+              if (g > 255) g=255; if (g < 0) g=0;
+              if (b > 255) b=255; if (b < 0) b=0;
+              if (invert_colors) { r = 255 - r; g = 255 - g; b = 255 - b; }
+              img[x*3 + 2] = (unsigned char)(r);
+              img[x*3 + 1] = (unsigned char)(g);
+              img[x*3    ] = (unsigned char)(b);
+          } // x
           std::fwrite(img.data(), 3, w, f);
           std::fwrite(bmppad, 1, (4-(w*3)%4)%4, f);
       } // i

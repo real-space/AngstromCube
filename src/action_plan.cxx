@@ -35,8 +35,8 @@
         green_debug_printf("# destruct %s\n", __func__);
         free_memory(RowStart);
         free_memory(rowindx);
-        free_memory(source_coords);
-        free_memory(target_coords);
+        // free_memory(source_coords);
+        // free_memory(target_coords);
         free_memory(target_minus_source);
         for (int mag = 0; mag < 4*(nullptr != Veff); ++mag) {
             free_memory(Veff[mag]);

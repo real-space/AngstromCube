@@ -141,9 +141,9 @@ namespace atom_image {
   }; // class sho_atom_t
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 2) std::printf("# %s sizeof(atom_image_t) = %ld Byte\n", __FILE__, sizeof(atom_image_t));

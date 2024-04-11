@@ -9,22 +9,23 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_sparse.hxx" // ::sparse_t<>
 #include "inline_math.hxx" // pow2, pow3
+#include "data_view.hxx" // view2D<T>
 
 class dyadic_plan_t {
 public: // members
 
     uint32_t* AtomStarts          = nullptr; // [nAtoms + 1]
     int8_t*   AtomLmax            = nullptr; // [nAtoms]
-    double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices, nc: number of SHO coefficients of this atom
+    double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices in GPU memory, nc: number of SHO coefficients of this atom
+    double*   AtomSigma           = nullptr; // [nAtoms]
     uint32_t nAtoms               = 0;
-    // std::vector<double> AtomSigma;
 
     uint32_t* AtomImageIndex      = nullptr; // [nAtomImages]
     uint32_t* AtomImageStarts     = nullptr; // [nAtomImages + 1]
-    double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages][4]
+    double  (*AtomImagePos)[3+1]  = nullptr; // [nAtomImages][3+1]
     int8_t*   AtomImageLmax       = nullptr; // [nAtomImages]
     double  (*AtomImagePhase)[4]  = nullptr; // [nAtomImages][4]
-    int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages][4]
+    int8_t  (*AtomImageShift)[4]  = nullptr; // [nAtomImages][3+1]
     uint32_t nAtomImages          = 0;
 
     double* grid_spacing          = nullptr; // [3+1] hx,hy,hz,rcut/sigma
@@ -38,6 +39,8 @@ public: // members
     std::vector<int32_t> global_atom_index;
     std::vector<int32_t> original_atom_index;
 
+    view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2), CPU memory, prepared for SHO projection with unnormalized Gauss-Hermite functions
+
     size_t  flop_count_SHOgen = 0,
             flop_count_SHOsum = 0,
             flop_count_SHOmul = 0,
@@ -48,7 +51,7 @@ public: // methods
     dyadic_plan_t(int const echo=0); // default constructor
 
     dyadic_plan_t( // constructor
-        double const cell[3]
+        uint32_t const grid_blocks[3]
       , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
       , std::vector<double> const & xyzZinso // [natoms*8]
@@ -56,8 +59,7 @@ public: // methods
       , uint32_t const nrhs
       , uint32_t const *const rowStartGreen
       , uint16_t const *const colIndexGreen
-      , int16_t const (*internal_target_coords)[3+1]
-      , int32_t const global_internal_offset[3]
+      , float const (*rowCubePos)[3+1]
       , double const r_block_circumscribing_sphere
       , double const max_distance_from_center
       , double const r_trunc

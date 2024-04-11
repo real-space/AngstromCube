@@ -122,7 +122,7 @@ set(a43_sources ${a43_atom_sources}
     action_plan.cxx
     green_memory.cxx
     green_solver.cxx
-	green_sparse.cxx
+    green_sparse.cxx
     plane_wave.cxx
     poisson_solver.cxx
     potential_generator.cxx
@@ -193,7 +193,7 @@ set(green_sources
     green_function.cxx
     green_input.cxx
     green_parallel.cxx
-	green_sparse.cxx
+    green_sparse.cxx
     kinetic_plan.cxx
     load_balancer.cxx
     mpi_parallel.cxx

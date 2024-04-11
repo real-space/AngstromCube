@@ -136,7 +136,7 @@ namespace green_input {
                           if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
                           auto const v = xml_reading::read_sequence(matrix->value(), echo, nSHO*nSHO);
                           if (echo > 5) std::printf("# %s matrix has %ld values, expect %d x %d = %d\n",
-                              matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
+                                                       matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
                           double maxdev{0}; // measure deviation from a symmetric matrix
                           for (int i = 0; i < nSHO; ++i) {
@@ -145,9 +145,9 @@ namespace green_input {
                               } // j
                           } // i
                           if (echo > 3) std::printf("# %s matrix of atom #%s has a max deviation of %.1e from symmetric\n",
-                                                      matrix_name, gid, maxdev);
+                                                       matrix_name, gid, maxdev);
                           if (maxdev > 1e-6) warn("%s matrix of atom #%s has a max deviation of %.1e from symmetric",
-                                                      matrix_name, gid, maxdev);
+                                                   matrix_name, gid, maxdev);
                           set(atom_mat[ia].data() + h0s1*nSHO*nSHO, nSHO*nSHO, v.data()); // copy
                       } else warn("atom with global_id=%s has no %s matrix in file \"%s\"", gid, matrix_name, filename);
                   } // h0s1

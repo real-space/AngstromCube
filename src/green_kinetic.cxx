@@ -19,210 +19,9 @@
 #include "simple_stats.hxx" // ::Stats<>
 #include "print_tools.hxx" // printf_vector(format, ptr, number [, ...])
 #include "constants.hxx" // ::pi
+#include "control.hxx" // ::get
 
 namespace green_kinetic {
-
-// moved to kinetic_plan.hxx/kinetic_plan.cxx
-#if 0 
-    int32_t get_inz( // search a column index in a BSR structure
-          uint32_t const idx[3]
-        , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
-        , uint32_t const RowStart[]
-        , uint16_t const ColIndex[]
-        , unsigned const irhs
-        , char const dd='?' // derivative direction
-    ) {
-        int constexpr X=0, Y=1, Z=2;
-        auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
-        assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
-
-        for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-            if (ColIndex[inz] == irhs) return inz; // ToDo: bisection search would be smarter...
-        } // search
-        return -1; // not found
-    } // get_inz
-
-    status_t finite_difference_plan(
-          green_sparse::sparse_t<int32_t> & sparse // result
-        , int16_t & FD_range // side result
-        , int const dd // direction of derivative
-        , bool const boundary_is_periodic
-        , uint32_t const num_target_coords[3]
-        , uint32_t const RowStart[]
-        , uint16_t const ColIndex[]
-        , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
-        , std::vector<bool> const sparsity_pattern[] // memory saving bit-arrays sparsity_pattern[irhs][idx3]
-        , unsigned const nrhs // =1 // number of right hand sides
-        , int const echo // =0 // log level
-    ) {
-        // Preparation of Finite-Difference index lists
-        // 2D example: non-zero index -1 means non-existent
-        //
-        //                            --> x-direction
-        //        0  1  2  3  4
-        //     5  6  7  8  9 10 11        |
-        //    12 13 14 15 16 17 18 19     |
-        //    20 21 22 23 24 25 26 27     v
-        //    28 29 30 31 32 33 34        y-direction
-        //       35 36 37 38 39
-        //
-        //
-        //  6 x-lists:
-        //    list[0] ==    { 0  0  0  0  1  2  3  4  5  0  0  0  0}
-        //    list[1] == { 0  0  0  0  6  7  8  9 10 11 12  0  0  0  0}
-        //    list[2] == { 0  0  0  0 13 14 15 16 17 18 19 20  0  0  0  0}
-        //    list[3] == { 0  0  0  0 21 22 23 24 25 26 27 28  0  0  0  0}
-        //    list[4] == { 0  0  0  0 29 30 31 32 33 34 35  0  0  0  0}
-        //    list[5] ==    { 0  0  0  0 36 37 38 39 40  0  0  0  0}
-        //
-        //  8 y-lists:
-        //    list[0] ==    { 0  0  0  0  6 13 21 29  0  0  0  0}
-        //    list[1] == { 0  0  0  0  1  7 14 22 30 36  0  0  0  0}
-        //    list[2] == { 0  0  0  0  2  8 15 23 31 37  0  0  0  0}
-        //    list[3] == { 0  0  0  0  3  9 16 24 32 38  0  0  0  0}
-        //    list[4] == { 0  0  0  0  4 10 17 25 33 39  0  0  0  0}
-        //    list[5] == { 0  0  0  0  5 11 18 26 34 40  0  0  0  0}
-        //    list[6] ==    { 0  0  0  0 12 19 27 35  0  0  0  0}
-        //    list[7] ==       { 0  0  0  0 20 28  0  0  0  0}
-        //
-        // Preparation of Finite-Difference index lists
-        // 2D example with a periodic x-direction
-        //
-        //                            --> x-direction
-        //        0  1  2  3  4
-        //        5  6  7  8  9
-        //
-        //  2 x-lists:
-        //    list[0] == {-2 -3 -4 -5   1  2  3  4  5  -1 -2 -3 -4}
-        //    list[1] == {-7 -8 -9 -10  6  7  8  9 10  -6 -7 -8 -9}
-        //
-
-        int constexpr X=0, Y=1, Z=2;
-        // prepare the finite-difference sequence lists
-        char const direction = 'x' + dd;
-        assert(X == dd || Y == dd || Z == dd);
-        assert(num_target_coords[X] > 0); assert(num_target_coords[Y] > 0); assert(num_target_coords[Z] > 0);
-        int num[3];
-        set(num, 3, num_target_coords);
-        uint32_t const num_dd = num[dd];
-        num[dd] = 1; // replace number of target blocks in derivative direction
-        if (echo > 0) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
-        simple_stats::Stats<> length_stats;
-        size_t const max_lists = nrhs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
-        std::vector<std::vector<int32_t>> list(max_lists);
-        size_t ilist{0};
-        for (unsigned irhs = 0; irhs < nrhs; ++irhs) {
-//                if (echo > 0) std::printf("# FD list for RHS #%i\n", irhs);
-            auto const & sparsity_rhs = sparsity_pattern[irhs];
-            for (uint32_t iz = 0; iz < num[Z]; ++iz) { //
-            for (uint32_t iy = 0; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
-            for (uint32_t ix = 0; ix < num[X]; ++ix) { //
-                uint32_t idx[3] = {ix, iy, iz}; // non-const
-                assert(ilist < max_lists);
-                assert(0 == list[ilist].size()); // make sure the list is empty at start
-                int32_t last_id{-1};
-                for (uint32_t id = 0; id < num_dd; ++id) { // loop over direction to derive
-                    idx[dd] = id; // replace index in the derivate direction
-//                    if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", irhs, idx[X], idx[Y], idx[Z]);
-                    auto const idx3 = index3D(num_target_coords, idx); // flat index
-                    if (sparsity_rhs[idx3]) {
-                        auto const inz_found = get_inz(idx, iRow_of_coords, RowStart, ColIndex, irhs, 'x' + dd);
-                        assert(inz_found >= 0 && "sparsity_pattern[irhs][idx3] inconsistent with iRow_of_coords[iz][iy][ix]");
-
-                        if (0 == list[ilist].size()) {
-                            list[ilist].reserve(nhalo + num_dd + nhalo); // makes push_back operation faster
-                            list[ilist].resize(nhalo, CUBE_IS_ZERO); // prepend {0, 0, 0, 0}
-                            // =====================================================================================================
-                            // =====================================================================================================
-                            if (boundary_is_periodic) {
-                                if (0 == id) { // only when we are at the leftmost boundary
-                                    for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
-                                        uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
-                                        jdx[dd] = (nhalo*num_target_coords[dd] - nhalo + ihalo) % num_target_coords[dd]; // periodic wrap around
-                                        auto const jdx3 = index3D(num_target_coords, jdx); // flat index
-                                        if (sparsity_rhs[jdx3]) {
-                                            auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
-                                            if (jnz_found >= 0) {
-                                                list[ilist][0 + ihalo] = CUBE_NEEDS_PHASE*(jnz_found + CUBE_EXISTS);
-                                            } // block exists
-                                        } // block exists
-                                    } // ihalo
-                                } // leftmost boundary
-                            } // boundary_is_periodic
-                            // =====================================================================================================
-                            // =====================================================================================================
-                        } // list was empty
-
-                        list[ilist].push_back(inz_found + CUBE_EXISTS);
-                        last_id = id;
-                    } // sparsity pattern
-                } // id
-                int const list_length = list[ilist].size();
-                if (list_length > nhalo) {
-                    length_stats.add(list_length - nhalo);
-//                    if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n", list_length, direction, idx[X], idx[Y], idx[Z]);
-                    // add nhalo end-of-sequence markers
-                    for (int ihalo = 0; ihalo < nhalo; ++ihalo) {
-                        list[ilist].push_back(CUBE_IS_ZERO); // append {0, 0, 0, 0} to mark the end of the derivative sequence
-                    } // ihalo
-                    // =====================================================================================================
-                    // =====================================================================================================
-                    if (boundary_is_periodic) {
-                        if (num_target_coords[dd] - 1 == last_id) { // only when the last entry was at the rightmost boundary
-                                    for(int ihalo = 0; ihalo < nhalo; ++ihalo) {
-                                        uint32_t jdx[] = {idx[X], idx[Y], idx[Z]};
-                                        jdx[dd] = ihalo % num_target_coords[dd]; // periodic wrap around
-                                        auto const jdx3 = index3D(num_target_coords, jdx); // flat index
-                                        if (sparsity_rhs[jdx3]) {
-                                            auto const jnz_found = get_inz(jdx, iRow_of_coords, RowStart, ColIndex, irhs, 'X' + dd);
-                                            if (jnz_found >= 0) {
-                                                list[ilist][list_length + ihalo] = CUBE_NEEDS_PHASE*(jnz_found + CUBE_EXISTS);
-                                            } // block exists
-                                        } // block exists
-                                    } // ihalo
-                        } // rightmost boundary
-                    } // boundary_is_periodic
-                    // =====================================================================================================
-                    // =====================================================================================================
-                    assert(list_length + 4 == list[ilist].size());
-
-                    ++ilist; // create next list index
-                } // list_length > 0
-            }}} // ixyz
-        } // irhs
-
-        // store the number of lists
-        uint32_t const n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
-        if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), lengths in [%g, %g +/- %g, %g]\n",
-                            n_lists, direction, n_lists/std::max(max_lists*.01, .01),
-                            length_stats.min(), length_stats.mean(), length_stats.dev(), length_stats.max());
-        list.resize(n_lists);
-
-        sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo);
-
-        if (boundary_is_periodic && FD_range > 4) {
-            warn("boundary is periodic in %c-direction, reduce finite-difference range to 4", 'x' + dd);
-            FD_range = 4;
-        }
-        if (FD_range < 1) {
-            warn("kinetic energy switched off in %c-direction", 'x' + dd);
-        }
-        return 0;
-    } // finite_difference_plan
-#endif // 0
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
@@ -259,7 +58,7 @@ namespace green_kinetic {
 
     template <typename real_t, int R1C2=2, int Noco=1>
     status_t test_finite_difference(int const echo=0, int const dd=0) {
-        int const nnzb = 35; // as test we use a 1D chain of nnzb blocks
+        int32_t const nnzb = std::max(2., control::get("green_kinetic.test.nnzb", 35.)); // as test we use a 1D chain of nnzb blocks, TODO: segfault for nnzb=1
         if (echo > 4) std::printf("\n# %s<%s,R1C2=%d,Noco=%d>(derivative_direction=\'%c\'), nnzb= %d\n",
                                         __func__, real_t_name<real_t>(), R1C2, Noco, 'x' + dd, nnzb);
         assert(nnzb > 0); // later we will divide by nnzb
@@ -297,16 +96,21 @@ namespace green_kinetic {
             reference_result[reim].resize(n1D_all, 0.0);
         } // reim
 
-        int constexpr Re = 0, Im = R1C2 - 1, j64 = 0;
 
         auto phase = get_memory<double[2][2]>(3, echo, "phase");
 
-        auto const is_double = (8 == sizeof(real_t));
-        float const threshold[][4] = {{1.6e-5, 1.5e-5, 4.5e-3, 0}, // thresholds for float
-                                      {5.5e-9, 4.0e-14, 8e-12, 0}}; // thresholds for double
+//      for (int j64 = 0; j64 < 64; ++j64) {
+        { int constexpr j64 = 0; // perform all derivatives only in the vector component zero       
+        int constexpr Re = 0, Im = R1C2 - 1;
+
+        auto const is_double = int(8 == sizeof(real_t));
+        float const threshold[][4] = {{1.6e-5f, 1.5e-5f, 4.5e-3f, 0.f},  // thresholds for float
+                                      {5.5e-9f, 4.0e-14f, 8e-12f, 0.f}}; // thresholds for double
+
         for (int itest = 0; itest < 3; ++itest) { // 3 different tests 0:(FD=4,iso), 1:(FD=8,iso), 2:(FD=4,peri)
 //      for (int itest = 2; itest < 3; ++itest) { // only 2:(FD=4,peri)
 //      for (int itest = 1; itest < 2; ++itest) { // only 1:(FD=8,iso)
+
             auto const periodic = (itest > 1);
             auto const FD_range = (itest & 1) ? FD_range8 : FD_range4;
             auto const border   = (itest + 1)*(itest < 2);
@@ -346,7 +150,7 @@ namespace green_kinetic {
                     indx[nhalo + nnzb + i] = CUBE_IS_ZERO; // set upper halo
                     indx[               i] = CUBE_IS_ZERO; // set lower halo
                 } // i
-                kvec = 14./(n1D_all*hgrid[dd]); // inverse sigma
+                kvec = 14./(n1D_all*hgrid[dd]); // inverse sigma (to be displayed as k= below)
                 auto const Ek = 0.5*pow2(kvec); // kinetic energy in Hartree units
                 if (echo > 9) std::printf("# %s: sigma = %g Bohr\n", __func__, 1./kvec);
                 for (size_t i1D = 0; i1D < n1D_all; ++i1D) {
@@ -371,7 +175,7 @@ namespace green_kinetic {
                     psi[inzb][Re][i64][j64] = reference_function[Re][i1D];
                 } // i4
             } // inzb
-            // Caveat: Treats R1C2==2 correctly, but does not test the upper components if Noco==2
+            // Caveat: Treats R1C2==2 without errors, but does not test the upper components if Noco==2
 
             uint32_t num100[] = {0, 0, 0}; num100[dd] = 1; // only derive in dd-direction
             set(Tpsi[0][0][0], nnzb*R1C2*pow2(Noco*64ul), real_t(0)); // clear
@@ -382,15 +186,16 @@ namespace green_kinetic {
             int failed{0};
             { // scope: compare result of multiply with reference_result
                 double dev2{0}, deva{0}, norm2{0};
-                if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im  psi_Re, psi_Im:\n"); // plot header
+                if (echo > 9) std::printf("\n## x  Tpsi_Re Tpsi_Im,  reference Tpsi_Re Tpsi_Im,  psi_Re psi_Im:\n"); // plot header
                 for (size_t inzb = border; inzb < nnzb - border; ++inzb) {
                     for (int i4 = 0; i4 < 4; ++i4) {
                         auto const i64 = i4*stride; // two block indices are zero
                         auto const i1D = inzb*4 + i4;
                         if (echo > 9) { // plot
-                            std::printf("%g  %.15e %g  %.15e %g\n", i1D*hgrid[0],
-                                Tpsi[inzb][Re][i64][j64],  Tpsi[inzb][Im][i64][j64]*Im,
-                                reference_result[Re][i1D], reference_result[Im][i1D]*Im);
+                            std::printf("%g  %.15e %g  %.15e %g  %.15e %g\n", i1D*hgrid[0],
+                                Tpsi[inzb][Re][i64][j64],   Tpsi[inzb][Im][i64][j64]*Im,
+                                reference_result[Re][i1D], reference_result[Im][i1D]*Im,
+                                psi[inzb][Re][i64][j64],     psi[inzb][Re][i64][j64]*Im);
                         } // echo
                         for (int reim = 0; reim < R1C2; ++reim) {
                             auto const dev = Tpsi[inzb][reim][i64][j64] - reference_result[reim][i1D]; // deviation
@@ -402,13 +207,15 @@ namespace green_kinetic {
                 } // inzb
                 auto const dev = std::sqrt(dev2/norm2);
                 deva          /= std::sqrt(norm2);
-                failed = (dev > threshold[is_double][itest]);
-                if (echo > 5) std::printf("# deviation of a %s with k= %g is %.1e (abs) and %.1e (rms), norm^2= %g, FD=%d, threshold=%.1e %s\n",
-                                             what, kvec, deva, dev, norm2, FD_range[0], threshold[is_double][itest], failed?"FAILED":"ok");
+                auto const thres = threshold[is_double][itest];
+                failed = (dev > thres);
+                if (echo > 5) std::printf("# <%s>deviation of a %s in %c-direction with k= %g is %.1e (abs) and %.1e (rms), norm^2= %g, FD=%d, rms_threshold=%.1e %s\n",
+                    is_double?"double":"float", what, 'x'+dd, kvec, deva, dev, norm2, FD_range[0], thres, failed?"FAILED":"ok");
             } // scope
             stat += failed;
 
         } // itest
+        } // j64
 
         free_memory(phase);
         free_memory(Tpsi);

@@ -22,6 +22,8 @@ namespace green_potential {
         , double  const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][iloc][4*4*4]
         , int32_t const (*const __restrict__ iloc_of_inzb) // translation from inzb to iloc, [inzb]
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb][0:2]
+        // , float   const (*const __restrict__ rowCubePos)[3+1] // target block coords
+        // , float   const (*const __restrict__ colCubePos)[3+1] // source block coords
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int     const nnzb // number of all blocks to be treated
         , float   const Vconf // prefactor for the confinement potential
@@ -75,7 +77,7 @@ namespace green_potential {
 #ifdef  CONFINEMENT_POTENTIAL
             if (rcut2 >= 0.f) {
                 int constexpr n4 = 4;
-                auto const s = shift[inzb]; // shift vectors between target minus source cube
+                auto const s = shift[inzb]; // shift vectors between target minus source cube, ToDo: we could generate it from rowCubeCoords - colCubeCoords
                 auto const d2 = pow2((int(s[0])*n4 + x)*real_t(hxyz[0]))
                               + pow2((int(s[1])*n4 + y)*real_t(hxyz[1]))
                               + pow2((int(s[2])*n4 + z)*real_t(hxyz[2]));

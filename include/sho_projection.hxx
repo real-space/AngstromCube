@@ -24,11 +24,11 @@ namespace sho_projection {
 
   template <typename complex_t, int PROJECT0_OR_ADD1> inline
   status_t _sho_project_or_add(
-        complex_t coeff[] // result if projecting, coefficients are zyx-ordered
+        complex_t result[]
+      , complex_t const input[]
       , int const numax // how many
       , double const center[3] // where
       , double const sigma
-      , complex_t values[] // grid array, result if adding
       , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
       , int const echo=0 // log-level
   ) {
@@ -49,14 +49,14 @@ namespace sho_projection {
           if (echo > 9) std::printf(", limits [%d, %d)\n", off[d], end[d]);
           num[d] = std::max(0, end[d] - off[d]);
       } // d
-      auto const nvolume = (size_t(num[0]) * num[1]) * num[2];
+      auto const nvolume = (num[2])*size_t(num[1])*size_t(num[0]);
       if ((nvolume < 1) && (echo < 7)) return 0; // no range
       if (echo > 2) std::printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n",
                            (0 == PROJECT0_OR_ADD1)?"project":"add", off[0], end[0], off[1], end[1], off[2], end[2],
                            num[0], num[1], num[2], nvolume);
 
       int const nSHO = sho_tools::nSHO(numax);
-      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO, complex_t(0));
+      if (0 == PROJECT0_OR_ADD1) set(result, nSHO, complex_t(0));
 
       if (nvolume < 1) return 0; // no range
 
@@ -65,7 +65,7 @@ namespace sho_projection {
       int const M = sho_tools::n1HO(numax);
       std::vector<real_t> H1d[3];
       for (int dir = 0; dir < 3; ++dir) {
-          H1d[dir] = std::vector<real_t>(num[dir]*M); // get memory
+          H1d[dir] = std::vector<real_t>(num[dir]*M); // get memory for unnormalized Gauss-Hermite polynomials
           auto const h1d = H1d[dir].data();
 
           double const grid_spacing = g.h[dir];
@@ -74,7 +74,7 @@ namespace sho_projection {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
               Gauss_Hermite_polynomials(h1d + ii*M, x, numax);
-#ifdef DEVEL
+#ifdef    DEVEL
               if (echo > 55) {
                   std::printf("%g\t", x);
                   for (int nu = 0; nu <= numax; ++nu) {
@@ -86,12 +86,12 @@ namespace sho_projection {
           } // i
       } // dir
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (1 == PROJECT0_OR_ADD1) {
           if (echo > 6) {
               std::printf("# addition coefficients ");
               for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                  std::printf(" %g", std::real(coeff[iSHO]));
+                  std::printf(" %g", std::real(input[iSHO]));
               } // iSHO
               std::printf("\n\n");
           } // echo
@@ -105,7 +105,7 @@ namespace sho_projection {
 
                   complex_t val(0);
                   if (0 == PROJECT0_OR_ADD1) {
-                      val = values[ixyz]; // load
+                      val = input[ixyz]; // load
                   } // project
                   if (true) {
 //                    if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
@@ -115,9 +115,9 @@ namespace sho_projection {
                               for (int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const H1d_x = H1d[0][ix*M + nx];
                                   auto const H3d = H1d_z * H1d_y * H1d_x;
                                   if (1 == PROJECT0_OR_ADD1) {
-                                      val += coeff[iSHO] * H3d; // here, the addition happens
+                                      val += input[iSHO] * H3d; // here, the addition happens
                                   } else {
-                                      coeff[iSHO] += val * H3d; // here, the projection happens
+                                      result[iSHO] += val * H3d; // here, the projection happens
                                   }
                                   ++iSHO; // in sho_tools::zyx_order
                               } // nx
@@ -126,21 +126,21 @@ namespace sho_projection {
                       assert( nSHO == iSHO );
                   } // true
                   if (1 == PROJECT0_OR_ADD1) {
-                      values[ixyz] += val; // load-modify-store, must be atomic if threads are involved
+                      result[ixyz] += val; // load-modify-store, must be atomic if threads are involved
                   } // write back (add)
 
               } // ix
           } // iy
       } // iz
 
-      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, complex_t(g.dV())); // volume element of the grid
+      if (0 == PROJECT0_OR_ADD1) scale(result, nSHO, complex_t(g.dV())); // volume element of the grid
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (0 == PROJECT0_OR_ADD1) {
           if (echo > 6) {
               std::printf("# projection coefficients ");
               for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                  std::printf(" %g", std::real(coeff[iSHO]));
+                  std::printf(" %g", std::real(result[iSHO]));
               } // iSHO
               std::printf("\n\n");
           } // echo
@@ -151,44 +151,44 @@ namespace sho_projection {
   } // _sho_project_or_add
 
 
-  template <typename complex_t>
+  template <typename complex_t> inline
   status_t sho_project( // wrapper function
         complex_t coeff[] // result, coefficients are zyx-ordered
       , int const numax // SHO basis size
       , double const center[3] // where
       , double const sigma // SHO basis spread
-      , complex_t const values[] // input, grid array
-      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
-      , int const echo=0 //
+      , complex_t const grid_values[] // input, grid array
+      , real_space::grid_t const & g // Cartesian grid descriptor
+      , int const echo=0 // verbosity
   ) {
-      return _sho_project_or_add<complex_t,0>(coeff, numax, center, sigma, (complex_t*)values, g, echo); // un-const values pointer
+      return _sho_project_or_add<complex_t,0>(coeff, grid_values, numax, center, sigma, g, echo);
   } // sho_project
 
-  template <typename complex_t>
+  template <typename complex_t> inline
   status_t sho_add( // wrapper function
-        complex_t values[] // result gets modified, grid array
-      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
+        complex_t grid_values[] // result gets modified, grid array
+      , real_space::grid_t const & g // Cartesian grid descriptor
       , complex_t const coeff[] // input, coefficients are zyx-ordered
       , int const numax // SHO basis size
       , double const center[3] // where
       , double const sigma // SHO basis spread
       , int const echo=0 // log-level
   ) {
-      return _sho_project_or_add<complex_t,1>((complex_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
+      return _sho_project_or_add<complex_t,1>(grid_values, coeff, numax, center, sigma, g, echo);
   } // sho_add
 
 
   inline double sho_1D_prefactor(int const nu, double const sigma) {
-      return std::sqrt( ( 1 << nu ) / ( constants::sqrtpi * sigma * factorial(nu) ) ); // 1 << nu == 2^nu
+      return std::sqrt( double( 1ull << nu ) / ( factorial(nu) * constants::sqrtpi * sigma ) ); // 1 << nu == 2^nu
   } // sho_1D_prefactor (L2-normalization)
 
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) {
 //    return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
-      return std::sqrt(   double(1 << nx)*double(1 << ny)*double(1 << nz) /
+      return std::sqrt(   double(1ull << nx)*double(1ull << ny)*double(1ull << nz) /
                         (  factorial(nx) * factorial(ny) * factorial(nz) * pow3(constants::sqrtpi * sigma) ) );
   } // sho_prefactor (L2-normalization)
 
-  template <typename real_t>
+  template <typename real_t=double>
   std::vector<real_t> get_sho_prefactors(
         int const numax
       , double const sigma
@@ -205,14 +205,14 @@ namespace sho_projection {
           } // ny
       } // nz
       assert(nSHO == iSHO);
-      return f;
+      return f; // in sho_tools::order_zyx
   } // get_sho_prefactors
 
 
   template <typename real_t> inline
   status_t renormalize_coefficients(
-        real_t out[] // normalized with sho_prefactor [and energy ordered], de-normalized if inverse
-      , real_t const in[] // zyx_ordered, input unnormalized, if inverse input is assumed normalized
+        real_t out[] // normalized with sho_prefactor in sho_tools::order_zyx
+      , real_t const in[] // input: zyx_ordered, unnormalized
       , int const numax
       , double const sigma
   ) {
