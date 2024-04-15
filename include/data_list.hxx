@@ -24,6 +24,9 @@ public:
     template <typename int_t>
     data_list(uint32_t const n, int_t const ms[], T const init_value=T(0)) 
         : ptrs_(n, nullptr), m_(n), mem_(0), n_(n), max_m_(0) {
+#ifdef    DEBUGGPU
+        std::printf("# new data_list(n=%d) at %p\n", n, (void*)this);
+#endif // DEBUGGPU
         assert(n == n_); // safety checks on upper limit of n
         size_t num{0}; // total number of elements
         for (uint32_t i = 0; i < n; ++i) {

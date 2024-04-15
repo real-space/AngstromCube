@@ -83,7 +83,9 @@ namespace xml_reading {
         char const *str{sequence};
         char *str_end;
         for (double f = std::strtod(str, &str_end); str != str_end; f = std::strtod(str, &str_end)) {
-            if (echo > 99) std::printf("# std::strtod(str=%p, str_end)= %g, str_end=%p, *str_end=\'%c\'=ascii(%d)\n", str, f, str_end, *str_end, int(*str_end));
+#ifdef    DEBUGGPU
+            if (echo > 99) std::printf("# std::strtod(str=%p, str_end)= %g, str_end=%p, *str_end=\'%c\'=ascii(%d)\n", (void*)str, f, (void*)str_end, *str_end, int(*str_end));
+#endif // DEBUGGPU
             str = str_end;
             if (errno == ERANGE) {
                 warn("range error, got %g", f);

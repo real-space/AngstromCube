@@ -277,13 +277,13 @@ namespace green_experiments {
       for (int hs = 0; hs < 2; ++hs) { // check hermitian property
           auto const *const mat = hs ? Hmatrix : Smatrix;
           double dev[] = {0, 0, 0};
-          for (int iband = 0; iband < nbands; ++iband) {
-              for (int jband = 0; jband < iband; ++jband) {
-                  dev[0] += std::abs(mat[iband*nbands + jband][Real] - mat[jband*nbands + iband][Real]);
-                  dev[1] += std::abs(mat[iband*nbands + jband][Imag] + mat[jband*nbands + iband][Imag]);
-              } // jband triangular loop
-              dev[2] += std::abs(mat[iband*nbands + iband][Imag]);
-          } // iband
+          for (int i = 0; i < nbands; ++i) {
+              for (int j = 0; j < i; ++j) {
+                  dev[0] += std::abs(mat[i*nbands + j][Real] - mat[j*nbands + i][Real]);
+                  dev[1] += std::abs(mat[i*nbands + j][Imag] + mat[j*nbands + i][Imag]);
+              } // j triangular loop
+              dev[2] += std::abs(mat[i*nbands + i][Imag]);
+          } // i
           if (Imag) {
               if (echo > 4) std::printf("# %cmat deviation from hermitian off-diag (%.1e, %.1e), diagonal %.1e\n", hs?'H':'S', dev[0], dev[1], dev[2]);
           } else {

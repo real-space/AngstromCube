@@ -42,11 +42,11 @@ namespace green_memory {
     template <typename T>
     void _free_memory(T* & ptr, char const *const name="") {
 #ifdef    DEBUG
-//      std::printf("# free_memory %s at %p\n", name, (void*)ptr);
+//      std::printf("# free_memory \'%s\' at %p\n", name, (void*)ptr);
 #endif // DEBUG
         if (nullptr != ptr) {
 #ifdef    DEBUGGPU
-            std::printf("# free_memory %s at %p\n", name, (void*)ptr);
+            std::printf("# free_memory \'%s\' at %p\n", name, (void*)ptr);
 #endif // DEBUGGPU
             green_memory::free((void*)ptr, name);
         } // d

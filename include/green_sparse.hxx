@@ -16,13 +16,13 @@
 
 namespace green_sparse {
 
-// #ifndef   NDEBUG
-//     #define green_sparse_debug_printf(...) std::printf(__VA_ARGS__)
-//     int constexpr echo_copy = 9;
-// #else  // NDEBUG
+#ifdef    DEBUGGPU
+    #define green_sparse_debug_printf(...) std::printf(__VA_ARGS__)
+    int constexpr echo_copy = 9;
+#else  // DEBUGGPU
     #define green_sparse_debug_printf(...)
     int constexpr echo_copy = 0;
-// #endif // NDEBUG
+#endif // DEBUGGPU
 
   char const int_t_names[][10] = {"uint8_t", "uint16_t", "uint32_t", "uint64_t", "uint128_t"};
 
@@ -41,7 +41,7 @@ namespace green_sparse {
       static bool constexpr col_signed = std::is_signed<ColIndex_t>::value;
 
       sparse_t() : rowStart_(nullptr), colIndex_(nullptr), rowIndex_(nullptr), nRows_(0) {
-          green_sparse_debug_printf("# sparse_t default constructor\n");
+          green_sparse_debug_printf("# sparse_t default constructor at %p\n", (void*)this);
       } // default constructor
 
       sparse_t( // constructor
@@ -51,7 +51,7 @@ namespace green_sparse {
           , int const echo=0 // log-level
       ) {
           auto const name = matrix_name ? matrix_name : "constructor";
-          if (echo > 7) std::printf("# sparse_t<ColIndex_t=%s,RowIndex_t=%s> %s\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>(), name);
+          if (echo > 7) std::printf("# sparse_t<ColIndex_t=%s,RowIndex_t=%s> %s at %p\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>(), name, (void*)this);
           nRows_ = list.size();
           assert(list.size() == nRows_ && "RowIndex_t cannot hold number of rows");
           auto const rowStart_nc = get_memory<RowIndex_t>(nRows_ + 1, echo, "rowStart_"); // _nc: non-const

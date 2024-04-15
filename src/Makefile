@@ -110,6 +110,7 @@ FEAFLAGS += -D HAS_TFQMRGPU
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
 FEAFLAGS += -D HAS_LAPACK
+FEAFLAGS += -D DEBUGGPU
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
@@ -133,13 +134,16 @@ OPTFLAGS += -Wno-format
 # OPTFLAGS += -Wno-format-security
 OPTFLAGS += -Wno-sign-compare
 
+# for Clang
+OPTFLAGS += -fsanitize=address
+
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread
 
 
 EXTFLAGS ?=
 
-ifeq ($(HOSTNAME),MacBook-Pro-4)
+ifeq ($(HOSTNAME),MacBook-Pro-4.local)
 	EXTFLAGS += -D HAS_NO_MKL
 	LDFLAGS += -lm
 	LDFLAGS += -lblas

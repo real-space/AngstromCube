@@ -59,18 +59,13 @@ namespace green_input {
 #else  // HAS_RAPIDXML
 
       rapidxml::xml_document<> doc;
+      rapidxml::file<> xml_infile(filename);
       try {
-          rapidxml::file<> infile(filename);
-          try {
-              doc.parse<0>(infile.data());
-          } catch (...) {
-              warn("failed to parse \"%s\"", filename);
-              return -2; // error
-          } // try + catch
+          doc.parse<0>(xml_infile.data());
       } catch (...) {
-          warn("failed to open \"%s\"", filename);
-          return -1; // error
-      } // catch
+          warn("failed to parse \"%s\"", filename);
+          return -2; // error
+      } // try + catch
 
       set(ng, 3, 0u);
       set(hg, 3, 1.);
@@ -93,18 +88,18 @@ namespace green_input {
                   auto const gid = xml_reading::find_attribute(atom, "global_id", "-1");
                   auto const atZ = xml_reading::find_attribute(atom, "Z", "0");
                   if (echo > 5) std::printf("# <%s global_id=%s Z=%s>\n", atom->name(), gid, atZ);
-                  xyzZinso[ia*8 + 4] = std::atoi(gid);
                   xyzZinso[ia*8 + 3] = std::atof(atZ);
+                  xyzZinso[ia*8 + 4] = std::atoi(gid);
 
                   double pos[3] = {0, 0, 0};
                   auto const position = xml_reading::find_child(atom, "position", echo);
+                  char const axyz[3][2] = {"x", "y", "z"};
                   for (int d = 0; d < 3; ++d) {
-                      char const axyz[] = {char('x' + d), '\0'}; // "x", "y", "z"
-                      auto const value = xml_reading::find_attribute(position, axyz);
+                      auto const value = xml_reading::find_attribute(position, axyz[d]);
                       if (*value != '\0') {
                           pos[d] = std::atof(value);
-                          if (echo > 5) std::printf("# %s= %.15g\n", axyz, pos[d]);
-                      } else warn("no attribute '%c' found in <atom><position> in file \"%s\"", *axyz, filename);
+                          if (echo > 5) std::printf("# %s= %.15g\n", axyz[d], pos[d]);
+                      } else warn("no attribute '%s' found in <atom><position> in file \"%s\"", axyz[d], filename);
                       xyzZinso[ia*8 + d] = pos[d];
                   } // d
 
@@ -138,6 +133,7 @@ namespace green_input {
 
         // check for irregular ascii-character 17
         for (char const *c = matrix_value; *c != 0; ++c) { if (17 == *c) { warn("# found irregular ascii char 17 in matrix->value() at position %d", int(c - matrix_value)); } }
+        // maybe related to this isse with rapidxml https://sourceforge.net/p/rapidxml/bugs/20/
 
                           auto const v = xml_reading::read_sequence(matrix_value, echo, nSHO*nSHO);
                           if (echo > 5) std::printf("# %s matrix has %ld values, expect %d x %d = %d\n",

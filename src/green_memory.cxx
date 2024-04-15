@@ -20,7 +20,7 @@ namespace green_memory {
 #endif // HAS_NO_CUDA
 
 #ifdef    DEBUGGPU
-        std::printf("# green_memory::malloc %.3f kByte, %s at %p\n", size_in_Bytes*1e-3, name, (void*)ptr);
+        std::printf("# green_memory::malloc %.3f kByte, \'%s\' at %p\n", size_in_Bytes*1e-3, name, (void*)ptr);
 #endif // DEBUGGPU
 
         return (void*)ptr;
@@ -29,7 +29,7 @@ namespace green_memory {
     void free(void* ptr, char const *const name) {
         if (ptr) {
 #ifdef    DEBUGGPU
-          std::printf("# green_memory::free %s at %p\n", name, ptr);
+          std::printf("# green_memory::free \'%s\' at %p\n", name, ptr);
 #endif // DEBUGGPU
 
 #ifndef HAS_NO_CUDA
@@ -38,7 +38,7 @@ namespace green_memory {
           delete[] (char*)ptr;
 #endif // HAS_NO_CUDA
         } else {
-            std::printf("# green_memory::free %s got nullptr\n", name);
+            std::printf("# green_memory::free \'%s\' got nullptr\n", name);
         }
     } // free
 
