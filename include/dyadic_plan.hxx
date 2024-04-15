@@ -36,8 +36,8 @@ public: // members
     green_sparse::sparse_t<>  sparse_SHOsum;
 
     std::vector<int64_t> global_atom_ids; // [nAtoms]
-    std::vector<int32_t> global_atom_index;
-    std::vector<int32_t> original_atom_index;
+    // std::vector<int32_t> global_atom_index;
+    // std::vector<int32_t> original_atom_index;
 
     view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2), CPU memory, prepared for SHO projection with unnormalized Gauss-Hermite functions
 

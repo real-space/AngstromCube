@@ -114,20 +114,7 @@ public:
 }; // action_plan_t
 
 
-
 namespace action_plan {
-
-  struct atom_t {
-      double pos[3]; // position
-      double sigma; // Gaussian spread
-      int32_t gid; // global identifier
-      int32_t ia; // local original atom index
-      int32_t iaa; // local atom copy index
-      int16_t shifts[3]; // periodic image shifts
-      uint8_t nc; // number of coefficients, uint8_t sufficient up to numax=9 --> 220 coefficients
-      int8_t numax; // SHO basis size
-      int16_t copies[3]; // periodic copy shifts
-  }; // atom_t 56 Byte, only used in CPU parts
 
   status_t all_tests(int const echo=0); // declaration only
 

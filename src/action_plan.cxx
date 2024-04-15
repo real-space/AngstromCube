@@ -57,7 +57,6 @@ namespace action_plan {
 #else  // NO_UNIT_TESTS
 
     status_t test_construction_and_destrunction(int const echo=3) {
-        if (echo > 3) std::printf("# sizeof(action_plan::atom_t)= %ld Byte\n", sizeof(atom_t));
         action_plan_t ap;
         return 0;
     } // test_init

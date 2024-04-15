@@ -924,7 +924,7 @@ namespace green_experiments {
       here;
 
       if ('g' != how) {
-          auto const huge = 9*std::max(std::max(ng[0]*hg[0], ng[1]*hg[1]), ng[2]*hg[2]);
+          auto const huge = std::sqrt(pow2(ng[0]*hg[0]) + pow2(ng[1]*hg[1]) + pow2(ng[2]*hg[2]) + 1);
           control::set("green_function.truncation.radius", huge, echo); // still needed?
       } // how
 

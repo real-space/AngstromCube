@@ -82,21 +82,21 @@ public:
 
   view2D(size_t const n1, size_t const stride, T const init_value={0}) 
     : _data(new T[n1*stride]), _n0(stride), _n1(n1), _mem(n1*stride*sizeof(T)) {
-      data_view_debug_printf("# view2D(n1=%i, stride=%i [, init_value]) constructor at %p allocates %g kByte\n", n1, stride, (void*)this, _mem*.001);
+      data_view_debug_printf("# view2D(n1=%i, stride=%i [, init_value]) constructor at %p allocates %g kByte at %p\n", n1, stride, (void*)this, _mem*.001, (void*)_data);
       std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
 
   ~view2D() {
       // data_view_debug_printf("# ~view2D() destructor\n");
       if (_data && (_mem > 0)) {
-          data_view_debug_printf("# ~view2D() destructor tries to free %g kByte\n", _mem*.001);
+          data_view_debug_printf("# ~view2D() destructor tries to free %g kByte at %p\n", _mem*.001, (void*)_data);
           delete[] _data;
       } // is memory owner
   } // destructor
 
   // view2D(view2D<T> && rhs) = delete;
   view2D(view2D<T> && rhs) {
-      data_view_debug_printf("# view2D(view2D<T> && rhs);\n");
+      data_view_debug_printf("# view2D(view2D<T> && rhs) at %p to %p\n", (void*)(&rhs), (void*)this);
       *this = std::move(rhs);
   } // move constructor
 
@@ -108,7 +108,7 @@ public:
   // } // copy constructor
 
   view2D& operator= (view2D<T> && rhs) {
-      data_view_debug_printf("# view2D& operator= (view2D<T> && rhs);\n");
+      data_view_debug_printf("# view2D& operator= (view2D<T> && rhs) at %p to %p\n", (void*)(&rhs), (void*)this);
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;
