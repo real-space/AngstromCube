@@ -107,6 +107,8 @@ FEAFLAGS += -D HAS_SINGLE_ATOM
 # FEAFLAGS += -D LARGE_ANGULAR_GRIDS
 # FEAFLAGS += -D GENERAL_CELL
 FEAFLAGS += -D HAS_TFQMRGPU
+INC += -I/Users/pbaum/tfQMRgpu/include
+
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
 FEAFLAGS += -D HAS_LAPACK
@@ -134,8 +136,11 @@ OPTFLAGS += -Wno-format
 # OPTFLAGS += -Wno-format-security
 OPTFLAGS += -Wno-sign-compare
 
-# for Clang
-OPTFLAGS += -fsanitize=address
+# for Clang: AddressSanitizer
+# OPTFLAGS += -fsanitize=address
+
+# for Clang: UndefinedBehaviorSanitizer
+OPTFLAGS += -fsanitize=undefined
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread
@@ -143,7 +148,7 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-ifeq ($(HOSTNAME),MacBook-Pro-4.local)
+ifeq ($(HOSTNAME),MacBook-Pro-4)
 	EXTFLAGS += -D HAS_NO_MKL
 	LDFLAGS += -lm
 	LDFLAGS += -lblas
