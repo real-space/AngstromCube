@@ -28,9 +28,8 @@ typedef green_action::action_t<double,2,2> Act822;
 
 
     green_solver_t::green_solver_t(action_plan_t* p, int const echo) {
-        if (echo > 0) std::printf("# construct %s\n", __func__);
-
         if (nullptr != p) {
+            if (echo > 0) std::printf("# construct %s\n", __func__);
             int const fp_input = control::get("green_solver.floating.point.bits", 32.);
             int const fp = (32 == fp_input) ? 32 : 64;
             if (echo > 0) std::printf("# +green_solver.floating.point.bits=%i --> %i\n", fp_input, fp);
@@ -40,7 +39,7 @@ typedef green_action::action_t<double,2,2> Act822;
             if (echo > 0) std::printf("# +green_solver.noco=%i --> %i\n", noco_input, noco);
             action_key_ = 1000*fp + 10*r1c2 + noco;
 
-            if (echo > 0) std::printf("# action_key= %i\n", int(action_key_));
+            if (echo > 0) std::printf("# green_solver_t::action_key= %i\n", int(action_key_));
             // initialize
             switch (action_key_) {
             case 32021: action_ = (void*)new Act421(p, echo); break; // complex
@@ -50,13 +49,17 @@ typedef green_action::action_t<double,2,2> Act822;
             default: error("No such action_key= %i", int(action_key_));
             } // switch action_key_
             assert(action_ && "action_ pointer must be valid");
-        } // p
-
+// #ifdef    DEBUGGPU
+            if (echo > 0) std::printf("# %s.action= %p\n", __func__, action_);
+// #endif // DEBUGGPU
+        } else {
+            if (echo > 0) std::printf("# cannot construct %s with p=nullptr\n", __func__);
+        }
     } // constructor
 
     green_solver_t::~green_solver_t() { // destructor
         if (action_) {
-            green_debug_printf("# destruct %s, action_key_= %i\n", __func__, int(action_key_));
+            green_debug_printf("# destruct %s, action_key= %i\n", __func__, int(action_key_));
             switch (action_key_) {
             case 32021: { ((Act421*)action_)->~action_t(); } break; // complex
             case 32022: { ((Act422*)action_)->~action_t(); } break; // complex non-collinear
@@ -72,7 +75,7 @@ typedef green_action::action_t<double,2,2> Act822;
         , int const iterations
         , int const echo // =0 // verbosity
     ) {
-        if (echo > 0) std::printf("# solve with action_key_= %i\n", int(action_key_));
+        if (echo > 0) std::printf("# green_solver_t::solve with action_key= %i\n", int(action_key_));
         assert(action_ && "action_ pointer must be valid for call to solve");
         switch (action_key_) {
         case 32021: return ((Act421*)action_)->solve(rho, nblocks, iterations, echo); // complex

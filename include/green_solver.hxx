@@ -20,7 +20,7 @@ public:
     ~green_solver_t(); // destructor, declaration only
 
     status_t solve(
-          double rho[] // result density rho [plan.nCols][4*4*4]
+          double rho[] // result: density rho data layout[plan.nCols][4*4*4]
         , uint32_t const nblocks // should match plan.nCols
         , int const iterations
         , int const echo=0
@@ -29,7 +29,7 @@ public:
 
 private: // members
 
-    void *action_ = nullptr; // pointers to action
+    void *action_ = nullptr; // pointers to action (will be casted according to key)
     int action_key_ = 0;
 
 }; // class green_solver_t

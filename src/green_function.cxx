@@ -123,19 +123,30 @@ namespace green_function {
         , int const Noco // =2
     ) {
         auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
-        if (Veff.size() == n_all_grid_points) { // scope: restructure and communicate potential
-            auto const nrhs = p.nCols;
-//          auto const n_all_blocks = size_t(nb[2])*size_t(nb[1])*size_t(nb[0]);
+        auto const n_grid_points = Veff.size();
+        auto const nrhs = p.nCols;
+        auto const n_all_blocks = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
 
-            auto const scale_V = control::get("hamiltonian.scale.potential", 1.);
-            if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
+        double const scale_V = control::get("hamiltonian.scale.potential", 1.);
+        if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
 
-            auto const Vinp = new double[nrhs*Noco*Noco][4*4*4];
-            // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
-            for (uint16_t irhs{0}; irhs < nrhs; ++irhs) {
-                // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
+        if (n_grid_points == n_all_grid_points) {
+            if (echo > 0) std::printf("# copy all %.3f k grid blocks points\n", n_all_blocks*.001);
+        } else {
+            if (echo > 0) std::printf("# copy only %.3f k grid blocks points, expect %d\n", n_grid_points/64000., nrhs);
+            assert(n_grid_points == 64*nrhs);
+        }
+
+        auto const Vinp = new double[nrhs*Noco*Noco][4*4*4];
+        // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
+        for (uint16_t irhs{0}; irhs < nrhs; ++irhs) {
+            // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
+
+            if (n_grid_points == n_all_grid_points) { // scope: restructure and communicate potential
+
                 int32_t ib[3]; global_coordinates::get(ib, p.global_source_indices[irhs]);
                 for (int d = 0; d < 3; ++d) { assert(ib[d] >= 0); }
+
                 for (int i4z = 0; i4z < 4; ++i4z) { size_t const iz = ib[Z]*4 + i4z;
                 for (int i4y = 0; i4y < 4; ++i4y) { size_t const iy = ib[Y]*4 + i4y;
                 for (int i4x = 0; i4x < 4; ++i4x) { size_t const ix = ib[X]*4 + i4x;
@@ -145,36 +156,41 @@ namespace green_function {
                     if (2 == Noco) {
                         Vinp[irhs*4 + 3][i64] = 0.0;  // set clear V_y
                         Vinp[irhs*4 + 2][i64] = 0.0;  // set clear V_x
-                        Vinp[irhs*4 + 1][i64] = Veff[izyx]; // set V_upup
+                        Vinp[irhs*4 + 1][i64] = Veff[izyx]*scale_V; // set V_upup
                     } // non-collinear
-                    Vinp[irhs*Noco*Noco][i64] = Veff[izyx]; // copy potential value to V_dndn
+                    Vinp[irhs*Noco*Noco][i64] = Veff[izyx]*scale_V; // copy potential value to V_dndn
                 }}} // i4x i4y i4z
-            } // irhs
 
-            int const pot_exchange = control::get("green_function.potential.exchange", 1.);
-            if (pot_exchange) {
-                green_parallel::potential_exchange(p.Veff, Vinp, p.potential_requests, Noco, echo);
             } else {
-                warn("# +green_function.potential.exchange=%d --> skip\n", pot_exchange);
-            } // needs exchange
+                if (2 == Noco) {
+                    set(Vinp[irhs*4 + 3], 64, 0.0);  // set clear V_y
+                    set(Vinp[irhs*4 + 2], 64, 0.0);  // set clear V_x
+                    set(Vinp[irhs*4 + 1], 64, &Veff[irhs*64], scale_V); // set V_upup
+                } // non-collinear
+                set(Vinp[irhs*Noco*Noco], 64, &Veff[irhs*64], scale_V); // set V_dndn
+            }
+        } // irhs
 
-            delete[] Vinp;
-
-            if (echo > 4) {
-                int constexpr mag = 0; // only for the Noco=1 case
-                simple_stats::Stats<> pot;
-                for (int iRow = 0; iRow < p.nRows; ++iRow) {
-                    auto const *const V = p.Veff[mag][iRow];
-                    for (int i64 = 0; i64 < 64; ++i64) {
-                        pot.add(V[i64]);
-                    } // i64
-                } // iRow
-                std::printf("# %s effective local potential %s %s\n", __func__, pot.interval(eV).c_str(), _eV);
-            } // echo
-
+        int const pot_exchange = control::get("green_function.potential.exchange", 1.);
+        if (pot_exchange) {
+            green_parallel::potential_exchange(p.Veff, Vinp, p.potential_requests, Noco, echo);
         } else {
-            warn("wrong number of potential grid points found %ld expect %lld", Veff.size(), n_all_grid_points);
-        }
+            warn("# +green_function.potential.exchange=%d --> skip\n", pot_exchange);
+        } // needs exchange
+
+        delete[] Vinp;
+
+        if (echo > 4) {
+            int constexpr mag = 0; // only for the Noco=1 case
+            simple_stats::Stats<> pot;
+            for (int iRow = 0; iRow < p.nRows; ++iRow) {
+                auto const *const V = p.Veff[mag][iRow];
+                for (int i64 = 0; i64 < 64; ++i64) {
+                    pot.add(V[i64]);
+                } // i64
+            } // iRow
+            std::printf("# %s effective local potential %s %s\n", __func__, pot.interval(eV).c_str(), _eV);
+        } // echo
 
         int const mat_exchange = control::get("green_function.matrices.exchange", 1.);
         if (mat_exchange) {

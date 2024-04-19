@@ -137,7 +137,7 @@ OPTFLAGS += -Wno-format
 OPTFLAGS += -Wno-sign-compare
 
 # for Clang: AddressSanitizer
-# OPTFLAGS += -fsanitize=address
+OPTFLAGS += -fsanitize=address
 
 # for Clang: UndefinedBehaviorSanitizer
 OPTFLAGS += -fsanitize=undefined

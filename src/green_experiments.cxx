@@ -51,7 +51,7 @@ namespace green_experiments {
 
 
   template <typename real_t=double, int Noco=1>
-  status_t bandstructure(
+  status_t spectralfunction(
         action_plan_t & p
       , uint32_t const ng[3] // grid points
       , double const hg[3] // grid spacings
@@ -200,7 +200,7 @@ namespace green_experiments {
 #endif // HAS_TFQMRGPU
 
       return 0;
-  } // bandstructure
+  } // spectralfunction
 
 
 
@@ -962,8 +962,8 @@ namespace green_experiments {
 
       if ('g' == how) {
           // compute the bandstructure as a density of states using the Green function method
-          return (1 == Noco) ? bandstructure<double,1>(p, ng, hg, echo):
-                               bandstructure<double,2>(p, ng, hg, echo);
+          return (1 == Noco) ? spectralfunction<double,1>(p, ng, hg, echo):
+                               spectralfunction<double,2>(p, ng, hg, echo);
       } else {
           // compute a bandstructure using an eigenstate method
           // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S

@@ -4,7 +4,7 @@
 #include "real_space.hxx" // ::grid_t
 
 #include "status.hxx" // status_t
-#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_NULL
+#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_NULL, MPI_COMM_WORLD
 #include "green_parallel.hxx" // ::RequestList_t, ::rank_int_t
 #include "inline_math.hxx" // set
 
@@ -15,7 +15,7 @@ namespace parallel_poisson {
         load_balancing_t() : nb_{0u, 0u, 0u} {} // default constructor
         load_balancing_t(
               real_space::grid_t const & g
-            , MPI_Comm const comm // MPI communicator
+            , MPI_Comm const comm=MPI_COMM_WORLD // MPI communicator
             , unsigned const n8=8 // number of grid points per block edge
             , int const echo=0 // log-level
         ); // declaration only

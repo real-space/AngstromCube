@@ -71,8 +71,8 @@ namespace green_action {
         action_t(action_plan_t *plan, int const echo=0)
           : p_(plan), apc_(nullptr) // , aac_(nullptr)
         {
+            if (echo > 1) std::printf("# construct %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
             assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
-            if (echo > 0) std::printf("# construct %s\n", __func__);
             char* buffer{nullptr};
             take_memory(buffer);
             assert(nullptr != plan);
@@ -83,14 +83,17 @@ namespace green_action {
                 if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
                 // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
                 tfqmrgpu::solve(*this); // compute GPU memory requirements
+                auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
                 {
                     simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m); // uses MPI_COMM_WORLD
                     if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
-                    auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
                     if (echo > 9) std::printf("# rank#%i try to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
                 }
                 memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+// #ifdef    DEBUGGPU
+                if (echo > 9) std::printf("# rank#%i allocated %.9f %s memory_buffer_ at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_);
+// #endif // DEBUGGPU
             } else {
                 if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
             }
@@ -168,7 +171,12 @@ namespace green_action {
         , int const iterations=1
         , int const echo=9
     ) {
-        if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+        if (echo > 1) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
+
+        auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD
+// #ifdef    DEBUGGPU
+        if (echo > 7) std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
+// #endif // DEBUGGPU
 
         assert(p_); auto const & p = *p_;
         uint32_t const nnzbX = p.colindx.size();
@@ -187,6 +195,7 @@ namespace green_action {
             }
             int const maxiter = iterations;
             if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
+            assert(nullptr != memory_buffer_);
             double time_needed{1};
             { // scope: benchmark the solver
                 SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
@@ -206,13 +215,12 @@ namespace green_action {
             if (nblocks != p.nCols) warn("Green function solution provides %d 4x4x4 blocks, but requested %d", p.nCols, nblocks);
             for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
                 auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal
-                for (int i64{0}; i64 < 64; ++i64) {
-                    int constexpr imaginary_part = 1;
-                    rho[iCol*size_t(4*4*4) + i64] = Green[inz_diagonal][imaginary_part][i64][i64];
+                for (unsigned i64{0}; i64 < 64; ++i64) {
+                    int constexpr imag = 1; // imaginary part
+                    rho[iCol*64u + i64] = Green[inz_diagonal][imag][i64][i64];
                 } // i64
             } // iCol
 
-            free_memory(memory_buffer_);
             return 0;
         } // iterations > 0
 #endif // HAS_TFQMRGPU

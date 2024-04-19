@@ -177,7 +177,6 @@ namespace brillouin_zone {
 
   inline int get_kpoint_mesh(
         view2D<double> & mesh
-      // , bool const complex_phase_factors=true
   ) {
       unsigned nv[3];
       auto const iso = control::get("hamiltonian.kmesh", 1.); // isotropic default value

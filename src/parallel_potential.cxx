@@ -1502,7 +1502,7 @@ namespace parallel_potential {
                 print_stats(V_coarse[0], n_blocks*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
-                                                          lb, pg_Interpolation, n_valence_electrons, g.dV(), echo);
+                                                          pg_Interpolation, n_valence_electrons, g.dV(), echo);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }
