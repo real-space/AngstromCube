@@ -75,7 +75,7 @@ typedef green_action::action_t<double,2,2> Act822;
         , int const iterations
         , int const echo // =0 // verbosity
     ) {
-        if (echo > 0) std::printf("# green_solver_t::solve with action_key= %i\n", int(action_key_));
+        if (echo > 7) std::printf("# green_solver_t::solve with action_key= %i\n", int(action_key_));
         assert(action_ && "action_ pointer must be valid for call to solve");
         switch (action_key_) {
         case 32021: return ((Act421*)action_)->solve(rho, nblocks, iterations, echo); // complex

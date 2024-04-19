@@ -171,16 +171,16 @@ namespace green_action {
         , int const iterations=1
         , int const echo=9
     ) {
-        if (echo > 1) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
+        if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
 
         auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD
 // #ifdef    DEBUGGPU
-        if (echo > 7) std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
+        if (echo > 5) std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
 // #endif // DEBUGGPU
 
         assert(p_); auto const & p = *p_;
         uint32_t const nnzbX = p.colindx.size();
-        if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+        if (echo > 9) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
 
         if (0 == iterations) { 
             if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
@@ -194,24 +194,24 @@ namespace green_action {
                 return 0;
             }
             int const maxiter = iterations;
-            if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
+            if (echo > 4) std::printf("\n# call tfqmrgpu::solve\n\n");
             assert(nullptr != memory_buffer_);
             double time_needed{1};
             { // scope: benchmark the solver
-                SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+                SimpleTimer timer(__FILE__, __LINE__, __func__, echo*0);
 
                 tfqmrgpu::solve(*this, memory_buffer_, 1e-9, maxiter, 0, true);
 
                 time_needed = timer.stop();
             } // timer
-            if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
+            if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
                                                                p.residuum_reached,    p.iterations_needed);
             if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
             if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
             // export solution
 
             auto const Green = (real_t const (*)[2][Noco*64][Noco*64])memory_buffer_;
-            if (echo > 2) std::printf("# copy %d diagonal blocks of the Green function\n", p.nCols);
+            if (echo > 5) std::printf("# copy %d diagonal blocks of the Green function\n", p.nCols);
             if (nblocks != p.nCols) warn("Green function solution provides %d 4x4x4 blocks, but requested %d", p.nCols, nblocks);
             for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
                 auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal

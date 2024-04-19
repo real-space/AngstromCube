@@ -160,6 +160,7 @@ namespace energy_contour {
 
         auto const energy_mesh = get_energy_mesh(echo);
         int const nEpoints = energy_mesh.size();
+        if (echo > 0) std::printf("# energy_contour::integration with %d energy points and %d k-points\n", nEpoints, nkpoints);
 
         for (int iEpoint{0}; iEpoint < nEpoints; ++iEpoint) {
             double const energy_weight = 1;
@@ -200,6 +201,7 @@ namespace energy_contour {
         if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
         parallel_poisson::block_interpolation(rho_888, rho[0], pg, echo, 1., "density");
 
+        if (echo > 3) std::printf("# density integrated over %d energy points\n", nEpoints);
         return stat;
     } // integrate
 
@@ -215,21 +217,25 @@ namespace energy_contour {
 
     status_t test_integrator(int const echo=3) {
         if (echo > 1) std::printf("\n#\n# %s\n", __func__);
-        double E_Fermi{0};
-        std::vector<double> xyzZinso(0); // no atoms
-        real_space::grid_t gc(4, 4, 4); // one block, isolated BCs by default, grid spacing 1.0
-        parallel_poisson::load_balancing_t const lb(gc, MPI_COMM_WORLD, 4, echo);
-        parallel_poisson::parallel_grid_t const pg(gc, lb, echo, "Interpolation");
-        view2D<double> V_coarse(pg.n_local(), 4*4*4, 0.5);
-        view2D<double> rhov_new(pg.n_local(), 8*8*8, 0.0);
-        std::vector<uint32_t> num(0);
-        data_list<double> atom_mat(num);
-        std::vector<int32_t> numax_prj(0, 0);
-        std::vector<double> sigma_prj(0, 1.);
-        Integrator integrator(gc, xyzZinso, echo);
-        if (echo > 1) std::printf("# %s: Integrator constructed\n\n", __func__);
-        return integrator.integrate(rhov_new[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj, pg, 1., 1., echo);
+        status_t stat(0);
+        { // scope
+            double E_Fermi{0};
+            std::vector<double> xyzZinso(0); // no atoms
+            real_space::grid_t gc(4, 4, 4); // one block, isolated BCs by default, grid spacing 1.0
+            parallel_poisson::load_balancing_t const lb(gc, MPI_COMM_WORLD, 4, echo);
+            parallel_poisson::parallel_grid_t const pg(gc, lb, echo, "Interpolation");
+            view2D<double> V_coarse(pg.n_local(), 4*4*4, 0.5);
+            view2D<double> rhov_new(pg.n_local(), 8*8*8, 0.0);
+            std::vector<uint32_t> num(0);
+            data_list<double> atom_mat(num);
+            std::vector<int32_t> numax_prj(0, 0);
+            std::vector<double> sigma_prj(0, 1.);
+            Integrator integrator(gc, xyzZinso, echo);
+            if (echo > 1) std::printf("# %s: Integrator constructed\n\n", __func__);
+            stat += integrator.integrate(rhov_new[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj, pg, 1., 1., echo);
+        } // scope (so all destructors belonging to this test are called before the next log message)
         if (echo > 1) std::printf("# %s: Integrator.integrate executed\n\n", __func__);
+        return stat;
     } // test_integrator
 
     status_t test_energy_mesh(int const echo=5) {
