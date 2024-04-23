@@ -49,6 +49,7 @@ namespace unit_system {
       } // units differ from "Ha" and "Bohr"
       return -1; // cannot modify
 #else  // _Output_Units_Fixed
+      // this is the only point where these global variables may be modified
       Ang = length_unit(length, &_Ang);
       eV  = energy_unit(energy, &_eV);
       assert( eV  > 0 );

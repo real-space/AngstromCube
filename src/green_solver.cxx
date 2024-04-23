@@ -4,6 +4,7 @@
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
 #include <vector> // std::vector<T>
+#include <complex> // std::complex<real_t>
 
 #include "green_solver.hxx"
 
@@ -13,7 +14,7 @@
 #include "green_action.hxx" // action_t<real_t,R1C2,Noco>
 #include "recorded_warnings.hxx" // error
 
-#define   DEBUG
+// #define   DEBUG
 
 #ifdef    DEBUG
   #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
@@ -49,9 +50,9 @@ typedef green_action::action_t<double,2,2> Act822;
             default: error("No such action_key= %i", int(action_key_));
             } // switch action_key_
             assert(action_ && "action_ pointer must be valid");
-// #ifdef    DEBUGGPU
+#ifdef    DEBUGGPU
             if (echo > 0) std::printf("# %s.action= %p\n", __func__, action_);
-// #endif // DEBUGGPU
+#endif // DEBUGGPU
         } else {
             if (echo > 0) std::printf("# cannot construct %s with p=nullptr\n", __func__);
         }
@@ -70,9 +71,10 @@ typedef green_action::action_t<double,2,2> Act822;
     } // destructor
 
     status_t green_solver_t::solve(
-          double rho[] // result: density [plan.nCols][4*4*4]
+          std::complex<double> rho[] // result: density [plan.nCols][4*4*4]
         , uint32_t const nblocks
         , int const iterations
+        , int const imag // =1 // index of the exported part 1:imaginary part, 0:real part
         , int const echo // =0 // verbosity
     ) {
         if (echo > 7) std::printf("# green_solver_t::solve with action_key= %i\n", int(action_key_));

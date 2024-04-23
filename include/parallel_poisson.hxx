@@ -98,7 +98,7 @@ namespace parallel_poisson {
         , real_t const *const v444 // input  array, data layout v444[n_local_blocks][4*4*4]
         , parallel_grid_t const & pg // descriptor, must be prepared with "3x3x3"
         , int const echo=0 // log level
-        , double const prefactor=1
+        , double const factor=1
         , char const *const what="!"
     ); // declaration only
 

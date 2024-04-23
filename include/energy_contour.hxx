@@ -49,6 +49,11 @@ namespace energy_contour {
 
     }; // class Integrator
 
+    int Gauss_Legendre_quadrature(double x[], double w[]
+        , unsigned const number, int const echo=0); // declaration only
+
+    int Gauss_Fermi_Dirac_quadrature(double x[], double w[]
+        , unsigned const number, int const echo=0); // declaration only
 
     status_t all_tests(int const echo=0); // declaration only
 

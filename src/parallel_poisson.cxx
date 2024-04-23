@@ -424,7 +424,7 @@ namespace parallel_poisson {
         , real_t const *const v444 // input  array, data layout v444[n_local_blocks][4*4*4]
         , parallel_grid_t const & pg // descriptor, must be prepared with "3x3x3"
         , int const echo // =0 // log level
-        , double const prefactor // =1
+        , double const factor // =1
         , char const *const what // ="!"
     ) {
 
@@ -440,7 +440,7 @@ namespace parallel_poisson {
         assert(27 == pg.star_dim());
         auto const star = (uint32_t const(*)[27])pg.star();
 
-        double const f = prefactor/(4*4*4);
+        double const f = factor/(4*4*4); // interpolation weights are [0.25 0.75] expressed as [1 3]/4 --> denominator 4 per dimension
 
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             auto const *const nn = star[ilb]; // 27 nearest-neighbor blocks of block ilb, load into GPU shared memory
@@ -455,8 +455,8 @@ namespace parallel_poisson {
                 assert(i3zyx >= 0); assert(i3zyx < 27);
                 auto const i64 = nn[i3zyx];
                 assert(i64 < nlb + nrb);
-                auto const i4zyx = (z & 0x3)*4*4 + (y & 0x3)*4 + (x & 0x3); // & 0x3 is the same as % 4
-                v666[z + 1][y + 1][x + 1] = v4(i64,i4zyx);
+                auto const i4zyx = ((z & 0x3)*4 + (y & 0x3))*4 + (x & 0x3); // & 0x3 is the same as % 4
+                v666[z + 1][y + 1][x + 1] = v4(i64,i4zyx)*f;
             }}} // x y z
 
             // interpolate linearly in x-direction, weights are {1,3}
@@ -482,8 +482,8 @@ namespace parallel_poisson {
             for (int z = 0; z < 4; ++z) {
             for (int y = 0; y < 8; ++y) {
             for (int x = 0; x < 8; ++x) {
-                v888[i512 + (2*z+0)*8*8 + y*8 + x] = (v688[z+0][y][x] + 3*v688[z+1][y][x])*f;
-                v888[i512 + (2*z+1)*8*8 + y*8 + x] = (v688[z+1][y][x]*3 + v688[z+2][y][x])*f; // f divides by 4^3
+                v888[i512 + ((2*z+0)*8 + y)*8 + x] = v688[z+0][y][x] + 3*v688[z+1][y][x];
+                v888[i512 + ((2*z+1)*8 + y)*8 + x] = v688[z+1][y][x]*3 + v688[z+2][y][x];
             }}} // x y z
 
         } // ilb

@@ -5,6 +5,7 @@
 #include <cassert> // assert
 #include <cstdint> // uint32_t
 #include <vector> // std::vector<T>
+#include <complex> // std::complex<real_t>
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "action_plan.hxx" // action_plan_t
@@ -20,9 +21,10 @@ public:
     ~green_solver_t(); // destructor, declaration only
 
     status_t solve(
-          double rho[] // result: density rho data layout[plan.nCols][4*4*4]
+          std::complex<double> rho[] // result: density rho data layout[plan.nCols][4*4*4]
         , uint32_t const nblocks // should match plan.nCols
         , int const iterations
+        , int const imag=1 // index of the exported part 1:imaginary part, 0:real part
         , int const echo=0
     ); // declaration only
 

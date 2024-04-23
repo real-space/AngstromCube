@@ -5,6 +5,7 @@
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
 #include <vector> // std::vector<T>
+#include <complex> // std::complex<real_t>
 
 #ifdef HAS_TFQMRGPU
 
@@ -166,7 +167,7 @@ namespace green_action {
 
 
     status_t solve(
-          double rho[] // result: density[nblocks][4*4*4]
+          std::complex<double> rho[] // result: density[nblocks][4*4*4]
         , uint32_t const nblocks // should match plan.nCols
         , int const iterations=1
         , int const echo=9
@@ -204,7 +205,7 @@ namespace green_action {
 
                 time_needed = timer.stop();
             } // timer
-            if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
+            if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
                                                                p.residuum_reached,    p.iterations_needed);
             if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
             if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
@@ -213,11 +214,14 @@ namespace green_action {
             auto const Green = (real_t const (*)[2][Noco*64][Noco*64])memory_buffer_;
             if (echo > 5) std::printf("# copy %d diagonal blocks of the Green function\n", p.nCols);
             if (nblocks != p.nCols) warn("Green function solution provides %d 4x4x4 blocks, but requested %d", p.nCols, nblocks);
+            double const f_Kramers_Kronig = 1.0/constants::pi;
             for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
                 auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal
                 for (unsigned i64{0}; i64 < 64; ++i64) {
-                    int constexpr imag = 1; // imaginary part
-                    rho[iCol*64u + i64] = Green[inz_diagonal][imag][i64][i64];
+                    int constexpr real_part = 0, imag_part = R1C2 - 1;
+                    auto const rho_Re = Green[inz_diagonal][real_part][i64][i64]*f_Kramers_Kronig;
+                    auto const rho_Im = Green[inz_diagonal][imag_part][i64][i64]*f_Kramers_Kronig;
+                    rho[iCol*64u + i64] = std::complex<double>(rho_Re, rho_Im*(R1C2 > 1));
                 } // i64
             } // iCol
 

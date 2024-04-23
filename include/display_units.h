@@ -9,6 +9,7 @@ extern "C" {
   double constexpr eV  = 1; char const _eV[] = "Ha"; // Hartree atomic energy unit
   double constexpr Ang = 1; char const _Ang[] = "Bohr"; // Bohr atomic length unit
 #else
+  // these global variables are only to be modified in unit_system.hxx
   extern double eV;  extern char const *_eV;  // dynamic energy unit
   extern double Ang; extern char const *_Ang; // dynamic length unit
 #endif
