@@ -1,6 +1,8 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+#include <algorithm> // std::swap
+
 #include "status.hxx" // status_t
 #include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
 #include "parallel_poisson.hxx" // ::parallel_grid_t
@@ -20,13 +22,19 @@ namespace energy_contour {
               real_space::grid_t const & gc // coarse grid descriptor
             , std::vector<double> const & xyzZinso // all atoms
             , int const echo=0 // verbosity
-        ); // constructor
+        ); // constructor, declaration only
 
-        ~Integrator() {
-            if (solver_) {
-                delete solver_;
-            }
-        } // destructor
+        ~Integrator(); // destructor, declaration only
+
+        Integrator(Integrator const &) = delete; // copy constructor
+        Integrator(Integrator &&) = delete; // move constructor
+        Integrator & operator=(Integrator const &) = delete; // copy assignment
+
+        Integrator & operator=(Integrator && rhs) { // move assignment
+            std::swap(this->solver_ , rhs.solver_);
+            std::swap(this->plan_   , rhs.plan_  );
+            return *this;
+        } // move assignment
 
     public: // members TODO: go private
         action_plan_t *plan_ = nullptr;

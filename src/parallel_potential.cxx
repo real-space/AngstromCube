@@ -1038,6 +1038,8 @@ namespace parallel_potential {
         auto const me = mpi_parallel::rank(comm);
         auto const nprocs = mpi_parallel::size(comm); assert(nprocs > 0);
 
+        int const check = control::get("check", 0.); // check-mode
+
         bool needs_integrator{false};
         char const *const basis_method = control::get("basis", "Thomas-Fermi"); // {Thomas-Fermi, Green-function}
         switch (*basis_method | 32) {
@@ -1415,7 +1417,7 @@ namespace parallel_potential {
             print_stats(augmented_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth augmented_density");
 
 
-            { // scope: Poisson equation
+            if (0 == check) { // scope: Poisson equation
                 if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF iteration #%i\n#\n", nprocs, scf_iteration);
                 double E_es{0};
                 float es_residual{0};
@@ -1427,7 +1429,10 @@ namespace parallel_potential {
                 if (es_stat && 0 == me) warn("parallel_poisson::solve returned status= %i", int(es_stat));
                 grid_electrostatic_energy = 0.5*E_es; // store
                 if (echo > 3) std::printf("# smooth electrostatic grid energy %.9f %s\n", grid_electrostatic_energy*eV, _eV);
-            } // scope
+            } else {
+                if (echo > 0) std::printf("\n# skip Poisson equation for the electrostatic potential due to +check=%d\n\n", check);
+                set(V_electrostatic[0], n_blocks*size_t(8*8*8), 0.0);
+            }
 
             print_stats(V_electrostatic[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth electrostatic potential", eV, _eV);
 
@@ -1513,8 +1518,7 @@ namespace parallel_potential {
                      // extreme[1] =          extreme[1]  +  extreme_energy_a(1,ia) ; 
                         extreme[2] = std::min(extreme[2], 1.*extreme_energy_a(2,ia));
                     } // ia
-                    if (echo > 0) std::printf("# rank#%i has energy extrema at %g %g %s\n",
-                        me, extreme[0]*eV, extreme[2]*eV, _eV);
+                    if (echo > 5) std::printf("# rank#%i has energy extrema at %g and %g %s\n", me, extreme[0]*eV, extreme[2]*eV, _eV);
                     extreme[0] = mpi_parallel::max(extreme[0], comm); // global maximum
                  // extreme[1] = mpi_parallel::sum(extreme[1], comm)/std::max(n_all_atoms, 1);
                     extreme[2] = mpi_parallel::min(extreme[2], comm); // global minimum
@@ -1615,7 +1619,7 @@ namespace parallel_potential {
 
 
 
-            scf_run = (scf_iteration < scf_maxiter);
+            scf_run = (scf_iteration < scf_maxiter && check != 0);
 
         } while (scf_run); // self-consistency loop 
 

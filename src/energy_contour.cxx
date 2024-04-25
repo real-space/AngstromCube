@@ -47,6 +47,15 @@ namespace energy_contour {
         if (echo > 0) std::printf("# constructed %s\n", __func__);
     } // constructor
 
+    Integrator::~Integrator() {
+        std::printf("# destruct %s\n", __func__);
+        if (solver_) {
+            std::printf("# destruct %s with solver=%p\n", __func__, (void*)solver_);
+            solver_->~green_solver_t();
+            delete solver_;
+        }
+    } // destructor
+
     typedef std::complex<double> Complex;
 
     status_t show_contour(std::vector<Complex> const & E_points, std::vector<Complex> const & E_weights, int const echo=0) {
@@ -257,7 +266,7 @@ namespace energy_contour {
     status_t Integrator::integrate(
           double rho_888[] // resulting density in [nblocks][8*8*8] data layout
         , double & Fermi_level // Fermi level
-     // , double const band_bottom // lower end of the contour w.r.t Fermi_level
+     // , double const band_bottom // lower end of the contour w.r.t Fermi_level, ToDo: pass as argument instead of environment variable
         , double const Vtot[] // input potential in [nblocks][4*4*4]
         , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
         , std::vector<int32_t> const & numax_prj
@@ -272,7 +281,7 @@ namespace energy_contour {
         auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
 
-        int const check = control::get("check", 0.);
+        int const check = control::get("check", 0.); // ToDo: get this passed as argument
         int const iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
 
@@ -280,7 +289,7 @@ namespace energy_contour {
         assert(nullptr != plan_);
         assert(nullptr != solver_);
         auto & plan = *plan_;
-        plan.echo = echo >> 2; // lower verbosity
+        plan.echo = echo >> 2; // lower internal verbosity
 
         if (plan.nCols != nblocks) warn("model assumes that each local block has one RHS, found n_local= %d and p.nRHS= %d", nblocks, plan.nCols);
 
@@ -346,6 +355,7 @@ namespace energy_contour {
 
                     view2D<Complex> rho_Ek(nblocks, n4x4x4, zero);
 
+                    if (echo > 1) std::printf("# call solver on solver_=%p\n", (void*)solver_);
                     stat += solver_->solve(rho_Ek[0], nblocks, iterations, echo);
 
                     add_product(rho_E[0], nblocks*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points

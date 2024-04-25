@@ -49,7 +49,7 @@ typedef green_action::action_t<double,2,2> Act822;
             case 64022: action_ = (void*)new Act822(p, echo); break; // double complex non-collinear
             default: error("No such action_key= %i", int(action_key_));
             } // switch action_key_
-            assert(action_ && "action_ pointer must be valid");
+            assert(action_ && "action pointer must be valid");
 #ifdef    DEBUGGPU
             if (echo > 0) std::printf("# %s.action= %p\n", __func__, action_);
 #endif // DEBUGGPU
@@ -59,6 +59,8 @@ typedef green_action::action_t<double,2,2> Act822;
     } // constructor
 
     green_solver_t::~green_solver_t() { // destructor
+        std::printf("# destruct %s, this=%p\n", __func__, (void*)this);
+        green_debug_printf("# destruct %s, action_key= %i action_ptr=%p\n", __func__, int(action_key_), action_);
         if (action_) {
             green_debug_printf("# destruct %s, action_key= %i\n", __func__, int(action_key_));
             switch (action_key_) {
@@ -66,8 +68,9 @@ typedef green_action::action_t<double,2,2> Act822;
             case 32022: { ((Act422*)action_)->~action_t(); } break; // complex non-collinear
             case 64021: { ((Act821*)action_)->~action_t(); } break; // double complex
             case 64022: { ((Act822*)action_)->~action_t(); } break; // double complex non-collinear
+            default: error("action=%p but action_key=%d", action_, action_key_);
             } // switch action_key_
-        }
+        } // action_
     } // destructor
 
     status_t green_solver_t::solve(
@@ -77,15 +80,18 @@ typedef green_action::action_t<double,2,2> Act822;
         , int const imag // =1 // index of the exported part 1:imaginary part, 0:real part
         , int const echo // =0 // verbosity
     ) {
-        if (echo > 7) std::printf("# green_solver_t::solve with action_key= %i\n", int(action_key_));
-        assert(action_ && "action_ pointer must be valid for call to solve");
+        if (echo > 7) std::printf("# green_solver_t::solve with action_key= %i, echo= %d\n", int(action_key_), echo);
+#ifdef    DEBUGGPU
+        if (echo > 3) std::printf("# %s.action= %p\n", __func__, action_);
+#endif // DEBUGGPU
+        assert(action_ && "action pointer must be valid for call to solve");
         switch (action_key_) {
         case 32021: return ((Act421*)action_)->solve(rho, nblocks, iterations, echo); // complex
         case 32022: return ((Act422*)action_)->solve(rho, nblocks, iterations, echo); // complex non-collinear
         case 64021: return ((Act821*)action_)->solve(rho, nblocks, iterations, echo); // double complex
         case 64022: return ((Act822*)action_)->solve(rho, nblocks, iterations, echo); // double complex non-collinear
         default: error("No solve with such action_key= %i", int(action_key_)); return action_key_;
-        } // action_key_ action_key_
+        } // switch action_key_
     } // solve
 
 

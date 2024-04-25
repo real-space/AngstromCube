@@ -112,7 +112,7 @@ INC += -I/Users/pbaum/tfQMRgpu/include
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
 FEAFLAGS += -D HAS_LAPACK
-# FEAFLAGS += -D DEBUGGPU
+FEAFLAGS += -D DEBUGGPU
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
