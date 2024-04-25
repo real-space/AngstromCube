@@ -1250,7 +1250,7 @@ namespace parallel_potential {
                 stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
-                for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
+                for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
                     assert(numax_prj.at(ia) == numax.at(ia) && "inconsist between 'projectors' and 'initialize' call");
                     auto const gid = nprocs*ia + me; // global_atom_id
                     assert(0 <= gid); assert(gid < n_all_atoms);
@@ -1321,7 +1321,7 @@ namespace parallel_potential {
         double nve{0}; // non-const total number of valence electrons
         { // scope: determine the number of valence electrons
             auto const keyword_valence_electrons = "valence.electrons";
-            if ('a' == (*control::get(keyword_valence_electrons, "auto") | 32)) {
+            if ('a' == (*control::get(keyword_valence_electrons, "auto") | 32)) { // | 32 converts to lowercase
                 std::vector<double> n_electrons_a(na, 0.); // number of valence electrons added by each owned atom
                 stat += live_atom_update("#valence electrons", na, n_electrons_a.data());
                 nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
@@ -1500,6 +1500,41 @@ namespace parallel_potential {
                     block_average(V_coarse[ilb], V_effective[ilb]);
                 } // ilb
                 print_stats(V_coarse[0], n_blocks*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
+
+                double band_bottom{-1.};
+                { // scope: extract the highest core state energy and an estimate for the lowest valence state energy
+                    view2D<float> extreme_energy_a(3, na, 0.); // extremal energy for {core, semicore, valence}
+                    stat += live_atom_update("#core electrons"   , na, 0, 0, extreme_energy_a[0]);
+                    // ToDo: semicore states ...
+                    stat += live_atom_update("#valence electrons", na, 0, 0, extreme_energy_a[2]);
+                    double extreme[] = {-9e9, 0.0, 9e9};
+                    for (int32_t ia{0}; ia < na; ++ia) {
+                        extreme[0] = std::max(extreme[0], 1.*extreme_energy_a(0,ia));
+                     // extreme[1] =          extreme[1]  +  extreme_energy_a(1,ia) ; 
+                        extreme[2] = std::min(extreme[2], 1.*extreme_energy_a(2,ia));
+                    } // ia
+                    if (echo > 0) std::printf("# rank#%i has energy extrema at %g %g %s\n",
+                        me, extreme[0]*eV, extreme[2]*eV, _eV);
+                    extreme[0] = mpi_parallel::max(extreme[0], comm); // global maximum
+                 // extreme[1] = mpi_parallel::sum(extreme[1], comm)/std::max(n_all_atoms, 1);
+                    extreme[2] = mpi_parallel::min(extreme[2], comm); // global minimum
+                    // ToDo: semicore contour ...
+                    if (extreme[2] < 8e9) {
+                        if (echo > 2) std::printf("# energy contour estimates lowest valence state at %g %s\n", extreme[2]*eV, _eV);
+                        if (0.0 == E_Fermi) { // Fermi level is exactly 0.0 when it is initialized
+                            E_Fermi = extreme[2];
+                            if (echo > 0) std::printf("# initialize Fermi level as %g %s\n", E_Fermi*eV, _eV);
+                        }
+                        if (extreme[0] > -8e9) {
+                            if (echo > 2) std::printf("# energy contour assumes highest core state at %g %s\n", extreme[0]*eV, _eV);
+                            auto const suggest_bottom = 0.25*extreme[0] + 0.75*extreme[2];
+                            band_bottom = suggest_bottom - E_Fermi;
+                            if (echo > 0) std::printf("# suggest band.bottom %g %s below the Fermi level\n", band_bottom*eV, _eV);
+                        }
+                    }
+                    control::set("energy_contour.band.bottom", band_bottom); // avoid changing the interface for now
+                } // scope
+
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
                                                           pg_Interpolation, n_valence_electrons, g.dV(), echo);

@@ -257,6 +257,7 @@ namespace energy_contour {
     status_t Integrator::integrate(
           double rho_888[] // resulting density in [nblocks][8*8*8] data layout
         , double & Fermi_level // Fermi level
+     // , double const band_bottom // lower end of the contour w.r.t Fermi_level
         , double const Vtot[] // input potential in [nblocks][4*4*4]
         , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
         , std::vector<int32_t> const & numax_prj

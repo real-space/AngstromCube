@@ -1849,9 +1849,7 @@ namespace single_atom {
 
 
 
-    double update_projector_coefficients( // returns optimized sigma if optimization is active
-        int const echo=0 // log-level
-    ) {
+    double update_projector_coefficients(int const echo=0) { // returns optimized sigma if optimization is active
         // create smooth partial waves according to Bloechl/GPAW and corresponding
         // numerically defined projector functions. On demand, fit the best sigma
         // to represent those projectors in a SHO basis of given size numax.
@@ -1919,7 +1917,6 @@ namespace single_atom {
 
         return sigma_out;
     } // update_projector_coefficients
-
 
 
 
@@ -3493,9 +3490,7 @@ namespace single_atom {
 
 
 
-    void update_matrix_elements(
-          int const echo=0 // log-level
-    ) {
+    void update_matrix_elements(int const echo=0) {
         // create matrix elements for the PAW correction of the Hamiltonian and overlap
         // from the current partial waves and the non-sperical potential
 
@@ -3712,9 +3707,7 @@ namespace single_atom {
 
 
 
-    void check_spherical_matrix_elements(
-          int const echo // log-level
-    ) const {
+    void check_spherical_matrix_elements(int const echo) const {
         // construct the matrix elements for the spherical potentials
         // and compute logarithmic derivatives
         // and eigenstates on a radial equidistant grid
@@ -4007,9 +4000,9 @@ namespace single_atom {
           double E[]=nullptr
     ) const {
         if (nullptr != E) {
-            E[energy_contribution::TOTAL]              = energy_tot[TRU] - energy_tot[SMT];
-            E[energy_contribution::KINETIC]            = energy_kin[TRU] - energy_kin[SMT];
-            E[energy_contribution::REFERENCE]          = energy_ref[TRU];
+            E[energy_contribution::TOTAL]                = energy_tot[TRU] - energy_tot[SMT];
+            E[energy_contribution::KINETIC]              = energy_kin[TRU] - energy_kin[SMT];
+            E[energy_contribution::REFERENCE]            = energy_ref[TRU];
             E[energy_contribution::EXCHANGE_CORRELATION] = energy_xc[TRU] - energy_xc[SMT];
             E[energy_contribution::DOUBLE_COUNTING]      = energy_dc[TRU] - energy_dc[SMT];
             E[energy_contribution::ELECTROSTATIC]        = energy_es[TRU] - energy_es[SMT];
@@ -4032,8 +4025,8 @@ namespace single_atom {
         std::vector<double> mixed_spherical;
         char   const *qnt_name{nullptr};
         double const *qnt_vector{nullptr};
-        if ('z' == what) { qnt_name = "zero_potential";  qnt_vector = zero_potential.data(); } else
-        if ('c' == what) { qnt_name = "core_density";    qnt_vector = spherical_density[SMT][core]; } else
+        if ('z' == what) { qnt_name = "zero_potential";  qnt_vector = zero_potential.data();           } else
+        if ('c' == what) { qnt_name = "core_density";    qnt_vector = spherical_density[SMT][core];    } else
         if ('v' == what) { qnt_name = "valence_density"; qnt_vector = spherical_density[SMT][valence]; } else
         {   // create a csv-mixture of spherical_density[SMT] using take_spherical_density weights
             mixed_spherical = std::vector<double>(rg[SMT].n, 0.0);
@@ -4090,15 +4083,41 @@ namespace single_atom {
 
     radial_grid_t const* get_smooth_radial_grid(int const echo=0) const { return &rg[SMT]; }
 
-    double get_number_of_electrons(
-          char const csv='v'
-    ) const {
+    double get_number_of_electrons(char const csv='v') const {
         if ('c' == (csv | 32)) return csv_charge[core];
         if ('s' == (csv | 32)) return csv_charge[semicore];
         if ('v' == (csv | 32)) return csv_charge[valence];
         // otherwise total number of electrons
         return csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
     } // get_number_of_electrons
+
+    double get_spherical_spectrum(double energies[40], char const csv_char='v') const {
+        int const csv = ('v' == csv_char) ? valence : (('c' == csv_char) ? core : (('s' == csv_char) ? semicore : csv_undefined));
+        double const def = (valence == csv) ? 9e9 : ((core == csv) ? -9e9 : 0.0);
+        set(energies, 40, def); // the max number of states: 40 > 32 (spin-orbit) and 40 >= 2*20 (spin) and 40 > 20 (no spin)
+        double e_min{9e9}, e_max{-9e9}, e_min_all{9e9}; //, e_max_all{-9e9};
+     // int n_states{0};
+        for (auto const & cs : spherical_state) {
+            assert(core <= cs.csv && cs.csv <= valence); // {core, semicore, valence}
+            if (csv == cs.csv) {
+                e_min = std::min(e_min, cs.energy);
+                e_max = std::max(e_max, cs.energy);
+             // ++n_states;
+            }
+            e_min_all = std::min(e_min_all, cs.energy);
+         // e_max_all = std::max(e_max_all, cs.energy);
+            int const iln = atom_core::nl_index(cs.enn, cs.ell);
+            energies[iln] = cs.energy; // export energies
+        } // cs
+     // std::printf("# get_spherical_spectrum(spectrum[40], csv=\'%c\') has %ld states, energies in [%g, %g] %s (%d states), global minimum is %g %s\n",
+     //                                                csv_char, spherical_state.size(), e_min*eV, e_max*eV, _eV, n_states,  e_min_all*eV, _eV);
+        switch (csv) {
+            case valence  : return e_min; // lowest valence state energy (spherical conterpart)
+            case semicore : return (e_max + e_min)*.5; // expected semicore band window center
+            case core     : return e_max; // highest core state energy
+            default       : return e_min_all; // global minimum of states
+        }
+    } // get_spherical_spectrum
 
     double const get_sigma() const { return sigma; }
     int    const get_numax() const { return numax; }
@@ -4478,16 +4497,24 @@ namespace single_atom {
           }
           break;
 
-          case '#': // interface usage: atom_update("#core electrons",     natoms, dp=ne[]);
-                    // interface usage: atom_update("#semicore electrons", natoms, dp=ne[]);
-                    // interface usage: atom_update("#valence electrons",  natoms, dp=ne[]);
-                    // interface usage: atom_update("#all electrons",      natoms, dp=ne[]);
+          case '#': // interface usage: atom_update("#core electrons",     natoms, dp, ip=null, fp, dpp);
+                    // interface usage: atom_update("#semicore electrons", natoms, dp, ip=null, fp, dpp);
+                    // interface usage: atom_update("#valence electrons",  natoms, dp, ip=null, fp, dpp);
+                    // interface usage: atom_update("#all electrons",      natoms, dp, ip=null, fp, dpp);
+                    // with dp[na] the number of electrons, fp[na] the extreme energy (min/max), dpp[na][40] the spectrum
           {
-              double *ne = dp; assert(nullptr != ne);
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  ne[ia] = a[ia]->get_number_of_electrons(what[1]);
+                  if (nullptr != dp) {
+                      dp[ia] = a[ia]->get_number_of_electrons(what[1]);
+                  } // dp
+                  if (nullptr != dpp || nullptr != fp) {
+                      double spectrum[40];
+                      auto const f = a[ia]->get_spherical_spectrum(spectrum, what[1]);
+                      if (nullptr != fp) { fp[ia] = f; }
+                      if (nullptr != dpp && nullptr != dpp[ia]) { set(dpp[ia], 40, spectrum); }
+                   // std::printf("# get_spherical_spectrum(spectrum[40], csv=\'%c\')= %g\n", what[1], f);
+                  } // dpp or fp
               } // ia
-              assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
           break;
 
