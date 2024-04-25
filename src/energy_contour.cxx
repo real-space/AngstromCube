@@ -131,7 +131,7 @@ namespace energy_contour {
         , int      const nPol // number of Matsubara poles
         , int const echo=0    // verbosity
     ) {
-        auto const nE = nBot + nPar + nFer + nPol;
+        auto const nE = nPar + (nBot + nFer)*(0 != nPol) + std::max(nPol, 0);
         if (echo > 3) std::printf("# energy_contour with %d + %d + %d + %d poles = %d points\n", nBot, nPar, nFer, nPol, nE); 
         // from juKKR: https://iffgit.fz-juelich.de/kkr/jukkr/-/blob/master/source/KKRhost/emesht.f90
 
@@ -143,10 +143,8 @@ namespace energy_contour {
 
         std::vector<Complex> Ep(0);
         w8.resize(0);
-        if (nE > 0) {
-            Ep.reserve(nE);
-            w8.reserve(nE);
-        }
+        Ep.reserve(nE);
+        w8.reserve(nE);
 
         double constexpr E_mu = 0; // reference Fermi level is at zero
         auto const pikBT = constants::pi * kBT;
@@ -159,7 +157,7 @@ namespace energy_contour {
             assert(dE > 0);
             for (int iE{0}; iE < mBot; ++iE) {
                 Ep.push_back(Complex(eBot, (xi[iE] + 1.)*dE));
-                w8.push_back(Complex(0.0, wi[iE]*dE)); // imaginary weights
+                w8.push_back(Complex(0.0, wi[iE]*dE)); // purely imaginary weights
                 show_energy_point(Ep[jE], w8[jE], jE, "bottom", echo);
                 ++jE;
             } // iE
@@ -203,7 +201,7 @@ namespace energy_contour {
         if (nPol >= 0) { // scope: add Matsubara poles
             for (int iE{nPol}; iE > 0; --iE) {
                 Ep.push_back(Complex(E_mu, (2*iE - 1)*pikBT));
-                w8.push_back(Complex(0.0, -2*pikBT)); // imaginary weights
+                w8.push_back(Complex(0.0, -2*pikBT)); // purely imaginary weights
                 show_energy_point(Ep[jE], w8[jE], jE, "matsubara", echo);
                 ++jE;
             } // iE
@@ -214,7 +212,7 @@ namespace energy_contour {
             assert(dE > 0);
             for (int iE{0}; iE < mTop; ++iE) {
                 Ep.push_back(Complex(E_mu, (1. - xi[iE])*dE));
-                w8.push_back(Complex(0.0, -wi[iE]*dE)); // imaginary weights
+                w8.push_back(Complex(0.0, -wi[iE]*dE)); // purely imaginary weights
                 show_energy_point(Ep[jE], w8[jE], jE, "top", echo);
                 ++jE;
             } // iE
@@ -228,12 +226,13 @@ namespace energy_contour {
     } // get_energy_mesh
 
     std::vector<Complex> get_energy_mesh(std::vector<Complex> & w8, int const echo=0) {
+        // initialize an energy mesh with parameters from the control environment
         double   const kBT  = control::get("energy_contour.temperature", 1e-2);
-        double   const eBot = control::get("energy_contour.band.bottom", -1.); // w.r.t. the Fermi Level at 0
-        unsigned const nBot = control::get("energy_contour.bottom",    5.);
-        unsigned const nPar = control::get("energy_contour.parallel", 15.);
-        unsigned const nFer = control::get("energy_contour.fermidirac", 3.);
-        int      const nPol = control::get("energy_contour.matsubara", 3.);
+        double   const eBot = control::get("energy_contour.band.bottom",  -1.); // w.r.t. the Fermi Level at 0
+        unsigned const nBot = control::get("energy_contour.bottom",     5.);
+        unsigned const nPar = control::get("energy_contour.parallel",  15.);
+        unsigned const nFer = control::get("energy_contour.fermidirac", 9.);
+        int      const nPol = control::get("energy_contour.matsubara",  3.);
         return get_energy_mesh(w8, kBT, eBot, nBot, nPar, nFer, nPol, echo);
     } // get_energy_mesh
 
@@ -324,12 +323,12 @@ namespace energy_contour {
         view2D<Complex> rho_c(nblocks, n4x4x4, zero); // complex density
 
         for (int iEpoint{0}; iEpoint < nEpoints; ++iEpoint) {
-            Complex const energy_weight = energy_weights[iEpoint];
+            auto const energy_weight = energy_weights[iEpoint];
 
             Complex const energy = energy_mesh.at(iEpoint) + Fermi_level;
             char energy_parameter_label[64];
             std::snprintf(energy_parameter_label, 64, "(%g %s, %g %s)", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
-            if (echo > 5) std::printf("# energy parameter %s with weight (%g, %g)\n", energy_parameter_label, energy_weight.real(), energy_weight.imag());
+            if (echo > 5) std::printf("# energy parameter %s with weight (%g, %g)\n", energy_parameter_label, std::real(energy_weight), std::imag(energy_weight));
 
             stat += green_function::update_energy_parameter(plan, energy, dV, echo, Noco);
 
@@ -2500,21 +2499,19 @@ namespace energy_contour {
                 c_ref += std::cos(-(i + .5)*dx)*dx;
             } // i
         } // scope
-        auto const reference = c_ref;
-
         auto const nBot = std::min(unsigned(control::get("energy_contour.bottom",    9.)), 112u);
         auto const nPar = std::min(unsigned(control::get("energy_contour.parallel", 33.)), 112u);
         auto const nFer = std::min(unsigned(control::get("energy_contour.fermidirac", 9.)), 16u);
         auto const nPol =               int(control::get("energy_contour.matsubara", 1.));
         double const eBot = -1, kBT = 1.0080339e-2; // == 2e4 Kelvin per Matsubara pole
+        for (int nm{0}; nm <= std::abs(nPol); ++nm) {
+            int const mPol = (nPol < 0) ? -nm : nm;
         for (unsigned nb{1}; nb <= nBot; ++nb) {
         for (unsigned np{1}; np <= nPar; ++np) {
         for (unsigned nf{1}; nf <= nFer; ++nf) {
-        for (int nm{0}; nm <= std::abs(nPol); ++nm) {
-            int const mPol = (nPol < 0) ? -nm : nm;
             std::vector<Complex> energy_weights;
             auto const energy_mesh = get_energy_mesh(energy_weights, kBT, eBot, nb, np, nf, mPol, echo/4);
-            if (echo > 1) std::printf("# energy mesh with %ld points generated\n", energy_mesh.size());
+            if (echo > 4) std::printf("# energy mesh with %ld points generated\n", energy_mesh.size());
             // integrate a simple but holomorphic function of which the integral over the real axis [-1, 0] is known
             auto const nE = energy_mesh.size();
             assert(nE == energy_weights.size());
@@ -2523,9 +2520,9 @@ namespace energy_contour {
                 auto const x = energy_mesh.at(iE), wgt = energy_weights.at(iE);
                 c += std::cos(x)*wgt;
             } // iE
-            if (echo > 0) std::printf("# %s(+energy_contour.bottom=%d .parallel=%d .fermidirac=%d .matsubara=%d) Integral[cos]= (%g, %g), reference= %g\n",
-                                         __func__, nb, np, nf, mPol, c.real(), c.imag(), reference);
-        }}}} // nb np nf nm
+            if (echo > 0) std::printf("# %s(+energy_contour.bottom=%d .parallel=%d .fermidirac=%d .matsubara=%d) Integral[cos]= (%g, %.1e), reference= %g\n",
+                                         __func__, nb, np, nf, mPol, c.real(), c.imag(), c_ref);
+        }}}} // nm nb np nf
         return 0;
     } // test_energy_mesh
  
