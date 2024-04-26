@@ -197,27 +197,35 @@
       p.grid_spacing = get_memory<double>(3+1, echo, "grid_spacing");
       set(p.grid_spacing, 3, grid_spacing);
       double const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
-      p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projectors stop
+      p.grid_spacing[3] = r_proj; // store radius in units of sigma at which the projectors stop
 
       int32_t const natoms = xyzZinso.size()/8; // number of original atoms
       if (echo > 2) std::printf("\n#\n# %s for %d atoms\n#\n", __func__, natoms);
 
       // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
-      double max_projection_radius{0};
-      for (int32_t ia = 0; ia < natoms; ++ia) { // loop over all original atoms (can be parallel with reduction)
-          auto const sigma = xyzZinso[ia*8 + 6];
-          auto const projection_radius = std::max(0.0, r_proj*sigma);
-          max_projection_radius = std::max(max_projection_radius, projection_radius);
+      double min_sigma{9e9}, max_sigma{0};
+      for (int32_t ia{0}; ia < natoms; ++ia) { // loop over all original atoms, can be parallel with reduction(max:max_projection_radius)
+          double const sigma = xyzZinso[ia*8 + 6];
+          max_sigma = std::max(max_sigma, sigma);
+          min_sigma = std::min(min_sigma, sigma);
       } // ia
-      if (echo > 3) std::printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
+      assert(min_sigma > 0);
+      if (echo > 3) std::printf("# projection radii are between %g and %g %s\n", min_sigma*r_proj*Ang, max_sigma*r_proj*Ang, _Ang);
+      if (echo > 6) std::printf("# cubes have a circumscribing radius of %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
 
-      auto const radius = r_trunc + max_distance_from_center + 2*max_projection_radius + 2*r_block_circumscribing_sphere;
+      if (min_sigma*r_proj <= r_block_circumscribing_sphere) {
+          warn("a small projection radius (%g %s) could fall between cube corners (diagonal %g %s), enlarge +green_function.projection.radius=%.1f",
+              min_sigma*r_proj*Ang, _Ang, r_block_circumscribing_sphere*Ang, _Ang, r_block_circumscribing_sphere/std::max(.01, min_sigma) + .1);
+      }
+
+      auto const radius = r_trunc + max_distance_from_center + 2*max_sigma*r_proj + 2*r_block_circumscribing_sphere;
       if (echo > 3) std::printf("# search radius is %g %s\n", radius*Ang, _Ang);
+      auto const r2block_circumscribing_sphere = pow2(r_block_circumscribing_sphere);
 
-      int iimages[3] = {0, 0, 0}; // number of images replications of the unit cell to each side
-      int icopies[3] = {0, 0, 0}; // number of copied atoms
+      int iimages[3] = {0, 0, 0}; // number of images replications of the unit cell to each side (for Periodic_Boundary conditions)
+      int icopies[3] = {0, 0, 0}; // number of copied atoms .................... (for Wrap_Boundary and Repeat_Boundary conditions)
       uint32_t nimages{1}, ncopies{1}; // init box products
-      for (int d = 0; d < 3; ++d) { // parallel
+      for (int d{0}; d < 3; ++d) { // parallel
           // what happens if there is a wrap_boundary but the non-local projection overlaps with two periodic ends of the sphere?
           // we may have to diffentiate between images and copies of atoms! Repeat_Boundary needs copies, Wrap_boundary needs copies
           int const nmx = std::max(0., std::ceil(radius/cell[d]));
@@ -229,10 +237,10 @@
               icopies[d] = 1; // in WRAP the truncation sphere fits into the cell, ...
               // however, left targets of a left source and right targets of a right source could potentially see the same atom
           }
-          if (iimages[d]) assert(0 == icopies[d]);
-          if (icopies[d]) assert(0 == iimages[d]);
-          nimages *= (2*iimages[d] + 1); // iimage  images to the left and right
-          ncopies *= (2*icopies[d] + 1); // icopies copies to the left and right
+          if (iimages[d] > 0) assert(0 == icopies[d]);
+          if (icopies[d] > 0) assert(0 == iimages[d]);
+          nimages *= uint32_t(2*iimages[d] + 1); // iimage  images to the left and right
+          ncopies *= uint32_t(2*icopies[d] + 1); // icopies copies to the left and right
       } // d
       size_t const nAtomCopies = natoms*ncopies;
       if (echo > 3) std::printf("# copy %d atoms %s times (%ld times) for %ld atom copies\n", natoms, str(icopies), ncopies, nAtomCopies);
@@ -254,7 +262,8 @@
 
       here;
 
-      size_t nci_stats[9] = {0,0,0,0, 0,0,0,0, 0};
+      size_t nci_stats[65]; set(nci_stats, 65, size_t(0));
+      size_t far_outside{0};
       size_t iai{0}; // counter for relevant atomic images
 {   SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances with all atoms", echo);
 
@@ -265,41 +274,45 @@
 //            if (echo > 3) std::printf("# periodic shifts  %d %d %d\n", xi, yi, zi);
           int const xyz_image_shift[] = {xi, yi, zi};
           size_t iaa{0};
-          for (int ia = 0; ia < natoms; ++ia) { // loop over original atoms in the unit cell, serial
+          for (int ia{0}; ia < natoms; ++ia) { // loop over original atoms in the unit cell, serial
               auto const gid = int32_t(xyzZinso[ia*8 + 4]); // global_atom_id
               auto const numax =   int(xyzZinso[ia*8 + 5]);
               auto const sigma =       xyzZinso[ia*8 + 6] ;
 
               double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
               double const r2projection = pow2(r_projection);
-//            double const r2projection_plus = pow2(r_projection + r_block_circumscribing_sphere);
+              double const r2projection_plus = pow2(r_projection + r_block_circumscribing_sphere);
 
               size_t i_copies{0};
           for (int zc = -icopies[Z]; zc <= icopies[Z]; ++zc) { // serial
           for (int yc = -icopies[Y]; yc <= icopies[Y]; ++yc) { // serial
           for (int xc = -icopies[X]; xc <= icopies[X]; ++xc) { // serial
               int const xyz_copy_shift[] = {xc, yc, zc};
-              
+
               double atom_pos[3]; // suggest a shifted atomic image position
-              for (int d = 0; d < 3; ++d) { // unroll
+              for (int d{0}; d < 3; ++d) { // unroll
                   atom_pos[d] = xyzZinso[ia*8 + d] + (xyz_image_shift[d] + xyz_copy_shift[d])*cell[d];
               } // d
 //            if (echo > 5) std::printf("# image of atom #%i at %s %s\n", gid, str(atom_pos, Ang), _Ang);
 
               // check all target blocks if they are inside the projection radius
               uint32_t ntb{0}; // number of hit target blocks for this image
-              for (uint32_t icube = 0; icube < nRowsGreen; ++icube) { // loop over blocks
-             //   auto const *const target_block_coords = internal_target_coords[icube];
+              for (uint32_t icube{0}; icube < nRowsGreen; ++icube) { // loop over blocks
                   auto const *const target_block_coords = rowCubePos[icube];
-                  if (true) {
-                      // do more precise checking
-//                    if (echo > 9) std::printf("# target block #%i at %s gets corner check\n", icube, str(target_block_coords));
+                  // do we need to do precise checking?
+                  double center_distance2{0};
+                  for (int d{0}; d < 3; ++d) {
+                      double const cube_center = (target_block_coords[d]*4.f + 2.0)*grid_spacing[d];
+                      center_distance2 += pow2(cube_center - atom_pos[d]);
+                  } // d
+                  if (center_distance2 <= r2projection_plus) { // do more precise checking
+//                    if (echo > 9) std::printf("# target block #%i at %s gets corner check with image at %s Bohr, radius= %g Bohr\n", icube, str(target_block_coords), str(atom_pos), r_projection);
                       int nci{0}; // number of corners inside
                       { // scope: check 8 corners
-                        double d2xyz[3][2];
+                        double d2xyz[3][2]; // squares of difference coordinates with the corners
                         for (int d{0}; d < 3; ++d) {
-                            for (int ii{0}; ii < 2; ++ii) { // ii=0: leftmost grid point (pos 0.5h), ii=1: rightmost gridpoint (pos 3.5h)
-//                              double const grid_point = ((target_block_coords[d] + global_internal_offset[d])*4 - grid_blocks[d]*2 + ii*3 + 0.5)*grid_spacing[d];
+                            for (int ii{0}; ii < 2; ++ii) { // ii=0:  leftmost grid point (pos 0.5h)
+                                                              // ii=1: rightmost grid point (pos 3.5h)
                                 double const grid_point = (target_block_coords[d]*4.0 + ii*3 + 0.5)*grid_spacing[d];
                                 d2xyz[d][ii] = pow2(grid_point - atom_pos[d]);
                             } // ii
@@ -332,11 +345,13 @@
 //                        if (echo > 7) std::printf("# target block #%i at %s is inside\n", icube, str(target_block_coords));
                       } else { // nci
 //                        if (echo > 9) std::printf("# target block #%i at %s is outside\n", icube, str(target_block_coords));
+                          // assert(0 == nci);
+                          assert(center_distance2 > r2block_circumscribing_sphere && "enlarge +green_function.projection.radius"); // an projection sphere fell between the corners
                       } // nci
                       ++nci_stats[nci];
 
                   } else { // d2 < r2projection_plus
-                      assert(false);
+                      ++far_outside;
 //                    if (echo > 21) std::printf("# target block #%i at %s is far outside\n", icube, str(target_block_coords));
                   } // d2 < r2projection_plus
               } // icube
@@ -390,7 +405,8 @@
 } // timer
 
       if (echo > 3) {   auto const *const s = nci_stats;
-          std::printf("# nci_stats %ld  %ld %ld %ld %ld %ld %ld %ld  %ld\n", s[0], s[1],s[2],s[3],s[4],s[5],s[6],s[7], s[8]);
+          std::printf("# nci_stats %.3f k  %ld %ld %ld %ld %ld %ld %ld  %ld\n", s[0]*.001, s[1],s[2],s[3],s[4],s[5],s[6],s[7], s[8]);
+          std::printf("# %.6f M cube-atom-image pairs do not require corner checking\n", far_outside*1e-6);
       } // echo
 
       here;
@@ -419,12 +435,12 @@
       std::vector<std::vector<uint32_t>> SHOadd(nnzb);
       // planning for the contraction of sparse Green function times sparse SHO projectors
       std::vector<std::vector<std::vector<uint32_t>>> SHOprj(nrhs);
-      for (unsigned irhs = 0; irhs < nrhs; ++irhs) {
+      for (unsigned irhs{0}; irhs < nrhs; ++irhs) {
           SHOprj[irhs].resize(nai);
       } // irhs
 
-      for (uint32_t iai = 0; iai < p.nAtomImages; ++iai) {
-          for (uint32_t itb = 0; itb < cubes[iai].size(); ++itb) {
+      for (uint32_t iai{0}; iai < p.nAtomImages; ++iai) {
+          for (uint32_t itb{0}; itb < cubes[iai].size(); ++itb) {
               auto const iRow = cubes[iai][itb];
               for (auto inzb = rowStartGreen[iRow]; inzb < rowStartGreen[iRow + 1]; ++inzb) {
                   auto const irhs = colIndexGreen[inzb];
@@ -456,7 +472,7 @@
       p.sparse_SHOprj = get_memory<green_sparse::sparse_t<>>(nrhs, echo, "sparse_SHOprj");
       set((char*)p.sparse_SHOprj, nrhs*sizeof(green_sparse::sparse_t<>), '\0'); // clear
       size_t nops{0};
-      for (uint16_t irhs = 0; irhs < nrhs; ++irhs) {
+      for (uint32_t irhs{0}; irhs < nrhs; ++irhs) {
           char name[64]; std::snprintf(name, 64, "sparse_SHOprj[irhs=%i of %d]", irhs, nrhs);
           p.sparse_SHOprj[irhs] = green_sparse::sparse_t<>(SHOprj[irhs], false, name, echo - 4);
           // sparse_SHOprj: rows == atom images, cols == Green function non-zero elements
@@ -506,7 +522,7 @@
 
       here;
 
-      for (size_t iai = 0; iai < nai; ++iai) { // serial
+      for (size_t iai{0}; iai < nai; ++iai) { // serial
           auto const & atom = atom_data.at(iai);
           auto const ia = atom.ia;
           assert(0 <= ia); assert(ia < natoms);
@@ -540,7 +556,7 @@
       p.AtomStarts[0] = 0; // init prefetch sum
 
       size_t nc2_max{1}; // green_parallel::exchange does not work with count==0
-      for (uint32_t iac = 0; iac < nac; ++iac) { // parallel loop
+      for (uint32_t iac{0}; iac < nac; ++iac) { // parallel loop
           auto const ia = p.global_atom_ids[iac]; // global atom index
           auto const numax = int(xyzZinso[ia*8 + 5]);
           p.AtomSigma[iac] =     xyzZinso[ia*8 + 6];

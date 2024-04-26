@@ -1041,7 +1041,7 @@ namespace parallel_potential {
         int const check = control::get("check", 0.); // check-mode
 
         bool needs_integrator{false};
-        char const *const basis_method = control::get("basis", "Thomas-Fermi"); // {Thomas-Fermi, Green-function}
+        char const *const basis_method = control::get("basis", "Green-function"); // {Thomas-Fermi, Green-function}
         switch (*basis_method | 32) {
             case 't': break; // Thomas-Fermi model
             case 'g': needs_integrator = true; break; // Green-function model
@@ -1061,11 +1061,12 @@ namespace parallel_potential {
         } // scope
 
         // create a coarse grid descriptor
-        real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2);
+        real_space::grid_t gc(g[0] >> 1, g[1] >> 1, g[2] >> 1); // divide +grid.points by 2
         {
+            assert(gc[0]*2 == g[0]); assert(gc[1]*2 == g[1]); assert(gc[2]*2 == g[2]); // g.grid_points must be an even number
             gc.set_boundary_conditions(g.boundary_conditions());
             gc.set_cell_shape(g.cell, echo*0); // muted
-            gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2);
+            gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2); // twice the grid spacing
             for (int d{0}; d < 3; ++d) { assert(0 == (gc[d] & 0x3)); } // all grid numbers must be a multiple of 4
             auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
             if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
@@ -1241,7 +1242,7 @@ namespace parallel_potential {
         std::vector<double>  sigma_prj;
         energy_contour::Integrator integrator;
         if (needs_integrator) {
-            if (echo > 0) std::printf("\n# Initialize energy contour integrator");
+            if (echo > 0) std::printf("\n# Initialize energy contour integrator\n");
 
             // Mind: currently the Green function method requires all atoms
             //     as it has to tell apart atomic images from atomic copies
@@ -1290,6 +1291,7 @@ namespace parallel_potential {
             uint32_t const nb[] = {n_all_atoms, 0, 0};
             integrator.plan_->matrices_requests = green_parallel::RequestList_t(
                 target_global_atom_ids, owned_global_atom_ids, atom_owner_rank.data(), nb, echo, "atom matrices");
+            if (echo > 1) std::printf("\n");
         } // needs_integrator
 
         xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this
@@ -1309,7 +1311,7 @@ namespace parallel_potential {
 
         // configure the Poisson solver
         auto  const es_method    = control::get("poisson.method", "cg"); // {cg, sd}
-        int   const es_echo      = control::get("poisson.echo", echo*1.);
+        int   const es_echo      = control::get("poisson.echo", echo/2);
         float const es_threshold = control::get("poisson.threshold", 3e-8);
         int   const es_maxiter   = control::get("poisson.maxiter", 200.);
         int   const es_miniter   = control::get("poisson.miniter", 3.);
@@ -1417,6 +1419,10 @@ namespace parallel_potential {
             print_stats(augmented_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth augmented_density");
 
 
+            // ====================================================================================
+            // ====================================================================================
+            // =====                    Poisson equation                    =======================
+            // ====================================================================================
             if (0 == check) { // scope: Poisson equation
                 if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF iteration #%i\n#\n", nprocs, scf_iteration);
                 double E_es{0};
@@ -1433,6 +1439,7 @@ namespace parallel_potential {
                 if (echo > 0) std::printf("\n# skip Poisson equation for the electrostatic potential due to +check=%d\n\n", check);
                 set(V_electrostatic[0], n_blocks*size_t(8*8*8), 0.0);
             }
+            // ====================================================================================
 
             print_stats(V_electrostatic[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth electrostatic potential", eV, _eV);
 

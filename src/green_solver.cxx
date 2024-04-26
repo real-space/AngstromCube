@@ -37,7 +37,7 @@ typedef green_action::action_t<double,2,2> Act822;
             int constexpr r1c2 = 2; // 1:real, 2:complex (always complex since tfQMRgpu does not support real)
             int const noco_input = control::get("green_solver.noco", 0.);
             int const noco = (2 == noco_input) ? 2 : 1;
-            if (echo > 0) std::printf("# +green_solver.noco=%i --> %i\n", noco_input, noco);
+            if (echo > 0) std::printf("# +green_solver.noco=%i --> Noco=%i\n", noco_input, noco);
             action_key_ = 1000*fp + 10*r1c2 + noco;
 
             if (echo > 0) std::printf("# green_solver_t::action_key= %i\n", int(action_key_));

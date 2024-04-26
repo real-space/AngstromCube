@@ -27,7 +27,7 @@
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
 #endif // NO_UNIT_TESTS
 
@@ -120,7 +120,7 @@ namespace green_function {
         , std::vector<double> const & Veff // [nb[2]*4 * nb[1]*4 * nb[0]*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
-        , int const Noco // =2
+        , int const Noco // =1
     ) {
         auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
         auto const n_grid_points = Veff.size();
@@ -200,6 +200,7 @@ namespace green_function {
                 auto const & am = AtomMatrices.at(iam);
                 auto const nc2 = am.size();
                 // ToDo: insert sho_prefactors here instead of in update_energy_parameter. But how to need numax and sigma?
+                if (nc2 > count) error("%ld = AtomMatrices[%ld].size() > count = %ld", nc2, iam, count);
                 assert(nc2 <= count);
                 set(input[iam], nc2, am.data()); // copy
             } // iam
@@ -310,11 +311,11 @@ namespace green_function {
 
         } else { // comm_size > 1
 
-    #ifdef    HAS_NO_MPI
+#ifdef    HAS_NO_MPI
             auto const default_sources =  1.; // 1: 1x1x1 right-hand-side only (suitable default for ./a43 --test green_function)
-    #else  // HAS_NO_MPI
+#else  // HAS_NO_MPI
             auto const default_sources = -1.; // -1: all right-hand-sides (suitable default for ./green --test green_function)
-    #endif // HAS_NO_MPI
+#endif // HAS_NO_MPI
             // generate a box of source points
             double nsb[3] = {0, 0, 0}; // number of source blocks
             int32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", default_sources);
@@ -363,7 +364,7 @@ namespace green_function {
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
         , int const echo // =0 // log-level
-        , int const Noco // =2
+        , int const Noco // =1
     ) {
         if (echo > 0) std::printf("\n#\n# %s(%s)\n#\n\n", __func__, str(ng, 1, ", "));
 
@@ -385,7 +386,7 @@ namespace green_function {
         auto const n_all_blocks = size_t(n_blocks[Z])*size_t(n_blocks[Y])*size_t(n_blocks[X]);
 
         // regroup effective potential into blocks of 4x4x4
-        assert(1 == Noco || 2 == Noco);
+        assert((1 == Noco || 2 == Noco) && "Noco must be either 1 or 2");
         p.noncollinear_spin = (2 == Noco);
 
         // Cartesian cell parameters for the unit cell in which the potential is defined
@@ -535,7 +536,7 @@ namespace green_function {
 
             } // d
 
-            r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(h[X]) + pow2(h[Y]) + pow2(h[Z]));
+            r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
             if (echo > 0) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
             auto const rtrunc_plus  =              rtrunc + 2*r_block_circumscribing_sphere;
             auto const rtrunc_minus = std::max(0., rtrunc - 2*r_block_circumscribing_sphere);
@@ -794,8 +795,8 @@ namespace green_function {
             assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
 
             // resize BSR tables: (Block-compressed Sparse Row format)
-            if (echo > 3) std::printf("# memory of a complex Green function is %.6f (float) and %.6f %s (double)\n",
-                    nnzb*2.*64.*64.*sizeof(float)*GByte, nnzb*2.*64.*64.*sizeof(double)*GByte, _GByte); // Noco==1
+            if (echo > 3) std::printf("# memory of a complex Green function is %.6f (float) and %.6f %s (double), Noco=%d\n",
+                  nnzb*2.*pow2(Noco*64)*sizeof(float)*GByte,  nnzb*2.*pow2(Noco*64)*sizeof(double)*GByte, _GByte, Noco);
             p.colindx.resize(nnzb);
             p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
             p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
@@ -1082,9 +1083,9 @@ namespace green_function {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
     status_t test_Green_function(int const echo=0) {
         status_t stat(0);

@@ -200,7 +200,7 @@ namespace kinetic_plan {
         sparse = green_sparse::sparse_t<int32_t>(list, false, "finite_difference_list", echo); // this assignment uses the move assignment
 
         if (periodicity && FD_range > 4) {
-            warn("boundary is periodic in %c-direction, reduce finite-difference range to 4", 'x' + dd);
+            warn("boundary is periodic in %c-direction, reduce finite-difference range to 4 (9-point stencil)", 'x' + dd);
             FD_range = 4;
         }
         if (FD_range < 1) {
