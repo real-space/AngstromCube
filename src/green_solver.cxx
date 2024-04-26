@@ -59,7 +59,9 @@ typedef green_action::action_t<double,2,2> Act822;
     } // constructor
 
     green_solver_t::~green_solver_t() { // destructor
+#ifdef    DEBUGGPU
         std::printf("# destruct %s, this=%p\n", __func__, (void*)this);
+#endif // DEBUGGPU        
         green_debug_printf("# destruct %s, action_key= %i action_ptr=%p\n", __func__, int(action_key_), action_);
         if (action_) {
             green_debug_printf("# destruct %s, action_key= %i\n", __func__, int(action_key_));

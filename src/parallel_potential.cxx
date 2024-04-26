@@ -1518,7 +1518,9 @@ namespace parallel_potential {
                      // extreme[1] =          extreme[1]  +  extreme_energy_a(1,ia) ; 
                         extreme[2] = std::min(extreme[2], 1.*extreme_energy_a(2,ia));
                     } // ia
+#ifdef    DEBUGGPU
                     if (echo > 5) std::printf("# rank#%i has energy extrema at %g and %g %s\n", me, extreme[0]*eV, extreme[2]*eV, _eV);
+#endif // DEBUGGPU
                     extreme[0] = mpi_parallel::max(extreme[0], comm); // global maximum
                  // extreme[1] = mpi_parallel::sum(extreme[1], comm)/std::max(n_all_atoms, 1);
                     extreme[2] = mpi_parallel::min(extreme[2], comm); // global minimum

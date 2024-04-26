@@ -48,9 +48,13 @@ namespace energy_contour {
     } // constructor
 
     Integrator::~Integrator() {
+#ifdef    DEBUGGPU
         std::printf("# destruct %s\n", __func__);
+#endif // DEBUGGPU
         if (solver_) {
+#ifdef    DEBUGGPU
             std::printf("# destruct %s with solver=%p\n", __func__, (void*)solver_);
+#endif // DEBUGGPU
             solver_->~green_solver_t();
             delete solver_;
         }
@@ -331,6 +335,8 @@ namespace energy_contour {
 
         Complex constexpr zero = 0;
         view2D<Complex> rho_c(nblocks, n4x4x4, zero); // complex density
+        view2D<Complex> res_c(nblocks, n4x4x4, zero); // complex response density
+        Complex res_point{zero};
 
         for (int iEpoint{0}; iEpoint < nEpoints; ++iEpoint) {
             auto const energy_weight = energy_weights[iEpoint];
@@ -338,7 +344,7 @@ namespace energy_contour {
             Complex const energy = energy_mesh.at(iEpoint) + Fermi_level;
             char energy_parameter_label[64];
             std::snprintf(energy_parameter_label, 64, "(%g %s, %g %s)", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
-            if (echo > 5) std::printf("# energy parameter %s with weight (%g, %g)\n", energy_parameter_label, std::real(energy_weight), std::imag(energy_weight));
+            if (echo > 7) std::printf("# energy parameter %s with weight (%g, %g)\n", energy_parameter_label, std::real(energy_weight), std::imag(energy_weight));
 
             stat += green_function::update_energy_parameter(plan, energy, dV, echo, Noco);
 
@@ -348,45 +354,65 @@ namespace energy_contour {
                 double const *const kpoint = kpoint_mesh[ikpoint];
                 Complex const kpoint_weight = kpoint[brillouin_zone::WEIGHT];
 
-                if (echo + check > 5) std::printf("# solve Green function for E=%s, k-point=[%g %g %g]\n",
+                if (echo + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g]\n",
                                                 energy_parameter_label, kpoint[0], kpoint[1], kpoint[2]);
                 if (0 == check) {
-                    stat += green_function::update_phases(plan, kpoint, echo, Noco);
+                    stat += green_function::update_phases(plan, kpoint, echo >> 3, Noco);
 
                     view2D<Complex> rho_Ek(nblocks, n4x4x4, zero);
 
-                    if (echo > 1) std::printf("# call solver on solver_=%p\n", (void*)solver_);
                     stat += solver_->solve(rho_Ek[0], nblocks, iterations, echo);
 
                     add_product(rho_E[0], nblocks*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points
                     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], nblocks*n4x4x4).imag(), comm)*dV;
-                    if (echo + check > 6) std::printf("# solved Green function for E=%s, k-point=[%g %g %g] has %g electrons\n",
+                    if (echo + check > 12) std::printf("# solved Green function for E=%s, k-point=[%g %g %g] has %g electrons\n",
                                                     energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
                 } // check
 
             } // ikpoint
             if (0 == check) {
-                add_product(rho_c[0], nblocks*n4x4x4, rho_E[0], energy_weight); // accumulate density over E-points
                 auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], nblocks*n4x4x4).imag(), comm)*dV;
-                if (echo + check > 3) std::printf("# solved Green function for E=%s has %g electrons\n",
+                if (echo + check > 5) std::printf("# solved Green function for E=%s has %g electrons\n",
                                                                  energy_parameter_label, rho_integral);
-            } // check
-            if (echo + check > 2) std::printf("# solved Green function for E=%s\n", energy_parameter_label);
+                // accumulate density over E-points
+                add_product(rho_c[0], nblocks*n4x4x4, rho_E[0], energy_weight);
+            } else if (echo + check > 6) std::printf("# solved Green function for E=%s\n", energy_parameter_label);
+
+            if (iEpoint < nEpoints - 2) {
+                // ToDo: accumulate a response density to derive the new density w.r.t. the Fermi level 
+                //       in order to correct the density to the right number of electrons
+                Complex const wgt = ((nEpoints - 1 == iEpoint) ? 1. : -1.);
+                add_product(res_c[0], nblocks*n4x4x4, rho_E[0], wgt);
+                res_point += energy*wgt;
+            } // last two
         } // iEpoint
 
+        if (nEpoints < 2) warn("unable to eval a meaningful response density with less than 2 energy points, found %d", nEpoints);
 
-        view2D<double> rho(nblocks, n4x4x4, 0.0);
+
+        view2D<double> rho(nblocks, n4x4x4, 0.0); // density
+        view2D<double> res(nblocks, n4x4x4, 0.0); // response density
+        res_point = (zero != res_point) ? 1./res_point : 1;
         for (uint32_t ib{0}; ib < nblocks; ++ib) {
             for (int i444{0}; i444 < 64; ++i444) {
                 rho(ib,i444) = rho_c(ib,i444).real();
+                res(ib,i444) = (res_c(ib,i444)*res_point).real();
             } // i444
         } // ib
 
         {
             auto const rho_integral = mpi_parallel::sum(sum(rho[0], nblocks*n4x4x4), comm)*dV;
             if (echo + check > 3) std::printf("# solved density has %g electrons\n", rho_integral);
-            if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho[0], nblocks*n4x4x4));
+         // if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho[0], nblocks*n4x4x4));
         }
+
+        {
+            auto const rho_integral = mpi_parallel::sum(sum(res[0], nblocks*n4x4x4), comm)*dV;
+            if (echo + check > 3) std::printf("# solved response density has %g electrons\n", rho_integral);
+            // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
+        }
+
+        // ToDo: add response density until we match the Fermi level
 
         // interpolation density from 4*4*4 to 8*8*8 block could be done here
         if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
