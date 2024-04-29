@@ -312,7 +312,7 @@
                         double d2xyz[3][2]; // squares of difference coordinates with the corners
                         for (int d{0}; d < 3; ++d) {
                             for (int ii{0}; ii < 2; ++ii) { // ii=0:  leftmost grid point (pos 0.5h)
-                                                              // ii=1: rightmost grid point (pos 3.5h)
+                                                            // ii=1: rightmost grid point (pos 3.5h)
                                 double const grid_point = (target_block_coords[d]*4.0 + ii*3 + 0.5)*grid_spacing[d];
                                 d2xyz[d][ii] = pow2(grid_point - atom_pos[d]);
                             } // ii
@@ -346,7 +346,7 @@
                       } else { // nci
 //                        if (echo > 9) std::printf("# target block #%i at %s is outside\n", icube, str(target_block_coords));
                           // assert(0 == nci);
-                          assert(center_distance2 > r2block_circumscribing_sphere && "enlarge +green_function.projection.radius"); // an projection sphere fell between the corners
+                          assert(center_distance2 > r2block_circumscribing_sphere && "enlarge +green_function.projection.radius"); // a projection sphere fell between the corners
                       } // nci
                       ++nci_stats[nci];
 

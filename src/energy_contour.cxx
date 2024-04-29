@@ -390,24 +390,24 @@ namespace energy_contour {
         if (nEpoints < 2) warn("unable to eval a meaningful response density with less than 2 energy points, found %d", nEpoints);
 
 
-        view2D<double> rho(nblocks, n4x4x4, 0.0); // density
-        view2D<double> res(nblocks, n4x4x4, 0.0); // response density
+        view2D<double> rho_444(nblocks, n4x4x4, 0.0); // density
+        view2D<double> rho_res(nblocks, n4x4x4, 0.0); // response density
         res_point = (zero != res_point) ? 1./res_point : 1;
         for (uint32_t ib{0}; ib < nblocks; ++ib) {
             for (int i444{0}; i444 < 64; ++i444) {
-                rho(ib,i444) = rho_c(ib,i444).real();
-                res(ib,i444) = (res_c(ib,i444)*res_point).real();
+                rho_444(ib,i444) = rho_c(ib,i444).real();
+                rho_res(ib,i444) = (res_c(ib,i444)*res_point).real();
             } // i444
         } // ib
 
         {
-            auto const rho_integral = mpi_parallel::sum(sum(rho[0], nblocks*n4x4x4), comm)*dV;
+            auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], nblocks*n4x4x4), comm)*dV;
             if (echo + check > 3) std::printf("# solved density has %g electrons\n", rho_integral);
-         // if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho[0], nblocks*n4x4x4));
+         // if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_444[0], nblocks*n4x4x4));
         }
 
         {
-            auto const rho_integral = mpi_parallel::sum(sum(res[0], nblocks*n4x4x4), comm)*dV;
+            auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], nblocks*n4x4x4), comm)*dV;
             if (echo + check > 3) std::printf("# solved response density has %g electrons\n", rho_integral);
             // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
         }
@@ -416,7 +416,7 @@ namespace energy_contour {
 
         // interpolation density from 4*4*4 to 8*8*8 block could be done here
         if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
-        parallel_poisson::block_interpolation(rho_888, rho[0], pg, echo, 1., "density");
+        parallel_poisson::block_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
 
         {
             auto const rho_integral = mpi_parallel::sum(sum(rho_888, nblocks*size_t(8*8*8)), comm)*dV;

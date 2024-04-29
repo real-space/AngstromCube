@@ -409,15 +409,16 @@ Lines in a control file are either
     \item comments with \ttt{\#!} which appear in the log output or
     \item $variablename$\ttt{=}$value$
 \end{itemize}
-where $value$ is the string between \ttt{=} and the line end and may contain whitespace characters.
+where $value$ is the string between \lq\ttt{=}\rq and the line end and may contain whitespace characters.
 \\
 Mind: We must not place \ttt{+} in front of $variablename$ when specified in a control file!
-We may add blanks after \ttt{=} for numeric values but not before the \ttt{=}.
+We may add blanks after \lq\ttt{=}\rq for numeric values but not before the \lq\ttt{=}\rq.
 \\
 A repeated $variablename$ will launch a warning about redefinition, even if the value is unchanged. Try
 \begin{verbatim}
 ./a43 +a=5 +a=5
 \end{verbatim}
+Variable names may contain any character except \lq\ttt{=}\rq.
 
 \subsubsection{List of Control Variables} \label{sec:list-of-control-variables}
 %
@@ -1210,25 +1211,107 @@ Further, we can try to run the experimental feature for non-collinear magnetism 
 we can also check the performance of the action alone for real numbers by \ttt{+green\_function.benchmark.complex=0} while the default is \ttt{=1}.
 
 \subsection{Green experiments} \label{sec:green-experiments}
-This module is designed to verify that the \ac{DFT} Hamiltonian loaded from file is implemented equivalent to
-where the file was written.
-It works best, if we still have the logg files from the generation process and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
+The module \ttt{green\_experiments} is designed to verify that the \ac{DFT} Hamiltonian loaded from file
+is implemented equivalent to where the file was written.
+It works best if we still have the logg files from the generation process of the \ttt{Hmt.xml} file 
+and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
 The two different ways implemented to find the spectrum are
 \begin{itemize}
   \item by inversion,
   \item by diagonalization.
 \end{itemize}
 In the inversion approach, the Green function is found by \ttt{tfQMRgpu} at various $\vec{k}$-points
-and a dense set of energy parameters $E$.
+and a very dense set of energy parameters $E$ with a constant imaginary part.
 The result is a heatmap on the strength of the resonance, 
 i.e.~the integrated trace of the imaginary part of the found Green function.\\
 For the diagonalization approach the \ttt{action\_t} which usually represents $\hat A = \hat H - E\cdot \hat S$ is duplicated into $\hat H = 1\cdot \hat H - 0\cdot\hat S$ and $\hat S = 0\cdot \hat H - (-1)\cdot\hat S$.
-The operators enter an iterative Davidson diagonalization procedure. For small grids (up to $12 \times 12 \times 12$ grid points) a dense matrix diagonalization routine can be called to find the exact spectrum directly.
+Both operators, $\hat H$ and $\hat S$, enter an iterative Davidson diagonalization procedure. For small grids (up to $12 \times 12 \times 12$ points on the coarse grid) a dense matrix diagonalization routine can be called instead to find the exact spectrum directly.
 \begin{verbatim}
 ./green --test green_experiments
 \end{verbatim}
 
-\todo[inline]{describe handling}
+\subsection{Parallel SCF Runs}
+The main module for \ac{MPI}-parallelized \ac{SCF} runs is \ttt{parallel\_potential}.
+It works very similar to \ttt{self\_consistency}, however, the only available Poisson solver
+is a conjugate gradients method (\ttt{poisson.method=cg}) with an \ac{MPI}-parallelized 16th-order finite difference Laplacian stencil.
+Internally, densities and potentials are treated on the dense grid, i.e.~$8 \times 8 \times 8$ grid points form a block and the FD-stencil has a range of one block towards each of the six Cartesian directions.
+Before the parallelized electronic structure solver \ttt{green\_solver} is called, the effective potential is
+reduced to the coarse grid by averaging over eight adjacent grid points to generate blocks of $4 \times 4 \times 4$ grid points. Similarly, the new density is interpolated in a tri-linear fashion to blocks of $8 \times 8 \times 8$ after the solver. Details of the solver are discussed in the following section.
+
+\newpage
+
+\section{Parallel Electronic Structure Solver}
+Different from most conventional \ac{DFT} codes
+the new density is computed from a given potential using the Green function method,
+i.e.~the new density is not given by a summation over bands over the absolute square of wave functions,
+but it is a energy contour integration over the imaginary part of the diagonal of the Green function.
+
+\subsection{Energy Contour Integration}
+Since a \ac{DFT}-Hamiltonian is Hermitian by construction, its eigenvalue spectrum lies on the real axis.
+The energy contour integration is a mathematically elegant way to avoid an integration over singular values
+which would occur if we tried to integrate
+\begin{equation}
+	\int\limits_{-\infty}^{E\um{Fermi}} \ \mathrm d E (\hat H - E \hat S)^{-1}
+\end{equation}
+since $(\hat H - E \hat S)$ diverges when $E$ comes close to a generalized real-valued eigenvalue.
+The method foresees a contour path around the problematic regions on the real axis
+which leads to a set of energy points with a nonzero imaginary part and corresponding complex weights.
+The KKR multiple scattering Green function methods have explored this method. 
+\todo{References needed}.
+At each energy point, the diagonal elements of the Green function $\hat G(E) = (\hat H - E \hat S)^{-1}$ need to be found.
+
+\noindent
+In addition to that boundary conditions may require an additional integration in reciprocal space ($\vec k$-points)
+where the number of sampling points of the Brillouin zone may be chosen larger, the closer $E$ is to the Fermi level (not yet implemented).
+Each $(E,\vec k)$-point can be solved independently of each other and therefore is a potential degree of parallelism which is so far not exploited due to the expected difficult load balancing of these tasks. The following subsection will shine some lights on why imbalances in the runtime are to be expected.
+
+\todo{insert typical path SVG picture}
+
+\subsection{Green Solver}
+The heart of the \fullcodename{} code is the \ac{MPI}-parallelized Green function solver,
+implemented in the comparably shallow wrapper module \ttt{green\_solver}, 
+the central module \ttt{green\_action} making use of the header-only \ttt{tfQMRgpu} library \cite{tfQMRgpu-preprint}
+which accepts an action operator $\hat A_{\vec k}(E) := (\hat H_{\vec k} - E\hat S_{\vec k})$, henceforth abbreviated simply $\hat A$.
+The transpose-free Quasi Minimal Residual method (tfQMR) solves the linear problem $\hat A \cdot \hat X = \hat B$ where in our case $\hat X \equiv \hat G$ is the Green function and the right hand sides $\hat B \equiv \mathbf{1}$ are a unit matrix.
+
+\noindent
+The preparation modules \ttt{green\_function}, \ttt{kinetic\_plan} and \ttt{dyadic\_plan} offer methods create data structures that allow the action $\hat A$ to be applied to a selected set of columns of the overall Green function $\hat G(\vec r, \vec r')$ where also for $\hat G$ the index pair $(E,\vec k)$ is suppressed for clarity of the notation.
+The columns are distributed over all \ac{MPI} processes so that at the end of a solver run, a Green function element for each $\vec r'$ of the entire simulation grid has been calculated.
+To allow efficient bookkeeping, we group $4 \times 4 \times 4$ grid points together to form a so-called \emph{cube}.
+It may differ from a real cube in space if the (Cartesian) grid spacings are anisotropic.
+Furthermore, we allow several (currently up to $2^{16}=65536$) cubes to be processed by each \ac{MPI} rank.
+
+The prepared data structures help to compute the product $\hat A \cdot \hat G\um{trial}$ which does not return a unit operator until the iterative solver has converged. The multiplication routines are making extensive use of sparsity of both, $\hat A$ and $\hat G$. Sparsity of $\hat G$ arises from truncation: Green function elements are not considered if 
+\begin{equation}
+	G(\vec r,\vec r') = 0 \  \text{for} \  |\vec r - \vec r'| > R\um{trunc}
+\end{equation}
+Also here, grouping of $4 \times 4 \times 4$ grid points $\vec r$ leads to a block-sparsity of $\hat G$ with a block size of $64 \times 64$.
+
+Furthermore, $\hat A$ inherits sparsity from $\hat H$ and $\hat S$:
+\begin{equation}
+	\hat A := \hat T\um{FD} + \left(V\um{eff}(\vec r) - E\right) + \sum_{aij} \braketop{\tilde p^{[a]}_i}{(h^{[a]}_{ij} - E\ s^{[a]}_{ij})}{\tilde p^{[a]}_j}
+\end{equation}
+The finite-difference approximated kinetic energy operator ($\hat T\um{FD}$) contained in $\hat H$ has a sparse matrix representation
+that can be described by its stencil. Stencils with $8\cdot 6 + 1 = 49$ points and $25$ points are implemented in \ttt{green\_kinetic} for isolated and periodic boundary conditions, respectively.
+Due to the real-space representation the local effective potential operator reduces to a mere multiplication with $V\um{eff}(\vec r)$, see \ttt{green\_potential}.
+Depending on the atomic geometry and projector radii the \ac{PAW}-pseudized Hamiltonian $H(\vec r,\vec r')$ and its overlap operator may not be sparse in the sense of zeros in a dense matrix representation,
+however, the combined dyadic parts of $\hat H - E\hat S$ are implemented in a low-rank update scheme (c.f.~\ttt{green\_dyadic}) while exploiting sparsity arising from the localization of atomic \ac{PAW} projector functions $\tilde p$.
+
+\noindent
+The iterative solver algorithm implemented in \ttt{tfQMRgpu} may differ significantly in terms of the number of iterations needed to converge all column residuals below a given threshold. Iteration counts will be larger the closer an energy point $E$ is to eigen-energies on the real axis. For a metallic system, energy points at the Fermi level are expected to exhibit very large iteration counts as the condition number of $\hat A$ is high. Metallicity, however, can occur as a localized phenomenon which could be reflected in imbalance between \ac{MPI} ranks solving for different parts of space.
+Furthermore, imbalance between $\vec k$-points is expected, in particular close to the Fermi surface.
+
+
+\subsection{Memory Requirements}
+The iterative solving method $tfQMR$ requires to hold eight to ten fields of the size of $X$ in memory. Let's assume $10$ fields to make up for unaccounted overheads.
+As $X$ represents the block-sparse Green function, the main \ac{GPU} memory consumption per grid point ($mem\um{total}$) for a large simulation volume hence depends mostly on the truncation radius $R\um{trunc}$ in units of the grid spacing $h$
+\begin{equation} 
+	mem\um{total} = 10 \cdot \frac{4\pi}{3}(R\um{trunc}/h)^3 \cdot \unit[16]{Byte}
+\end{equation}
+assuming double precision complex numbers.
+For small simulation volumes ($V\um{cell} \ll R\um{trunc}^3$) the total memory consumption is quadratic in the number of grid points. In the transition region between small and large volumes the curve depends on the chose boundary conditions, c.f.~Fig..ToDo
+
+\todo{measure Green function memory as a function of size}
 
 \newpage
 %
