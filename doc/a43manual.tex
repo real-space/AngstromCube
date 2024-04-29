@@ -1303,15 +1303,42 @@ Furthermore, imbalance between $\vec k$-points is expected, in particular close 
 
 
 \subsection{Memory Requirements}
-The iterative solving method $tfQMR$ requires to hold eight to ten fields of the size of $X$ in memory. Let's assume $10$ fields to make up for unaccounted overheads.
-As $X$ represents the block-sparse Green function, the main \ac{GPU} memory consumption per grid point ($mem\um{total}$) for a large simulation volume hence depends mostly on the truncation radius $R\um{trunc}$ in units of the grid spacing $h$
+The iterative solving method \emph{tfQMR} requires to hold eight fields of the size of $X$ in memory. Let's assume $10$ fields to make up for unaccounted overheads.
+As $X$ represents the block-sparse Green function, the main \ac{GPU} memory consumption per grid point ($mem\um{total}$) for a large simulation volume $V$ hence depends mostly on the truncation radius $R\um{trunc}$ in units of the grid spacing $h$
 \begin{equation} 
-	mem\um{total} = 10 \cdot \frac{4\pi}{3}(R\um{trunc}/h)^3 \cdot \unit[16]{Byte}
+	mem\um{total} = 8 \cdot \min\{V\um{cell}, \nicefrac{4}{3} \pi R^3\um{trunc} \}/h^3 \cdot \unit[16]{Byte} \label{eqn:memory}
 \end{equation}
 assuming double precision complex numbers.
-For small simulation volumes ($V\um{cell} \ll R\um{trunc}^3$) the total memory consumption is quadratic in the number of grid points. In the transition region between small and large volumes the curve depends on the chose boundary conditions, c.f.~Fig..ToDo
+For small simulation volumes ($V\um{cell} \ll R\um{trunc}^3$) the total memory consumption is quadratic in the number of grid points. In the transition region between small and large volumes the curve depends on the chose boundary conditions, c.f.~Fig.~\ref{fig:memory-consumption}.
 
-\todo{measure Green function memory as a function of size}
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=.99\textwidth]{fig/memory_consumption}
+	\label{fig:memory-consumption}
+	\caption{Measured memory consumption per grid point as a function of the cube edge of the simulation volume.
+	Here, Green function elements are stored in \ttt{fp32}, i.e.~4 Byte per floating point value.
+	When the truncation sphere (radius of $21.2$ grid spacings) fits into the cubic simulation volume, the transition from the cubic volume-dependence to a constant depends on the boundary conditions.
+	In the linear-scaling regime, we can expect a memory requirement for about $110$ real numbers per grid point in the volume and per grid point inside the truncation sphere.}
+\end{figure}
+
+\subsection{Discussion of the $4 \times 4 \times 4$ Block structure}
+%
+From the block structure of $4 \times 4 \times 4$ grid points there is some overhead to the memory consumption model in Eq.~\ref{eqn:memory}. Overheads mainly stem from the description of the truncation sphere in terms of blocks.
+For small truncation radii these can be severe, however, the effect becomes weaker for large $R\um{trunc}$.
+For example, the memory overhead factors for truncation radii $\{10.6, 21.2, 31.8, 42.3\}$ grid spacings are ${2.94, 1.64, 1.47, 1.37}$, respectively. So in the smallest case we need almost $3\times$ as much memory: $19$ blocks are fully inside the truncation sphere while $208$ blocks need to be stored due to partial hits. A partial hit occurs when any of the $64$ source grid points is closer to any of the $64$ target grid points than the truncation radius, but not all of them.
+In the largest case which depending on the system might be converged w.r.t.~the truncation radius, the overhead is still about $37\,\%$. However, the advantage from negligible bandwidths spent on loading index lists should remedy these extra costs.
+Certainly, the overheads would be much smaller if we grouped $2\times 2\times 2$ grid points into a \emph{cube}, however,
+other advantages related to the on-the-fly evaluation of \ac{PAW} projectors and in the register-data-reusing implementation of the finite-difference kinetic energy might be weakened, hindering performance on the other end.
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=.99\textwidth]{fig/memory_consumption_overhead}
+	\label{fig:memory-consumption-overhead}
+	\caption{Number of blocks fully inside (black) and number of block with partial hits (red) as functions of the truncation radius.
+	A simple model for the block inside should show a $R^3$-dependence, for the partial hits $R^2$. 
+	The memory (solid pink line) is given in MByte for 64 right hand side and \ttt{double} precision complex numbers. 
+	The memory overhead compared to the analytical truncation sphere volume is shown in blue.} 
+\end{figure}
 
 \newpage
 %
