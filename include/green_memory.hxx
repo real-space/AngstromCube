@@ -12,6 +12,9 @@ namespace green_memory {
     void* malloc(size_t const size_in_Bytes, char const *const name=""); // declaration only
     void free(void* ptr, char const *const name=""); // declaration only
 
+    size_t total_memory_now(); // declaration only
+    size_t high_water_mark(); // declaration only
+
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_memory

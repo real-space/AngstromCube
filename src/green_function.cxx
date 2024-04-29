@@ -1008,9 +1008,14 @@ namespace green_function {
         } // mag
 
         // prepare for the MPI exchange of potential blocks
-        p.potential_requests = green_parallel::RequestList_t(p.global_target_indices,  // requests
-                                                             p.global_source_indices, // offerings
-                                                             owner_rank.data(), n_blocks, echo, "potential");
+        int const pot_exchange = control::get("green_function.potential.exchange", 1.);
+        if (pot_exchange) {
+            p.potential_requests = green_parallel::RequestList_t(p.global_target_indices,  // requests
+                                                                 p.global_source_indices, // offerings
+                                                                 owner_rank.data(), n_blocks, echo, "potential");
+        } else {
+            warn("# +green_function.potential.exchange=%d --> skip\n", pot_exchange);
+        }
 
         FILE* svg{nullptr};
 #ifdef    GREEN_FUNCTION_SVG_EXPORT

@@ -1632,6 +1632,12 @@ namespace parallel_potential {
 
         } while (scf_run); // self-consistency loop 
 
+        if (1) { // scope: report GPU memory consumption
+            int const memory_show = control::get("green_memory.show", 0.);
+            if (memory_show) std::printf("# rank#%i green_memory now= %.9f GByte, max= %.9f GByte\n",
+                    me, green_memory::total_memory_now()*1e-9, green_memory::high_water_mark()*1e-9);
+        } // scope
+
         stat += live_atom_update("memory cleanup", na);
         return stat;
     } // SCF

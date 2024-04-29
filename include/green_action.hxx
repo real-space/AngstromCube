@@ -87,7 +87,7 @@ namespace green_action {
                 auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
                 {
                     simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m); // uses MPI_COMM_WORLD
-                    if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
+                    if (echo > 5) std::printf("# tfqmrgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
                     if (echo > 9) std::printf("# rank#%i try to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
                 }
@@ -100,6 +100,17 @@ namespace green_action {
             }
 #else  // HAS_TFQMRGPU
             if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+            // memory estimate for tfQMRgpu
+            // 7*nnzbX*2*LM*LN*sizeof(real_t)
+            // +nnzbX*2*LM*LN*sizeof(float)  // v3
+            // +nnzbB*2*LM*LN*sizeof(real_t) // v2
+            // +5*nCols*2*LN*sizeof(real_t)
+            // +2*(1ul << l2nX)*nCols*1.5*LN*sizeof(double)
+            // +2*nCols*LN*sizeof(double)
+            // +nnzbX*sizeof(uint16_t)
+            // +nnzbB*sizeof(uint32_t)
+            // +nCols*sizeof(int8_t);
+
 #endif // HAS_TFQMRGPU
         } // constructor
 
@@ -189,24 +200,23 @@ namespace green_action {
         } // 0 iterations
 
 #ifdef    HAS_TFQMRGPU
-        if (iterations > 0) {
+        if (iterations >= 0) {
             if (nnzbX < 1) {
                 if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
                 return 0;
             }
-            int const maxiter = iterations;
             if (echo > 4) std::printf("\n# call tfqmrgpu::solve\n\n");
             assert(nullptr != memory_buffer_);
             double time_needed{1};
             { // scope: benchmark the solver
                 SimpleTimer timer(__FILE__, __LINE__, __func__, echo*0);
 
-                tfqmrgpu::solve(*this, memory_buffer_, 1e-9, maxiter, 0, true);
+                tfqmrgpu::solve(*this, memory_buffer_, 1e-9, iterations, 0, true);
 
                 time_needed = timer.stop();
             } // timer
             if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
-                                                               p.residuum_reached,    p.iterations_needed);
+                                                               p.residuum_reached,  p.iterations_needed);
             if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
             if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
             // export solution
