@@ -27,9 +27,9 @@
 #include "control.hxx" // ::get
 // #include "print_tools.hxx" // printf_vector
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include <fstream> // std::ofstream
-#endif
+#endif // NO_UNIT_TESTS
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -74,7 +74,7 @@ namespace geometry_analysis {
       // largest entry is 260 --> 2*260 pm * 1.25 = 6.5 Ang
   } // default_half_bond_length
 
-// #define   GEO_ORDER_N2
+//#define GEO_ORDER_N2
 
 #ifndef   GEO_ORDER_N2
   template <typename int_t>
@@ -1135,9 +1135,9 @@ namespace geometry_analysis {
       return stat;
   } // analysis
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_analysis(int const echo=9) {
       status_t stat(0);

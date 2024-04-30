@@ -77,8 +77,6 @@
         std::swap(this->sparse_SHOadd       , rhs.sparse_SHOadd       );
         std::swap(this->sparse_SHOsum       , rhs.sparse_SHOsum       );
         std::swap(this->global_atom_ids     , rhs.global_atom_ids     );
-        // std::swap(this->global_atom_index   , rhs.global_atom_index   );
-        // std::swap(this->original_atom_index , rhs.original_atom_index );
         std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
         this->update_flop_counts();
         return *this;
@@ -167,8 +165,6 @@
       , uint32_t const nrhs
       , uint32_t const *const rowStartGreen
       , uint16_t const *const colIndexGreen
-    //   , int16_t const (*internal_target_coords)[3+1]
-    //   , int32_t const global_internal_offset[3]
       , float const (*rowCubePos)[3+1]
       , double const r_block_circumscribing_sphere
       , double const max_distance_from_center

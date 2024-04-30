@@ -45,9 +45,9 @@
 
 namespace green_experiments {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
 
   template <typename real_t=double, int Noco=1>
@@ -1040,7 +1040,7 @@ namespace green_experiments {
       // This leads to up to 3 different weights for n even: {0, 8, 24}
       //  and up to 6 different weights for n odd: {0, 1, 6, 8, 12, 24}
 
-#ifdef CODE_GENERATION
+#ifdef    CODE_GENERATION
       int8_t const rot_mat[24*3*3] = {
          1,  0,  0,  0,  1,  0,  0,  0,  1,
         -1,  0,  0,  0, -1,  0,  0,  0,  1,

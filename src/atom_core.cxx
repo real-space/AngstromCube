@@ -450,7 +450,7 @@ namespace atom_core {
               }
           } // unoccupied
       } // i
-#endif
+#endif // 0
 
       auto const show_state_diagram = control::get("atom_core.show.state.diagram", -1.); // -1:do not show, 5: show with 5%
       if (show_state_diagram >= 0) {
@@ -636,9 +636,21 @@ namespace atom_core {
   } // neutral_atom_total_energy
 
 
-#ifdef  NO_UNIT_TESTS
+
+
+
+
+
+
+
+
+
+
+
+
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_neutral_atom_total_energy(int const echo=0) {
       if (echo < 7) return 0;
@@ -706,11 +718,10 @@ namespace atom_core {
         double const Z
       , float const epsilon=1e-6
       , int const echo=3
-  )
+  ) {
     // Apply Ramer-Douglas-Peucker lossful compression
     // to the input files full_pot/Zeff.00Z
     // with  output files      pot/Zeff.00Z
-  {
       status_t stat(0);
       auto & g = *radial_grid::create_radial_grid(radial_grid::default_points(Z));
       std::vector<double> y(g.n, 0.0);

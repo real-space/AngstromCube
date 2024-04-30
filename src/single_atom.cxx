@@ -3195,7 +3195,7 @@ namespace single_atom {
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_cmp, sigma_compensator);
 
-#ifdef DEVEL
+#ifdef    DEVEL
             if (echo > 19) {
                 std::printf("\n## r, aug_density, true_density, smooth_density, spherical_density:\n");
                 for (int ir = 0; ir < rg[SMT].n; ++ir) {

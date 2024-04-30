@@ -248,9 +248,9 @@ namespace sho_potential {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_local_potential_matrix_elements(int const echo=5) {
       status_t stat(0);
@@ -467,7 +467,7 @@ namespace sho_potential {
 
                   stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // 0:mute
                   // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
                   if (echo > 9) {
                       int mzyx{0};
                       for     (int mu = 0; mu <= numax_V; ++mu) { // shell index for order_Ezyx
@@ -508,8 +508,8 @@ namespace sho_potential {
       } // scope: method 'between'
 
 
-// #define SCAN_PERCENTAGES
-#ifdef  SCAN_PERCENTAGES
+//#define SCAN_PERCENTAGES
+#ifdef    SCAN_PERCENTAGES
     // (irregular indentation)
     auto const percentage_min = control::get("sho_potential.test.method.on_site.percentage", 25.); // start with 25%, default
     auto const percentage_inc = control::get("sho_potential.test.method.on_site.percentage.inc", 10.); // steps of 10%
@@ -534,9 +534,9 @@ namespace sho_potential {
 
           auto const coarsest_grid_spacing = std::max(std::max(g.h[X], g.h[Y]), g.h[Z]);
           auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing); // in Hartree
-#ifndef SCAN_PERCENTAGES
+#ifndef   SCAN_PERCENTAGES
           auto const percentage = control::get("sho_potential.test.method.on_site.percentage", 25.); // specific for method=On_Site
-#endif
+#endif // SCAN_PERCENTAGES
           auto const kinetic_energy = (percentage*0.01) * highest_kinetic_energy;
 
           if (echo > 3) std::printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
@@ -626,7 +626,7 @@ namespace sho_potential {
                   for (int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
                       sho_overlap::overlap_matrix(ovl[d].data(), distance, nucut_j, nucut_k, sigmas[ja], sigmas[ia]);
-#ifdef DEVEL
+#ifdef    DEVEL
                       if (echo > 19) {
                           std::printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);
                           for (int j = 0; j < nucut_j; ++j) {

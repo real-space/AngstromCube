@@ -16,9 +16,9 @@
 #include "control.hxx" // ::get
 #include "recorded_warnings.hxx" // warn
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "simple_math.hxx" // ::random<real_t>
-#endif
+#endif // NO_UNIT_TESTS
 
 namespace dense_solver {
 
@@ -42,7 +42,7 @@ namespace dense_solver {
 
       std::vector<real_t> eigvals(nB, 0.0);
       int const ovl_eig = control::get("dense_solver.test.overlap.eigvals", 0.);
-#ifdef DEVEL
+#ifdef    DEVEL
       char const hermitian = *control::get("dense_solver.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
 #endif // DEVEL
       real_t const E_imag = control::get("electronic.temperature", 9.765625e-4);
@@ -80,7 +80,7 @@ namespace dense_solver {
               if (int(stat_inv)) warn("inversion failed for %s, E= %g %s", x_axis, E_real*eV,_eV);
               stat += stat_inv;
 
-#ifdef DEVEL
+#ifdef    DEVEL
               if (check) {
                   real_t devN(0), devT(0);
                   for (int iB = 0; iB < nB; ++iB) {
@@ -134,7 +134,7 @@ namespace dense_solver {
           auto const matrix_name = h0s1 ? "overlap" : "Hamiltonian";
           real_t const  u = h0s1 ?  1 :  eV; // output unit conversion factor 
           auto   const _u = h0s1 ? "" : _eV; // unit symbol
-#ifdef DEVEL
+#ifdef    DEVEL
           // display H and S
           if (echo > 28 + h0s1) {
               std::printf("\n# %s matrix (%s)", matrix_name, _u);
@@ -322,9 +322,9 @@ namespace dense_solver {
   template // explicit template instantiation for float
   status_t solve(view3D<float> &, char const*, int, int, double*);
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename complex_t>
   status_t test_inverse(int const echo=0, int const N=9) {

@@ -17,7 +17,7 @@
 
 namespace sigma_config {
 
-#define EXPERIMENTAL
+#define   EXPERIMENTAL
 
   char const* default_config(unsigned const iZ) { // compiled into the code
         // returns char const* in constant memory
@@ -81,7 +81,7 @@ namespace sigma_config {
             case 55: return "5s 2 6s 1 0 5p* 6 5d | 2.2 sigma .61";                     // Cs
             case 56: return "5s 2 6s 2 5p* 6 5d | 2.2 sigma .645";                      // Ba
             case 57: return "5s 2 6s 2 5p* 6 5d 1 0 4f | 2.45 sigma .59";               // La
-#ifdef EXPERIMENTAL
+#ifdef    EXPERIMENTAL
             case 58: return "5s 2 6s 2 5p* 6 5d 0 4f 2 0 | 2.335 sigma .65";            // Ce
             case 59: return "5s 2 6s 2 5p* 6 5d 0 4f 3 0 | 2.49 sigma .686";            // Pr
             case 60: return "5s 2 6s 2 5p* 6 5d 0 4f 4 0 | 2.45 sigma .7";              // Nd
@@ -112,7 +112,7 @@ namespace sigma_config {
             case 84: return "6s* 2 6p 3 1 5d 10 | 2.4 sigma .6 V=sinc";              // Po
             case 85: return "6s* 2 6p* 3 2 5d* 10 | 2.3 sigma .54";                     // At
             case 86: return "6s* 2 6p* 6 6d | 2.29 sigma .54";                          // Rn
-#ifdef EXPERIMENTAL
+#ifdef    EXPERIMENTAL
             case 87: return "6s 2 7s 1 0 6p 6 7p 2e-99 | 2. sigma .5";                  // Fr
             case 88: return "7s 2 7p | 2. sigma .5";                                    // Ra
             case 89: return "7s 2 7p 6d 5f 1 0 | 2. sigma .5";                          // Ac
@@ -521,9 +521,9 @@ namespace sigma_config {
         return e;
     } // get
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_parsing(int const echo=0) {
 
@@ -543,7 +543,7 @@ namespace sigma_config {
 
           int const Z_max = std::min(127, -iZ_show);
           // parse all elements in [1, Z_max]
-#ifdef EXPERIMENTAL
+#ifdef    EXPERIMENTAL
           if (echo > 8) std::printf("\n\n# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
 
           if (echo > 2) std::printf("\n\n# parse EXPERIMENTAL elements 58--70, 87--%d\n\n", Z_max);
@@ -576,6 +576,6 @@ namespace sigma_config {
       return stat;
   } // all_tests
 
-#endif // UNIT_TESTS
+#endif // NO_UNIT_TESTS
 
 } // namespace sigma_config

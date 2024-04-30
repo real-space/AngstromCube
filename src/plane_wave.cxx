@@ -39,7 +39,7 @@
 #include "dense_operator.hxx" // ::dense_operator_t
 #include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::needs_complex
 
-#ifdef DEVEL
+#ifdef    DEVEL
     #include "print_tools.hxx" // printf_vector(fmt, vec, n [, final, scale, add])
 #endif // DEVEL
 
@@ -236,14 +236,12 @@ namespace plane_wave {
       , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
       , int const nG[3] // half the number of plane wave entries in the potential
       , double const norm_factor // normalization for the cell volume
-
       , int const natoms_PAW // number of PAW centers
       , view2D<double> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
       , double const grid_offset[3] // origin of atomic positions w.r.t. the local potential
       , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
       , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
       , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
-
       , double const kpoint[4] // vector inside the Brillouin zone, all 3 components in [-.5, .5], 4th component is the weight
       , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
       , int & nPWs // export number of plane waves
@@ -286,7 +284,7 @@ namespace plane_wave {
                                   , kv[0]*reci[1][0] + kv[1]*reci[1][1] + kv[2]*reci[1][2]
                                   , kv[0]*reci[2][0] + kv[1]*reci[2][1] + kv[2]*reci[2][2]};
               double const g2 = pow2(gv[0]) + pow2(gv[1]) + pow2(gv[2]);
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
               if (echo > 91) std::printf("# %s suggest PlaneWave(%d,%d,%d) with |k+G|^2= %g Ry inside= %d\n", __func__, iGx,iGy,iGz, g2, g2 < 2*ecut);
 #endif // FULL_DEBUG
               if (g2 < 2*ecut) {
@@ -311,7 +309,7 @@ namespace plane_wave {
       bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (run_solver[1] && echo > 6) { // only if direct solver is active
           auto const time = 1e-9*pow3(double(nPWs)) + 2e-6*pow2(double(nPWs)); // estimator for MacBook Pro with M1 max processor
           char const *_seconds="seconds"; auto seconds=1.;
@@ -330,7 +328,7 @@ namespace plane_wave {
           auto compare_lambda = [](PlaneWave const & lhs, PlaneWave const & rhs) { return lhs.g2 < rhs.g2; };
           std::sort(pw_basis.begin(), pw_basis.end(), compare_lambda);
           } // timing
-#ifdef DEVEL
+#ifdef    DEVEL
           if (echo > 8) { // show kinetic energies in ascending order
               std::printf("# %s|k+G|^2 =", x_axis);
               for (int i = 0; i < std::min(15, nPWs); ++i) {
@@ -371,7 +369,7 @@ namespace plane_wave {
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
 
       view2D<complex_t> P_jl(nB, nC, 0.0); //  <k+G_i|\tilde p_{la lb}>
-#ifdef DEVEL
+#ifdef    DEVEL
       std::vector<double>   P2_l(nC, 0.0); // |<k+G_i|\tilde p_{la lb}>|^2
 #endif // DEVEL
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
@@ -401,7 +399,7 @@ namespace plane_wave {
                   for (int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
                       P_jl(jB,lC) = complex_t(phase * pzyx[lb] * fgf * norm_factor);
-#ifdef DEVEL
+#ifdef    DEVEL
                       P2_l[lC] += std::norm(pzyx[lb]);
 #endif // DEVEL
                   } // lb
@@ -427,7 +425,7 @@ namespace plane_wave {
 
       } // jB
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 29) {
           for (int la = 0; la < natoms_PAW; ++la) {
               std::printf("# ^2-norm of the projector of atom #%i ", la);
@@ -444,7 +442,7 @@ namespace plane_wave {
       int const nBa = align<4>(nB); // memory aligned main matrix stride
       view3D<complex_t> HSm(2, nB, nBa, complex_t(0)); // get memory for 1:Hamiltonian matrix H, 0:Overlap S
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 9) std::printf("# assume dimensions of Vcoeff(%d, %ld, %ld, %ld)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
       assert( nG[0] <= Vcoeff.stride() );
       assert( nG[1] <= Vcoeff.dim1() );
@@ -725,9 +723,9 @@ namespace plane_wave {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_Hamiltonian(int const echo=5) {
       status_t stat(0);
