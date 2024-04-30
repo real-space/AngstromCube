@@ -54,7 +54,7 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.500000
-@timestamp def "Mon Apr 29 15:45:52 2024"
+@timestamp def "Tue Apr 30 10:29:52 2024"
 @r0 off
 @link r0 to g0
 @r0 type above
@@ -124,7 +124,7 @@
 @    xaxis  bar color 1
 @    xaxis  bar linestyle 1
 @    xaxis  bar linewidth 2.0
-@    xaxis  label "Number of grid points"
+@    xaxis  label "Number of grid points per cube edge"
 @    xaxis  label layout para
 @    xaxis  label place auto
 @    xaxis  label char size 1.500000
@@ -247,7 +247,7 @@
 @    s0 hidden false
 @    s0 type xy
 @    s0 symbol 1
-@    s0 symbol size 0.490000
+@    s0 symbol size 0.650000
 @    s0 symbol color 1
 @    s0 symbol pattern 1
 @    s0 symbol fill color 0
@@ -292,11 +292,11 @@
 @    s0 errorbar riser clip off
 @    s0 errorbar riser clip length 0.100000
 @    s0 comment "memory_consumption.ppp.dat"
-@    s0 legend  "Periodic"
+@    s0 legend  "3 Periodic BCs"
 @    s1 hidden false
 @    s1 type xy
 @    s1 symbol 1
-@    s1 symbol size 0.490000
+@    s1 symbol size 0.650000
 @    s1 symbol color 2
 @    s1 symbol pattern 1
 @    s1 symbol fill color 0
@@ -341,7 +341,7 @@
 @    s1 errorbar riser clip off
 @    s1 errorbar riser clip length 0.100000
 @    s1 comment "memory_consumption.ppp.dat"
-@    s1 legend  "Isolated"
+@    s1 legend  "3 Isolated BCs"
 @    s2 hidden false
 @    s2 type xy
 @    s2 symbol 0
@@ -357,7 +357,7 @@
 @    s2 symbol skip 0
 @    s2 line type 1
 @    s2 line linestyle 2
-@    s2 line linewidth 3.0
+@    s2 line linewidth 4.0
 @    s2 line color 4
 @    s2 line pattern 1
 @    s2 baseline type 0
@@ -390,7 +390,7 @@
 @    s2 errorbar riser clip off
 @    s2 errorbar riser clip length 0.100000
 @    s2 comment "copy of set G0.S1"
-@    s2 legend  "Cubic"
+@    s2 legend  "Volume"
 @target G0.S0
 @type xy
 4 0.0047190625
@@ -439,24 +439,24 @@
 &
 @target G0.S2
 @type xy
-4 0.004
-8 0.032
-12 0.108
-16 0.256
-20 0.5
-24 0.864
-28 1.372
-32 2.048
-36 2.916
-40 4
-44 5.324
-48 6.912
-52 8.788
-56 10.976
-60 13.5
-64 16.384
-68 19.652
-72 23.328
-76 27.436
-80 32
+4 0.004096
+8 0.032768
+12 0.110592
+16 0.262144
+20 0.512
+24 0.884736
+28 1.404928
+32 2.097152
+36 2.985984
+40 4.096
+44 5.451776
+48 7.077888
+52 8.998912
+56 11.239424
+60 13.824
+64 16.777216
+68 20.123648
+72 23.887872
+76 28.094464
+80 32.768
 &

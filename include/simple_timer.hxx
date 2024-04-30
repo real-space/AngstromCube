@@ -4,14 +4,14 @@
 #include <cstdio> // std::printf
 #include <chrono> // std::chrono::high_resolution_clock
 #include <string> // std::string
-
-#include "status.hxx" // status_t
 #ifndef NO_UNIT_TESTS
   #include <vector> // std::vector<>
   #include <cstring> // std::strcmp
   #include <cassert> // assert
   #include "simple_stats.hxx" // ::Stats<T>
 #endif // NO_UNIT_TESTS
+
+#include "status.hxx" // status_t
 
 inline char const * strip_path(char const *const str=nullptr, char const search='/') {
     if (nullptr == str) return "";
@@ -56,9 +56,25 @@ inline char const * strip_path(char const *const str=nullptr, char const search=
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 namespace simple_timer {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef   NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
@@ -75,7 +91,7 @@ namespace simple_timer {
   inline int64_t fibonacci(int64_t const n) {
       if (n < 3) return (n > 0);
       return fibonacci(n - 1) + fibonacci(n - 2);
-  } // fibonacci
+  } // fibonacci (classical)
 
   inline int64_t fibonacci_nonrecursive(int const n) {
       if (n < 3) return (n > 0);
@@ -94,16 +110,17 @@ namespace simple_timer {
       num_t fib0{0}, fib1{1}, fibi;
       for (int i = 2; i <= n; ++i) {
           fibi = fib1 + fib0;
-          fib0 = fib1; fib1 = fibi; // prepare state for the next iteration
+          // swap for the next iteration
+          fib0 = fib1; 
+          fib1 = fibi;
       } // i
       return fibi;
   } // fibonacci (super fast)
 
-  inline status_t test_basic_usage(int const echo=3) {
-      int64_t result;
-      auto const inp = 40;
+  inline status_t test_basic_usage(int const echo=3, int const inp=40) {
       auto const reference = fibonacci_nonrecursive(inp);
       assert(reference == fibonacci_noarray(inp));
+      int64_t result;
       { // scope: create a timer, do some work, destroy the timer
           SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
           result = fibonacci(inp);
