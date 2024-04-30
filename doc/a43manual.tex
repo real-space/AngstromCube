@@ -1239,7 +1239,7 @@ The main module for \ac{MPI}-parallelized \ac{SCF} runs is \ttt{parallel\_potent
 It works very similar to \ttt{self\_consistency}, however, the only available Poisson solver
 is a conjugate gradients method (\ttt{poisson.method=cg}) with an \ac{MPI}-parallelized 16th-order finite difference Laplacian stencil.
 Internally, densities and potentials are treated on the dense grid, i.e.~$8 \times 8 \times 8$ grid points form a block and the FD-stencil has a range of one block towards each of the six Cartesian directions.
-Before the parallelized electronic structure solver \ttt{green\_solver} is called, the effective potential is
+Before the parallelized electronic structure solver (\ttt{green\_solver}) is called, the effective potential is
 reduced to the coarse grid by averaging over eight adjacent grid points to generate blocks of $4 \times 4 \times 4$ grid points. Similarly, the new density is interpolated in a tri-linear fashion to blocks of $8 \times 8 \times 8$ after the solver. Details of the solver are discussed in the following section.
 
 \newpage
@@ -1279,6 +1279,8 @@ Each $(E,\vec k)$-point can be solved independently of each other and therefore 
 	The \ttt{.bottom} path is sampled with $9$ points (smaller red circles on the left),
 	the part \ttt{.parallel} to the real axis is sampled with $33$ points plus
 	$9$ points to sample the \ttt{.fermidirac} distribution at the Fermi level.
+	Red circles indicate purely imaginary weights, green circles are real weights,
+	the circle area is proportional to the magnitude of the weight.
 	}
 \end{figure}
 
@@ -1327,16 +1329,16 @@ The iterative solver algorithm implemented in \ttt{tfQMRgpu} may differ signific
 Furthermore, imbalance between $\vec k$-points is expected, in particular close to the Fermi surface.
 
 
-\subsection{Memory Requirements}
+\subsection{Memory Requirements}\label{sec:memory-requirements}
 %
 The iterative solving method \emph{tfQMR} requires to hold eight fields of the size of $X$ in memory (no preconditioning assumed).
 As $X$ represents the block-sparse Green function, the minimal \ac{GPU} memory consumption per grid point ($mem\um{total}$) for a large simulation volume $V$ hence depends mostly on the truncation radius $R\um{trunc}$ in units of the grid spacing $h$
 \begin{equation} 
-	mem\um{total,min} = 8 \cdot \min\{V\um{cell}, \nicefrac{4}{3} \pi R^3\um{trunc} \}/h^3 \cdot \unit[16]{Byte} 	
+	mem\um{total,min} = 8 \cdot \min\{V\um{cell}, \nicefrac{4\pi}{3} R^3\um{trunc} \}/h^3 \cdot \unit[16]{Byte} 	
 	\label{eqn:memory}
 \end{equation}
-assuming double precision complex numbers.
-For small simulation volumes ($V\um{cell} \ll R\um{trunc}^3$) the total memory consumption is quadratic in the number of grid points. This means that the memory per \ac{RHS} grid points is proportional to the systems volume, c.f.~Fig.~\ref{fig:memory-consumption}. In the transition region between small and large volumes the curve depends on the chose boundary conditions.
+assuming double precision complex numbers. Here, $h^3$ is the simplified notation for $h_x \cdot h_y \cdot h_z$, the grid point volume.
+For small simulation volumes ($V\um{cell} \ll 4R\um{trunc}^3$) the total memory consumption is quadratic in the number of grid points. This means that the memory per \ac{RHS} grid points is proportional to the systems volume, c.f.~Fig.~\ref{fig:memory-consumption}. In the transition region between small and large volumes the curve depends on the chosen boundary conditions.
 Finally, in the linear-scaling regime we can expect a memory requirement for about $26.3$ real numbers per \ac{RHS} grid point and per grid point inside the truncation sphere. The minimum would be $16$ real numbers for the eight copies of $X$ with complex numbers.
 
 \begin{figure}[t]
@@ -1401,12 +1403,23 @@ Please consider the version after the given key.
 if performance is not a major focus. No NVIDIA-specific features have been used,
 so that a replacement of CUDA vs HIP (the AMD GPU programming model) should be straightforward. 
 
+\subsection{Future Plans}
+%
+\subsubsection*{Non-collinear magnetism}
+%
+Throughout the electronic structure solver (\ttt{green\_solver} and every module included by it)
+the code base is prepared for a doubling of the block sizes from $64$ to $128$ in order to
+include fully non-collinear representations of spin and/or spin-orbit coupling in a non-perturbative manner.
+However, currently neither the potential generator \ttt{parallel\_potential} nor the \ac{PAW}-related routines support this.
 
-
-
-
-
-
+\subsubsection*{Auto-converger}
+%
+Although the method has been designed to have as little expert-user-only knobs,
+there are still some very relevant convergence parameters as the grid spacing $h$, 
+the number of Brillouin zone sampling points and the truncation radius $R\um{trunc}$.
+Algorithms for an automatic choice of certain parameters can become quite complex and intervowen between code modules.
+Nevertheless, it could be worthwhile to define \ttt{=auto} as default value with the meaning that it will fully automatically
+be taken care of, in particular in terms of convergence of the results.
 
 \newpage
 %

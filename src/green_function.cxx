@@ -366,7 +366,7 @@ namespace green_function {
         , int const echo // =0 // log-level
         , int const Noco // =1
     ) {
-        if (echo > 0) std::printf("\n#\n# %s(%s)\n#\n\n", __func__, str(ng, 1, ", "));
+        if (echo > 1) std::printf("\n#\n# %s(ng=[%s])\n#\n\n", __func__, str(ng, 1, ", "));
 
         p.E_param = 0;
 
@@ -409,7 +409,7 @@ namespace green_function {
         p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, echo);
         // now owner_rank[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
-        if (echo > 0) std::printf("# total number of source blocks is %d\n", nrhs);
+        if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
 
         view2D<int32_t> global_source_coords(nrhs, 4, 0);
         p.nCols = nrhs;
@@ -433,7 +433,7 @@ namespace green_function {
                     max_global_source_coords[d] = std::max(max_global_source_coords[d], rhs_coord);
                 } // d
             } // irhs
-            if (echo > 0) std::printf("# all sources within (%s) and (%s)\n",
+            if (echo > 4) std::printf("# all sources within (%s) and (%s)\n",
                 str(min_global_source_coords), str(max_global_source_coords));
 
             for (int d = 0; d < 3; ++d) {
@@ -441,7 +441,7 @@ namespace green_function {
                 center_of_RHSs[d] = ((middle2*0.5)*4 + 2)*hg[d];
             } // d
 
-            if (echo > 0) std::printf("# internal and global coordinates differ by %s\n", str(global_internal_offset));
+            if (echo > 5) std::printf("# internal and global coordinates differ by %s\n", str(global_internal_offset));
 
 //          p.source_coords = get_memory<int16_t[4]>(nrhs, echo, "source_coords"); // internal coordinates
             { // scope: fill p.source_coords and compute the largest distance from the center or center of mass
@@ -466,9 +466,9 @@ namespace green_function {
             } // scope
 
         } // scope
-        if (echo > 0) std::printf("# center of mass of RHS blocks is %s %s\n", str(center_of_mass_RHS, Ang), _Ang);
-        if (echo > 0) std::printf("# center of coords  RHS blocks is %s %s\n", str(center_of_RHSs    , Ang), _Ang);
-        if (echo > 0) std::printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
+        if (echo > 3) std::printf("# center of mass of RHS blocks is %s %s\n", str(center_of_mass_RHS, Ang), _Ang);
+        if (echo > 2) std::printf("# center of coords  RHS blocks is %s %s\n", str(center_of_RHSs    , Ang), _Ang);
+        if (echo > 3) std::printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
                                                         max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang);
 
         // truncation radius
@@ -478,8 +478,8 @@ namespace green_function {
         // confinement potential
         p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
         p.V_confinement = control::get("green_function.confinement.potential", 1.);
-        if (echo > 0) std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV);
-        if (echo > 0) std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV);
+        if (echo > 2) std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV);
+        if (echo > 2) std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV);
 
         // count the number of green function elements for each target block
 
@@ -537,11 +537,11 @@ namespace green_function {
             } // d
 
             r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
-            if (echo > 0) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
+            if (echo > 2) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
             auto const rtrunc_plus  =              rtrunc + 2*r_block_circumscribing_sphere;
             auto const rtrunc_minus = std::max(0., rtrunc - 2*r_block_circumscribing_sphere);
-            if (echo > 0) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
-            if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
+            if (echo > 3) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
+            if (echo > 5 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
             int32_t itr[3]; // translate the truncation radius into a number of blocks
             for (int d = 0; d < 3; ++d) { // spatial directions
@@ -570,10 +570,10 @@ namespace green_function {
             if (r_trunc < 0) {
                 if (echo > 1) std::printf("# truncation deactivated\n");
             } else {
-                if (echo > 1) std::printf("# truncation beyond %d %d %d blocks\n", itr[X], itr[Y], itr[Z]);
+                if (echo > 2) std::printf("# truncation beyond %d %d %d blocks\n", itr[X], itr[Y], itr[Z]);
             }
             auto const product_target_blocks = (num_target_coords[Z])*size_t(num_target_coords[Y])*size_t(num_target_coords[X]);
-            if (echo > 0) std::printf("# all targets within (%s) and (%s) --> %s = %.3f k\n", str(min_target_coords),
+            if (echo > 3) std::printf("# all targets within (%s) and (%s) --> %s = %.3f k\n", str(min_target_coords),
                                 str(max_target_coords), str(num_target_coords, 1, " x "), product_target_blocks*.001);
             assert(product_target_blocks > 0);
             std::vector<std::vector<uint16_t>> column_indices(product_target_blocks);
@@ -727,7 +727,7 @@ namespace green_function {
                 assert(tag_diagonal[idx3_diagonal[irhs]] == irhs && "diagonal inconsistent");
             } // irhs
 
-            if (echo > 0) {
+            if (echo > 3) {
                 char const inout_class[][8] = {"inside", "partial", "outside",  "checked"};
                 for (int i = 0; i < 4; ++i) {
                     std::printf("# RHSs have [%7g,%9.1f +/-%5.1f, %7g] blocks %s\n",
@@ -757,9 +757,9 @@ namespace green_function {
             assert(nall == product_target_blocks && "sanity check");
 
             p.nRows = product_target_blocks - hist[0]; // the target block entries with no RHS do not create a row
-            if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
+            if (echo > 1) std::printf("# total number of Green function blocks is %.3f k, "
                                 "average %.1f per source block\n", nnzb*.001, nnzb/std::max(nrhs*1., 1.));
-            if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n",
+            if (echo > 2) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n",
                 p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001);
 
 #ifdef    HAS_BITMAP_EXPORT
@@ -787,7 +787,7 @@ namespace green_function {
                         } // rgba
                     } // ix
                 } // iy
-                bitmap::write_bmp_file("green_function", image.data(), ny, nx, -1, 254.999/maxval);
+                bitmap::write_bmp_file("green_function", image.data(), ny, nx, -1, 254.999/maxval, ".bmp", true, echo);
             } // scope: export_as_bitmap
 #endif // HAS_BITMAP_EXPORT
 
@@ -1092,16 +1092,50 @@ namespace green_function {
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-    status_t test_Green_function(int const echo=0) {
+    status_t test_get_right_hand_sides(int const echo=0) {
         status_t stat(0);
-        warn("green_function tests needed", 0);
+        double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 1.);
+        uint32_t const nb[] = {unsigned(bb[X]), unsigned(bb[Y]), unsigned(bb[Z])};
+        std::vector<uint16_t> owner_rank;
+        auto const rhs = get_right_hand_sides(nb, owner_rank, echo);
+        auto const nrhs = rhs.size();
+        if (echo > 5) std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",
+                                        __func__, nrhs, owner_rank.size(), nb[X]*nb[Y]*nb[Z]);
+        stat += (nb[X]*size_t(nb[Y])*size_t(nb[Z]) != owner_rank.size());
+        stat += (nb[X]*size_t(nb[Y])*size_t(nb[Z]) < nrhs);
+        for (size_t irhs{0}; irhs < nrhs; ++irhs) {
+            for (size_t jrhs{0}; jrhs < irhs; ++jrhs) {
+                stat += (rhs.at(irhs) == rhs.at(jrhs)); // must be unique
+            } // jrhs
+        } // irhs
         return stat;
-    } // test_Green_function
+    } // test_get_right_hand_sides
+
+    status_t test_construct_Green_function(int const echo=0) {
+        status_t stat(0);
+        double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 6.);
+        uint32_t const ng[] = {4*unsigned(bb[X]), 4*unsigned(bb[Y]), 4*unsigned(bb[Z])};
+        double const grid_spacing[] = {1, 1, 1};
+        std::vector<double> xyzZinso(0); // 0: no atoms
+        int8_t const bc_test[4] = {Isolated_Boundary, Periodic_Boundary, Vacuum_Boundary, Repeat_Boundary};
+        for (int Noco{1}; Noco <= 2; ++Noco) {
+        for (int bcz{0}; bcz < 4; ++bcz) {
+        for (int bcy{0}; bcy < 4; ++bcy) {
+        for (int bcx{0}; bcx < 4; ++bcx) {
+            int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
+            if (echo > 3) std::printf("\n# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
+            action_plan_t p;
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, echo, Noco);
+        }}} // bcx bcy bcz
+        } // Noco
+        return stat;
+    } // test_construct_Green_function
 
     status_t all_tests(int const echo) {
         status_t stat(0);
         auto const already_initialized = mpi_parallel::init();
-        stat += test_Green_function(echo);
+        stat += test_get_right_hand_sides(echo);
+        stat += test_construct_Green_function(echo);
         if (!already_initialized) mpi_parallel::finalize();
         return stat;
     } // all_tests

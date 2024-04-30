@@ -104,7 +104,7 @@ namespace kinetic_plan {
         set(num, 3, num_target_coords);
         uint32_t const num_dd = num[dd];
         num[dd] = 1; // replace number of target blocks in derivative direction
-        if (echo > 0) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
+        if (echo > 4) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
         simple_stats::Stats<> length_stats;
         uint32_t const nrhs = sparsity_pattern.size();
         auto const max_lists = nrhs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
@@ -112,7 +112,7 @@ namespace kinetic_plan {
 
         size_t ilist{0}, boundary_block_missing{0};
         for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
-//          if (echo > 0) std::printf("# FD list for RHS #%i\n", irhs);
+//          if (echo > 5) std::printf("# FD list for RHS #%i\n", irhs);
             auto const & sparsity_rhs = sparsity_pattern[irhs];
             assert(number_all_target_coords == sparsity_rhs.size());
             for (uint32_t iz = 0; iz < num[Z]; ++iz) { //
@@ -124,7 +124,7 @@ namespace kinetic_plan {
                 int32_t last_id{-1}, first_id{-1}; // index in derivative direction of the first and last non-zero entry
                 for (uint32_t id{0}; id < num_dd; ++id) { // loop over direction to derive
                     idx[dd] = id; // replace index in the derivate direction
-//                  if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", irhs, idx[X], idx[Y], idx[Z]);
+//                  if (echo > 9) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", irhs, idx[X], idx[Y], idx[Z]);
                     auto const idx3 = index3D(num_target_coords, idx); // flat index
                     if (sparsity_rhs[idx3]) {
                         auto const inz_found = get_inz(idx, iRow_of_coords, RowStart, ColIndex, irhs, 'x' + dd);
@@ -144,14 +144,14 @@ namespace kinetic_plan {
                 auto const list_length = list[ilist].size();
                 if (list_length > nhalo) {
                     length_stats.add(list_length - nhalo);
-//                  if (echo > 0) std::printf("# FD list of length %d for RHS#%i in %c-direction %i %i %i\n", list_length - nhalo, irhs, direction, idx[X], idx[Y], idx[Z]);
+//                  if (echo > 7) std::printf("# FD list of length %d for RHS#%i in %c-direction %i %i %i\n", list_length - nhalo, irhs, direction, idx[X], idx[Y], idx[Z]);
                     // add nhalo end-of-sequence markers
                     for (int ihalo = 0; ihalo < nhalo; ++ihalo) {
                         list[ilist].push_back(CUBE_IS_ZERO); // append {0, 0, 0, 0} to mark the end of the derivative sequence
                     } // ihalo
 
                     if (periodicity) {
-//                      if (echo > 0) std::printf("# FD list of length %d for RHS#%i in %c-direction first=%i last=%i\n", list_length - nhalo, irhs, direction, first_id, last_id);
+//                      if (echo > 6) std::printf("# FD list of length %d for RHS#%i in %c-direction first=%i last=%i\n", list_length - nhalo, irhs, direction, first_id, last_id);
                         assert(first_id >= 0); assert(last_id >= 0);
                         if(last_id + 1 - first_id != periodicity) error("last_id= %i first_id= %i periodicity= %d RHS#%i xyz={%i %i %i} dd=%c",
                                                                          last_id,    first_id,    periodicity,   irhs,        ix,iy,iz, dd+'x');
@@ -192,7 +192,7 @@ namespace kinetic_plan {
 
         // store the number of lists
         uint32_t const n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
-        if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), lengths in [%g, %g +/- %g, %g]\n",
+        if (echo > 4) std::printf("# %d FD lists for the %c-direction (%.2f %%), lengths in [%g, %g +/- %g, %g]\n",
                             n_lists, direction, n_lists/std::max(max_lists*.01, .01),
                             length_stats.min(), length_stats.mean(), length_stats.dev(), length_stats.max());
         list.resize(n_lists);
@@ -324,7 +324,9 @@ namespace kinetic_plan {
 
       kinetic_plan_t::~kinetic_plan_t() {
           if (lists_) {
+#ifdef    DEBUGGPU
               std::printf("# free list for %c-direction\n", 'x'+derivative_direction_);
+#endif // DEBUGGPU
               free_memory(lists_);
           }
       } // destructor

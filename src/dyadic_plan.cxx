@@ -179,8 +179,8 @@
   ) {
       here;
 
-      SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
-      if (echo > 0) std::printf("# construct %s\n", __func__);
+      SimpleTimer timer(__FILE__, __LINE__, __func__, echo/2);
+      if (echo > 3) std::printf("# construct %s\n", __func__);
       auto & p = *this;
 
       auto const me = mpi_parallel::rank(MPI_COMM_WORLD);
@@ -265,7 +265,7 @@
       size_t nci_stats[65]; set(nci_stats, 65, size_t(0));
       size_t far_outside{0};
       size_t iai{0}; // counter for relevant atomic images
-{   SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances with all atoms", echo);
+{   SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances with all atoms", echo/2);
 
       size_t i_images{0};
       for (int zi = -iimages[Z]; zi <= iimages[Z]; ++zi) { // serial
