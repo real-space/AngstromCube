@@ -116,6 +116,6 @@ public:
 
 namespace action_plan {
 
-  status_t all_tests(int const echo=0); // declaration only
+    status_t all_tests(int const echo=0); // declaration only
 
 } // namespace action_plan

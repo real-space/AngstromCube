@@ -37,7 +37,6 @@ set(a43_atom_sources
     display_units.cxx
     exchange_correlation.cxx
     library_kind_dynamic.cxx
-    inline_math.cxx
     radial_eigensolver.cxx
     radial_grid.cxx
     radial_integrator.cxx
@@ -112,6 +111,7 @@ set(a43_sources ${a43_atom_sources}
     green_potential.cxx
     green_action.cxx
     green_tests.cxx
+    inline_math.cxx
     iterative_poisson.cxx
     load_balancer.cxx
     mpi_parallel.cxx
@@ -128,6 +128,7 @@ set(a43_sources ${a43_atom_sources}
     poisson_solver.cxx
     potential_generator.cxx
     self_consistency.cxx
+    simple_timer.cxx
     sho_basis.cxx
     sho_hamiltonian.cxx
     sho_overlap.cxx
@@ -146,40 +147,62 @@ add_executable(a43 ${a43_sources} ${a43_headers})
 set(all_targets ${all_targets} green)
 
 set(green_headers
+    ../include/action_plan.hxx
+    ../include/add_module_test.h
     ../include/boundary_condition.hxx
+    ../include/brillouin_zone.hxx
     ../include/chemical_symbol.h
     ../include/chemical_symbol.hxx
+    ../include/complex_tools.hxx
     ../include/constants.hxx
     ../include/control.hxx
     ../include/data_list.hxx
     ../include/data_view.hxx
+    ../include/debug_output.hxx
     ../include/display_units.h
+    ../include/dyadic_plan.hxx
     ../include/energy_contour.hxx
+    ../include/energy_contribution.hxx
     ../include/exchange_correlation.hxx
     ../include/geometry_input.hxx
     ../include/global_coordinates.hxx
+    ../include/green_action.hxx
+    ../include/green_cuda.hxx
+    ../include/green_dyadic.hxx
     ../include/green_experiments.hxx
     ../include/green_function.hxx
     ../include/green_input.hxx
     ../include/green_kinetic.hxx
+    ../include/green_memory.hxx
     ../include/green_parallel.hxx
+    ../include/green_potential.hxx
+    ../include/green_solver.hxx
     ../include/green_sparse.hxx
-    ../include/dyadic_plan.hxx
     ../include/green_tests.hxx
     ../include/hermite_polynomial.hxx
     ../include/inline_math.hxx
+    ../include/json_reading.hxx
+    ../include/kinetic_plan.hxx
     ../include/load_balancer.hxx
     ../include/mpi_parallel.hxx
     ../include/parallel_poisson.hxx
     ../include/parallel_potential.hxx
     ../include/print_tools.hxx
+    ../include/progress_report.hxx
+    ../include/radial_r2grid.hxx
+    ../include/real_space.hxx
     ../include/recorded_warnings.hxx
     ../include/sho_projection.hxx
     ../include/sho_tools.hxx
     ../include/sho_unitary.hxx
+    ../include/simple_math.hxx
     ../include/simple_stats.hxx
     ../include/simple_timer.hxx
     ../include/single_atom.h
+    ../include/status.hxx
+    ../include/unit_system.hxx
+    ../include/vector_math.hxx
+    ../include/xml_reading.hxx
 )
 
 set(green_sources

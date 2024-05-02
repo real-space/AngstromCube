@@ -7,15 +7,14 @@
 #include <cmath> // std::floor, ::ceil, ::sqrt, ::abs
 #include <cassert> // assert
 
+#include "status.hxx" // status_t
+
 #include "inline_math.hxx" // set, scale
 #include "simple_math.hxx" // ::determinant
 #include "constants.hxx" // ::pi
 #include "display_units.h" // Ang, _Ang
-#include "bessel_transform.hxx" // ::Bessel_j0
 #include "recorded_warnings.hxx" // warn
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, Mirrored_Boundary, Invalid_Boundary
-
-#include "status.hxx" // status_t
 
 namespace real_space {
 
@@ -379,7 +378,8 @@ namespace real_space {
                           for (int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               double const x = q*r;
-                              double const j0 = bessel_transform::Bessel_j0(x);
+                         //   double const j0 = bessel_transform::Bessel_j0(x);
+                              double const j0 = (x*x < 1e-16) ? (1. - x*x*(1/6.)) : (std::sin(x)/x);
                               q_coeff[iq] += val * j0;
                           } // iq
                       } // inside rcut
@@ -392,8 +392,6 @@ namespace real_space {
       scale(q_coeff, nq, g.dV()*factor*sqrt2pi); // volume element, external factor, Bessel transform factor
       return 0; // success
   } // Bessel_projection
-
-
 
 
 

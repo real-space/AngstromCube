@@ -1,5 +1,6 @@
 // This file is part of AngstromCube under MIT License
 
+  #include "self_consistency.hxx" // ::SCF
 #ifndef NO_UNIT_TESTS
   #include "exchange_correlation.hxx" // ::all_tests
   #include "spherical_harmonics.hxx" // ::all_tests
@@ -342,10 +343,7 @@
   int main(int const argc, char *argv[]) {
       mpi_parallel::init(argc, argv);
       auto const me = mpi_parallel::rank();
-      if (argc < 2) {
-          if (0 == me) std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
-          return -1;
-      } // no argument passed to executable
+      if (argc < 2) warn("no arguments passed to %s!", (argc < 1) ? __FILE__ : argv[0]);
       status_t stat(0);
       char const *test_unit = ""; // the name of the unit to be tested
       int run_tests{0};
@@ -429,7 +427,9 @@
       // run
       if (run_tests) {
           stat += run_unit_tests(test_unit, echo);
-      } // run_tests
+      } else {
+          stat += self_consistency::SCF(echo);
+      }
 
       // finalize
       {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show unused, 4:show defaults

@@ -52,9 +52,9 @@ namespace complex_tools {
   template <typename complex_t>
   inline status_t test_complex(bool const expect_complex, int const echo=0) {
       bool const is = is_complex<complex_t>();
-      if (echo > 0) std::printf("# %s is_complex<%s>() = %s\n", __func__,
+      if (echo > 3) std::printf("# %s is_complex<%s>() = %s\n", __func__,
                               complex_name<complex_t>(), is?"true":"false");
-      if (echo > 1) std::printf("# %s typeof(conjugate(%s x)) = %s\n", __func__,
+      if (echo > 5) std::printf("# %s typeof(conjugate(%s x)) = %s\n", __func__,
                               complex_name<complex_t>(),
                               complex_name<decltype(conjugate(complex_t(1)))>());
       return (expect_complex != is);

@@ -8,7 +8,6 @@
 
 #include "status.hxx" // status_t
 #include "control.hxx" // ::get
-#include "real_space.hxx" // ::grid_t
 #include "display_units.h" // Ang, _Ang
 
 namespace potential_generator {

@@ -11,10 +11,11 @@
 #include <string> // std::string
 #include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
+#include "parallel_potential.hxx" // ::SCF
+
 #ifndef   NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
-  #include "parallel_potential.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
   #include "parallel_poisson.hxx" // ::all_tests
   #include "chemical_symbol.hxx" // ::all_tests
@@ -24,7 +25,6 @@
   #include "geometry_input.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
-  #include "simple_timer.hxx" // ::all_tests
   #include "green_sparse.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "json_reading.hxx" // ::all_tests
@@ -77,7 +77,6 @@
           add_module_test(control);
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
-          add_module_test(simple_timer);
           add_module_test(sho_tools);
           add_module_test(unit_system);
           add_module_test(geometry_input);
@@ -193,10 +192,11 @@
       char const *test_unit = ""; // the name of the unit to be tested
       int run_tests{0};
       int verbosity{3*(0 == myrank)}; // set default verbosity low for master, zero for other ranks
-      if (argc < 2) {
-          if (0 == myrank) std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
-          return -1;
-      } // no argument passed to executable
+
+      if (argc < 2) {  // use defaults: atoms.xyz, control.sh
+          if (0 == myrank) { std::printf("# no arguments passed to %s!\n", (argc < 1) ? __FILE__ : argv[0]); }
+      } // not command line argument was passed
+
       for (int iarg = 1; iarg < argc; ++iarg) {
           assert(nullptr != argv[iarg]);
           char const ci0 = *argv[iarg]; // char #0 of command line argument #iarg
@@ -276,7 +276,11 @@
       stat += unit_system::set(control::get("output.length.unit", "Bohr"),
                                control::get("output.energy.unit", "Ha"), echo);
       // run
-      if (run_tests) stat += run_unit_tests(test_unit, echo);
+      if (run_tests) {
+          stat += run_unit_tests(test_unit, echo);
+      } else {
+          stat += parallel_potential::SCF(echo);
+      }
 
       // finalize
       {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show all, 4:show usage

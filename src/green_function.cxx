@@ -26,10 +26,7 @@
 #include "boundary_condition.hxx" // Isolated_Boundary, Periodic_B*, Vacuum_B*, Repeated_B*, Wrap_B*
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
-
-#ifndef   NO_UNIT_TESTS
-  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
-#endif // NO_UNIT_TESTS
+#include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm
 
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get

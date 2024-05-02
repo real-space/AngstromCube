@@ -788,7 +788,7 @@ namespace parallel_poisson {
 
 #ifdef    NO_UNIT_TESTS
     template // explicit template instantiation for double (and float implicitly)
-    status_t solve(double*, double const*, parallel_grid_t const &, char, int, float, float*, int, int, int);
+    status_t solve(double*, double const*, parallel_grid_t const &, char, int, float, float*, int, int, int, double*);
 
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS

@@ -52,6 +52,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	sho_basis.o \
 	sho_overlap.o \
 	sho_hamiltonian.o \
+	simple_timer.o \
 	energy_contour.o \
 	sho_projection.o \
 	sho_potential.o \

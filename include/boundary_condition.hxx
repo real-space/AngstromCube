@@ -166,7 +166,7 @@ namespace boundary_condition {
           switch (first | 32) { // ignore case with | 32
               case 'p': case '1': bc = Periodic_Boundary; break;
               case 'i': case '0': bc = Isolated_Boundary; break;
-              case 'm': case '-': bc = Mirrored_Boundary; break;
+              case 'm': case '-': bc = Mirrored_Boundary; break; // experimental
           } // switch
       } // nullptr != string
       if (echo > 0) {

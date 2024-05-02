@@ -41,7 +41,6 @@ for module in \
   green_kinetic \
   green_parallel \
   green_potential \
-  green_projection \
   green_sparse \
   green_tests \
   grid_operators \
@@ -50,7 +49,6 @@ for module in \
   iterative_poisson \
   json_reading \
   linear_algebra \
-  linear_operator \
   load_balancer \
   mpi_parallel \
   multi_grid \
@@ -90,7 +88,6 @@ for module in \
   structure_solver \
   symmetry_group \
   unit_system \
-  vector_layout \
   xml_reading \
 ; do
 
