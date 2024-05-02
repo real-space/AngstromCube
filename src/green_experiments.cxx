@@ -531,7 +531,7 @@ namespace green_experiments {
       auto const nblocks = size_t(ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
       if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld blocks\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
       size_t const nnzb = pH.colindx.size();
-      if (echo > 1) std::printf("# %s nnzb= %d\n", __func__, nnzb);
+      if (echo > 1) std::printf("# %s nnzb= %ld\n", __func__, nnzb);
       assert(nnzb == nblocks * nb && "This solver can only run with a dense Green function");
 
       // create a trivial list for the colIndex

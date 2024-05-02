@@ -31,7 +31,6 @@
   #include "xml_reading.hxx" // ::all_tests
   #include "green_input.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
-  #include "inline_math.hxx" // ::all_tests
   #include "sho_tools.hxx" // ::all_tests
   #include "control.hxx" // ::all_tests
 
@@ -79,7 +78,6 @@
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
           add_module_test(simple_timer);
-          add_module_test(inline_math);
           add_module_test(sho_tools);
           add_module_test(unit_system);
           add_module_test(geometry_input);

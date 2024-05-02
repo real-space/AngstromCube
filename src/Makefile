@@ -39,6 +39,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	geometry_analysis.o \
 	self_consistency.o \
 	iterative_poisson.o \
+	inline_math.o \
 	parallel_poisson.o \
 	bessel_transform.o \
 	dense_solver.o \

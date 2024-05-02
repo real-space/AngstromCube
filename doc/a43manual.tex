@@ -1347,15 +1347,15 @@ Finally, in the linear-scaling regime we can expect a memory requirement for abo
 	%% git checkout 51e168d41522d3cc0ba87dbdb3b07796038d0db9
 	\includegraphics[width=.99\textwidth]{fig/memory_consumption}
 	\label{fig:memory-consumption}
-	\caption{Measured memory consumption per grid point as a function of the cube edge of the simulation volume.
+	\caption{Measured memory consumption per grid point as a function of the edge of a cube-shaped simulation volume.
 	Here, Green function elements are stored in \ttt{fp32}, i.e.~4 Byte per floating point value.
-	When the truncation sphere (radius= $21.2$ grid spacings) fits into the cube-shaped simulation volume, 
+	When the truncation sphere (radius= $21.2$ grid spacings) fits fully into the simulation volume, 
 	the transition from the cubic volume-dependence to a constant depends on the boundary conditions.}
 \end{figure}
 
 \subsection{Discussion of the $4 \times 4 \times 4$ Block structure}
 %
-From the block structure of $4 \times 4 \times 4$ grid points there is some overhead to the memory consumption model in Eq.~\ref{eqn:memory}. Overheads mainly stem from the description of the truncation sphere in terms of blocks.
+From the block structure of $4 \times 4 \times 4$ grid points there is some overhead to the memory consumption model in Eq.~(\ref{eqn:memory}). Overheads mainly stem from the description of the truncation sphere in terms of blocks.
 For small truncation radii these can be severe, however, the effect becomes weaker for large $R\um{trunc}$.
 For example, the memory overhead factors for truncation radii $\{10.6, 21.2, 31.8, 42.3\}$ grid spacings are ${2.94, 1.64, 1.47, 1.37}$, respectively. So in the smallest case we need almost $3\times$ as much memory: $19$ blocks are fully inside the truncation sphere while $208$ blocks need to be stored due to partial hits. A partial hit occurs when any of the $64$ source grid points is closer to any of the $64$ target grid points than the truncation radius, but not all of them.
 In the largest case which depending on the system might be converged w.r.t.~the truncation radius, the overhead is still about $37\,\%$. However, the advantage from negligible bandwidths spent on loading index lists should remedy these extra costs.

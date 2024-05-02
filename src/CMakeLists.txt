@@ -37,6 +37,7 @@ set(a43_atom_sources
     display_units.cxx
     exchange_correlation.cxx
     library_kind_dynamic.cxx
+    inline_math.cxx
     radial_eigensolver.cxx
     radial_grid.cxx
     radial_integrator.cxx

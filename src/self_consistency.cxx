@@ -27,7 +27,6 @@
 #include "control.hxx" // ::get, ::set, ::echo_set_without_warning
 
 #include "print_tools.hxx" // print_stats, printf_vector
-#include "debug_tools.hxx" // ::manage_stop_file
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
@@ -56,6 +55,36 @@
 namespace self_consistency {
   // This module makes an all-electron Density Functional Theory (DFT) calculation of atoms
   // described by the Projector Augmented Wave method (PAW) 
+
+  status_t manage_stop_file(int & number, char const write_read_delete='w', int const echo=0, char const *filename="running.a43") {
+      if ('w' == (write_read_delete | 32)) {
+          auto *const f = std::fopen(filename, "w");
+          if (nullptr == f) {
+              if (echo > 1) std::printf("# %s<%c> unable to open file \"%s\"for writing!\n", __func__, write_read_delete, filename);
+              return 1;
+          } // failed to open
+          std::fprintf(f, "%d   is the max. number of self-consistency iterations, user may modify", number);
+          return std::fclose(f);
+      } else
+      if ('r' == (write_read_delete | 32)) {
+          std::ifstream infile(filename, std::ifstream::in);
+          if (infile.fail()) {
+              if (echo > 0) std::printf("# %s<%c> unable to find file \"%s\" for reading\n", __func__, write_read_delete, filename);
+              return 1; // error
+          }
+          infile >> number;
+          if (echo > 1) std::printf("# %s<%c> found number=%d in file \"%s\" \n", __func__, write_read_delete, number, filename);
+          return 0;
+      } else
+      if ('d' == (write_read_delete | 32)) {
+          if (echo > 0) std::printf("# %s<%c> removes file \"%s\"\n", __func__, write_read_delete, filename);
+          return std::remove(filename);
+      } else {
+          if (echo > 0) std::printf("# %s<%c> only 'w'/'W'/write, 'r'/'R'/read or 'd'/'D'/delete implemented!\n", __func__, write_read_delete);
+          return -1; // error
+      }
+  } // manage_stop_file
+
 
   status_t SCF(int const echo) { // =0 // log-level
       // compute the self-consistent solution of a single_atom, all states in the core
@@ -268,7 +297,7 @@ namespace self_consistency {
       int const max_scf_iterations_input = control::get("self_consistency.max.scf", 1.);
       int max_scf_iterations{max_scf_iterations_input}; // non-const, may be modified by the stop file during the run
       { // scope: create a stop file with standard name
-          auto const stat = debug_tools::manage_stop_file<'w'>(max_scf_iterations, echo);
+          auto const stat = manage_stop_file(max_scf_iterations, 'w', echo);
           if (stat != 0) error("failed to write/create a stop file, status= %i", int(stat));
       } // scope
 
@@ -579,7 +608,7 @@ namespace self_consistency {
 
 
           { // scope: read the stop file with standard name, max_scf_iterations may be modified
-              auto const stat = debug_tools::manage_stop_file<'r'>(max_scf_iterations, echo);
+              auto const stat = manage_stop_file(max_scf_iterations, 'r', echo);
               if (stat) warn("failed to read the stop file, status= %i", int(stat));
               if (max_scf_iterations_input != max_scf_iterations) {
                   warn("the max. number of SCF iterations has been modified from %d to %d "
@@ -594,7 +623,7 @@ namespace self_consistency {
       here;
 
       { // scope: delete the stop file
-          auto const stat = debug_tools::manage_stop_file<'d'>(max_scf_iterations, echo);
+          auto const stat = manage_stop_file(max_scf_iterations, 'd', echo);
           if (stat) warn("failed to delete stop file, status= %i", int(stat));
       } // scope
 

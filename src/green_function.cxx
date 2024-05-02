@@ -344,7 +344,7 @@ namespace green_function {
                 global_source_indices[irhs] = global_coordinates::get((ibx + off[X])%nb[X],
                                                                       (iby + off[Y])%nb[Y],
                                                                       (ibz + off[Z])%nb[Z]);
-                if (echo > 8) std::printf("# RHS#%i \tglobal block id = o%21.21o\n", irhs, global_source_indices[irhs]);
+                if (echo > 8) std::printf("# RHS#%i \tglobal block id = o%21.21llo\n", irhs, global_source_indices[irhs]);
                 ++irhs;
             }}} // xyz
             assert(nrhs == irhs);

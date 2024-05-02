@@ -239,10 +239,10 @@
           ncopies *= uint32_t(2*icopies[d] + 1); // icopies copies to the left and right
       } // d
       size_t const nAtomCopies = natoms*ncopies;
-      if (echo > 3) std::printf("# copy %d atoms %s times (%ld times) for %ld atom copies\n", natoms, str(icopies), ncopies, nAtomCopies);
+      if (echo > 3) std::printf("# copy %d atoms %s times (%d times) for %ld atom copies\n", natoms, str(icopies), ncopies, nAtomCopies);
       assert(ncopies >= 1); // later we divide by ncopies to retrieve the original atom index
       size_t const nAtomImages = nAtomCopies*nimages;
-      if (echo > 3) std::printf("# replicate %s atom images, %ld images total\n", str(iimages), nimages);
+      if (echo > 3) std::printf("# replicate %s atom images, %d images total\n", str(iimages), nimages);
 
       std::vector<uint32_t> AtomImageStarts(nAtomImages + 1, 0); // probably larger than needed, should call resize(nai + 1) later
       std::vector<atom_t> atom_data(nAtomImages);
@@ -534,7 +534,7 @@
           set(p.AtomImageShift[iai], 3, atom.shifts); p.AtomImageShift[iai][3] = 0;
           p.AtomImagePos[iai][3] = 1./std::sqrt(sigma);
           p.AtomImageLmax[iai] = numax; // SHO basis size
-          if (echo > 19) std::printf("# atom image #%ld of atom#%li has lmax= %d\n", iai, gid, p.AtomImageLmax[iai]);
+          if (echo > 19) std::printf("# atom image #%ld of atom#%i has lmax= %d\n", iai, gid, p.AtomImageLmax[iai]);
           SHOsum[iac].push_back(uint32_t(iai));
           set(p.AtomImagePhase[iai], 4, phase0); // TODO construct correct phases, phase0 is just a dummy
       } // iai, copy into GPU memory
@@ -560,7 +560,7 @@
           assert(nc > 0); // the number of coefficients of a contributing atom copy must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
           p.AtomLmax[iac] = numax;
-          char name[64]; std::snprintf(name, 64, "AtomMatrices[a#%i]", ia);
+          char name[64]; std::snprintf(name, 64, "AtomMatrices[a#%lli]", ia);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear GPU memory
           nc2_max = std::max(nc2_max, size_t(2*nc*nc));
