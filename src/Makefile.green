@@ -123,6 +123,12 @@ OPTFLAGS += -Wno-sign-compare
 OPTFLAGS += -Wno-format
 OPTFLAGS += -Wno-unknown-pragmas
 
+# for Clang: AddressSanitizer
+OPTFLAGS += -fsanitize=address
+
+# for Clang: UndefinedBehaviorSanitizer
+OPTFLAGS += -fsanitize=undefined
+
 # LDFLAGS += -mkl
 LDFLAGS += ## -lmkl_intel_thread
 # LDFLAGS += -L/Users/pbaum/Codes/a43/src -lliveatom
