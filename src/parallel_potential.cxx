@@ -1134,7 +1134,7 @@ namespace parallel_potential {
         char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
         auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
         if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
-        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -4); // -4: LivePAW, -9: load from pawxml files
+        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -4); // -4: libliveatom, -9: load from pawxml files
         std::vector<int32_t> lmax_qlm(na, -1);      // expansion of qlm on owned atoms
         std::vector<int32_t> lmax_vlm(na, -1);      // expansion of vlm on owned atoms
         std::vector<int32_t> lmaxs_qlm(natoms, -1); // expansion of qlm on contributing atoms
@@ -1309,7 +1309,7 @@ namespace parallel_potential {
         double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
         double constexpr Y00sq = pow2(Y00);        // == 1/(4*pi)
 
-        // configure the Poisson solver
+        // configure the electrostatic solver == Poisson solver
         auto  const es_method    = control::get("poisson.method", "cg"); // {cg, sd}
         int   const es_echo      = control::get("poisson.echo", echo/2);
         float const es_threshold = control::get("poisson.threshold", 3e-8);

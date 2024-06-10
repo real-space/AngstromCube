@@ -1344,9 +1344,9 @@ namespace single_atom {
                                 assert(tsp[ts].size() == rg[ts].n);
                                 set(vs.wave[ts], rg[ts].n, tsp[ts].data());
                             } // ts
-                            // copy the numerical projector function
+                            // copy the numerical projector function and multiply by r
                             {   assert(tsp[2].size() == rg[SMT].n);
-                                set(projectors[iln], rg[SMT].n, tsp[2].data());
+                                product(projectors[iln], rg[SMT].n, tsp[2].data(), rg[SMT].r);
                             }
                         } // ist >= 0
 
@@ -1426,7 +1426,7 @@ namespace single_atom {
 
         local_potential_method = -1; // 0: parabola fit, -1: do not recompute zero_potential
 
-        regenerate_partial_waves = false; // must be true at start to generate the partial waves at least once
+        regenerate_partial_waves = false; // take the partial waves from the file, ToDo: reorthogonalize them
         freeze_partial_waves = true; // do not try to regenerate_partial_waves on a radial_exponential_grid
 
         { // scope: copy remaining radial functions
@@ -1465,6 +1465,36 @@ namespace single_atom {
 
         sigma = 0.5*r_cut; // estimate, ToDo: sigma from optimizing the projector representation in SHO basis
 
+        { // scope: optimize sigma_out to best fit the 
+            std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive projectors
+            for (int ell = 0; ell <= numax; ++ell) {
+                for (int nrn = 0; nrn < nn[ell]; ++nrn) { // active partial waves
+                    int const iln = sho_tools::ln_index(numax, ell, nrn);
+                    assert(partial_wave_active[iln]);
+                    // the total deviation is weighted with the ell-channel-summed occupation numbers
+                    occ_ln[iln] = partial_wave[iln].occupation;
+                } // nrn
+            } // ell
+
+            view2D<double> prj_coeff_optimized(nln, 8, 0.0);
+            double const sigma_out = fit_function_set( // returns optimized sigma
+                prj_coeff_optimized // result prj_coeff_optimized(nln, 8)
+                , numax
+                , occ_ln.data() // weights
+                , rg[SMT] // radial grid descriptor, typically the smooth grid
+                , projectors // r*functions(numerical), rfunc(nln,>= rg.n)
+                , sigma // input
+                , numax // same numax
+                , 2.0 // range
+                , "numerical projectors from file" // what
+                , label // log-prefix
+                , echo); // log-level
+
+            if (echo > 0) std::printf("# %s take optimized sigma= %g %s\n", label, sigma_out*Ang, _Ang);
+            sigma = sigma_out; // take
+        } // scope
+
+        // ToDo: regenerate projectors with sigma and
         // ToDo: Gram-Schmidt orthogonalize projectors against lower partial waves and higher partial waves against projectors
         //  OR   construct only the projector coefficients orthogonal to the existing partial waves
         warn("when loading from %s partial waves are not orthogonalized", xmlfilename);
@@ -1882,7 +1912,7 @@ namespace single_atom {
 
         view2D<double> prj_coeff(nln, 8, 0.0);
         double const sigma_out = fit_function_set( // returns optimized sigma
-            prj_coeff // (nln, 8)
+            prj_coeff // result prj_coeff(nln, 8)
           , numax
           , occ_ln.data() // weights
           , rg[SMT] // radial grid descriptor, typically the smooth grid

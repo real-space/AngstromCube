@@ -44,6 +44,8 @@
 
 namespace boundary_condition {
 
+  char const bc_names[8][16] = {"isolated", "periodic", "vacuum", "repeat", "unknown", "wrap", "?invalid", "mirror"};
+
   inline int periodic_images( // returns ni, the number of images found
         view2D<double> & ipos   // array of periodic positions (ni,4)
       , double const cell[3][4] // lower triangular cell matrix
@@ -75,7 +77,7 @@ namespace boundary_condition {
 #endif // GENERAL_CELL
 
 #ifdef    DEVEL
-      view3D<char> mark(2*ny + 1 + 1, 2*nz + 1, 2*nx + 1 + 3, ' '); // data layout y,z,x for plotting
+      view3D<char> mark(2*ny + 1 + 1, 2*nz + 1, 2*nx + 3 + 1, ' '); // data layout y,z,x for plotting
 #endif // DEVEL
       view2D<double> pos(ni_max, 4, 0.0); // get memory
       view2D<int8_t> idx(ni_max, 4, 0);   // get memory
@@ -124,9 +126,9 @@ namespace boundary_condition {
       if (echo > 1) std::printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
 #ifdef    DEVEL
       if (echo > 6) { // display in terminal
-          int const mz = std::max(1, std::min(2*nz, 96/(2*nx + 1 + 3))); // maximum number of z-slices so the line does not get too long
+          int const mz = std::max(0, std::min(96/(2*nx + 1 + 3) - 1, 2*nz)); // maximum number of z-slices so the line does not get too long
           std::printf("# %s x=%d...%d, z=%d...%d(max %d), total=%d:\n", __func__, -nx, nx, -nz, mz - nz, nz, ni);
-          for     (int iz{0}; iz <= mz;   ++iz) {
+          for     (int iz{0}; iz <=   mz; ++iz) {
               for (int ix{0}; ix <= 2*nx; ++ix) {
                   mark(2*ny + 1,iz,ix) = char('0' + (std::abs(ix - nx) % 10)); // make an x-legend
               } // ix
@@ -167,12 +169,13 @@ namespace boundary_condition {
               case 'p': case '1': bc = Periodic_Boundary; break;
               case 'i': case '0': bc = Isolated_Boundary; break;
               case 'm': case '-': bc = Mirrored_Boundary; break; // experimental
+              case 'v': case '2': bc =   Vacuum_Boundary; break; // experimental
+              case 'r': case '3': bc =   Repeat_Boundary; break; // experimental
           } // switch
       } // nullptr != string
       if (echo > 0) {
-          char const bc_names[][12] = {"isolated", "periodic", "invalid", "mirror"};
           std::printf("# interpret \"%s\" as %s boundary condition in %c-direction\n",
-                      string, bc_names[bc & 0x3], dir);
+                      string, bc_names[bc & 0x7], dir);
       } // echo
       return bc;
   } // fromString
@@ -197,8 +200,8 @@ namespace boundary_condition {
   inline status_t test_fromString_single(char const bc_strings[][16], int const echo=0) {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
-      for (int8_t bc = Invalid_Boundary; bc <= Periodic_Boundary; ++bc) {
-          stat += (bc != fromString(bc_strings[bc & 0x3], echo));
+      for (int8_t bc = Invalid_Boundary; bc <= Repeat_Boundary; ++bc) {
+          stat += (bc != fromString(bc_strings[bc & 0x7], echo));
       } // bc
       return stat;
   } // test_fromString_single
@@ -207,13 +210,12 @@ namespace boundary_condition {
       // test the parser with different strings
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
-      {   char const bc_strings[][16] = {"isolated", "periodic", "?invalid", "mirror"}; // {0, 1, -2, -1}
+      stat += test_fromString_single(bc_names, echo);
+      {   char const bc_strings[8][16] = {"i", "p", "v", "r", "?", "w", "?", "m"}; // {0, 1, 2, 3, 4, 5, -2, -1}
           stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[][16] = {"i", "p", "_", "m"}; // {0, 1, -2, -1}
+      {   char const bc_strings[8][16] = {"I", "P", "V", "R", "?", "W", "?", "M"};
           stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[][16] = {"I", "P", "#", "M"}; // {0, 1, -2, -1}
-          stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[][16] = {"0", "1", "*", "-"}; // {0, 1, -2, -1}
+      {   char const bc_strings[8][16] = {"0", "1", "2", "3", "?", "5", "*", "-"};
           stat += test_fromString_single(bc_strings, echo);   }
       return stat;
   } // test_fromString

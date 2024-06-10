@@ -150,7 +150,8 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-ifeq ($(HOSTNAME),MacBook-Pro-4.local)
+#ifeq ($(HOSTNAME),MacBook-Pro-4.local)
+ifneq ( ,$(findstring MacBook-Pro,$(HOSTNAME)))
 	EXTFLAGS += -D HAS_NO_MKL
 	LDFLAGS += -lm
 	LDFLAGS += -lblas
