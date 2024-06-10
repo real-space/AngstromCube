@@ -1064,13 +1064,17 @@ namespace parallel_potential {
         real_space::grid_t gc(g[0] >> 1, g[1] >> 1, g[2] >> 1); // divide +grid.points by 2
         {
             assert(gc[0]*2 == g[0]); assert(gc[1]*2 == g[1]); assert(gc[2]*2 == g[2]); // g.grid_points must be an even number
-            gc.set_boundary_conditions(g.boundary_conditions());
+            auto const gbc = g.boundary_conditions();
+            gc.set_boundary_conditions(gbc);
             gc.set_cell_shape(g.cell, echo*0); // muted
             gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2); // twice the grid spacing
             for (int d{0}; d < 3; ++d) { assert(0 == (gc[d] & 0x3)); } // all grid numbers must be a multiple of 4
             auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
             if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
                       gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
+            g.set_boundary_conditions(boundary_condition::potential_bc(gbc[0]), 
+                                      boundary_condition::potential_bc(gbc[1]), // map vacuum --> isolated, repeat --> periodic
+                                      boundary_condition::potential_bc(gbc[2]));
         }
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 

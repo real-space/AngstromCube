@@ -200,7 +200,7 @@
 
       // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
       double min_sigma{9e9}, max_sigma{0};
-      for (int32_t ia{0}; ia < natoms; ++ia) { // loop over all original atoms, can be parallel with reduction(max:max_projection_radius)
+      for (int32_t ia{0}; ia < natoms; ++ia) { // loop over all original atoms, can be parallel with reduction(max:max_projection_radius, min:min_projection_radius)
           double const sigma = xyzZinso[ia*8 + 6];
           max_sigma = std::max(max_sigma, sigma);
           min_sigma = std::min(min_sigma, sigma);
@@ -258,7 +258,7 @@
 
       here;
 
-      size_t nci_stats[65]; set(nci_stats, 65, size_t(0));
+      std::vector<size_t> nci_stats(65, size_t(0));
       size_t far_outside{0};
       size_t iai{0}; // counter for relevant atomic images
 {   SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances with all atoms", echo/2);
@@ -390,9 +390,9 @@
 //                if (echo > 15) std::printf("# image of atom #%i at %s %s does not contribute\n", atom_id, str(atom_pos, Ang), _Ang);
               } // ntb > 0
               ++i_copies;
+              ++iaa;
       }}} // xc // yc // zc  --- copies
               assert(ncopies == i_copies);
-              ++iaa;
           } // ia --- atoms
           assert(nAtomCopies == iaa);
           ++i_images;
@@ -400,7 +400,7 @@
       assert(nimages == i_images);
 } // timer
 
-      if (echo > 3) {   auto const *const s = nci_stats;
+      if (echo > 3) {   auto const *const s = nci_stats.data();
           std::printf("# nci_stats %.3f k  %ld %ld %ld %ld %ld %ld %ld  %ld\n", s[0]*.001, s[1],s[2],s[3],s[4],s[5],s[6],s[7], s[8]);
           std::printf("# %.6f M cube-atom-image pairs do not require corner checking\n", far_outside*1e-6);
       } // echo
