@@ -16,6 +16,7 @@ public:
     green_solver_t( // constructor
           action_plan_t* p=nullptr
         , int const echo=0
+        , int const check=0
     ); // declaration only
 
     ~green_solver_t(); // destructor, declaration only

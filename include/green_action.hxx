@@ -69,7 +69,7 @@ namespace green_action {
         // with real_t either float or double
         //
 
-        action_t(action_plan_t *plan, int const echo=0)
+        action_t(action_plan_t *plan, int const echo=0, int const check=0)
           : p_(plan), apc_(nullptr) // , aac_(nullptr)
         {
             if (echo > 1) std::printf("# construct %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
@@ -87,11 +87,12 @@ namespace green_action {
                 auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
                 {
                     simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m); // uses MPI_COMM_WORLD
-                    if (echo > 5) std::printf("# tfqmrgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
+                    if (echo + check > 3) std::printf("# tfqmrgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
-                    if (echo > 9) std::printf("# rank#%i try to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
+                    if (echo > 7) std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
+                    if (p.gpu_mem > 1e11)  warn("rank#%i tries to allocate %.3f GByte GPU memory", me, p.gpu_mem*1e-9);
                 }
-                memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+                if (0 == check) memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
 // #ifdef    DEBUGGPU
                 if (echo > 9) std::printf("# rank#%i allocated %.9f %s memory_buffer_ at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_);
 // #endif // DEBUGGPU

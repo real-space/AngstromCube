@@ -44,6 +44,7 @@
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::allreduce
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
+#include "green_memory.hxx" // ::high_water_mark
 #include "unit_system.hxx" // ::set_output_units
 #include "control.hxx" // ::command_line_interface, ::get
 
@@ -288,6 +289,12 @@
               stat += control::show_variables(control_show);
           }
       } // show all variable names defined in the control environment
+
+      { // scope: show the GPU memory high water mark
+          simple_stats::Stats<> m; m.add(green_memory::high_water_mark()); mpi_parallel::allreduce(m); // MPI_COMM_WORLD
+          if (echo > 1) std::printf("# GPU memory high water mark [%g, %.3f +/- %g, %g] %s, %g %s total\n",
+                       m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
+      } // scope
 
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);

@@ -1277,7 +1277,7 @@ namespace parallel_potential {
             } // scope
 
             // envoke the constructor energy_contour::Integrator
-            integrator = energy_contour::Integrator(gc, xyzZinso, echo);
+            integrator = energy_contour::Integrator(gc, xyzZinso, echo, check);
 
             // setup communication infrastructure for atom_mat
             auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
@@ -1554,7 +1554,7 @@ namespace parallel_potential {
 
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
-                                                          pg_Interpolation, n_valence_electrons, g.dV(), echo);
+                                                          pg_Interpolation, n_valence_electrons, g.dV(), echo, check);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }

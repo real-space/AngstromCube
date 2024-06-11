@@ -22,6 +22,7 @@ namespace energy_contour {
               real_space::grid_t const & gc // coarse grid descriptor
             , std::vector<double> const & xyzZinso // all atoms
             , int const echo=0 // verbosity
+            , int const check=0
         ); // constructor, declaration only
 
         ~Integrator(); // destructor, declaration only
@@ -53,6 +54,7 @@ namespace energy_contour {
             , double const n_electrons=1 // required total number of electrons 
             , double const dV=1 // grid volume element
             , int const echo=0 // log level
+            , int const check=0
         ); // declaration only
 
     }; // class Integrator

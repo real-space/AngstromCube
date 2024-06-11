@@ -233,9 +233,9 @@
               icopies[d] = 1; // in WRAP the truncation sphere fits into the cell, ...
               // however, left targets of a left source and right targets of a right source could potentially see the same atom
           }
-          if (iimages[d] > 0) assert(0 == icopies[d]);
-          if (icopies[d] > 0) assert(0 == iimages[d]);
-          nimages *= uint32_t(2*iimages[d] + 1); // iimage  images to the left and right
+          if (iimages[d] > 0) assert(0 == icopies[d]); // we may not have copies and images in the same direction
+          if (icopies[d] > 0) assert(0 == iimages[d]); // we may not have copies and images in the same direction
+          nimages *= uint32_t(2*iimages[d] + 1); // iimages images to the left and right
           ncopies *= uint32_t(2*icopies[d] + 1); // icopies copies to the left and right
       } // d
       size_t const nAtomCopies = natoms*ncopies;

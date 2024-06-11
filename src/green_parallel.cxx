@@ -178,7 +178,7 @@ namespace green_parallel {
 
     template <typename real_t>
     status_t exchange(
-            real_t       *const data_out // output data, data layout data_out[nrequests*count]
+          real_t       *const data_out // output data, data layout data_out[nrequests*count]
         , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
         , RequestList_t const & requests
         , uint32_t const count // number of real_t per package

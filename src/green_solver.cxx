@@ -28,9 +28,9 @@ typedef green_action::action_t<double,2,1> Act821;
 typedef green_action::action_t<double,2,2> Act822;
 
 
-    green_solver_t::green_solver_t(action_plan_t* p, int const echo) {
+    green_solver_t::green_solver_t(action_plan_t* p, int const echo, int const check) {
         if (nullptr != p) {
-            if (echo > 0) std::printf("# construct %s\n", __func__);
+            if (echo > 0) std::printf("# construct %s +check=%d\n", __func__, check);
             int const fp_input = control::get("green_solver.floating.point.bits", 32.);
             int const fp = (32 == fp_input) ? 32 : 64;
             if (echo > 0) std::printf("# +green_solver.floating.point.bits=%i --> %i\n", fp_input, fp);
@@ -43,10 +43,10 @@ typedef green_action::action_t<double,2,2> Act822;
             if (echo > 0) std::printf("# green_solver_t::action_key= %i\n", int(action_key_));
             // initialize
             switch (action_key_) {
-            case 32021: action_ = (void*)new Act421(p, echo); break; // complex
-            case 32022: action_ = (void*)new Act422(p, echo); break; // complex non-collinear
-            case 64021: action_ = (void*)new Act821(p, echo); break; // double complex
-            case 64022: action_ = (void*)new Act822(p, echo); break; // double complex non-collinear
+            case 32021: action_ = (void*)new Act421(p, echo, check); break; // complex
+            case 32022: action_ = (void*)new Act422(p, echo, check); break; // complex non-collinear
+            case 64021: action_ = (void*)new Act821(p, echo, check); break; // double complex
+            case 64022: action_ = (void*)new Act822(p, echo, check); break; // double complex non-collinear
             default: error("No such action_key= %i", int(action_key_));
             } // switch action_key_
             assert(action_ && "action pointer must be valid");

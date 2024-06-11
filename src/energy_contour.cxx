@@ -34,6 +34,7 @@ namespace energy_contour {
           real_space::grid_t const & gc // coarse grid descriptor
         , std::vector<double> const & xyzZinso // all atoms
         , int const echo // verbosity
+        , int const check
     ) {
         if (echo > 0) std::printf("# construct %s with grid=[%d %d %d]\n", __func__, gc[0], gc[1], gc[2]);
         plan_ = new action_plan_t(); // CPU memory for the plan
@@ -43,7 +44,7 @@ namespace energy_contour {
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
         if (echo > 0) std::printf("# move green_solver_t\n");
-        solver_ = new green_solver_t(plan_, echo);
+        solver_ = new green_solver_t(plan_, echo, check);
         if (echo > 0) std::printf("# constructed %s\n", __func__);
     } // constructor
 
@@ -279,13 +280,13 @@ namespace energy_contour {
         , double const n_electrons // =1 // required total number of electrons 
         , double const dV // =1 // grid volume element
         , int const echo // =0 // log level
+        , int const check // =0
     ) {
         status_t stat(0);
         size_t constexpr n4x4x4 = 4*4*4;
         auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
 
-        int const check = control::get("check", 0.); // ToDo: get this passed as argument
         int const iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
 
