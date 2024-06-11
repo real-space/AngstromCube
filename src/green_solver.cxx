@@ -53,6 +53,7 @@ typedef green_action::action_t<double,2,2> Act822;
 #ifdef    DEBUGGPU
             if (echo > 0) std::printf("# %s.action= %p\n", __func__, action_);
 #endif // DEBUGGPU
+            if (echo > 0) std::printf("# construct %s --> needs %.6f GByte GPU memory\n", __func__, p->gpu_mem*1e-9);
         } else {
             if (echo > 0) std::printf("# cannot construct %s with p=nullptr\n", __func__);
         }

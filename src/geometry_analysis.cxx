@@ -1114,9 +1114,10 @@ namespace geometry_analysis {
                           int const nbonds = s.tim();
                           if (nbonds > 0) {
                               if (show_pairs & 0x1) {
+                                  auto const table = default_half_bond_length(Z_of_species[is]) + default_half_bond_length(Z_of_species[js]);
                                   std::printf("\n#  %s-%s%8.3f", Sy_of_species_right[is], Sy_of_species[js], min_dist*Ang);
-                                  std::printf("%8.3f +/- %.3f in [%.3f, %.3f]  %d bonds",
-                                              s.mean()*Ang, s.dev()*Ang, s.min()*Ang, s.max()*Ang, nbonds);
+                                  std::printf("%8.3f +/- %.3f in [%.3f, %.3f]  %d bonds, expected %.1f %s",
+                                              s.mean()*Ang, s.dev()*Ang, s.min()*Ang, s.max()*Ang, nbonds, table*Ang, _Ang);
                               } // show_pairs == only_bonds or show_pairs == all
                               bonds_total += nbonds * (1 + (js != is));
                           } else if (show_pairs > 1) {

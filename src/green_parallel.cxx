@@ -223,13 +223,13 @@ namespace green_parallel {
 
             if (iloc >= 0) {
                 if (me == owner) {
-                    if (echo > 7) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
+                    if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
                     set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy
                     ++stats[0]; // local
                 } else { // me == owner
                     ++stats[1]; // remote
 #ifndef   HAS_NO_MPI
-                    if (echo > 7) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i element %i\n", me, global_id, owner, iloc);
+                    if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i element %i\n", me, global_id, owner, iloc);
                     assert(owner >= 0);
                     if (owner >= np) error("rank#%i tries to MPI_Get %.3f kByte from rank#%i but only %d processes running, global_id=%li", me, count*sizeof(real_t)*.001, owner, np, global_id);
                     status += MPI_Get(&data_out[ireq*count], count, data_type, owner, iloc, count, data_type, window);

@@ -365,8 +365,8 @@ namespace energy_contour {
 
                     add_product(rho_E[0], nblocks*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points
                     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], nblocks*n4x4x4).imag(), comm)*dV;
-                    if (echo + check > 12) std::printf("# solved Green function for E=%s, k-point=[%g %g %g] has %g electrons\n",
-                                                    energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
+                    if (echo + check > 12) std::printf("# solve%s Green function for E=%s, k-point=[%g %g %g] has %g electrons\n",
+                                         check ? "d" : "", energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
                 } // check
 
             } // ikpoint
@@ -376,7 +376,7 @@ namespace energy_contour {
                                                                  energy_parameter_label, rho_integral);
                 // accumulate density over E-points
                 add_product(rho_c[0], nblocks*n4x4x4, rho_E[0], energy_weight);
-            } else if (echo + check > 6) std::printf("# solved Green function for E=%s\n", energy_parameter_label);
+            } else if (echo + check > 6) std::printf("# solve Green function for E=%s\n", energy_parameter_label);
 
             if (iEpoint < nEpoints - 2) {
                 // ToDo: accumulate a response density to derive the new density w.r.t. the Fermi level 
