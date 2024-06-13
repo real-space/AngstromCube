@@ -76,16 +76,9 @@ namespace pawxml_import {
       rapidxml::xml_document<> doc;
       try {
           rapidxml::file<> infile(filename);
-          try {
-              doc.parse<0>(infile.data());
-          } catch (...) {
-              warn("failed to parse \"%s\"", filename);
-              p.parse_status = __LINE__; return p; // error
-          } // try + catch
-      } catch (...) {
-          warn("failed to open \"%s\"", filename);
-          p.parse_status = __LINE__; return p; // error
-      } // try + catch
+          try 
+   {
+      doc.parse<0>(infile.data());
 
       auto const paw_dataset = doc.first_node("paw_dataset"); // defined by ESL: https://esl.cecam.org/data/paw-xml/
       auto const paw_setup = (nullptr == paw_dataset) ? doc.first_node("paw_setup") : paw_dataset; // used by GPAW
@@ -284,7 +277,17 @@ namespace pawxml_import {
 //   <exact_exchange core-core="-3.462071"/>
 
       p.parse_status = 0;
-      return p;
+      return p; // success
+
+   }        catch (...) {
+              warn("failed to parse \"%s\"", filename);
+              p.parse_status = __LINE__; return p; // error
+          } // try + catch
+      } catch (...) {
+          warn("failed to open \"%s\"", filename);
+          p.parse_status = __LINE__; return p; // error
+      } // try + catch
+
 #endif // HAS_RAPIDXML
   } // parse_pawxml
 

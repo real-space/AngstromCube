@@ -1344,9 +1344,9 @@ namespace single_atom {
                                 assert(tsp[ts].size() == rg[ts].n);
                                 set(vs.wave[ts], rg[ts].n, tsp[ts].data());
                             } // ts
-                            // copy the numerical projector function
+                            // copy the numerical projector function and multiply by r
                             {   assert(tsp[2].size() == rg[SMT].n);
-                                set(projectors[iln], rg[SMT].n, tsp[2].data());
+                                product(projectors[iln], rg[SMT].n, tsp[2].data(), rg[SMT].r);
                             }
                         } // ist >= 0
 
@@ -1426,7 +1426,7 @@ namespace single_atom {
 
         local_potential_method = -1; // 0: parabola fit, -1: do not recompute zero_potential
 
-        regenerate_partial_waves = false; // must be true at start to generate the partial waves at least once
+        regenerate_partial_waves = false; // take the partial waves from the file, ToDo: reorthogonalize them
         freeze_partial_waves = true; // do not try to regenerate_partial_waves on a radial_exponential_grid
 
         { // scope: copy remaining radial functions
@@ -1465,6 +1465,36 @@ namespace single_atom {
 
         sigma = 0.5*r_cut; // estimate, ToDo: sigma from optimizing the projector representation in SHO basis
 
+        { // scope: optimize sigma_out to best fit the 
+            std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive projectors
+            for (int ell = 0; ell <= numax; ++ell) {
+                for (int nrn = 0; nrn < nn[ell]; ++nrn) { // active partial waves
+                    int const iln = sho_tools::ln_index(numax, ell, nrn);
+                    assert(partial_wave_active[iln]);
+                    // the total deviation is weighted with the ell-channel-summed occupation numbers
+                    occ_ln[iln] = partial_wave[iln].occupation;
+                } // nrn
+            } // ell
+
+            view2D<double> prj_coeff_optimized(nln, 8, 0.0);
+            double const sigma_out = fit_function_set( // returns optimized sigma
+                prj_coeff_optimized // result prj_coeff_optimized(nln, 8)
+                , numax
+                , occ_ln.data() // weights
+                , rg[SMT] // radial grid descriptor, typically the smooth grid
+                , projectors // r*functions(numerical), rfunc(nln,>= rg.n)
+                , sigma // input
+                , numax // same numax
+                , 2.0 // range
+                , "numerical projectors from file" // what
+                , label // log-prefix
+                , echo); // log-level
+
+            if (echo > 0) std::printf("# %s take optimized sigma= %g %s\n", label, sigma_out*Ang, _Ang);
+            sigma = sigma_out; // take
+        } // scope
+
+        // ToDo: regenerate projectors with sigma and
         // ToDo: Gram-Schmidt orthogonalize projectors against lower partial waves and higher partial waves against projectors
         //  OR   construct only the projector coefficients orthogonal to the existing partial waves
         warn("when loading from %s partial waves are not orthogonalized", xmlfilename);
@@ -1849,9 +1879,7 @@ namespace single_atom {
 
 
 
-    double update_projector_coefficients( // returns optimized sigma if optimization is active
-        int const echo=0 // log-level
-    ) {
+    double update_projector_coefficients(int const echo=0) { // returns optimized sigma if optimization is active
         // create smooth partial waves according to Bloechl/GPAW and corresponding
         // numerically defined projector functions. On demand, fit the best sigma
         // to represent those projectors in a SHO basis of given size numax.
@@ -1884,7 +1912,7 @@ namespace single_atom {
 
         view2D<double> prj_coeff(nln, 8, 0.0);
         double const sigma_out = fit_function_set( // returns optimized sigma
-            prj_coeff // (nln, 8)
+            prj_coeff // result prj_coeff(nln, 8)
           , numax
           , occ_ln.data() // weights
           , rg[SMT] // radial grid descriptor, typically the smooth grid
@@ -1919,7 +1947,6 @@ namespace single_atom {
 
         return sigma_out;
     } // update_projector_coefficients
-
 
 
 
@@ -3198,7 +3225,7 @@ namespace single_atom {
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_cmp, sigma_compensator);
 
-#ifdef DEVEL
+#ifdef    DEVEL
             if (echo > 19) {
                 std::printf("\n## r, aug_density, true_density, smooth_density, spherical_density:\n");
                 for (int ir = 0; ir < rg[SMT].n; ++ir) {
@@ -3493,9 +3520,7 @@ namespace single_atom {
 
 
 
-    void update_matrix_elements(
-          int const echo=0 // log-level
-    ) {
+    void update_matrix_elements(int const echo=0) {
         // create matrix elements for the PAW correction of the Hamiltonian and overlap
         // from the current partial waves and the non-sperical potential
 
@@ -3712,9 +3737,7 @@ namespace single_atom {
 
 
 
-    void check_spherical_matrix_elements(
-          int const echo // log-level
-    ) const {
+    void check_spherical_matrix_elements(int const echo) const {
         // construct the matrix elements for the spherical potentials
         // and compute logarithmic derivatives
         // and eigenstates on a radial equidistant grid
@@ -4007,9 +4030,9 @@ namespace single_atom {
           double E[]=nullptr
     ) const {
         if (nullptr != E) {
-            E[energy_contribution::TOTAL]              = energy_tot[TRU] - energy_tot[SMT];
-            E[energy_contribution::KINETIC]            = energy_kin[TRU] - energy_kin[SMT];
-            E[energy_contribution::REFERENCE]          = energy_ref[TRU];
+            E[energy_contribution::TOTAL]                = energy_tot[TRU] - energy_tot[SMT];
+            E[energy_contribution::KINETIC]              = energy_kin[TRU] - energy_kin[SMT];
+            E[energy_contribution::REFERENCE]            = energy_ref[TRU];
             E[energy_contribution::EXCHANGE_CORRELATION] = energy_xc[TRU] - energy_xc[SMT];
             E[energy_contribution::DOUBLE_COUNTING]      = energy_dc[TRU] - energy_dc[SMT];
             E[energy_contribution::ELECTROSTATIC]        = energy_es[TRU] - energy_es[SMT];
@@ -4032,8 +4055,8 @@ namespace single_atom {
         std::vector<double> mixed_spherical;
         char   const *qnt_name{nullptr};
         double const *qnt_vector{nullptr};
-        if ('z' == what) { qnt_name = "zero_potential";  qnt_vector = zero_potential.data(); } else
-        if ('c' == what) { qnt_name = "core_density";    qnt_vector = spherical_density[SMT][core]; } else
+        if ('z' == what) { qnt_name = "zero_potential";  qnt_vector = zero_potential.data();           } else
+        if ('c' == what) { qnt_name = "core_density";    qnt_vector = spherical_density[SMT][core];    } else
         if ('v' == what) { qnt_name = "valence_density"; qnt_vector = spherical_density[SMT][valence]; } else
         {   // create a csv-mixture of spherical_density[SMT] using take_spherical_density weights
             mixed_spherical = std::vector<double>(rg[SMT].n, 0.0);
@@ -4090,15 +4113,41 @@ namespace single_atom {
 
     radial_grid_t const* get_smooth_radial_grid(int const echo=0) const { return &rg[SMT]; }
 
-    double get_number_of_electrons(
-          char const csv='v'
-    ) const {
+    double get_number_of_electrons(char const csv='v') const {
         if ('c' == (csv | 32)) return csv_charge[core];
         if ('s' == (csv | 32)) return csv_charge[semicore];
         if ('v' == (csv | 32)) return csv_charge[valence];
         // otherwise total number of electrons
         return csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
     } // get_number_of_electrons
+
+    double get_spherical_spectrum(double energies[40], char const csv_char='v') const {
+        int const csv = ('v' == csv_char) ? valence : (('c' == csv_char) ? core : (('s' == csv_char) ? semicore : csv_undefined));
+        double const def = (valence == csv) ? 9e9 : ((core == csv) ? -9e9 : 0.0);
+        set(energies, 40, def); // the max number of states: 40 > 32 (spin-orbit) and 40 >= 2*20 (spin) and 40 > 20 (no spin)
+        double e_min{9e9}, e_max{-9e9}, e_min_all{9e9}; //, e_max_all{-9e9};
+     // int n_states{0};
+        for (auto const & cs : spherical_state) {
+            assert(core <= cs.csv && cs.csv <= valence); // {core, semicore, valence}
+            if (csv == cs.csv) {
+                e_min = std::min(e_min, cs.energy);
+                e_max = std::max(e_max, cs.energy);
+             // ++n_states;
+            }
+            e_min_all = std::min(e_min_all, cs.energy);
+         // e_max_all = std::max(e_max_all, cs.energy);
+            int const iln = atom_core::nl_index(cs.enn, cs.ell);
+            energies[iln] = cs.energy; // export energies
+        } // cs
+     // std::printf("# get_spherical_spectrum(spectrum[40], csv=\'%c\') has %ld states, energies in [%g, %g] %s (%d states), global minimum is %g %s\n",
+     //                                                csv_char, spherical_state.size(), e_min*eV, e_max*eV, _eV, n_states,  e_min_all*eV, _eV);
+        switch (csv) {
+            case valence  : return e_min; // lowest valence state energy (spherical conterpart)
+            case semicore : return (e_max + e_min)*.5; // expected semicore band window center
+            case core     : return e_max; // highest core state energy
+            default       : return e_min_all; // global minimum of states
+        }
+    } // get_spherical_spectrum
 
     double const get_sigma() const { return sigma; }
     int    const get_numax() const { return numax; }
@@ -4431,11 +4480,16 @@ namespace single_atom {
       int   constexpr nr2_default = 1 << 12; // default number of grid points on an radial_r2grid
       float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
 
-      int na{natoms};
+      int na{natoms}; // mutable copy
       if (na < 1) return 0; // no work
 
       status_t stat(0);
       stat += test_string_switch(what); // muted
+
+      int constexpr kia = 1; // kia=0: use only 1 representative atom, kia=1: all 
+        // quick hack to accelerate libliveatom initialization time, however, results are wrong
+        // always set kia = 1 when committing a version to git
+
 
       switch (how) {
 
@@ -4447,7 +4501,9 @@ namespace single_atom {
               bool const atomic_valence_density = (nullptr != dpp); // global control for all atoms
               auto const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
               auto const bmask = int64_t(control::get("single_atom.echo.mask", -1.)); // log-level mask, -1:all
-              for (size_t ia = 0; ia < a.size(); ++ia) {
+              if (0 == kia) warn("initialize only 1 representative atom of %d atoms", na);
+              #pragma omp parallel for reduce(+:stat)
+              for (size_t ia = 0; ia <= kia*(a.size() - 1); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((ia < 53) ? ((bmask >> ia) & 0x1) : 0);
                   int type{0}; if (ip) type = (-9 == ip[ia]);
@@ -4460,15 +4516,20 @@ namespace single_atom {
                       ++stat;
 #endif // HAS_RAPIDXML
                   }
-                  if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
+              if (ip) {
+                  for (size_t ia = 0; ia < a.size(); ++ia) {
+                      ip[ia] = a[ia*kia]->get_numax(); // export numax, optional
+                  } // ia
+              } // ip
           }
           break;
 
           case 'm': // interface usage: atom_update("memory cleanup", natoms);
           {
               if (a.size() != na) warn("what='%s' for %d atoms, but only %ld atoms active!", what, na, a.size());
-              for (size_t ia = 0; ia < a.size(); ++ia) {
+              #pragma omp parallel for
+              for (size_t ia = 0; ia <= kia*(a.size() - 1); ++ia) {
                   a[ia]->~LiveAtom(); // envoke destructor
               } // ia
               a.clear();
@@ -4478,16 +4539,25 @@ namespace single_atom {
           }
           break;
 
-          case '#': // interface usage: atom_update("#core electrons",     natoms, dp=ne[]);
-                    // interface usage: atom_update("#semicore electrons", natoms, dp=ne[]);
-                    // interface usage: atom_update("#valence electrons",  natoms, dp=ne[]);
-                    // interface usage: atom_update("#all electrons",      natoms, dp=ne[]);
+          case '#': // interface usage: atom_update("#core electrons",     natoms, dp, ip=null, fp, dpp);
+                    // interface usage: atom_update("#semicore electrons", natoms, dp, ip=null, fp, dpp);
+                    // interface usage: atom_update("#valence electrons",  natoms, dp, ip=null, fp, dpp);
+                    // interface usage: atom_update("#all electrons",      natoms, dp, ip=null, fp, dpp);
+                    // with dp[na] the number of electrons, fp[na] the extreme energy (min/max), dpp[na][40] the spectrum
           {
-              double *ne = dp; assert(nullptr != ne);
+              #pragma omp parallel for
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  ne[ia] = a[ia]->get_number_of_electrons(what[1]);
+                  if (nullptr != dp) {
+                      dp[ia] = a[ia*kia]->get_number_of_electrons(what[1]);
+                  } // dp
+                  if (nullptr != dpp || nullptr != fp) {
+                      double spectrum[40];
+                      auto const f = a[ia*kia]->get_spherical_spectrum(spectrum, what[1]);
+                      if (nullptr != fp) { fp[ia] = f; }
+                      if (nullptr != dpp && nullptr != dpp[ia]) { set(dpp[ia], 40, spectrum); }
+                   // std::printf("# get_spherical_spectrum(spectrum[40], csv=\'%c\')= %g\n", what[1], f);
+                  } // dpp or fp
               } // ia
-              assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
           break;
 
@@ -4496,11 +4566,12 @@ namespace single_atom {
           case 'z': // interface usage: atom_update("zero potentials",   natoms, dp=null, ip=nr2=2^12, fp=ar2=16.f, dpp=qnt=v_bar);
           {
               double *const *const qnt = dpp; assert(nullptr != qnt);
+              #pragma omp parallel for
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != qnt[ia]);
                   int   const nr2 = ip ? ip[ia] : nr2_default;
                   float const ar2 = fp ? fp[ia] : ar2_default;
-                  stat += a[ia]->get_smooth_spherical_quantity(qnt[ia], ar2, nr2, how);
+                  stat += a[ia*kia]->get_smooth_spherical_quantity(qnt[ia], ar2, nr2, how);
               } // ia
               assert(!dp);
           }
@@ -4512,7 +4583,7 @@ namespace single_atom {
               assert(nullptr != dpp);
               double const **const dnc = const_cast<double const**>(dpp);
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  dnc[ia] = reinterpret_cast<double const*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
+                  dnc[ia] = reinterpret_cast<double const*>(a[ia*kia]->get_smooth_radial_grid()); // pointers to smooth radial grids
               } // ia
 #else  // DEVEL
               stat = -1;
@@ -4526,7 +4597,7 @@ namespace single_atom {
           {
               double *const sigma = dp; assert(nullptr != sigma);
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  sigma[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
+                  sigma[ia] = a[ia*kia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
               } // ia
               assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
@@ -4537,8 +4608,8 @@ namespace single_atom {
               double  *const sigma = dp; assert(nullptr != sigma);
               int32_t *const numax = ip; assert(nullptr != numax);
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  sigma[ia] = a[ia]->get_sigma(); // spreads of the projectors
-                  numax[ia] = a[ia]->get_numax(); //  number of SHO-projectors
+                  sigma[ia] = a[ia*kia]->get_sigma(); // spreads of the projectors
+                  numax[ia] = a[ia*kia]->get_numax(); //  number of SHO-projectors
               } // ia
               assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
@@ -4548,8 +4619,9 @@ namespace single_atom {
           {
               double const *const *const vlm = dpp; assert(nullptr != vlm);
               float const mix_pot = fp ? fp[0] : mix_defaults[0];
+              #pragma omp parallel for
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  a[ia]->update_potential(mix_pot, vlm[ia], echo_mask[ia]*echo); // set electrostatic multipole shifts
+                  a[ia*kia]->update_potential(mix_pot, vlm[ia], echo_mask[ia]*echo); // set electrostatic multipole shifts
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
@@ -4559,14 +4631,15 @@ namespace single_atom {
           {
               double const *const *const atom_rho = dpp; assert(nullptr != atom_rho);
               float const *const mix_rho = fp ? fp : &mix_defaults[1];
+              #pragma omp parallel for
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != atom_rho[ia]);
-                  int const numax = a[ia]->get_numax();
+                  int const numax = a[ia*kia]->get_numax();
                   int const ncoeff = sho_tools::nSHO(numax);
                   for (int i = 0; i < ncoeff; ++i) {
-                      set(a[ia]->density_matrix[i], ncoeff, &atom_rho[ia][i*ncoeff + 0]);
+                      set(a[ia*kia]->density_matrix[i], ncoeff, &atom_rho[ia][i*ncoeff + 0]);
                   } // i
-                  a[ia]->update_density(mix_rho, echo_mask[ia]*echo);
+                  a[ia*kia]->update_density(mix_rho, echo_mask[ia]*echo);
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
@@ -4575,9 +4648,10 @@ namespace single_atom {
           case 'q': // interface usage: atom_update("qlm charges", natoms, dp=null, ip=null, fp=null, dpp=qlm);
           {
               double *const *const qlm = dpp; assert(nullptr != qlm);
+              #pragma omp parallel for
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  int const nlm = pow2(1 + a[ia]->ellmax_cmp);
-                  set(qlm[ia], nlm, a[ia]->qlm_compensator.data()); // copy compensator multipoles
+                  int const nlm = pow2(1 + a[ia*kia]->ellmax_cmp);
+                  set(qlm[ia], nlm, a[ia*kia]->qlm_compensator.data()); // copy compensator multipoles
               } // ia
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
           }
@@ -4589,9 +4663,9 @@ namespace single_atom {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               float const mix_spherical = fp ? std::min(std::max(0.f, fp[0]), 1.f) : 0;
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  lmax[ia] = dp ? a[ia]->ellmax_pot : a[ia]->ellmax_cmp;
+                  lmax[ia] = dp ? a[ia*kia]->ellmax_pot : a[ia*kia]->ellmax_cmp;
                   // fine-control take_spherical_density[valence] any float in [0, 1], NOT atom-resolved! consumes only fp[0]
-                  if (fp) a[ia]->take_spherical_density[valence] = mix_spherical;
+                  if (fp) a[ia*kia]->take_spherical_density[valence] = mix_spherical;
               } // ia
               assert(!dpp); // last argument must be nullptr (by default)
           }
@@ -4601,7 +4675,7 @@ namespace single_atom {
           {
               int32_t *const numax = ip; assert(nullptr != numax);
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  numax[ia] = a[ia]->get_numax();
+                  numax[ia] = a[ia*kia]->get_numax();
               } // ia
               assert(!dp); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
@@ -4610,16 +4684,17 @@ namespace single_atom {
           case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, dp=null, ip=nelements, fp=null, dpp=atom_mat);
           {
               double *const *const atom_mat = dpp; assert(nullptr != atom_mat);
+              #pragma omp parallel for
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != atom_mat[ia]);
-                  int const numax = a[ia]->get_numax();
+                  int const numax = a[ia*kia]->get_numax();
                   int const ncoeff = sho_tools::nSHO(numax);
                   int const nelements = ip ? ip[ia] : 2*pow2(ncoeff);
                   int const h1hs2 = nelements/pow2(ncoeff); // ToDo: make this more elegant
                   for (int i = 0; i < ncoeff; ++i) {
                       if (h1hs2 > 1)
-                      set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->overlap[i]);
-                      set(&atom_mat[ia][(0*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->hamiltonian[i]);
+                      set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia*kia]->overlap[i]);
+                      set(&atom_mat[ia][(0*ncoeff + i)*ncoeff + 0], ncoeff, a[ia*kia]->hamiltonian[i]);
                   } // i
               } // ia
               assert(!dp); assert(!fp); // all other arguments must be nullptr (by default)
@@ -4629,8 +4704,9 @@ namespace single_atom {
           case 'e': // interface usage: atom_update("energies", natoms, dp=delta_Etot, ip=null, fp=null, dpp=atom_ene=null);
           {
               double *const *const atom_ene = dpp;
+              #pragma omp parallel for
               for (size_t ia = 0; ia < a.size(); ++ia) {
-                  dp[ia] = a[ia]->get_total_energy(atom_ene ? atom_ene[ia] : nullptr);
+                  dp[ia] = a[ia*kia]->get_total_energy(atom_ene ? atom_ene[ia] : nullptr);
               } // ia
               assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
           }

@@ -33,7 +33,7 @@ if(HAS_TFQMRGPU)
         tfQMRgpu
         GIT_REPOSITORY https://github.com/real-space/tfQMRgpu.git
         # GIT_TAG        v0.9  # version 0.9
-        GIT_TAG "8d56049929db70a8095c7f20bcdad0bfc534a02a"
+        GIT_TAG "572a4aa43fb80677ea9c7a2264d1206ff01df967"
     )
     FetchContent_MakeAvailable(tfQMRgpu)
     # after configuring headers for tfQMRgpu are found in _deps/tfQMRgpu-src

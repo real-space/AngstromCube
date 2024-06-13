@@ -177,7 +177,6 @@ namespace brillouin_zone {
 
   inline int get_kpoint_mesh(
         view2D<double> & mesh
-      // , bool const complex_phase_factors=true
   ) {
       unsigned nv[3];
       auto const iso = control::get("hamiltonian.kmesh", 1.); // isotropic default value
@@ -259,18 +258,20 @@ namespace brillouin_zone {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t test_mesh(int const echo=0, unsigned const n=8) {
-      view2D<double> mesh;
-      auto const nm = get_kpoint_mesh(mesh, n, true, echo);
-      if (echo > 5) std::printf("# %s(n= %d) returns %d points\n", __func__, n, nm);
-      return (nm < 1); // error if less than 1 (the Gamma points) is in the mesh
+  inline status_t test_mesh(int const echo=0) {
+      status_t stat(0);
+      for (int n = 0; n <= 8; ++n) {
+          view2D<double> mesh;
+          auto const nm = get_kpoint_mesh(mesh, n, true, echo);
+          if (echo > 5) std::printf("# %s(n= %d) returns %d points\n", __func__, n, nm);
+          stat += (nm < 1); // error if less than 1 (the Gamma points) is in the mesh
+      } // n
+      return stat;
   } // test_mesh
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      for (int n = 0; n <= 9; ++n) {
-          stat += test_mesh(echo, n);
-      } // n
+      stat += test_mesh(echo);
       return stat;
   } // all_tests
 

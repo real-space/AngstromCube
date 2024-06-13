@@ -39,6 +39,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	geometry_analysis.o \
 	self_consistency.o \
 	iterative_poisson.o \
+	inline_math.o \
 	parallel_poisson.o \
 	bessel_transform.o \
 	dense_solver.o \
@@ -51,6 +52,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	sho_basis.o \
 	sho_overlap.o \
 	sho_hamiltonian.o \
+	simple_timer.o \
 	energy_contour.o \
 	sho_projection.o \
 	sho_potential.o \
@@ -100,13 +102,15 @@ FEAFLAGS += -D _GIT_KEY=$(GITKEY)
 FEAFLAGS += -D HAS_NO_MPI
 FEAFLAGS += -D HAS_NO_OMP
 FEAFLAGS += -D HAS_NO_CUDA
-FEAFLAGS += -D HAS_BITMAP_EXPORT
+# FEAFLAGS += -D HAS_BITMAP_EXPORT
 FEAFLAGS += -D HAS_SINGLE_ATOM
 # FEAFLAGS += -D USE_SIMPLE_RANGE_TRUNCATION
 # FEAFLAGS += -D USE_RECIPROCAL_RADIAL_GRID
 # FEAFLAGS += -D LARGE_ANGULAR_GRIDS
 # FEAFLAGS += -D GENERAL_CELL
 FEAFLAGS += -D HAS_TFQMRGPU
+INC += -I/Users/pbaum/tfQMRgpu/include
+
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
 FEAFLAGS += -D HAS_LAPACK
@@ -134,8 +138,11 @@ OPTFLAGS += -Wno-format
 # OPTFLAGS += -Wno-format-security
 OPTFLAGS += -Wno-sign-compare
 
-# for Clang
+# for Clang: AddressSanitizer
 OPTFLAGS += -fsanitize=address
+
+# for Clang: UndefinedBehaviorSanitizer
+OPTFLAGS += -fsanitize=undefined
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread
@@ -143,7 +150,8 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-ifeq ($(HOSTNAME),MacBook-Pro-4.local)
+#ifeq ($(HOSTNAME),MacBook-Pro-4.local)
+ifneq ( ,$(findstring MacBook-Pro,$(HOSTNAME)))
 	EXTFLAGS += -D HAS_NO_MKL
 	LDFLAGS += -lm
 	LDFLAGS += -lblas

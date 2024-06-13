@@ -141,9 +141,9 @@ namespace exchange_correlation {
   double lda_PZ81_kernel<double>(double, double &, double, double*);
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_LDA_potentials(int const echo=0) {
       if (echo > 3) {

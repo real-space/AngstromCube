@@ -8,11 +8,11 @@
 #include "inline_math.hxx"
 #include "data_view.hxx" // view2D<T>
 #include "status.hxx" // status_t
-#ifndef STANDALONE_TEST
+#ifndef   STANDALONE_TEST
   #include "recorded_warnings.hxx" // warn
-#else
+#else  // STANDALONE_TEST
   #define warn std::printf
-#endif
+#endif // STANDALONE_TEST
 
   int8_t constexpr Periodic_Boundary =  1;
   int8_t constexpr Isolated_Boundary =  0;
@@ -44,13 +44,23 @@
 
 namespace boundary_condition {
 
-  inline int periodic_images( // returns the number of images found
-        view2D<double> & ipos // array of periodic positions (n,4)
-      , double const cell[3][4]  // lower triangular cell matrix
-      , int8_t const bc[3]       // boundary condition selectors
-      , float  const rcut      // truncation radius
-      , int    const echo=0      // log-level
-      , view2D<int8_t> *iidx=nullptr // optional: pointer to array of indices (n,4)
+  char const bc_names[8][16] = {"isolated", "periodic", "vacuum", "repeat", "unknown", "wrap", "?invalid", "mirror"};
+  // internal value                0           1           2         3         4        5         -2          -1
+  
+  inline int8_t potential_bc(int8_t const bc) {
+      // translate a Green function BC (which can be also vacuum or repeat) into a regular BC for the potential
+      int constexpr pot_bc[8] = {0, 1, 0, 1, -2, -2, -2, -1};
+      return pot_bc[bc & 0x7];
+  } // potential
+
+
+  inline int periodic_images( // returns ni, the number of images found
+        view2D<double> & ipos   // array of periodic positions (ni,4)
+      , double const cell[3][4] // lower triangular cell matrix
+      , int8_t const bc[3]      // boundary condition selectors
+      , float  const rcut       // truncation radius
+      , int    const echo=0     // log-level
+      , view2D<int8_t> *iidx=nullptr // optional: pointer to array of indices (ni,4)
   ) {
       double const cell_diagonal2 = pow2(rcut)
                                   + pow2(cell[0][0]) + pow2(cell[1][1]) + pow2(cell[2][2]); // ToDo: needs adjustment?
@@ -66,28 +76,32 @@ namespace boundary_condition {
               ni_xyz[d] = 0;
           } // periodic
       } // d
+      int const nx = ni_xyz[0], ny = ni_xyz[1], nz = ni_xyz[2];
       if (echo > 5) std::printf("# %s: check %d x %d x %d = %d images max.\n",
-              __func__, 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
+              __func__, nx+1+nx, ny+1+ny, nz+1+nz, ni_max);
 
 #ifndef   GENERAL_CELL
       assert((0 == cell[0][1]) && (0 == cell[1][2]) && (0 == cell[0][2]) && "the cell is not a lower triangular matrix");
 #endif // GENERAL_CELL
 
+#ifdef    DEVEL
+      view3D<char> mark(2*ny + 1 + 1, 2*nz + 1, 2*nx + 3 + 1, ' '); // data layout y,z,x for plotting
+#endif // DEVEL
       view2D<double> pos(ni_max, 4, 0.0); // get memory
       view2D<int8_t> idx(ni_max, 4, 0);   // get memory
       int ni{1}; // at least one periodic images is always there: (0,0,0)
-      for         (int iz = -ni_xyz[2]; iz <= ni_xyz[2]; ++iz) {
+      for         (int iz = -nz; iz <= nz; ++iz) {
 #ifndef   GENERAL_CELL
           double const pz[3]  = {iz*cell[2][0], iz*cell[2][1], iz*cell[2][2]}; // can deal with a lower triangular cell matrix
 #endif // GENERAL_CELL
-          for     (int iy = -ni_xyz[1]; iy <= ni_xyz[1]; ++iy) {
+          for     (int iy = -ny; iy <= ny; ++iy) {
 #ifndef   GENERAL_CELL
               double const pyz[3] = {iy*cell[1][0] + pz[0], iy*cell[1][1] + pz[1], pz[2]}; // can deal with a lower triangular cell matrix
 #endif // GENERAL_CELL
-              for (int ix = -ni_xyz[0]; ix <= ni_xyz[0]; ++ix) {
+              for (int ix = -nx; ix <= nx; ++ix) {
 #ifdef    GENERAL_CELL
                   double p[3];
-                  for (int d = 0; d < 3; ++d) {
+                  for (int d{0}; d < 3; ++d) {
                       p[d] = ix*cell[0][d] + iy*cell[1][d] + iz*cell[2][d];
                   } // d
 #else  // GENERAL_CELL
@@ -95,9 +109,6 @@ namespace boundary_condition {
                   double const p[3] = {pyz[0] + px, pyz[1], pyz[2]};
 #endif // GENERAL_CELL
                   double const d2 = pow2(p[0]) + pow2(p[1]) + pow2(p[2]);
-#ifdef DEVEL
-                  char mark{' '};
-#endif // DEVEL
                   if (d2 < cell_diagonal2) {
                       if (d2 > 0) { // exclude the origin (that is already index #0)
                           pos(ni,0) = p[0];
@@ -110,35 +121,45 @@ namespace boundary_condition {
                           idx(ni,2) = iz;
                           idx(ni,3) =  0; // no use
                           ++ni; // count the number of images inside
-#ifdef DEVEL
-                          mark = 'o';
+#ifdef    DEVEL
+                          mark(iy + ny,iz + nz,ix + nx) = 'o'; // data layout y,z,x
                       } else {
-                          mark = 'x';
+                          mark(iy + ny,iz + nz,ix + nx) = 'x'; // data layout y,z,x
 #endif // DEVEL
                       } // d2 > 0
                   } // d2 < cell_diagonal2
-#ifdef DEVEL
-                  if (echo > 6) {
-                      if (ix == -ni_xyz[0]) {
-                          if (iy == -ni_xyz[1]) std::printf("# %s z=%i\n", __func__, iz);
-                          std::printf("#%4i  | ", iy); // before first x
-                      } // first x
-                      std::printf("%c", mark);
-                      if (ix == ni_xyz[0]) std::printf(" |\n"); // after last x
-                  } // echo
-#endif // DEVEL
               } // ix
           } // iy
       } // iz
       if (echo > 1) std::printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
+#ifdef    DEVEL
+      if (echo > 6) { // display in terminal
+          int const mz = std::max(0, std::min(96/(2*nx + 1 + 3) - 1, 2*nz)); // maximum number of z-slices so the line does not get too long
+          std::printf("# %s x=%d...%d, z=%d...%d(max %d), total=%d:\n", __func__, -nx, nx, -nz, mz - nz, nz, ni);
+          for     (int iz{0}; iz <=   mz; ++iz) {
+              for (int ix{0}; ix <= 2*nx; ++ix) {
+                  mark(2*ny + 1,iz,ix) = char('0' + (std::abs(ix - nx) % 10)); // make an x-legend
+              } // ix
+          } // iz
+          mark(2*ny + 1,mz,2*nx + 3) = '\0'; // zero-termination so the legend does not get too long
+          std::printf("#     x=   %s\n", mark(2*ny + 1,0)); // the x-legend
+          for     (int iy{0}; iy <= 2*ny; ++iy) {
+              for (int iz{0}; iz <= 2*nz; ++iz) {
+                  mark(iy,iz,2*nx + 2) = '|';
+              } // iz
+              mark(iy,mz,2*nx + 3) = '\0'; // zero-termination so the line does not get too long
+              std::printf("# y=%4i | %s\n", iy - ny, mark(iy,0)); // plot
+          } // iy
+      } // echo
+#endif // DEVEL
 
       // export array of periodic positions
       ipos = view2D<double>(ni, 4); // get memory
-      set(ipos.data(), ni*4, pos.data()); // copy
+      set(ipos.data(), ni*4, pos.data()); // deep copy
 
-      if (iidx) {
+      if (nullptr != iidx) {
           *iidx = view2D<int8_t>(ni, 4); // get memory
-          set(iidx->data(), ni*4, idx.data()); // copy
+          set(iidx->data(), ni*4, idx.data()); // deep copy
       } // export indices
 
       return ni;
@@ -155,20 +176,21 @@ namespace boundary_condition {
           switch (first | 32) { // ignore case with | 32
               case 'p': case '1': bc = Periodic_Boundary; break;
               case 'i': case '0': bc = Isolated_Boundary; break;
-              case 'm': case '-': bc = Mirrored_Boundary; break;
+              case 'm': case '-': bc = Mirrored_Boundary; break; // experimental
+              case 'v': case '2': bc =   Vacuum_Boundary; break; // experimental
+              case 'r': case '3': bc =   Repeat_Boundary; break; // experimental
           } // switch
       } // nullptr != string
       if (echo > 0) {
-          char const bc_names[][12] = {"isolated", "periodic", "invalid", "mirror"};
           std::printf("# interpret \"%s\" as %s boundary condition in %c-direction\n",
-                      string, bc_names[bc & 0x3], dir);
+                      string, bc_names[bc & 0x7], dir);
       } // echo
       return bc;
   } // fromString
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_periodic_images(int const echo=0) {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
@@ -186,8 +208,8 @@ namespace boundary_condition {
   inline status_t test_fromString_single(char const bc_strings[][16], int const echo=0) {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
-      for (int8_t bc = Invalid_Boundary; bc <= Periodic_Boundary; ++bc) {
-          stat += (bc != fromString(bc_strings[bc & 0x3], echo));
+      for (int8_t bc = Invalid_Boundary; bc <= Repeat_Boundary; ++bc) {
+          stat += (bc != fromString(bc_strings[bc & 0x7], echo));
       } // bc
       return stat;
   } // test_fromString_single
@@ -196,13 +218,12 @@ namespace boundary_condition {
       // test the parser with different strings
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
-      {   char const bc_strings[][16] = {"isolated", "periodic", "?invalid", "mirror"}; // {0, 1, -2, -1}
+      stat += test_fromString_single(bc_names, echo);
+      {   char const bc_strings[8][16] = {"i", "p", "v", "r", "?", "w", "?", "m"}; // {0, 1, 2, 3, 4, 5, -2, -1}
           stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[][16] = {"i", "p", "_", "m"}; // {0, 1, -2, -1}
+      {   char const bc_strings[8][16] = {"I", "P", "V", "R", "?", "W", "?", "M"};
           stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[][16] = {"I", "P", "#", "M"}; // {0, 1, -2, -1}
-          stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[][16] = {"0", "1", "*", "-"}; // {0, 1, -2, -1}
+      {   char const bc_strings[8][16] = {"0", "1", "2", "3", "?", "5", "*", "-"};
           stat += test_fromString_single(bc_strings, echo);   }
       return stat;
   } // test_fromString

@@ -13,9 +13,9 @@
 
 namespace green_sparse {
 
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else  // NO_UNIT_TESTS
 
   status_t test_sparse(int const echo=0, int const n=7) {
       sparse_t<> s0;              // test default constructor

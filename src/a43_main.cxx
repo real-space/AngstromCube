@@ -1,5 +1,6 @@
 // This file is part of AngstromCube under MIT License
 
+  #include "self_consistency.hxx" // ::SCF
 #ifndef NO_UNIT_TESTS
   #include "exchange_correlation.hxx" // ::all_tests
   #include "spherical_harmonics.hxx" // ::all_tests
@@ -28,7 +29,6 @@
   #include "davidson_solver.hxx" // ::all_tests
   #include "progress_report.hxx" // ::all_tests
   #include "chemical_symbol.hxx" // ::all_tests
-  #include "linear_operator.hxx" // ::all_tests
   #include "sho_hamiltonian.hxx" // ::all_tests
   #include "fourier_poisson.hxx" // ::all_tests
   #include "solid_harmonics.hxx" // ::all_tests
@@ -47,7 +47,6 @@
   #include "element_config.hxx" // ::all_tests
   #include "symmetry_group.hxx" // ::all_tests
   #include "complex_tools.hxx" // ::all_tests
-  #include "vector_layout.hxx" // ::all_tests
   #include "sho_potential.hxx" // ::all_tests
   #include "pawxml_import.hxx" // ::all_tests
   #include "load_balancer.hxx" // ::all_tests
@@ -110,10 +109,10 @@
 
   status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
       error("version was compiled with -D NO_UNIT_TESTS but try to test \'%s\'", module);
       return STATUS_TEST_NOT_INCLUDED;
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
       SimpleTimer unit_test_timer(__func__, 0, module, 0); // timer over all tests
 
@@ -139,6 +138,7 @@
           } // start_a_chapter
 
           start_a_chapter("general"); // *****************************************
+          // these modules are of general utility for programming
           add_module_test(control);
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
@@ -149,6 +149,7 @@
           add_module_test(data_view);
 
           start_a_chapter("math"); // *****************************************
+          // these modules are supporting mathematical operations
           add_module_test(inline_math);
           add_module_test(simple_math);
           add_module_test(complex_tools);
@@ -161,20 +162,18 @@
           add_module_test(dense_operator);
           add_module_test(angular_grid);
 
-          start_a_chapter("inactive"); // *****************************************
-          add_module_test(vector_layout);
-          add_module_test(linear_operator);
-
           start_a_chapter("input"); // *****************************************
+          // these modules support input and output
+          add_module_test(real_space);
           add_module_test(chemical_symbol);
           add_module_test(boundary_condition);
           add_module_test(geometry_input);
           add_module_test(geometry_analysis);
           add_module_test(shift_boundary);
           add_module_test(unit_system);
-          add_module_test(real_space);
 
           start_a_chapter("parallelization"); // *****************************************
+          // these modules support various kinds of parallelization and bookkeeping
           add_module_test(mpi_parallel);
           add_module_test(omp_parallel);
           add_module_test(parallel_domains);
@@ -182,16 +181,18 @@
           add_module_test(load_balancer);
 
           start_a_chapter("electrostatics"); // *****************************************
+          // these modules offer different electrostatic 3D solver
           add_module_test(multi_grid);
           add_module_test(fourier_transform);
           add_module_test(fourier_poisson);
-          add_module_test(radial_potential);
           add_module_test(iterative_poisson);
           add_module_test(parallel_poisson);
           add_module_test(poisson_solver);
 
           start_a_chapter("radial"); // *****************************************
+          // these modules act on a radial 1D grid
           add_module_test(radial_grid);
+          add_module_test(radial_potential);
           add_module_test(radial_integrator);
           add_module_test(radial_eigensolver);
           add_module_test(atom_core);
@@ -204,6 +205,7 @@
           add_module_test(single_atom);
 
           start_a_chapter("SHO-specific"); // *****************************************
+          // these modules are about the Spherical Harmonic Oscillator basis
           add_module_test(sho_tools);
           add_module_test(sho_unitary);
           add_module_test(sho_overlap);
@@ -214,6 +216,7 @@
           add_module_test(sho_hamiltonian);
 
           start_a_chapter("Hamiltonian"); // *****************************************
+          // these modules are specific for the real-space Green function method
           add_module_test(atom_image);
           add_module_test(plane_wave);
           add_module_test(grid_operators);
@@ -222,16 +225,20 @@
           add_module_test(green_parallel);
           add_module_test(green_sparse);
           add_module_test(green_function);
-//  The green_* modules below are grouped for faster development
+//  The 7 green_* modules below are grouped for faster development
+//           add_module_test(green_memory);
 //           add_module_test(green_kinetic);
-//           add_module_test(green_potential);
 //           add_module_test(green_dyadic);
+//           add_module_test(green_potential);
 //           add_module_test(green_action);
+//           add_module_test(green_solver);
 //           add_module_test(green_experiments);
-//  The green_* modules above are grouped for faster development
+//  The 7 green_* modules above are grouped for faster development
+//  for each of those 7+1 *.cxx files there are soft links with CUDA *.cu suffixes
           green_tests::add_tests(results, input_name, show, all, echo);
 
           start_a_chapter("eigensolver"); // *****************************************
+          // these modules offer various kinds of Hermitian eigenvalue solvers
           add_module_test(conjugate_gradients);
           add_module_test(davidson_solver);
           add_module_test(dense_solver);
@@ -239,6 +246,7 @@
           add_module_test(energy_contour);
 
           start_a_chapter("DFT-specific"); // *****************************************
+          // these modules are specific to Density Functional Theory
           add_module_test(symmetry_group);
           add_module_test(brillouin_zone);
           add_module_test(fermi_distribution);
@@ -309,7 +317,7 @@
       if (echo > 0) std::printf("Usage %s [OPTION]\n"
         "   --help           [-h]\tThis help message\n"
         "   --version            \tShow version number\n"
-#ifndef  NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
         "   --test <module>  [-t]\tRun module unit test\n"
 #endif // NO_UNIT_TESTS
         "   --verbose        [-V]\tIncrement verbosity level\n"
@@ -335,10 +343,7 @@
   int main(int const argc, char *argv[]) {
       mpi_parallel::init(argc, argv);
       auto const me = mpi_parallel::rank();
-      if (argc < 2) {
-          if (0 == me) std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
-          return -1;
-      } // no argument passed to executable
+      if (argc < 2) warn("no arguments passed to %s!", (argc < 1) ? __FILE__ : argv[0]);
       status_t stat(0);
       char const *test_unit = ""; // the name of the unit to be tested
       int run_tests{0};
@@ -403,7 +408,7 @@
       if (0 == me && verbosity > 0) {
           std::printf("\n#");
           for (int iarg = 0; iarg < argc; ++iarg) {
-              std::printf(" %s", argv[iarg]); // repeat all command line arguments for completeness of the log file
+              std::printf(" %s", argv[iarg]); // repeat all command line arguments for reproducability
           } // iarg
           std::printf("\n");
       } // verbosity
@@ -422,7 +427,9 @@
       // run
       if (run_tests) {
           stat += run_unit_tests(test_unit, echo);
-      } // run_tests
+      } else {
+          stat += self_consistency::SCF(echo);
+      }
 
       // finalize
       {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show unused, 4:show defaults

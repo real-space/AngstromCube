@@ -39,7 +39,7 @@ namespace green_tests {
       , int const echo
   ) {
 
-#ifndef  NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
 
       { // testing scope
 

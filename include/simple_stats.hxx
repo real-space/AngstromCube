@@ -94,26 +94,26 @@ namespace simple_stats {
   inline status_t test_basic(int const echo=0, int offset=0, double const threshold=1e-6) {
       Stats<real_t> s;
       int const begin=offset, end=offset + 100;
-      double const ref[] = {49.5 + offset, 833.25}; // {mean, variance} of integer range [0, 99]
+      double const ref[] = {49.5 + offset, 833.25}; // {mean, variance} of integers in range [0, 99]
       for (int i = begin; i < end; ++i) {
           s.add(i);
       } // i
       auto const mean = s.mean();
-      if (echo > 3) std::printf("# %s: from %d to %d: %g +/- %g\n", __func__, begin, end - 1, mean, s.dev());
+      if (echo > 3) std::printf("\n# %s: from %d to %d: %g +/- %g\n", __func__, begin, end - 1, mean, s.dev());
       auto const dev_mean = std::abs(ref[0] - mean),
              dev_variance = std::abs(ref[1] - s.variance());
       if (echo > 7) std::printf("# %s: dev_mean= %g, dev_variance= %g\n", __func__, dev_mean, dev_variance);
-      if (echo > 9) std::printf("# %s: %ld Byte\n", __FILE__, sizeof(s));
-      return (dev_mean > threshold*mean) + (dev_variance > threshold*mean*mean);
+      if (echo > 9) std::printf("# Stats<%s>: %ld Byte\n", (4 == sizeof(real_t))?"float":"double", sizeof(s));
+      return (dev_mean > threshold*mean) + (dev_variance > 2*threshold*mean*mean);
   } // test_basic
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
-      stat += test_basic<float >(echo);
-      stat += test_basic<double>(echo);
-      stat += test_basic<float >(echo, 1000000);
-      stat += test_basic<double>(echo, 1000000);
+      stat += test_basic<float >(echo,         0, 4e-7);
+      stat += test_basic<double>(echo,         0, 2e-16);
+      stat += test_basic<float >(echo, 1000*1000, 4e-7);
+      stat += test_basic<double>(echo, 1000*1000, 2e-16);
       return stat;
   } // all_tests
 

@@ -6,7 +6,7 @@
 namespace control {
   /*
    *    This is an internal variable environment that facilitates code development.
-   *    Variables can be defined in an input file, the command line or is the code.
+   *    Variables can be defined in an input file, the command line or in the code.
    *    Variables can be read anywhere in the code.
    *    Internally, variables are stored as pairs of two strings, name and value.
    */

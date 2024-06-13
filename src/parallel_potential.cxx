@@ -905,7 +905,10 @@ namespace parallel_potential {
             } // rank
         } // ia
         uint32_t irequest{0};
+#else  // HAS_NO_MPI
+        bool const remote_atom_is_error = (0 == control::get("mpi.fake.size", 0.));
 #endif // HAS_NO_MPI
+
 
         // contributing atoms listen
         uint32_t const natoms = global_atom_ids.size();
@@ -924,7 +927,7 @@ namespace parallel_potential {
                 set(atom_data[iatom], count, owner_data[ia]); // local copy
             } else {
 #ifdef    HAS_NO_MPI
-                error("cannot operate remote atoms without MPI, iatom= %i", iatom);
+                if (remote_atom_is_error) error("cannot operate remote atoms without MPI, iatom= %i", iatom);
 #else  // HAS_NO_MPI
                 if (echo > 11) std::printf("# rank#%i %s: recv %s, %d doubles for owned atom#%i from owner rank#%i to contributing atom#%i, global#%i\n",
                                                    me, __func__, what, count, ia, atom_owner, iatom, global_atom_id);
@@ -1038,8 +1041,10 @@ namespace parallel_potential {
         auto const me = mpi_parallel::rank(comm);
         auto const nprocs = mpi_parallel::size(comm); assert(nprocs > 0);
 
+        int const check = control::get("check", 0.); // check-mode
+
         bool needs_integrator{false};
-        char const *const basis_method = control::get("basis", "Thomas-Fermi"); // {Thomas-Fermi, Green-function}
+        char const *const basis_method = control::get("basis", "Green-function"); // {Thomas-Fermi, Green-function}
         switch (*basis_method | 32) {
             case 't': break; // Thomas-Fermi model
             case 'g': needs_integrator = true; break; // Green-function model
@@ -1059,15 +1064,20 @@ namespace parallel_potential {
         } // scope
 
         // create a coarse grid descriptor
-        real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2);
+        real_space::grid_t gc(g[0] >> 1, g[1] >> 1, g[2] >> 1); // divide +grid.points by 2
         {
-            gc.set_boundary_conditions(g.boundary_conditions());
+            assert(gc[0]*2 == g[0]); assert(gc[1]*2 == g[1]); assert(gc[2]*2 == g[2]); // g.grid_points must be an even number
+            auto const gbc = g.boundary_conditions();
+            gc.set_boundary_conditions(gbc);
             gc.set_cell_shape(g.cell, echo*0); // muted
-            gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2);
+            gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2); // twice the grid spacing
             for (int d{0}; d < 3; ++d) { assert(0 == (gc[d] & 0x3)); } // all grid numbers must be a multiple of 4
             auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
             if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
                       gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
+            g.set_boundary_conditions(boundary_condition::potential_bc(gbc[0]), 
+                                      boundary_condition::potential_bc(gbc[1]), // map vacuum --> isolated, repeat --> periodic
+                                      boundary_condition::potential_bc(gbc[2]));
         }
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 
@@ -1131,7 +1141,7 @@ namespace parallel_potential {
         char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
         auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
         if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
-        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -4); // -4: LivePAW, -9: load from pawxml files
+        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -4); // -4: libliveatom, -9: load from pawxml files
         std::vector<int32_t> lmax_qlm(na, -1);      // expansion of qlm on owned atoms
         std::vector<int32_t> lmax_vlm(na, -1);      // expansion of vlm on owned atoms
         std::vector<int32_t> lmaxs_qlm(natoms, -1); // expansion of qlm on contributing atoms
@@ -1239,18 +1249,18 @@ namespace parallel_potential {
         std::vector<double>  sigma_prj;
         energy_contour::Integrator integrator;
         if (needs_integrator) {
-            if (echo > 0) std::printf("\n# Initialize energy contour integrator");
+            if (echo > 0) std::printf("\n# Initialize energy contour integrator\n");
 
             // Mind: currently the Green function method requires all atoms
             //     as it has to tell apart atomic images from atomic copies
             std::vector<double> xyzZinso(0);
             { // scope: determine additional info
                 numax_prj.resize(na, 0);
-                sigma_prj.resize(na, 1);
+                sigma_prj.resize(na, 1.);
                 stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
-                for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
+                for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
                     assert(numax_prj.at(ia) == numax.at(ia) && "inconsist between 'projectors' and 'initialize' call");
                     auto const gid = nprocs*ia + me; // global_atom_id
                     assert(0 <= gid); assert(gid < n_all_atoms);
@@ -1265,12 +1275,12 @@ namespace parallel_potential {
                     xyzZinso[gid*8 + 4] = gid;
                     xyzZinso[gid*8 + 5] = numax_sigma(gid,0);
                     xyzZinso[gid*8 + 6] = numax_sigma(gid,1);
-                    xyzZinso[gid*8 + 7] = 0;
+                    xyzZinso[gid*8 + 7] = 0; // spare
                 } // gid
             } // scope
 
             // envoke the constructor energy_contour::Integrator
-            integrator = energy_contour::Integrator(gc, xyzZinso, echo);
+            integrator = energy_contour::Integrator(gc, xyzZinso, echo, check);
 
             // setup communication infrastructure for atom_mat
             auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
@@ -1288,6 +1298,7 @@ namespace parallel_potential {
             uint32_t const nb[] = {n_all_atoms, 0, 0};
             integrator.plan_->matrices_requests = green_parallel::RequestList_t(
                 target_global_atom_ids, owned_global_atom_ids, atom_owner_rank.data(), nb, echo, "atom matrices");
+            if (echo > 1) std::printf("\n");
         } // needs_integrator
 
         xyzZ_all = view2D<double>(0, 0, 0.0); // clear, xyzZ_all should not be used after this
@@ -1305,9 +1316,9 @@ namespace parallel_potential {
         double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
         double constexpr Y00sq = pow2(Y00);        // == 1/(4*pi)
 
-        // configure the Poisson solver
+        // configure the electrostatic solver == Poisson solver
         auto  const es_method    = control::get("poisson.method", "cg"); // {cg, sd}
-        int   const es_echo      = control::get("poisson.echo", echo*1.);
+        int   const es_echo      = control::get("poisson.echo", echo/2);
         float const es_threshold = control::get("poisson.threshold", 3e-8);
         int   const es_maxiter   = control::get("poisson.maxiter", 200.);
         int   const es_miniter   = control::get("poisson.miniter", 3.);
@@ -1321,7 +1332,7 @@ namespace parallel_potential {
         double nve{0}; // non-const total number of valence electrons
         { // scope: determine the number of valence electrons
             auto const keyword_valence_electrons = "valence.electrons";
-            if ('a' == (*control::get(keyword_valence_electrons, "auto") | 32)) {
+            if ('a' == (*control::get(keyword_valence_electrons, "auto") | 32)) { // | 32 converts to lowercase
                 std::vector<double> n_electrons_a(na, 0.); // number of valence electrons added by each owned atom
                 stat += live_atom_update("#valence electrons", na, n_electrons_a.data());
                 nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
@@ -1415,7 +1426,11 @@ namespace parallel_potential {
             print_stats(augmented_density[0], n_blocks*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth augmented_density");
 
 
-            { // scope: Poisson equation
+            // ====================================================================================
+            // ====================================================================================
+            // =====                    Poisson equation                    =======================
+            // ====================================================================================
+            if (0 == check) { // scope: Poisson equation
                 if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF iteration #%i\n#\n", nprocs, scf_iteration);
                 double E_es{0};
                 float es_residual{0};
@@ -1427,7 +1442,11 @@ namespace parallel_potential {
                 if (es_stat && 0 == me) warn("parallel_poisson::solve returned status= %i", int(es_stat));
                 grid_electrostatic_energy = 0.5*E_es; // store
                 if (echo > 3) std::printf("# smooth electrostatic grid energy %.9f %s\n", grid_electrostatic_energy*eV, _eV);
-            } // scope
+            } else {
+                if (echo > 0) std::printf("\n# skip Poisson equation for the electrostatic potential due to +check=%d\n\n", check);
+                set(V_electrostatic[0], n_blocks*size_t(8*8*8), 0.0);
+            }
+            // ====================================================================================
 
             print_stats(V_electrostatic[0], n_blocks*size_t(8*8*8), comm, echo > 0, 0, "# smooth electrostatic potential", eV, _eV);
 
@@ -1500,9 +1519,45 @@ namespace parallel_potential {
                     block_average(V_coarse[ilb], V_effective[ilb]);
                 } // ilb
                 print_stats(V_coarse[0], n_blocks*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
+
+                double band_bottom{-1.};
+                { // scope: extract the highest core state energy and an estimate for the lowest valence state energy
+                    view2D<float> extreme_energy_a(3, na, 0.); // extremal energy for {core, semicore, valence}
+                    stat += live_atom_update("#core electrons"   , na, 0, 0, extreme_energy_a[0]);
+                    // ToDo: semicore states ...
+                    stat += live_atom_update("#valence electrons", na, 0, 0, extreme_energy_a[2]);
+                    double extreme[] = {-9e9, 0.0, 9e9};
+                    for (int32_t ia{0}; ia < na; ++ia) {
+                        extreme[0] = std::max(extreme[0], 1.*extreme_energy_a(0,ia));
+                     // extreme[1] =          extreme[1]  +  extreme_energy_a(1,ia) ; 
+                        extreme[2] = std::min(extreme[2], 1.*extreme_energy_a(2,ia));
+                    } // ia
+#ifdef    DEBUGGPU
+                    if (echo > 5) std::printf("# rank#%i has energy extrema at %g and %g %s\n", me, extreme[0]*eV, extreme[2]*eV, _eV);
+#endif // DEBUGGPU
+                    extreme[0] = mpi_parallel::max(extreme[0], comm); // global maximum
+                 // extreme[1] = mpi_parallel::sum(extreme[1], comm)/std::max(n_all_atoms, 1);
+                    extreme[2] = mpi_parallel::min(extreme[2], comm); // global minimum
+                    // ToDo: semicore contour ...
+                    if (extreme[2] < 8e9) {
+                        if (echo > 2) std::printf("# energy contour estimates lowest valence state at %g %s\n", extreme[2]*eV, _eV);
+                        if (0.0 == E_Fermi) { // Fermi level is exactly 0.0 when it is initialized
+                            E_Fermi = extreme[2];
+                            if (echo > 0) std::printf("# initialize Fermi level as %g %s\n", E_Fermi*eV, _eV);
+                        }
+                        if (extreme[0] > -8e9) {
+                            if (echo > 2) std::printf("# energy contour assumes highest core state at %g %s\n", extreme[0]*eV, _eV);
+                            auto const suggest_bottom = 0.25*extreme[0] + 0.75*extreme[2];
+                            band_bottom = suggest_bottom - E_Fermi;
+                            if (echo > 0) std::printf("# suggest band.bottom %g %s below the Fermi level\n", band_bottom*eV, _eV);
+                        }
+                    }
+                    control::set("energy_contour.band.bottom", band_bottom); // avoid changing the interface for now
+                } // scope
+
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
-                                                          lb, pg_Interpolation, n_valence_electrons, g.dV(), echo);
+                                                          pg_Interpolation, n_valence_electrons, g.dV(), echo, check);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }
@@ -1580,9 +1635,15 @@ namespace parallel_potential {
 
 
 
-            scf_run = (scf_iteration < scf_maxiter);
+            scf_run = (scf_iteration < scf_maxiter && check != 0);
 
         } while (scf_run); // self-consistency loop 
+
+        if (1) { // scope: report GPU memory consumption
+            int const memory_show = control::get("green_memory.show", 0.);
+            if (memory_show) std::printf("# rank#%i green_memory now= %.9f GByte, max= %.9f GByte\n",
+                    me, green_memory::total_memory_now()*1e-9, green_memory::high_water_mark()*1e-9);
+        } // scope
 
         stat += live_atom_update("memory cleanup", na);
         return stat;

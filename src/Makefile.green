@@ -17,34 +17,34 @@ all: ${EXECUTABLE}
 OBJDIR=obj_green
 
 OBJECTS = $(addprefix $(OBJDIR)/, \
-	control.o \
-	recorded_warnings.o \
-	display_units.o \
-	load_balancer.o \
-	mpi_parallel.o \
-	geometry_input.o \
-	sho_unitary.o \
-	exchange_correlation.o \
-	parallel_poisson.o \
-	parallel_potential.o \
-	energy_contour.o \
-	chemical_symbol.o \
 	action_plan.o \
-	kinetic_plan.o \
+	chemical_symbol.o \
+	control.o \
+	display_units.o \
 	dyadic_plan.o \
+	energy_contour.o \
+	exchange_correlation.o \
+	geometry_input.o \
+	green_action.o \
+	green_dyadic.o \
 	green_experiments.o \
 	green_function.o \
-	green_parallel.o \
-	green_sparse.o \
-	green_dyadic.o \
-	green_kinetic.o \
-	green_action.o \
-	green_memory.o \
 	green_input.o \
+	green_kinetic.o \
+	green_memory.o \
+	green_parallel.o \
 	green_potential.o \
   green_solver.o \
+	green_sparse.o \
 	green_tests.o \
-	green_main.o )
+	kinetic_plan.o \
+	load_balancer.o \
+	mpi_parallel.o \
+	parallel_poisson.o \
+	parallel_potential.o \
+	recorded_warnings.o \
+	sho_unitary.o \
+	green_main.o)
 
 
 .PHONY: clean allclean
@@ -122,6 +122,12 @@ CXXOPTFLAGS += -pedantic
 OPTFLAGS += -Wno-sign-compare
 OPTFLAGS += -Wno-format
 OPTFLAGS += -Wno-unknown-pragmas
+
+# for Clang: AddressSanitizer
+OPTFLAGS += -fsanitize=address
+
+# for Clang: UndefinedBehaviorSanitizer
+OPTFLAGS += -fsanitize=undefined
 
 # LDFLAGS += -mkl
 LDFLAGS += ## -lmkl_intel_thread

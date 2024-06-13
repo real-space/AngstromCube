@@ -11,9 +11,9 @@
 
 namespace bessel_transform {
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_Gaussian(int const echo=4) {
       if (echo > 3) std::printf("# %s: %s\n", __FILE__, __func__);

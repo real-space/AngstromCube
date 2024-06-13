@@ -105,6 +105,8 @@ namespace mpi_parallel {
 
   inline MPI_Comm comm() { return MPI_COMM_WORLD; }
 
+#define   MPI_SIZE_AND_RANK_INLINED
+#ifdef    MPI_SIZE_AND_RANK_INLINED
   inline unsigned size(MPI_Comm const comm=MPI_COMM_WORLD) {
       int size{0};
       MPI_Check(MPI_Comm_size(comm, &size));
@@ -119,6 +121,10 @@ namespace mpi_parallel {
       if (check_size > 0) assert( rank < check_size );
       return rank;
   } // rank
+#else  // MPI_SIZE_AND_RANK_INLINED
+  unsigned size(MPI_Comm const comm=MPI_COMM_WORLD); // declaration only
+  int rank(MPI_Comm const comm=MPI_COMM_WORLD, unsigned const check_size=0); // declaration only
+#endif // MPI_SIZE_AND_RANK_INLINED
 
   template <typename T> MPI_Datatype get(T t=0);
   template <> inline MPI_Datatype get<char>    (char     t) { return MPI_UINT8_T;  }

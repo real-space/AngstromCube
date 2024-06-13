@@ -9,7 +9,6 @@
 
 #include "iterative_poisson.hxx"
 
-#include "real_space.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
 #include "inline_math.hxx" // set, dot_product, pow2, add_product
 #include "finite_difference.hxx" // ::stencil_t, ::apply

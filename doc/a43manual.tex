@@ -409,15 +409,16 @@ Lines in a control file are either
     \item comments with \ttt{\#!} which appear in the log output or
     \item $variablename$\ttt{=}$value$
 \end{itemize}
-where $value$ is the string between \ttt{=} and the line end and may contain whitespace characters.
+where $value$ is the string between \lq\ttt{=}\rq and the line end and may contain whitespace characters.
 \\
 Mind: We must not place \ttt{+} in front of $variablename$ when specified in a control file!
-We may add blanks after \ttt{=} for numeric values but not before the \ttt{=}.
+We may add blanks after \lq\ttt{=}\rq for numeric values but not before the \lq\ttt{=}\rq.
 \\
 A repeated $variablename$ will launch a warning about redefinition, even if the value is unchanged. Try
 \begin{verbatim}
 ./a43 +a=5 +a=5
 \end{verbatim}
+Variable names may contain any character except \lq\ttt{=}\rq.
 
 \subsubsection{List of Control Variables} \label{sec:list-of-control-variables}
 %
@@ -1149,7 +1150,8 @@ Most important variables to control the Green function calculation.
   \ttt{green\_function.truncation.radius} & $10\,$Bohr   & Green function truncation radius \\
   \ttt{green\_function.projection.radius} & $6$          & Radius of non-local potential, in units of $\sigma$ \\
   \ttt{green\_function.sources}			  & 1            & Number of \ac{RHS} blocks, \ttt{-1}: all \\
-  \ttt{tfqmrgpu.max.iterations}           & $99$         & Iterative solver limit \\
+  \ttt{tfqmrgpu.max.iterations}           & $99$         & Iterative solver limit in tests \\
+  \ttt{green\_solver.iterations}          & $99$         & Iterative solver limit \\
 \hline
 \end{tabular}
 \end{table}
@@ -1160,7 +1162,8 @@ Table \ref{tab:main-green-variables} gives an overview of the most important con
 
 \noindent
 % grep -in 'hamiltonian\.file' ../green/*.cxx ../include/*.hxx
-The \ac{DFT} Hamiltonian $\hat H$ is passed to \ttt{./green} via an \ac{XML} or a \ttt{JSON} formatted file.
+For tests (e.g.~\ttt{-t green\_experiments})
+the \ac{DFT} Hamiltonian $\hat H$ is passed to \ttt{./green} via an \ac{XML} or a \ttt{JSON} formatted file.
 The filename is controlled by \ttt{+hamiltonian.file} with default name \ttt{Hmt.xml}.
 
 \subsection{Getting started} \label{sec:green-getting-started}
@@ -1179,12 +1182,12 @@ to see if the input file \ttt{+hamiltonian.file=Hmt.xml} is found and parsed wit
 \noindent
 Proceed by benchmarking the action of the implicit Hamiltonian:
 \begin{verbatim}
-./green --test green_function +green_function.benchmark.action=0
+./green --test green_action +green_function.benchmark.action=0
 \end{verbatim}
-First, we add \ttt{+green\_function.benchmark.action=0} to check if the Green function construction process runs error-free.
+adding \ttt{.action=0} checks if the Green function construction process runs error-free.
 Then, we can control 
 \begin{verbatim}
-./green --test green_function +green_function.benchmark.iterations=0
+./green --test green_action +green_function.benchmark.iterations=0
 \end{verbatim}
 to first see if the \ttt{action\_t} can be constructed properly.
 Next, we run a single iteration of the action alone by \ttt{+green\_function.benchmark.iterations=-1}.
@@ -1193,7 +1196,7 @@ Set \ttt{+green\_function.benchmark.iterations=-10} for that.
 \noindent
 Finally, if that works we can start the solver setup with 
 \begin{verbatim}
-./green --test green_function +green_function.benchmark.iterations=1 \
+./green --test green_action +green_function.benchmark.iterations=1 \
 			   +tfqmrgpu.max.iterations=0
 \end{verbatim}
 and on success increase \ttt{iterations} to \ttt{1}, \ttt{10}, and more.
@@ -1201,34 +1204,222 @@ and on success increase \ttt{iterations} to \ttt{1}, \ttt{10}, and more.
 %
 \noindent
 The default precision type is \ttt{+green\_function.benchmark.floating.point.bits=32}, i.e.~\ttt{float}.
-If the memory capacity of the \ac{GPU} allows, we can increase to \ttt{=64} for \ttt{double}.
+If the memory capacity of the \ac{GPU} allows, we can increase to \ttt{.bits=64} for \ttt{double}.
 Further, we can try to run the experimental feature for non-collinear magnetism by \ttt{+green\_function.benchmark.noco=2}.
+\todo[inline]{HC SVNT DRACONES}
 
 %
 \noindent
 \emph{Real/Complex} If \ttt{./green} has been built without the \ttt{tfQMRgpu} library,
-we can also check the performance of the action alone for real numbers by \ttt{+green\_function.benchmark.complex=0} while the default is \ttt{=1}.
+we can also check the performance of the action alone for real numbers by \ttt{+green\_function.benchmark.complex=0} 
+while the default is \ttt{=1} (on).
 
 \subsection{Green experiments} \label{sec:green-experiments}
-This module is designed to verify that the \ac{DFT} Hamiltonian loaded from file is implemented equivalent to
-where the file was written.
-It works best, if we still have the logg files from the generation process and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
+The module \ttt{green\_experiments} is designed to verify that the \ac{DFT} Hamiltonian loaded from file
+is implemented equivalent to where the file was written.
+It works best if we still have the logg files from the generation process of the \ttt{Hmt.xml} file 
+and if we have diagonalized the Hamiltonian at various $\vec{k}$-points or on a $\vec{k}$-path to compare to.
 The two different ways implemented to find the spectrum are
 \begin{itemize}
   \item by inversion,
   \item by diagonalization.
 \end{itemize}
 In the inversion approach, the Green function is found by \ttt{tfQMRgpu} at various $\vec{k}$-points
-and a dense set of energy parameters $E$.
+and a very dense set of energy parameters $E$ with a constant imaginary part.
 The result is a heatmap on the strength of the resonance, 
 i.e.~the integrated trace of the imaginary part of the found Green function.\\
 For the diagonalization approach the \ttt{action\_t} which usually represents $\hat A = \hat H - E\cdot \hat S$ is duplicated into $\hat H = 1\cdot \hat H - 0\cdot\hat S$ and $\hat S = 0\cdot \hat H - (-1)\cdot\hat S$.
-The operators enter an iterative Davidson diagonalization procedure. For small grids (up to $12 \times 12 \times 12$ grid points) a dense matrix diagonalization routine can be called to find the exact spectrum directly.
+Both operators, $\hat H$ and $\hat S$, enter an iterative Davidson diagonalization procedure. For small grids (up to $12 \times 12 \times 12$ points on the coarse grid) a dense matrix diagonalization routine can be called instead to find the exact spectrum directly.
 \begin{verbatim}
 ./green --test green_experiments
 \end{verbatim}
 
-\todo[inline]{describe handling}
+\subsection{Parallel SCF Runs}
+The main module for \ac{MPI}-parallelized \ac{SCF} runs is \ttt{parallel\_potential}.
+It works very similar to \ttt{self\_consistency}, however, the only available Poisson solver
+is a conjugate gradients method (\ttt{poisson.method=cg}) with an \ac{MPI}-parallelized 16th-order finite difference Laplacian stencil.
+Internally, densities and potentials are treated on the dense grid, i.e.~$8 \times 8 \times 8$ grid points form a block and the FD-stencil has a range of one block towards each of the six Cartesian directions.
+Before the parallelized electronic structure solver (\ttt{green\_solver}) is called, the effective potential is
+reduced to the coarse grid by averaging over eight adjacent grid points to generate blocks of $4 \times 4 \times 4$ grid points. Similarly, the new density is interpolated in a tri-linear fashion to blocks of $8 \times 8 \times 8$ after the solver. Details of the solver are discussed in the following section.
+
+\newpage
+
+\section{Parallel Electronic Structure Solver}
+Different from most conventional \ac{DFT} codes
+the new density is computed from a given potential using the Green function method,
+i.e.~the new density is not given by a summation over bands over the absolute square of wave functions,
+but it is a energy contour integration over the imaginary part of the diagonal of the Green function.
+
+\subsection{Energy Contour Integration}
+Since a \ac{DFT}-Hamiltonian is Hermitian by construction, its eigenvalue spectrum lies on the real axis.
+The energy contour integration is a mathematically elegant way to avoid an integration over singular values
+which would occur if we tried to integrate
+\begin{equation}
+	\int\limits_{-\infty}^{E\um{Fermi}} \ \mathrm d E (\hat H - E \hat S)^{-1}
+\end{equation}
+since $(\hat H - E \hat S)$ diverges when $E$ comes close to a generalized real-valued eigenvalue.
+The method foresees a contour path around the problematic regions on the real axis
+which leads to a set of energy points with a nonzero imaginary part and corresponding complex weights.
+The KKR multiple scattering Green function methods have explored this method. 
+\todo{References needed}.
+At each energy point, the diagonal elements of the Green function $\hat G(E) = (\hat H - E \hat S)^{-1}$ need to be found.
+
+\noindent
+In addition to that boundary conditions may require an additional integration in reciprocal space ($\vec k$-points)
+where the number of sampling points of the Brillouin zone may be chosen larger, the closer $E$ is to the Fermi level (not yet implemented).
+Each $(E,\vec k)$-point can be solved independently of each other and therefore is a potential degree of parallelism which is so far not exploited due to the expected difficult load balancing of these tasks. Section \ref{sec:green-solver} will shine some light on why imbalances in the runtime are to be expected.
+
+\begin{figure}[t]
+	\centering
+	%% /a43 -t energy_contour +energy_contour.select.test=2 +energy_contour.matsubara=3
+	%% git checkout 51e168d41522d3cc0ba87dbdb3b07796038d0db9
+	\includegraphics[width=.99\textwidth]{fig/energy_contour-9-33-9-3}
+	\label{fig:energy-contour}
+	\caption{Example of an energy contour integration path in the complex plane with $3$ Matsubara poles (large red circles on the right).
+	The \ttt{.bottom} path is sampled with $9$ points (smaller red circles on the left),
+	the part \ttt{.parallel} to the real axis is sampled with $33$ points plus
+	$9$ points to sample the \ttt{.fermidirac} distribution at the Fermi level.
+	Red circles indicate purely imaginary weights, green circles are real weights,
+	the circle area is proportional to the magnitude of the weight.
+	}
+\end{figure}
+
+\noindent
+A typical integration path is depicted in Fig.~\ref{fig:energy-contour}. 
+The distribution and weights of points are determined by a Gauss-Legendre quadrature for the \ttt{.bottom} and \ttt{.parallel} part.
+The Fermi-Dirac distribution has a specialized, asymmetric quadrature.
+The Matsubara poles are located exactly on the equidistantly-spaced zeros of the Fermi-Dirac distribution function on the imaginary axis.
+The band bottom energy in this example has been chose as \unit[-1]{Hartree} or \unit[-27.2]{eV}.
+In real computations, the band bottom energy needs to be placed in between the highest core states and the lowest valence state.
+
+\subsection{Green Solver}\label{sec:green-solver}
+The heart of the \fullcodename{} code is the \ac{MPI}-parallelized Green function solver,
+implemented in the comparably shallow wrapper module \ttt{green\_solver}, 
+the central module \ttt{green\_action} making use of the header-only \ttt{tfQMRgpu} library \cite{tfQMRgpu-preprint}
+which accepts an action operator $\hat A_{\vec k}(E) := (\hat H_{\vec k} - E\hat S_{\vec k})$, henceforth abbreviated simply $\hat A$.
+The transpose-free Quasi Minimal Residual method (tfQMR) solves the linear problem $\hat A \cdot \hat X = \hat B$ where in our case $\hat X \equiv \hat G$ is the Green function and the right hand sides together form $\hat B \equiv \mathbf{1}$, a unit matrix.
+
+\noindent
+The preparation modules \ttt{green\_function}, \ttt{kinetic\_plan} and \ttt{dyadic\_plan} offer methods create data structures that allow the action $\hat A$ to be applied to a selected set of columns of the overall Green function $\hat G(\vec r, \vec r')$ where also for $\hat G$ the index pair $(E,\vec k)$ is suppressed for clarity of the notation.
+The columns are distributed over all \ac{MPI} processes so that at the end of a solver run, a Green function element for each $\vec r'$ of the entire simulation grid has been calculated.
+To allow efficient bookkeeping, we group $4 \times 4 \times 4$ grid points together to form a so-called \emph{cube}.
+It may differ from a real cube in space if the (Cartesian) grid spacings are anisotropic.
+Furthermore, we allow several (currently up to $2^{16}=65536$) cubes to be processed by each \ac{MPI} rank.
+
+The prepared data structures help to compute the product $\hat A \cdot \hat G\um{trial}$ which does not return a unit operator until the iterative solver has converged. The multiplication routines are making extensive use of sparsity of both, $\hat A$ and $\hat G$. Sparsity of $\hat G$ arises from truncation: Green function elements are not considered if 
+\begin{equation}
+	G(\vec r,\vec r') = 0 \  \text{for} \  |\vec r - \vec r'| > R\um{trunc}
+\end{equation}
+Also here, grouping of $4 \times 4 \times 4$ grid points $\vec r$ leads to a block-sparsity of $\hat G$ with a block size of $64 \times 64$.
+
+Furthermore, $\hat A$ inherits sparsity from $\hat H$ and $\hat S$:
+\begin{equation}
+	\hat A := \hat T\um{FD} + \left(V\um{eff}(\vec r) - E\right) + \sum_{aij} \braketop{\tilde p^{[a]}_i}{(h^{[a]}_{ij} - E\ s^{[a]}_{ij})}{\tilde p^{[a]}_j}
+\end{equation}
+The finite-difference approximated kinetic energy operator $\hat T\um{FD}$ contained in $\hat H$ 
+has a sparse matrix representation that can be described by its stencil. 
+Stencils with $8\cdot 6 + 1 = 49$ points and $25$ points are implemented in \ttt{green\_kinetic}
+for isolated and periodic boundary conditions, respectively.
+Due to the real-space representation the local effective potential operator reduces to a mere multiplication with $V\um{eff}(\vec r)$, see \ttt{green\_potential}.
+Depending on the atomic geometry and projector radii the \ac{PAW}-pseudized Hamiltonian $H(\vec r,\vec r')$ and its overlap operator may not be sparse in the sense of zeros in a dense matrix representation,
+however, the combined dyadic parts of $\hat H - E\hat S$ are implemented in a low-rank update scheme (c.f.~\ttt{green\_dyadic}) while exploiting sparsity arising from the localization of atomic \ac{PAW} projector functions $\tilde p$.
+
+\noindent
+The iterative solver algorithm implemented in \ttt{tfQMRgpu} may differ significantly in terms of the number of iterations needed to converge all column residuals below a given threshold. Iteration counts will be larger the closer an energy point $E$ is to eigen-energies on the real axis. For a metallic system, energy points at the Fermi level are expected to exhibit very large iteration counts as the condition number of $\hat A$ is high. Metallicity, however, can occur as a localized phenomenon which could be reflected in imbalance between \ac{MPI} ranks solving for different parts of space.
+Furthermore, imbalance between $\vec k$-points is expected, in particular close to the Fermi surface.
+
+
+\subsection{Memory Requirements}\label{sec:memory-requirements}
+%
+The iterative solving method \emph{tfQMR} requires to hold eight fields of the size of $X$ in memory (no preconditioning assumed).
+As $X$ represents the block-sparse Green function, the minimal \ac{GPU} memory consumption per grid point ($mem\um{total}$) for a large simulation volume $V$ hence depends mostly on the truncation radius $R\um{trunc}$ in units of the grid spacing $h$
+\begin{equation} 
+	mem\um{total,min} = 8 \cdot \min\{V\um{cell}, \nicefrac{4\pi}{3} R^3\um{trunc} \}/h^3 \cdot \unit[16]{Byte} 	
+	\label{eqn:memory}
+\end{equation}
+assuming double precision complex numbers. Here, $h^3$ is the simplified notation for $h_x \cdot h_y \cdot h_z$, the grid point volume.
+For small simulation volumes ($V\um{cell} \ll 4R\um{trunc}^3$) the total memory consumption is quadratic in the number of grid points. This means that the memory per \ac{RHS} grid points is proportional to the systems volume, c.f.~Fig.~\ref{fig:memory-consumption}. In the transition region between small and large volumes the curve depends on the chosen boundary conditions.
+Finally, in the linear-scaling regime we can expect a memory requirement for about $26.3$ real numbers per \ac{RHS} grid point and per grid point inside the truncation sphere. The minimum would be $16$ real numbers for the eight copies of $X$ with complex numbers.
+
+\begin{figure}[t]
+	\centering
+	%% generated from test/memory_consumption.test.sh --> memory_consumption.dat
+	%% git checkout 51e168d41522d3cc0ba87dbdb3b07796038d0db9
+	\includegraphics[width=.99\textwidth]{fig/memory_consumption}
+	\label{fig:memory-consumption}
+	\caption{Measured memory consumption per grid point as a function of the edge of a cube-shaped simulation volume.
+	Here, Green function elements are stored in \ttt{fp32}, i.e.~4 Byte per floating point value.
+	When the truncation sphere (radius= $21.2$ grid spacings) fits fully into the simulation volume, 
+	the transition from the cubic volume-dependence to a constant depends on the boundary conditions.}
+\end{figure}
+
+\subsection{Discussion of the $4 \times 4 \times 4$ Block structure}
+%
+From the block structure of $4 \times 4 \times 4$ grid points there is some overhead to the memory consumption model in Eq.~(\ref{eqn:memory}). Overheads mainly stem from the description of the truncation sphere in terms of blocks.
+For small truncation radii these can be severe, however, the effect becomes weaker for large $R\um{trunc}$.
+For example, the memory overhead factors for truncation radii $\{10.6, 21.2, 31.8, 42.3\}$ grid spacings are ${2.94, 1.64, 1.47, 1.37}$, respectively. So in the smallest case we need almost $3\times$ as much memory: $19$ blocks are fully inside the truncation sphere while $208$ blocks need to be stored due to partial hits. A partial hit occurs when any of the $64$ source grid points is closer to any of the $64$ target grid points than the truncation radius, but not all of them.
+In the largest case which depending on the system might be converged w.r.t.~the truncation radius, the overhead is still about $37\,\%$. However, the advantage from negligible bandwidths spent on loading index lists should remedy these extra costs.
+Certainly, the overheads would be much smaller if we grouped $2\times 2\times 2$ grid points into a \emph{cube}, however,
+other advantages related to the on-the-fly evaluation of \ac{PAW} projectors and the data-in-register-reuse implementation of the finite-difference kinetic energy might be weakened, hindering performance on the other end.
+
+\begin{figure}[t]
+	\centering
+	%% generated from test/memory_consumption.test.sh
+	%% git checkout 51e168d41522d3cc0ba87dbdb3b07796038d0db9
+	\includegraphics[width=.99\textwidth]{fig/memory_consumption_overhead}
+	\label{fig:memory-consumption-overhead}
+	\caption{Number of blocks fully inside (black) and number of block with partial hits (red) as functions of the truncation radius.
+	A simple model for the number of blocks inside should show a $R^3$-dependence, for the partial hits $R^2$ - proportional to the truncation spheres surface area. 
+	The memory (solid pink line) is given in MByte for 64 right hand sides and \ttt{double} precision complex numbers.
+	Values range up to \unit[3.55]{GByte} in this plot.
+	The memory overhead compared to the analytical truncation sphere volume is shown in blue, scale on the right.} 
+\end{figure}
+
+
+
+
+
+
+
+
+\newpage
+
+\section{General Code Aspects}
+
+\subsection{Reproducability}
+%
+To foster the reproducability of results all input arguments are repeated at start 
+unless the \ttt{+verbosity} is set lower than default.
+Furthermore, a \ttt{git key} from the version control system is compiled into the main functions
+of the two executable applications \ttt{./a43} and \ttt{./green}
+and printed to the logg at startup.
+It may happen that the stated \ttt{git key} is not consistent with the results.
+This may happen when results are produced with not-yet-committed code.
+Please consider the version after the given key.
+
+\subsection{Portability}
+%
+\fullcodename{} is written in C++ and CUDA but can also be compiled without CUDA 
+if performance is not a major focus. No NVIDIA-specific features have been used,
+so that a replacement of CUDA vs HIP (the AMD GPU programming model) should be straightforward. 
+
+\subsection{Future Plans}
+%
+\subsubsection*{Non-collinear magnetism}
+%
+Throughout the electronic structure solver (\ttt{green\_solver} and every module included by it)
+the code base is prepared for a doubling of the block sizes from $64$ to $128$ in order to
+include fully non-collinear representations of spin and/or spin-orbit coupling in a non-perturbative manner.
+However, currently neither the potential generator \ttt{parallel\_potential} nor the \ac{PAW}-related routines support this.
+
+\subsubsection*{Auto-converger}
+%
+Although the method has been designed to have as little expert-user-only knobs,
+there are still some very relevant convergence parameters as the grid spacing $h$, 
+the number of Brillouin zone sampling points and the truncation radius $R\um{trunc}$.
+Algorithms for an automatic choice of certain parameters can become quite complex and intervowen between code modules.
+Nevertheless, it could be worthwhile to define \ttt{=auto} as default value with the meaning that it will fully automatically
+be taken care of, in particular in terms of convergence of the results.
 
 \newpage
 %

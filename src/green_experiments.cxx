@@ -45,13 +45,13 @@
 
 namespace green_experiments {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
 
   template <typename real_t=double, int Noco=1>
-  status_t bandstructure(
+  status_t spectralfunction(
         action_plan_t & p
       , uint32_t const ng[3] // grid points
       , double const hg[3] // grid spacings
@@ -200,7 +200,7 @@ namespace green_experiments {
 #endif // HAS_TFQMRGPU
 
       return 0;
-  } // bandstructure
+  } // spectralfunction
 
 
 
@@ -531,7 +531,7 @@ namespace green_experiments {
       auto const nblocks = size_t(ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
       if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld blocks\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
       size_t const nnzb = pH.colindx.size();
-      if (echo > 1) std::printf("# %s nnzb= %d\n", __func__, nnzb);
+      if (echo > 1) std::printf("# %s nnzb= %ld\n", __func__, nnzb);
       assert(nnzb == nblocks * nb && "This solver can only run with a dense Green function");
 
       // create a trivial list for the colIndex
@@ -962,8 +962,8 @@ namespace green_experiments {
 
       if ('g' == how) {
           // compute the bandstructure as a density of states using the Green function method
-          return (1 == Noco) ? bandstructure<double,1>(p, ng, hg, echo):
-                               bandstructure<double,2>(p, ng, hg, echo);
+          return (1 == Noco) ? spectralfunction<double,1>(p, ng, hg, echo):
+                               spectralfunction<double,2>(p, ng, hg, echo);
       } else {
           // compute a bandstructure using an eigenstate method
           // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S
@@ -1040,7 +1040,7 @@ namespace green_experiments {
       // This leads to up to 3 different weights for n even: {0, 8, 24}
       //  and up to 6 different weights for n odd: {0, 1, 6, 8, 12, 24}
 
-#ifdef CODE_GENERATION
+#ifdef    CODE_GENERATION
       int8_t const rot_mat[24*3*3] = {
          1,  0,  0,  0,  1,  0,  0,  0,  1,
         -1,  0,  0,  0, -1,  0,  0,  0,  1,

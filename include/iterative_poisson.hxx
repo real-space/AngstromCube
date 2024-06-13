@@ -1,6 +1,7 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+#define HAS_BESSEL_PROJECTION
 #include "real_space.hxx" // ::grid_t
 
 #include "status.hxx" // status_t

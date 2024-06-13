@@ -7,12 +7,14 @@
 #include "control.hxx" // ::get
 
 #include "real_space.hxx" // ::grid_t
+#include "bessel_transform.hxx" // ::transform_s_function
+#include "radial_grid.h" // radial_grid_t
 #include "data_view.hxx" // view2D<T>
 #include "debug_output.hxx" // dump_to_file
 #include "solid_harmonics.hxx" // ::rlXlm, ::lm_index
 #include "inline_math.hxx" // set, dot_product
 
-#ifdef DEVEL
+#ifdef    DEVEL
   #include "finite_difference.hxx" // ::stencil_t
   #include "single_atom.hxx" // ::atom_update
   #include "print_tools.hxx" // print_stats
@@ -59,7 +61,7 @@ namespace potential_generator {
 
       status_t stat(0);
       for (int ia = 0; ia < na; ++ia) {
-#ifdef DEVEL
+#ifdef    DEVEL
           if (echo > 11) {
               std::printf("\n## r, %s of atom #%i\n", quantity, ia);
               print_compressed(radial_r2grid::r_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
@@ -73,7 +75,7 @@ namespace potential_generator {
               if (echo_q > 11) std::printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
               q_added += q_added_image;
           } // periodic images
-#ifdef DEVEL
+#ifdef    DEVEL
           if (echo_q > 0) {
               std::printf("# after adding %g electrons %s of atom #%d:", q_added, quantity, ia);
               print_stats(values, g.all(), g.dV());
@@ -218,7 +220,7 @@ namespace potential_generator {
 
 
 
-#ifdef DEVEL
+#ifdef    DEVEL
 
   inline status_t potential_projections(
         real_space::grid_t const & g // dense grid descriptor

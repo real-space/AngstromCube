@@ -5,6 +5,7 @@
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
 #include <vector> // std::vector<T>
+#include <complex> // std::complex<real_t>
 
 #ifdef HAS_TFQMRGPU
 
@@ -68,11 +69,11 @@ namespace green_action {
         // with real_t either float or double
         //
 
-        action_t(action_plan_t *plan, int const echo=0)
+        action_t(action_plan_t *plan, int const echo=0, int const check=0)
           : p_(plan), apc_(nullptr) // , aac_(nullptr)
         {
+            if (echo > 1) std::printf("# construct %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
             assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
-            if (echo > 0) std::printf("# construct %s\n", __func__);
             char* buffer{nullptr};
             take_memory(buffer);
             assert(nullptr != plan);
@@ -83,19 +84,34 @@ namespace green_action {
                 if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
                 // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
                 tfqmrgpu::solve(*this); // compute GPU memory requirements
+                auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
                 {
                     simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m); // uses MPI_COMM_WORLD
-                    if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
+                    if (echo + check > 3) std::printf("# tfqmrgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
-                    auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
-                    if (echo > 9) std::printf("# rank#%i try to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
+                    if (echo > 7) std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
+                    if (p.gpu_mem > 1e11)  warn("rank#%i tries to allocate %.3f GByte GPU memory", me, p.gpu_mem*1e-9);
                 }
-                memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+                if (0 == check) memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+// #ifdef    DEBUGGPU
+                if (echo > 9) std::printf("# rank#%i allocated %.9f %s memory_buffer_ at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_);
+// #endif // DEBUGGPU
             } else {
                 if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
             }
 #else  // HAS_TFQMRGPU
             if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+            // memory estimate for tfQMRgpu
+            // 7*nnzbX*2*LM*LN*sizeof(real_t)
+            // +nnzbX*2*LM*LN*sizeof(float)  // v3
+            // +nnzbB*2*LM*LN*sizeof(real_t) // v2
+            // +5*nCols*2*LN*sizeof(real_t)
+            // +2*(1ul << l2nX)*nCols*1.5*LN*sizeof(double)
+            // +2*nCols*LN*sizeof(double)
+            // +nnzbX*sizeof(uint16_t)
+            // +nnzbB*sizeof(uint32_t)
+            // +nCols*sizeof(int8_t);
+
 #endif // HAS_TFQMRGPU
         } // constructor
 
@@ -163,16 +179,21 @@ namespace green_action {
 
 
     status_t solve(
-          double rho[] // result: density[nblocks][4*4*4]
+          std::complex<double> rho[] // result: density[nblocks][4*4*4]
         , uint32_t const nblocks // should match plan.nCols
         , int const iterations=1
         , int const echo=9
     ) {
-        if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+        if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
+
+        auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD
+// #ifdef    DEBUGGPU
+        if (echo > 5) std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
+// #endif // DEBUGGPU
 
         assert(p_); auto const & p = *p_;
         uint32_t const nnzbX = p.colindx.size();
-        if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+        if (echo > 9) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
 
         if (0 == iterations) { 
             if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
@@ -180,39 +201,41 @@ namespace green_action {
         } // 0 iterations
 
 #ifdef    HAS_TFQMRGPU
-        if (iterations > 0) {
+        if (iterations >= 0) {
             if (nnzbX < 1) {
                 if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
                 return 0;
             }
-            int const maxiter = iterations;
-            if (echo > 0) std::printf("\n# call tfqmrgpu::solve\n\n");
+            if (echo > 4) std::printf("\n# call tfqmrgpu::solve\n\n");
+            assert(nullptr != memory_buffer_);
             double time_needed{1};
             { // scope: benchmark the solver
-                SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+                SimpleTimer timer(__FILE__, __LINE__, __func__, echo*0);
 
-                tfqmrgpu::solve(*this, memory_buffer_, 1e-9, maxiter, 0, true);
+                tfqmrgpu::solve(*this, memory_buffer_, 1e-9, iterations, 0, true);
 
                 time_needed = timer.stop();
             } // timer
-            if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
-                                                               p.residuum_reached,    p.iterations_needed);
+            if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
+                                                               p.residuum_reached,  p.iterations_needed);
             if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
             if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
             // export solution
 
             auto const Green = (real_t const (*)[2][Noco*64][Noco*64])memory_buffer_;
-            if (echo > 2) std::printf("# copy %d diagonal blocks of the Green function\n", p.nCols);
+            if (echo > 5) std::printf("# copy %d diagonal blocks of the Green function\n", p.nCols);
             if (nblocks != p.nCols) warn("Green function solution provides %d 4x4x4 blocks, but requested %d", p.nCols, nblocks);
+            double const f_Kramers_Kronig = 1.0/constants::pi;
             for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
                 auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal
-                for (int i64{0}; i64 < 64; ++i64) {
-                    int constexpr imaginary_part = 1;
-                    rho[iCol*size_t(4*4*4) + i64] = Green[inz_diagonal][imaginary_part][i64][i64];
+                for (unsigned i64{0}; i64 < 64; ++i64) {
+                    int constexpr real_part = 0, imag_part = R1C2 - 1;
+                    auto const rho_Re = Green[inz_diagonal][real_part][i64][i64]*f_Kramers_Kronig;
+                    auto const rho_Im = Green[inz_diagonal][imag_part][i64][i64]*f_Kramers_Kronig;
+                    rho[iCol*64u + i64] = std::complex<double>(rho_Re, rho_Im*(R1C2 > 1));
                 } // i64
             } // iCol
 
-            free_memory(memory_buffer_);
             return 0;
         } // iterations > 0
 #endif // HAS_TFQMRGPU
@@ -267,6 +290,8 @@ namespace green_action {
       real_t (*apc_)[R1C2][Noco][LM] = nullptr; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
 //    real_t (*aac_)[R1C2][Noco][LM] = nullptr; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
       // (we can live with a single copy as the application of the atom-centered matrices is in-place)
+      // Discuss: would it be worthwile to have the apc always as double?
+      // --> would simplify the kernel complexity
 
       char* memory_buffer_ = nullptr;
 

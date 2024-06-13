@@ -146,11 +146,16 @@ namespace recorded_warnings {
         int const times_printed = w->get_times_printed();
         if (times_printed < std::abs(MaxWarningsToLog)) {
             flags |= 1; // 1: message to stdout
-            if (times_printed == MaxWarningsToLog - 1)
+            if (times_printed == MaxWarningsToLog - 1) {
                 flags |= 4; // "# This warning will not be shown again!"
+            }
         } // print to stdout
-        if ((MaxWarningsToErr < 0) || (times_printed < MaxWarningsToErr)) flags |= 2; // 2: message to stderr
-        if (flags) w->increment_times_printed(); // will print message to stdout or stderr
+        if ((MaxWarningsToErr < 0) || (times_printed < MaxWarningsToErr)) {
+            flags |= 2; // 2: message to stderr
+        }
+        if (flags) {
+            w->increment_times_printed(); // will print message to stdout or stderr
+        } // flags != 0
 
         return std::make_pair(w->get_message(), flags);
     } // special functions

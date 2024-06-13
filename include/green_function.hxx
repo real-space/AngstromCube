@@ -27,7 +27,7 @@ namespace green_function {
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
         , int const echo=0 // verbosity
-        , int const Noco=2 // 1:collinear spins, 2:Non-collinear
+        , int const Noco=1 // 1:collinear spins, 2:Non-collinear
     ); // declaration only
 
     status_t update_potential(
@@ -36,7 +36,7 @@ namespace green_function {
         , std::vector<double> const & Veff // [nb[2]*4*nb[1]*4*nb[0]*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo=0 // verbosity
-        , int const Noco=2 // 1:collinear spins, 2:Non-collinear
+        , int const Noco=1 // 1:collinear spins, 2:Non-collinear
     ); // declaration only
 
     status_t update_energy_parameter(

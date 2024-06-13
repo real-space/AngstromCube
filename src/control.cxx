@@ -44,6 +44,7 @@ namespace control {
   ) {
 
       static std::map<std::string, std::tuple<std::string,uint32_t,int32_t>> _map; // hidden archive
+      // _map: variable_name -> (variable_value, number_of_reads, linenumber_of_definition)
       // the hidden archive is sorted by the name string and contains the value string,
       // an access counter and a reference to the line number to track where the value was set
 
@@ -181,7 +182,6 @@ namespace control {
       return 0;
   } // command_line_interface
 
-
   // look up a name in the variable environment, return default double if not defined
   double get(char const *const name, double const default_value) {
       char buffer[32]; double2string(buffer, default_value);
@@ -278,9 +278,9 @@ namespace control {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_control(int const echo=9) {
       if (echo > 1) std::printf("\n# %s: %s\n", __FILE__, __func__);
@@ -310,9 +310,9 @@ namespace control {
       return stat;
   } // test_control
 
+
   status_t test_precision(int const echo=3, int const nmax=106) {
-      // check if there are rounding errors arising from the
-      //    ASCII representation of double precision numbers
+      // check if there are rounding errors arising from the ASCII representation of double precision numbers
       if (echo > 2) std::printf("\n# %s: %s\n", __FILE__, __func__);
       status_t stat(0);
       double d{0.2}; // choose 1/5 which cannot be represented exactly in binary
@@ -325,6 +325,7 @@ namespace control {
       if (echo > 1) std::printf("# %s: for %i of %i cases double precision numbers are not retrieved\n", __func__, stat, nmax);
       return stat;
   } // test_precision
+
 
   status_t all_tests(int const echo) {
       status_t stat(0);

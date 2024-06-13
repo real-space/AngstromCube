@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="-309.145 -69.829 420.644 95.77" xmlns="http://www.w3.org/2000/svg">
+  <line x1="-272.103" y1="0" x2="-272.103" y2="-51.7022" stroke="cyan"/>
+  <line x1="-272.103" y1="-51.7022" x2="100.61" y2="-51.7022" stroke="cyan" stroke-dasharray="4"/>
+  <line x1="0" y1="26.759" x2="0" y2="-72.765" stroke="red" style=""/>
+  <line x1="-2" y1="-60" x2="2" y2="-60" stroke="red"/>
+  <line x1="-2" y1="-50" x2="2" y2="-50" stroke="red"/>
+  <line x1="-2" y1="-40" x2="2" y2="-40" stroke="red"/>
+  <line x1="-2" y1="-30" x2="2" y2="-30" stroke="red"/>
+  <line x1="-2" y1="-20" x2="2" y2="-20" stroke="red"/>
+  <line x1="-2" y1="-10" x2="2" y2="-10" stroke="red"/>
+  <line x1="-2" y1="0" x2="2" y2="0" stroke="red"/>
+  <line x1="-2" y1="10" x2="2" y2="10" stroke="red"/>
+  <line x1="-2" y1="20" x2="2" y2="20" stroke="red"/>
+  <line x1="-346.645" y1="0" x2="100.61" y2="0" stroke="black"/>
+  <line x1="-340" y1="-2" x2="-340" y2="2" stroke="black"/>
+  <line x1="-330" y1="-2" x2="-330" y2="2" stroke="black"/>
+  <line x1="-320" y1="-2" x2="-320" y2="2" stroke="black"/>
+  <line x1="-310" y1="-2" x2="-310" y2="2" stroke="black"/>
+  <line x1="-300" y1="-2" x2="-300" y2="2" stroke="black"/>
+  <text x="-303" y="9" style="font-size: 3px; white-space: pre;">-30 eV</text>
+  <line x1="-290" y1="-2" x2="-290" y2="2" stroke="black"/>
+  <line x1="-280" y1="-2" x2="-280" y2="2" stroke="black"/>
+  <line x1="-270" y1="-2" x2="-270" y2="2" stroke="black"/>
+  <line x1="-260" y1="-2" x2="-260" y2="2" stroke="black"/>
+  <line x1="-250" y1="-2" x2="-250" y2="2" stroke="black"/>
+  <line x1="-240" y1="-2" x2="-240" y2="2" stroke="black"/>
+  <line x1="-230" y1="-2" x2="-230" y2="2" stroke="black"/>
+  <line x1="-220" y1="-2" x2="-220" y2="2" stroke="black"/>
+  <line x1="-210" y1="-2" x2="-210" y2="2" stroke="black"/>
+  <line x1="-200" y1="-2" x2="-200" y2="2" stroke="black"/>
+  <text x="-203" y="9" style="font-size: 3px; white-space: pre;">-20 eV</text>
+  <line x1="-190" y1="-2" x2="-190" y2="2" stroke="black"/>
+  <line x1="-180" y1="-2" x2="-180" y2="2" stroke="black"/>
+  <line x1="-170" y1="-2" x2="-170" y2="2" stroke="black"/>
+  <line x1="-160" y1="-2" x2="-160" y2="2" stroke="black"/>
+  <line x1="-150" y1="-2" x2="-150" y2="2" stroke="black"/>
+  <line x1="-140" y1="-2" x2="-140" y2="2" stroke="black"/>
+  <line x1="-130" y1="-2" x2="-130" y2="2" stroke="black"/>
+  <line x1="-120" y1="-2" x2="-120" y2="2" stroke="black"/>
+  <line x1="-110" y1="-2" x2="-110" y2="2" stroke="black"/>
+  <line x1="-100" y1="-2" x2="-100" y2="2" stroke="black"/>
+  <text x="-103" y="9" style="font-size: 3px; white-space: pre;">-10 eV</text>
+  <line x1="-90" y1="-2" x2="-90" y2="2" stroke="black"/>
+  <line x1="-80" y1="-2" x2="-80" y2="2" stroke="black"/>
+  <line x1="-70" y1="-2" x2="-70" y2="2" stroke="black"/>
+  <line x1="-60" y1="-2" x2="-60" y2="2" stroke="black"/>
+  <line x1="-50" y1="-2" x2="-50" y2="2" stroke="black"/>
+  <line x1="-40" y1="-2" x2="-40" y2="2" stroke="black"/>
+  <line x1="-30" y1="-2" x2="-30" y2="2" stroke="black"/>
+  <line x1="-20" y1="-2" x2="-20" y2="2" stroke="black"/>
+  <line x1="-10" y1="-2" x2="-10" y2="2" stroke="black"/>
+  <line x1="0" y1="-2" x2="0" y2="2" stroke="black"/>
+  <line x1="10" y1="-2" x2="10" y2="2" stroke="black"/>
+  <line x1="20" y1="-2" x2="20" y2="2" stroke="black"/>
+  <line x1="30" y1="-2" x2="30" y2="2" stroke="black"/>
+  <line x1="40" y1="-2" x2="40" y2="2" stroke="black"/>
+  <line x1="50" y1="-2" x2="50" y2="2" stroke="black"/>
+  <line x1="60" y1="-2" x2="60" y2="2" stroke="black"/>
+  <line x1="70" y1="-2" x2="70" y2="2" stroke="black"/>
+  <line x1="80" y1="-2" x2="80" y2="2" stroke="black"/>
+  <line x1="90" y1="-2" x2="90" y2="2" stroke="black"/>
+  <line x1="100" y1="-2" x2="100" y2="2" stroke="black"/>
+  <text x="97" y="9" style="font-size: 3px; white-space: pre;">10 eV</text>
+  <ellipse cx="-272.103" cy="-0.823093" rx="2.39102" ry="2.39102" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-4.23878" rx="3.5647" ry="3.5647" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-9.99478" rx="4.28156" ry="4.28156" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-17.4688" rx="4.68732" ry="4.68732" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-25.8511" rx="4.81971" ry="4.81971" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-34.2334" rx="4.68732" ry="4.68732" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-41.7075" rx="4.28156" ry="4.28156" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-47.4635" rx="3.5647" ry="3.5647" fill="white" stroke="red"/>
+  <ellipse cx="-272.103" cy="-50.8791" rx="2.39102" ry="2.39102" fill="white" stroke="red"/>
+  <ellipse cx="-271.897" cy="-51.7022" rx="1.19889" ry="1.19889" fill="white" stroke="green"/>
+  <ellipse cx="-271.02" cy="-51.7022" rx="1.82634" ry="1.82634" fill="white" stroke="green"/>
+  <ellipse cx="-269.448" cy="-51.7022" rx="2.28294" ry="2.28294" fill="white" stroke="green"/>
+  <ellipse cx="-267.194" cy="-51.7022" rx="2.65515" ry="2.65515" fill="white" stroke="green"/>
+  <ellipse cx="-264.273" cy="-51.7022" rx="2.97248" ry="2.97248" fill="white" stroke="green"/>
+  <ellipse cx="-260.707" cy="-51.7022" rx="3.24901" ry="3.24901" fill="white" stroke="green"/>
+  <ellipse cx="-256.523" cy="-51.7022" rx="3.49261" ry="3.49261" fill="white" stroke="green"/>
+  <ellipse cx="-251.752" cy="-51.7022" rx="3.70814" ry="3.70814" fill="white" stroke="green"/>
+  <ellipse cx="-246.429" cy="-51.7022" rx="3.89878" ry="3.89878" fill="white" stroke="green"/>
+  <ellipse cx="-240.593" cy="-51.7022" rx="4.06671" ry="4.06671" fill="white" stroke="green"/>
+  <ellipse cx="-234.288" cy="-51.7022" rx="4.21347" ry="4.21347" fill="white" stroke="green"/>
+  <ellipse cx="-227.561" cy="-51.7022" rx="4.34017" ry="4.34017" fill="white" stroke="green"/>
+  <ellipse cx="-220.46" cy="-51.7022" rx="4.44762" ry="4.44762" fill="white" stroke="green"/>
+  <ellipse cx="-213.039" cy="-51.7022" rx="4.53643" ry="4.53643" fill="white" stroke="green"/>
+  <ellipse cx="-205.353" cy="-51.7022" rx="4.60702" ry="4.60702" fill="white" stroke="green"/>
+  <ellipse cx="-197.458" cy="-51.7022" rx="4.65972" ry="4.65972" fill="white" stroke="green"/>
+  <ellipse cx="-189.413" cy="-51.7022" rx="4.69474" ry="4.69474" fill="white" stroke="green"/>
+  <ellipse cx="-181.278" cy="-51.7022" rx="4.71221" ry="4.71221" fill="white" stroke="green"/>
+  <ellipse cx="-173.112" cy="-51.7022" rx="4.71221" ry="4.71221" fill="white" stroke="green"/>
+  <ellipse cx="-164.977" cy="-51.7022" rx="4.69474" ry="4.69474" fill="white" stroke="green"/>
+  <ellipse cx="-156.932" cy="-51.7022" rx="4.65972" ry="4.65972" fill="white" stroke="green"/>
+  <ellipse cx="-149.037" cy="-51.7022" rx="4.60702" ry="4.60702" fill="white" stroke="green"/>
+  <ellipse cx="-141.351" cy="-51.7022" rx="4.53643" ry="4.53643" fill="white" stroke="green"/>
+  <ellipse cx="-133.93" cy="-51.7022" rx="4.44762" ry="4.44762" fill="white" stroke="green"/>
+  <ellipse cx="-126.829" cy="-51.7022" rx="4.34017" ry="4.34017" fill="white" stroke="green"/>
+  <ellipse cx="-120.101" cy="-51.7022" rx="4.21347" ry="4.21347" fill="white" stroke="green"/>
+  <ellipse cx="-113.796" cy="-51.7022" rx="4.06671" ry="4.06671" fill="white" stroke="green"/>
+  <ellipse cx="-107.96" cy="-51.7022" rx="3.89878" ry="3.89878" fill="white" stroke="green"/>
+  <ellipse cx="-102.637" cy="-51.7022" rx="3.70814" ry="3.70814" fill="white" stroke="green"/>
+  <ellipse cx="-97.8661" cy="-51.7022" rx="3.49261" ry="3.49261" fill="white" stroke="green"/>
+  <ellipse cx="-93.6823" cy="-51.7022" rx="3.24901" ry="3.24901" fill="white" stroke="green"/>
+  <ellipse cx="-90.1168" cy="-51.7022" rx="2.97248" ry="2.97248" fill="white" stroke="green"/>
+  <ellipse cx="-87.196" cy="-51.7022" rx="2.65515" ry="2.65515" fill="white" stroke="green"/>
+  <ellipse cx="-84.9415" cy="-51.7022" rx="2.28294" ry="2.28294" fill="white" stroke="green"/>
+  <ellipse cx="-83.3699" cy="-51.7022" rx="1.82634" ry="1.82634" fill="white" stroke="green"/>
+  <ellipse cx="-82.4926" cy="-51.7022" rx="1.19889" ry="1.19889" fill="white" stroke="green"/>
+  <ellipse cx="-80.6749" cy="-51.7022" rx="3.34567" ry="3.34567" fill="white" stroke="green"/>
+  <ellipse cx="-73.9908" cy="-51.7022" rx="4.98516" ry="4.98516" fill="white" stroke="green"/>
+  <ellipse cx="-62.747" cy="-51.7022" rx="5.98002" ry="5.98002" fill="white" stroke="green"/>
+  <ellipse cx="-48.2028" cy="-51.7022" rx="6.52891" ry="6.52891" fill="white" stroke="green"/>
+  <ellipse cx="-32.0294" cy="-51.7022" rx="6.66991" ry="6.66991" fill="white" stroke="green"/>
+  <ellipse cx="-16.2305" cy="-51.7022" rx="6.34357" ry="6.34357" fill="white" stroke="green"/>
+  <ellipse cx="-3.2947" cy="-51.7022" rx="4.77977" ry="4.77977" fill="white" stroke="green"/>
+  <ellipse cx="8.00058" cy="-51.7022" rx="1.37551" ry="1.37551" fill="white" stroke="green"/>
+  <ellipse cx="26.0675" cy="-51.7022" rx="0.0693302" ry="0.0693302" fill="white" stroke="green"/>
+  <ellipse cx="0" cy="-43.0852" rx="6.84795" ry="6.84795" fill="white" stroke="red"/>
+  <ellipse cx="0" cy="-25.8511" rx="6.84795" ry="6.84795" fill="white" stroke="red"/>
+  <ellipse cx="0" cy="-8.61704" rx="6.84795" ry="6.84795" fill="white" stroke="red"/>
+</svg>
