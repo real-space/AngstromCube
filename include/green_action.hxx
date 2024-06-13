@@ -290,6 +290,8 @@ namespace green_action {
       real_t (*apc_)[R1C2][Noco][LM] = nullptr; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
 //    real_t (*aac_)[R1C2][Noco][LM] = nullptr; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
       // (we can live with a single copy as the application of the atom-centered matrices is in-place)
+      // Discuss: would it be worthwile to have the apc always as double?
+      // --> would simplify the kernel complexity
 
       char* memory_buffer_ = nullptr;
 

@@ -19,8 +19,8 @@ namespace green_parallel {
           , std::vector<int64_t> const & offerings
           , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
           , uint32_t const nb[3] // global bounding box or {natoms,0,0}
-          , int const echo=0 // log-level
-          , char const *const what="?"
+          , int const echo // =0 // log-level
+          , char const *const what // ="?"
       ); // declaration only
 
   public:

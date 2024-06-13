@@ -33,9 +33,41 @@
 #include "mpi_parallel.hxx"
 
 #include "recorded_warnings.hxx" // warn, error
-
+#include "control.hxx" // ::get
 
 namespace mpi_parallel {
+
+#ifndef   MPI_SIZE_AND_RANK_INLINED
+
+  // this solution is not correct if we work with more than 1 different communicator
+  unsigned size(MPI_Comm const comm) {
+      static int size{0};
+      if (0 == size) {
+          size = control::get("mpi.fake.size", 0.);
+          if (size < 1) {
+              MPI_Check(MPI_Comm_size(comm, &size));
+          }
+      } // 1st time
+      assert( size > 0 );
+      return size;
+  } // size
+
+  int rank(MPI_Comm const comm, unsigned const check_size) {
+      static int rank{-1};
+      if (-1 == rank) {
+          rank = control::get("mpi.fake.rank", -1.);
+          if (rank < 0) {
+              MPI_Check(MPI_Comm_rank(comm, &rank));
+          }
+      }
+      assert( rank >= 0 );
+      if (check_size > 0) assert( rank < check_size );
+      return rank;
+  } // rank
+
+#endif // MPI_SIZE_AND_RANK_INLINED
+
+
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

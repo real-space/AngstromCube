@@ -254,31 +254,30 @@ namespace green_function {
 
     std::vector<int64_t> get_right_hand_sides(
           uint32_t const nb[3] // number of blocks
-        , std::vector<uint16_t> & owner_rank // result: who owns which RHS block
+        , std::vector<green_parallel::rank_int_t> & owner_rank // result: who owns which RHS block
         , int const echo=0
     ) {
         std::vector<int64_t> global_source_indices; // result array
 
         auto const comm = mpi_parallel::comm();
         int const true_comm_size = mpi_parallel::size(comm);
-        int const fake_comm = (true_comm_size > 1) ? 0 : control::get("green_function.fake.comm", 0.);
+        int const fake_comm = (true_comm_size > 1) ? 0 : control::get("mpi.fake.size", 0.);
         auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
+        owner_rank.resize(0);
         auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
-        owner_rank.resize(nall, 0);
         if (comm_size > 1) {
 
             if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
             assert(nall > 0);
-            int const comm_rank = (fake_comm > 0) ? control::get("green_function.fake.rank", fake_comm - 1.)
-                                                    : mpi_parallel::rank(comm);
+            int const comm_rank = (fake_comm > 0) ? control::get("mpi.fake.rank", fake_comm - 1.) : mpi_parallel::rank(comm);
             double rank_center[4]; // rank_center[0/1/2] are the coordinates of the center of weight of the RHSs assigned to this rank
                                     // rank_center[3] is the number of tasks with nonzero weight
+            owner_rank.resize(nall, load_balancer::no_owner);
+
             load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
-            if (fake_comm < 1) mpi_parallel::max(owner_rank.data(), nall); // MPI_Allreduce(MPI_MAX)
-            if (echo > 9) {
-                std::printf("# rank#%i owner_rank after  MPI_MAX ", comm_rank);
-                printf_vector(" %i", owner_rank);
-            } // echo
+
+            mpi_parallel::min(owner_rank.data(), nall, comm); // MPI_Allreduce(MPI_MIN)
+            if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
             auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
             if (echo > 5) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs);
             {
@@ -307,6 +306,7 @@ namespace green_function {
             }
 
         } else { // comm_size > 1
+            owner_rank.resize(nall, 0); // all potential elements are owned by the MPI master, i.e. rank#0
 
 #ifdef    HAS_NO_MPI
             auto const default_sources =  1.; // 1: 1x1x1 right-hand-side only (suitable default for ./a43 --test green_function)
@@ -363,7 +363,7 @@ namespace green_function {
         , int const echo // =0 // log-level
         , int const Noco // =1
     ) {
-        if (echo > 1) std::printf("\n#\n# %s(ng=[%s])\n#\n\n", __func__, str(ng, 1, ", "));
+        if (echo > 1) std::printf("\n#\n# %s(ng=[%s])\n#\n\n", __func__, str(ng, 1, " "));
 
         p.E_param = 0;
 
@@ -402,7 +402,7 @@ namespace green_function {
         } // echo
 
         // we assume that the source blocks lie compact in space and preferably close to each other
-        std::vector<uint16_t> owner_rank(0);
+        std::vector<green_parallel::rank_int_t> owner_rank(0);
         p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, echo);
         // now owner_rank[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
@@ -1093,7 +1093,7 @@ namespace green_function {
         status_t stat(0);
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 1.);
         uint32_t const nb[] = {unsigned(bb[X]), unsigned(bb[Y]), unsigned(bb[Z])};
-        std::vector<uint16_t> owner_rank;
+        std::vector<green_parallel::rank_int_t> owner_rank;
         auto const rhs = get_right_hand_sides(nb, owner_rank, echo);
         auto const nrhs = rhs.size();
         if (echo > 5) std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",

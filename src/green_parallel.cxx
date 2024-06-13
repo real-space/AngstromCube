@@ -11,8 +11,9 @@
 #include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::min, ::max, ::sum, ::allreduce, ::comm, ::barrier
 #include "global_coordinates.hxx" // ::get
 #include "print_tools.hxx" // printf_vector
-#include "recorded_warnings.hxx" // warn
+#include "recorded_warnings.hxx" // warn, error
 #include "data_view.hxx" // view3D
+#include "control.hxx" // ::get
 
 namespace green_parallel {
 
@@ -73,10 +74,11 @@ namespace green_parallel {
             } // grid
             assert(iall < nall);
 
+            if (me != owner_rank[iall]) { error("rank#%i offers %s id %li but owned by rank#%i", me, what, global_id, owner_rank[iall]); }
             assert(me == owner_rank[iall] && "all offerings must be owned");
 
             local_index[iall] = iown;
-            if (debug) ++local_check[iall];
+            if (debug) { ++local_check[iall]; }
         } // iown
 
         if (debug) {
@@ -123,6 +125,9 @@ namespace green_parallel {
         requested_id = std::vector<int64_t>(nreq, 0);
         window_size = nown; // number of owned data items
 
+        size_t not_found{0};
+        int64_t id_not_found_1st{-1}, id_not_found_last{-1};
+
         size_t stats[] = {0, 0, 0}; // {local, remote, clear}
 
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
@@ -151,8 +156,10 @@ namespace green_parallel {
                 for (size_t iown = 0; iown < nown && iloc < 0; ++iown) {
                     if (global_id == offerings[iown]) iloc = iown;
                 } // iown
-                if (-1 == iloc) error("failed to find global_id= %li in offerings of %s", global_id, what);
-                assert(iloc > -1 && "index not found in local offerings");
+                if (-1 == iloc) {
+                    id_not_found_last = global_id; if (0 == not_found) id_not_found_1st = global_id;
+                    ++not_found;
+                } // not_found
                 owner[ireq] = me;
 
 #endif // HAS_NO_MPI
@@ -167,6 +174,17 @@ namespace green_parallel {
 
             requested_id[ireq] = global_id; // copy the array of requests
         } // ireq
+
+        if (not_found > 0) {
+            bool const not_found_is_error = (0 == control::get("mpi.fake.size", 0.));
+            if (not_found_is_error) {
+                error("rank #%i failed to find %ld global_ids in offerings of \'%s\', 1st id= %li, last id= %li",
+                             me, not_found, what, id_not_found_1st, id_not_found_last);
+            } else {
+                warn( "rank #%i failed to find %ld global_ids in offerings of \'%s\', 1st id= %li, last id= %li",
+                             me, not_found, what, id_not_found_1st, id_not_found_last);
+            }
+        } // not_found
 
         if (echo > 6) std::printf("# rank#%i \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
                                           me, stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3);
@@ -327,7 +345,7 @@ namespace green_parallel {
 
         auto const nrows = requests.size();
         int const me = mpi_parallel::rank(),
-                    np = mpi_parallel::size(); assert(np > 0);
+                  np = mpi_parallel::size(); assert(np > 0);
 
         std::vector<int64_t> offerings(0);
         uint32_t const nall[] = {nb[2]*nb[1]*nb[0], 0, 0};
@@ -338,8 +356,8 @@ namespace green_parallel {
             if (me == rank) offerings.push_back(id);
         } // id
         int const ncols = offerings.size();
-        RequestList_t rlV(requests, offerings, owner_rank.data(), nb, echo);
-        RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo);
+        RequestList_t rlV(requests, offerings, owner_rank.data(), nb,   echo, "test_V");
+        RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo, "test_D");
 
         double (*pot_out[2*2])[64]; view3D<double> ptr(4,nrows,64);
         for (int spin = 0; spin < 2*2; ++spin) { pot_out[spin] = (double(*)[64]) ptr(spin,0); }

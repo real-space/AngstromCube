@@ -261,10 +261,7 @@ namespace load_balancer {
           // Beware: only the owned entries of owner_rank have been modified, so
           //         an MPI_MIN-Allreduce needs to be performed later. This is skipped here
           //         to maintain serial executability of this routine.
-          if (echo > 99) {
-              std::printf("# rank#%i owner_rank before MPI_MIN ", rank);
-              printf_vector(" %i", owner_rank, nall);
-          } // echo
+          if (echo > 99) { std::printf("# rank#%i owner_rank before MPI_MIN ", rank); printf_vector(" %i", owner_rank, nall); }
       } // owner_rank
 
       if (1) { // parallelized consistency check
@@ -314,8 +311,8 @@ namespace load_balancer {
           xyzw[iall][W] = w8;
       }}} // ix iy iz
 
-      auto const load_now = plane_balancer(comm_size, comm_rank, nall, xyzw, w8s.data(), w8sum_all, echo
-                                          , rank_center, owner_rank);
+      auto const load_now = plane_balancer(comm_size, comm_rank, nall, xyzw, w8s.data(), w8sum_all, echo,
+                                           rank_center, owner_rank);
       delete[] xyzw;
       return load_now;
   } // get

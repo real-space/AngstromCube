@@ -905,7 +905,10 @@ namespace parallel_potential {
             } // rank
         } // ia
         uint32_t irequest{0};
+#else  // HAS_NO_MPI
+        bool const remote_atom_is_error = (0 == control::get("mpi.fake.size", 0.));
 #endif // HAS_NO_MPI
+
 
         // contributing atoms listen
         uint32_t const natoms = global_atom_ids.size();
@@ -924,7 +927,7 @@ namespace parallel_potential {
                 set(atom_data[iatom], count, owner_data[ia]); // local copy
             } else {
 #ifdef    HAS_NO_MPI
-                error("cannot operate remote atoms without MPI, iatom= %i", iatom);
+                if (remote_atom_is_error) error("cannot operate remote atoms without MPI, iatom= %i", iatom);
 #else  // HAS_NO_MPI
                 if (echo > 11) std::printf("# rank#%i %s: recv %s, %d doubles for owned atom#%i from owner rank#%i to contributing atom#%i, global#%i\n",
                                                    me, __func__, what, count, ia, atom_owner, iatom, global_atom_id);
@@ -1253,7 +1256,7 @@ namespace parallel_potential {
             std::vector<double> xyzZinso(0);
             { // scope: determine additional info
                 numax_prj.resize(na, 0);
-                sigma_prj.resize(na, 1);
+                sigma_prj.resize(na, 1.);
                 stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
@@ -1272,7 +1275,7 @@ namespace parallel_potential {
                     xyzZinso[gid*8 + 4] = gid;
                     xyzZinso[gid*8 + 5] = numax_sigma(gid,0);
                     xyzZinso[gid*8 + 6] = numax_sigma(gid,1);
-                    xyzZinso[gid*8 + 7] = 0;
+                    xyzZinso[gid*8 + 7] = 0; // spare
                 } // gid
             } // scope
 

@@ -167,7 +167,8 @@ namespace parallel_poisson {
         set(nb, 3, lb.grid_blocks());
 
         auto const bc = g.boundary_conditions();
-        if (echo > 3) std::printf("# %s(nb=[%d %d %d], bc=[%d %d %d])\n", __func__, nb[0], nb[1], nb[2], bc[0], bc[1], bc[2]);
+        if (echo > 3) std::printf("# %s(nb= [%d %d %d], nall= %ld, bc=[%d %d %d])\n", __func__,
+            nb[0], nb[1], nb[2], nb[2]*size_t(nb[1])*size_t(nb[0]), bc[0], bc[1], bc[2]);
 
         for (int d{0}; d < 3; ++d) {
             bc_[d] = bc[d]; // copy
@@ -385,7 +386,7 @@ namespace parallel_poisson {
         if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
         mpi_parallel::barrier(comm_);
 
-        requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, echo);
+        requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, echo, what);
 
         if (echo > 8) {
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
