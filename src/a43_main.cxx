@@ -334,7 +334,7 @@
       auto const git_key = macro2string(_GIT_KEY);
       #undef  stringify
       #undef  macro2string
-      control::set("git.key", git_key); // store in the global variable environment
+      control::set("git.key.a43", git_key); // store in the global variable environment
       if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
 #endif // _GIT_KEY
       return 0;

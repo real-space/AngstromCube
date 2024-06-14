@@ -42,9 +42,9 @@ namespace green_parallel {
         auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const me   = mpi_parallel::rank(comm);
 
-        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, __FILE__, __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
+        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=%s\n",
+                        me, __FILE__, __LINE__, nb[0], nb[1], nb[2], what); std::fflush(stdout); }
         mpi_parallel::barrier(comm);
-
 
         int constexpr X=0, Y=1, Z=2;
         auto const grid = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
@@ -100,10 +100,18 @@ namespace green_parallel {
             mpi_parallel::allreduce(owner_check.data(), MPI_MAX, comm, nall, owner_rank);
             if (stat) warn("MPI_Allmax(owner_rank) failed with status= %d", int(stat));
             for (size_t iall = 0; iall < nall; ++iall) {
+                if (owner_check[iall] != owner_rank[iall]) {
+                    error("rank#%i owner_rank[%li] differs: MPI-maximum is %d but expected %d",
+                                me, iall, owner_check[iall], owner_rank[iall]);
+                }
                 assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MAX");
             } // iall
             mpi_parallel::allreduce(owner_check.data(), MPI_MIN, comm, nall, owner_rank);
             for (size_t iall = 0; iall < nall; ++iall) {
+                if (owner_check[iall] != owner_rank[iall]) {
+                    error("rank#%i owner_rank[%li] differs: MPI-minimum is %d but expected %d",
+                                me, iall, owner_check[iall], owner_rank[iall]);
+                }
                 assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MIN");
             } // iall
         } // debug
