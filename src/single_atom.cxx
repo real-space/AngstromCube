@@ -2827,7 +2827,8 @@ namespace single_atom {
 
         int const N = unitary_zyx_lmn.stride(); // assumed shape [N][N]
         view2D<double const> const inp(in, in_stride); // wrap input
-        view2D<double> const uni(unitary_zyx_lmn.data(), N); // wrap transformation matrix
+//      view2D<double> unitary_zyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
+        auto const & uni = unitary_zyx_lmn;
         view2D<double> res(out, out_stride); // wrap
         view2D<double> tmp(N, N); // get memory
 
@@ -2981,7 +2982,8 @@ namespace single_atom {
             } // debugging
 #endif // DEVEL
         } else if (sho_tools::order_lmn == order) {
-            radial_density_matrix = view2D<double>(rho_matrix.data(), rho_matrix.stride()); // wrap
+            auto const rho_matrix_data = (double*)rho_matrix.data(); // remove constness but do not write to it later, ToDo: find a clean solution
+            radial_density_matrix = view2D<double>(rho_matrix_data, rho_matrix.stride()); // wrap
         } else {
             error("%s should be in either order_zyx or order_lmn", label);
         } // order
