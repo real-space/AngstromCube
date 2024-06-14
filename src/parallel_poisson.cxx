@@ -22,6 +22,7 @@
 #include "green_parallel.hxx" // ::exchange, ::RequestList_t
 #include "print_tools.hxx" // printf_vector
 #include "control.hxx" // ::get
+#include "recorded_warnings.hxx" // error
 
 #ifndef   NO_UNIT_TESTS
   #include <array> // std::array<T,N>
@@ -109,14 +110,14 @@ namespace parallel_poisson {
         } // true
 
         // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
-        auto const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[1]);
+        auto const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[0]);
         if (MPI_COMM_NULL != comm) {
-            if (echo > 9) {
+            if (echo > 19) {
                 std::printf("# rank#%i owner_rank before MPI_MIN ", me);
                 printf_vector(" %i", owner_rank_.data(), nall);
             } // echo
             mpi_parallel::min(owner_rank_.data(), nall, comm);
-            if (echo > 9) {
+            if (echo > 19) {
                 std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
                 printf_vector(" %i", owner_rank_.data(), nall);
             } // echo
@@ -139,10 +140,6 @@ namespace parallel_poisson {
         for (uint32_t iy = 0; iy < nb[1]; ++iy) {  // this triple loop does not scale well as it is the same range for all processes
         for (uint32_t ix = 0; ix < nb[0]; ++ix) {
             auto const owner_rank_xyz = owner_rank_(iz,iy,ix);
-            {
-                size_t const iall = (size_t(iz)*size_t(nb[1]) + size_t(iy))*size_t(nb[0]) + size_t(ix);
-                assert(owner_rank_xyz == owner_rank_.data()[iall]);
-            }
             if (load_balancer::no_owner == owner_rank_xyz) {
                 if (echo > 9) {
                     std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
@@ -150,7 +147,7 @@ namespace parallel_poisson {
                     std::fflush(stdout);
                 } // echo
                 error("rank#%i entry[ix=%d,iy=%d,iz=%d] has no owner rank", me, ix,iy,iz);
-            }
+            } else
             if (me == owner_rank_xyz) {
                 ++nown;
                 int32_t const ixyz[] = {int32_t(ix), int32_t(iy), int32_t(iz)};
