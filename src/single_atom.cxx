@@ -4488,7 +4488,7 @@ namespace single_atom {
       status_t stat(0);
       stat += test_string_switch(what); // muted
 
-      int constexpr kia = 1; // kia=0: use only 1 representative atom, kia=1: all 
+      int constexpr kia = 1; // kia=0: use only one representative atom, kia=1: treat all atoms normally
         // quick hack to accelerate libliveatom initialization time, however, results are wrong
         // always set kia = 1 when committing a version to git
 
