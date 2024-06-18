@@ -58,6 +58,14 @@ namespace unit_system {
 #endif // _Output_Units_Fixed
   } // set
 
+
+
+
+
+
+
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

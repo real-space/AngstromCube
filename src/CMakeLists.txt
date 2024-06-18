@@ -10,23 +10,52 @@ set(all_targets ${all_targets} liveatom)
 set(a43_atom_headers
     ../include/angular_grid.hxx
     ../include/atom_core.hxx
+    ../include/bessel_transform.hxx
+    ../include/bisection_tools.hxx
     ../include/chemical_symbol.h
     ../include/chemical_symbol.hxx
+    ../include/complex_tools.hxx
+    ../include/constants.hxx
     ../include/control.hxx
+    ../include/data_view.hxx
+    ../include/debug_output.hxx
     ../include/display_units.h
+    ../include/element_config.hxx
+    ../include/energy_contribution.hxx
+    ../include/energy_level.hxx
     ../include/exchange_correlation.hxx
+    ../include/gaunt_entry.h
+    ../include/inline_math.hxx
+    ../include/linear_algebra.hxx
+    ../include/lossful_compression.hxx
+    ../include/pawxml_export.hxx
+    ../include/pawxml_import.hxx
+    ../include/print_tools.hxx
+    ../include/pseudo_tools.hxx
     ../include/quantum_numbers.h
     ../include/radial_eigensolver.hxx
     ../include/radial_grid.h
     ../include/radial_grid.hxx
     ../include/radial_integrator.hxx
     ../include/radial_potential.hxx
+    ../include/radial_r2grid.hxx
     ../include/recorded_warnings.hxx
     ../include/scattering_test.hxx
+    ../include/sho_radial.hxx
+    ../include/sho_tools.hxx
     ../include/sho_unitary.hxx
     ../include/sigma_config.hxx
+    ../include/simple_math.hxx
+    ../include/simple_timer.hxx
     ../include/single_atom.h
     ../include/single_atom.hxx
+    ../include/solid_harmonics.hxx
+    ../include/spherical_harmonics.hxx
+    ../include/spherical_state.hxx
+    ../include/status.hxx
+    ../include/uniform_laplacian.hxx
+    ../include/unit_system.hxx
+    ../include/xml_reading.hxx
 )
 
 set(a43_atom_sources

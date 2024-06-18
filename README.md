@@ -1,12 +1,12 @@
 **AngstromCube**
 
-[![DOI](https://img.shields.io/badge/GitHub-MIT-informational)](https://github.com/real-space/tfQMRgpu)
+[![DOI](https://img.shields.io/badge/GitHub-MIT-informational)](https://github.com/real-space/AngstromCube)
 
     AngstromCube is an experimental all-electron DFT application.
     Using the Green functions formalism, near-sightedness allows
     for linear-scaling and the projector augmented wave method (PAW), 
-    in particular the revised PAW method (see Paul F. Baumeister and Shigeru Tsukamoto,
-      proceedings of PASC'19, https://dl.acm.org/doi/10.1145/3324989.3325717)
+    in particular the revised PAW method, see Paul F. Baumeister and Shigeru Tsukamoto,
+      [proceedings of PASC19](https://dl.acm.org/doi/10.1145/3324989.3325717)
 
 ![A4cube logo](doc/fig/a43_logo_bold.png)
 

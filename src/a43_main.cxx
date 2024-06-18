@@ -13,6 +13,7 @@
   #include "boundary_condition.hxx" // ::all_tests
   #include "fermi_distribution.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
+  #include "uniform_laplacian.hxx" // ::all_tests
   #include "finite_difference.hxx" // ::all_tests
   #include "radial_integrator.hxx" // ::all_tests
   #include "geometry_analysis.hxx" // ::all_tests
@@ -156,6 +157,7 @@
           add_module_test(linear_algebra);
           add_module_test(bisection_tools);
           add_module_test(solid_harmonics);
+          add_module_test(uniform_laplacian);
           add_module_test(finite_difference);
           add_module_test(hermite_polynomial);
           add_module_test(spherical_harmonics);

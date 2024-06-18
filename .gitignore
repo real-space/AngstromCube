@@ -5,7 +5,8 @@ bin/*
 del/*
 
 ### compiled libraries
-lib/
+lib/*
+lib64/*
 
 ### dump stuff you don't want to delete in here
 not/*
