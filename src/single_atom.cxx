@@ -4504,7 +4504,7 @@ namespace single_atom {
               auto const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
               auto const bmask = int64_t(control::get("single_atom.echo.mask", -1.)); // log-level mask, -1:all
               if (0 == kia) warn("initialize only 1 representative atom of %d atoms", na);
-              #pragma omp parallel for reduce(+:stat)
+              #pragma omp parallel for reduction(+:stat)
               for (size_t ia = 0; ia <= kia*(a.size() - 1); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((ia < 53) ? ((bmask >> ia) & 0x1) : 0);

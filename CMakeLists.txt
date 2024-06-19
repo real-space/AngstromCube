@@ -7,13 +7,13 @@ cmake_minimum_required(VERSION 3.21)
 project(AngstromCube VERSION 0.9)
 
 # Options
-option(HAS_MKL          "Using the Intel Math Kernel Library MKL"       OFF)
+option(HAS_MKL          "Using the Intel Math Kernel Library MKL"       ON )
 option(HAS_UNIT_TESTS   "All modules offer self-tests (recommended)"    ON )
 option(HAS_MPI          "Using the Message Passing Interface MPI"       ON )
 option(HAS_DEVEL        "Include experimental features"                 ON )
 option(HAS_RAPIDXML     "Using the 3rd party XML parser RapidXML"       ON )
 option(HAS_RAPIDJSON    "Using the 3rd party JSON parser RapidJSON"     OFF) ### errors
-option(HAS_FFTW         "Using the Fast Fourier Transform FFTW"         ON ) ### does not work yet
+option(HAS_FFTW         "Using the Fast Fourier Transform FFTW"         OFF) ### does not work yet
 option(HAS_OPENMP       "Using OpenMP to accelerate a43"                ON )
 option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     ON )
 

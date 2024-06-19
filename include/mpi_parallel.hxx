@@ -1,6 +1,8 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+  #include <cassert> // assert
+
 #ifndef   HAS_NO_MPI
 
   #include <mpi.h> // MPI_*
@@ -9,7 +11,6 @@
 
   // define MPI stubs
 
-  #include <cassert> // assert
   #include <cstdint> // int64_t
   #include <cstring> // std::memcpy
 
