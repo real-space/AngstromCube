@@ -11,6 +11,7 @@
 #include "inline_math.hxx" // intpow, pow2
 
 #include "status.hxx" // status_t
+#include "uniform_laplacian.hxx" // ::get
 
 namespace finite_difference {
 
@@ -21,6 +22,9 @@ namespace finite_difference {
             int const nn=1, // returns nn on success
             double const grid_spacing=1,
             char const direction='?') {
+#if 1
+      return uniform_laplacian::get(c, nn, grid_spacing, direction);
+#else   
     double const h2 = pow2(grid_spacing);
     int constexpr nnMaxImplemented = 13;
     switch (std::min(nn, nnMaxImplemented)) {
@@ -193,6 +197,7 @@ namespace finite_difference {
     } // larger than implemented
 
     return nn;
+#endif
   } // set_Laplacian_coefficients
 
 
@@ -205,9 +210,8 @@ namespace finite_difference {
 
       void _constructor(double const grid_spacing[3], int const nneighbors[3], double const scale_factor) {
           for (int d = 0; d < 3; ++d) {
-              for (int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
-              double const h = grid_spacing[d];
-              _nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h, 'x' + d);
+              for (int i = 0; i < nnArraySize; ++i) { c2nd[d][i] = 0; } // clear
+              _nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], grid_spacing[d], 'x' + d);
               if (_nn[d] < nneighbors[d]) {
                   warn("In stencil_t requested nn=%i but use nn=%i for %c-direction",
                                   nneighbors[d], _nn[d], 'x' + d);
@@ -401,29 +405,6 @@ namespace finite_difference {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  template <typename real_t>
-  inline status_t test_coefficients(int const echo=2) {
-      status_t stat(0);
-      int const mantissa_bits = (sizeof(real_t) > 4)? 52 : 23; // 23:float, 52:double
-      double const precision = 4./(1ul << mantissa_bits);
-      if (echo > 4) std::printf("# expected precision for real_%ld is %.1e\n", sizeof(real_t), precision);
-      int const M = 16;
-      double maxdev = 0; int maxdev_nn = -99;
-      real_t c[M];
-      for (int nn = M - 2; nn >= -1; --nn) {
-          for (int i = 0; i < M; ++i) c[i] = 0; // clear
-          set_Laplacian_coefficients(c, nn);
-          double checksum = c[0]; for (int i = 1; i < M; ++i) checksum += 2*c[i];
-          if (echo > 6) std::printf("# Laplacian with nn=%d has c0 = %g,   %.1e should be zero\n", nn, c[0], checksum);
-          checksum = std::abs(checksum);
-          stat += (checksum > precision);
-          if (checksum > maxdev) { maxdev = checksum; maxdev_nn = nn; } // get the maximum and the nn where it occurred
-      } // n
-      if (stat && (echo > 0)) std::printf("# %s found %d errors!\n", __func__, stat);
-      if (echo > 3) std::printf("# Laplacian with nn=%d has largest deviation in checksum: %.1e (should be zero)\n", maxdev_nn, maxdev);
-      return stat;
-  } // test_coefficients
-
   inline status_t test_create_and_destroy(int const echo=9) {
       auto const f = new stencil_t<float>();
       f->~stencil_t();
@@ -491,32 +472,11 @@ namespace finite_difference {
       return stat;
   } // test_Bloch_wave
 
-  inline status_t test_dispersion(int const echo=9) {
-      if (echo < 7) return 0; // this function is only plotting
-      for (int nn = 1; nn <= 13; ++nn) { // largest order implemented is 13
-          stencil_t<double> const fd(1.0, nn);
-          std::printf("\n## finite-difference dispersion for nn=%d (in Hartree)\n", nn);
-          for (int ik = 0; ik <= 100; ++ik) {
-              double const k = 0.01 * ik * constants::pi;
-              double E_k{-0.5*fd.c2nd[0][0]};
-              for (int j = 1; j <= nn; ++j) {
-                  E_k -= std::cos(k*j) * fd.c2nd[0][j];
-              } // j
-              std::printf("%g %g %g\n", k, E_k, 0.5*k*k); // compare to parabola
-          } // ik
-      } // nn
-      return 0;
-  } // test_dispersion
-
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_coefficients<double>(echo);
-      stat += test_coefficients<float>(echo);
       stat += test_create_and_destroy(echo);
       stat += test_Laplacian<double>(echo);
       stat += test_Bloch_wave<double>(echo);
-      recorded_warnings::clear_warnings(); // clear
-      stat += test_dispersion(echo);
       return stat;
   } // all_tests
 

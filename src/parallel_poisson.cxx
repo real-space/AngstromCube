@@ -22,6 +22,7 @@
 #include "green_parallel.hxx" // ::exchange, ::RequestList_t
 #include "print_tools.hxx" // printf_vector
 #include "control.hxx" // ::get
+#include "recorded_warnings.hxx" // error
 
 #ifndef   NO_UNIT_TESTS
   #include <array> // std::array<T,N>
@@ -83,13 +84,15 @@ namespace parallel_poisson {
 
         auto nb = nb_;
         auto const ng = g.grid_points();
-        if (echo > 3) std::printf("# %s(%d x %d x %d grid points in blocks of %dx%dx%d)\n", __func__, ng[0], ng[1], ng[2], n8,n8,n8);
+        if (echo > 8) std::printf("# %s(%d x %d x %d grid points in blocks of %dx%dx%d)\n", __func__, ng[0], ng[1], ng[2], n8,n8,n8);
         assert(n8 > 0);
         for (int d{0}; d < 3; ++d) {
             nb[d] = ng[d]/n8; // divide by n8
             assert(nb[d]*n8 == ng[d] && "grid numbers must be a positive multiple of the block edge");
             assert(nb[d] > 0 && "at least one block of grid points needed");
         } // d
+        if (echo > 3) std::printf("# %s(%d x %d x %d grid points in %d x %d x %d blocks of %dx%dx%d)\n", 
+                                __func__, ng[0], ng[1], ng[2], nb[0], nb[1], nb[2],        n8,n8,n8);
 
         owner_rank_ = view3D<green_parallel::rank_int_t>(nb[2], nb[1], nb[0], load_balancer::no_owner);
 
@@ -107,14 +110,27 @@ namespace parallel_poisson {
         } // true
 
         // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
-        size_t const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[1]);
+        auto const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[0]);
         if (MPI_COMM_NULL != comm) {
+            if (echo > 19) {
+                std::printf("# rank#%i owner_rank before MPI_MIN ", me);
+                printf_vector(" %i", owner_rank_.data(), nall);
+            } // echo
             mpi_parallel::min(owner_rank_.data(), nall, comm);
-            if (echo > 99) {
+            if (echo > 19) {
                 std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
                 printf_vector(" %i", owner_rank_.data(), nall);
             } // echo
+            if (echo > 2) {
+                simple_stats::Stats<> ors;
+                auto const owner_rank_data = owner_rank_.data();
+                for (size_t iall{0}; iall < nall; ++iall) {
+                    ors.add(owner_rank_data[iall]);
+                } // iall
+                std::printf("# rank#%i owner ranks in %s\n", me, ors.interval().c_str());
+            } // echo
         } // not comm_null
+        mpi_parallel::barrier(comm);
 
         set(min_domain_, 3, int32_t((1ull << 31) - 1)); 
         set(max_domain_, 3, -1);
@@ -123,7 +139,16 @@ namespace parallel_poisson {
         for (uint32_t iz = 0; iz < nb[2]; ++iz) {
         for (uint32_t iy = 0; iy < nb[1]; ++iy) {  // this triple loop does not scale well as it is the same range for all processes
         for (uint32_t ix = 0; ix < nb[0]; ++ix) {
-            if (me == owner_rank_(iz,iy,ix)) {
+            auto const owner_rank_xyz = owner_rank_(iz,iy,ix);
+            if (load_balancer::no_owner == owner_rank_xyz) {
+                if (echo > 9) {
+                    std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
+                    printf_vector(" %i", owner_rank_.data(), nall);
+                    std::fflush(stdout);
+                } // echo
+                error("rank#%i entry[ix=%d,iy=%d,iz=%d] has no owner rank", me, ix,iy,iz);
+            } else
+            if (me == owner_rank_xyz) {
                 ++nown;
                 int32_t const ixyz[] = {int32_t(ix), int32_t(iy), int32_t(iz)};
                 for (int d = 0; d < 3; ++d) {
@@ -167,8 +192,8 @@ namespace parallel_poisson {
         set(nb, 3, lb.grid_blocks());
 
         auto const bc = g.boundary_conditions();
-        if (echo > 3) std::printf("# %s(nb= [%d %d %d], nall= %ld, bc=[%d %d %d])\n", __func__,
-            nb[0], nb[1], nb[2], nb[2]*size_t(nb[1])*size_t(nb[0]), bc[0], bc[1], bc[2]);
+        if (echo > 3) std::printf("# %s(nb= [%d %d %d], nall= %ld, bc=[%d %d %d], what=%s)\n", __func__,
+            nb[0], nb[1], nb[2], nb[2]*size_t(nb[1])*size_t(nb[0]), bc[0], bc[1], bc[2], what);
 
         for (int d{0}; d < 3; ++d) {
             bc_[d] = bc[d]; // copy

@@ -148,7 +148,8 @@ public:
       return &_data[i1*_n0]; } // []
 #endif // _VIEW2D_HAS_INDEXING
 
-  T* data() const { return _data; }
+  T const * data() const { return _data; } // const data pointer
+  T       * data()       { return _data; } // mutable data pointer
   size_t stride() const { return _n0; }
 
 private:
@@ -311,7 +312,8 @@ public:
   // maybe sub-optimal as it creates a view2D object every time
 #endif // _VIEW3D_HAS_INDEXING
 
-  T* data() const { return _data; }
+  T const * data() const { return _data; } // const data pointer
+  T       * data()       { return _data; } // mutable data pointer
   size_t stride() const { return _n0; }
   size_t dim1()   const { return _n1; }
   bool is_memory_owner() const { return (_n2 > DimUnknown); }
@@ -437,7 +439,8 @@ public:
   // maybe sub-optimal as it creates a view3D object every time
 #endif // _VIEW4D_HAS_INDEXING
 
-  T* data() const { return _data; }
+  T const * data() const { return _data; } // const data pointer
+  T       * data()       { return _data; } // mutable data pointer
   size_t stride() const { return _n0; }
   size_t dim1()   const { return _n1; }
   size_t dim2()   const { return _n2; }

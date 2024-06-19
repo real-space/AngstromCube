@@ -3,8 +3,8 @@
 
 #include <cstdio> // std::printf, ::fprintf, ::fopen, ::fclose, ::fflush, stdout
 
-#include "display_units.h" // Ang, _Ang
 #include "complex_tools.hxx" // is_complex
+#include "display_units.h" // Ang, _Ang
 
 #ifdef    DEBUG
     #define here \
@@ -33,7 +33,8 @@ inline int dump_to_file(
         return 1;
     } // failed to open
 
-    std::fprintf(f, "#%s %s\n", (is_complex<real_t>())?"complex":"", title); // print this line also if title==nullptr
+    bool constexpr is_a_complex = is_complex<real_t>();
+    std::fprintf(f, "#%s %s\n", is_a_complex?"complex":"", title); // print this line also if title==nullptr
 
     for (int i = 0; i < N; i++) {
         if (nullptr != x_axis) {
@@ -43,11 +44,11 @@ inline int dump_to_file(
         } // x_axis given
         for (int j = 0; j < M; ++j) {
             auto const y = y_data[i*Stride + j];
-            if (is_complex<real_t>()) {
-                std::fprintf(f, "  %g %g", std::real(y), std::imag(y));
+            if (is_a_complex) {
+                std::fprintf(f, "  %g %g", double(std::real(y)), double(std::imag(y)));
             } else {
-                std::fprintf(f, " %g", std::real(y));
-            } // is_complex
+                std::fprintf(f, " %g", double(std::real(y)));
+            } // is_a_complex
         } // j
         std::fprintf(f, "\n"); // new line
     } // i

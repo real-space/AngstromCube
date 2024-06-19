@@ -14,7 +14,7 @@
                            // ::create_radial_grid, ::find_grid_index
                            // ::destroy_radial_grid, ::default_points
 #include "bessel_transform.hxx" // ::transform_s_function
-#include "finite_difference.hxx" // ::set_Laplacian_coefficients
+#include "uniform_laplacian.hxx" // ::get
 #include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, add_product, dot_product, align<nBits>, product, pow4
@@ -461,7 +461,7 @@ namespace scattering_test {
       stat += expand_sho_projectors(rprj.data(), rprj.stride(), g, sigma, numax, 1, echo);
 
       int constexpr nFD = 8; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
-      stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
+      stat += (nFD != uniform_laplacian::get(cFD, nFD, dr, 'r'));
       if (echo > 3) std::printf("# %s %s finite difference with %i neighbors\n", label, __func__, nFD);
 
       double max_dev_from_reference{0}; double energy_of_reference{0}; char ellchar_of_reference{'?'};
