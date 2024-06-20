@@ -80,12 +80,14 @@ namespace unit_system {
               char const *_si;
               auto const f = le ? energy_unit(sy[le][iu], &_si)
                                 : length_unit(sy[le][iu], &_si);
+              assert(f > 0 && "unit conversion factors must be positive!");
               if (echo > 2) std::printf("# %s unit factor %.15g for %s\n", le_name, f, _si);
               auto const fi = 1./f; // compute inverse factor
               for (int ou = 0; ou < 4; ++ou) { // output unit
                   char const *_so;
                   auto const fo = le ? energy_unit(sy[le][ou], &_so)
                                      : length_unit(sy[le][ou], &_so);
+                  assert(fo > 0 && "unit conversion factors must be positive!");
                   if (echo > 3 + (iu != ou)) {
                       std::printf("# %s unit factors %.9f * %.9f = %.9f %s/%s\n", 
                                       le_name, fo, fi, fo*fi, _so, _si);

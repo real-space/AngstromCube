@@ -4,6 +4,7 @@
 #include <fstream> // std::ifstream
 #include <string> // std::string, ::getline
 #include <sstream> // std::istringstream
+#include <cstdint> // int32_t
 
 #include "geometry_input.hxx"
 
@@ -56,7 +57,7 @@ namespace geometry_input {
                     std::string B[3];
                     iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2]; // Cartesian mode
                     if (nullptr != cell) set(cell[0], 12, 0.0); // clear
-                    for (int d = 0; d < 3; ++d) {
+                    for (int d{0}; d < 3; ++d) {
                         if (nullptr != cell) {
                             cell[d][d] = L[d] * Angstrom2Bohr;
                             assert(cell[d][d] > 0);
@@ -159,6 +160,7 @@ namespace geometry_input {
           , int const echo // =0 log-level
     ) {
         status_t stat(0);
+        assert(n_even > 0);
 
         natoms = 0; // number of atoms
         int8_t bc[3]; // boundary conditions
@@ -167,8 +169,19 @@ namespace geometry_input {
         if (echo > 3) std::printf("# +geometry.file=%s\n", geo_file);
         stat += read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
 
+        auto const grid_spacing_unit_name = control::get("grid.spacing.unit", "Bohr");
+        char const *_lu;
+        auto const lu = unit_system::length_unit(grid_spacing_unit_name, &_lu);
+        assert(lu > 0);
+        auto const in_lu = 1./lu;
+        int32_t ng_input[] = {0, 0, 0};
+        double  default_hg_used{0};
+        int32_t isotropic_ng_used{0};
         auto const keyword_ng = "grid.points";
         auto const keyword_hg = "grid.spacing";
+
+        auto const ng_isotropic = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
+
         { // scope: determine grid spacings and number of grid points
 
             // precedence:
@@ -177,44 +190,54 @@ namespace geometry_input {
             //           :  grid.spacing.x, .y, .z
             //     lowest:  grid.spacing             default value = 0.125 Angstrom
 
-            auto const grid_spacing_unit_name = control::get("grid.spacing.unit", "Bohr");
-            char const *_lu;
-            auto const lu = unit_system::length_unit(grid_spacing_unit_name, &_lu);
-            auto const in_lu = 1./lu;
-
             auto const default_grid_spacing = 0.23621577; // == 0.125 Angstrom
-            auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
-            auto const hg_iso = std::abs(control::get(keyword_hg, -default_grid_spacing*lu));
+            auto const hg_isotropic = std::abs(control::get(keyword_hg, -default_grid_spacing*lu));
 
-            int default_grid_spacing_used{0}, default_grid_spacing_xyz{0};
-            int ng[3] = {0, 0, 0};
-            for (int d = 0; d < 3; ++d) { // directions x, y, z
-                char keyword[32]; std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
-                ng[d] = int(control::get(keyword, ng_iso)); // "grid.points.x", ".y", ".z"
+            int default_hg_times{0}, default_hg_xyz{0};
+            int isotropic_ng_times{0}, isotropic_ng_xyz{0};
+            int32_t ng[3] = {0, 0, 0};
+            for (int d{0}; d < 3; ++d) { // directions x, y, z
+                char keyword[32];
+                std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
+                ng[d] = int32_t(control::get(keyword, ng_isotropic)); // "grid.points.x", ".y", ".z"
+                ng_input[d] = ng[d];
                 if (ng[d] < 1) {
                     // try to initialize the grid via "grid.spacing"
                     std::snprintf(keyword, 32, "%s.%c", keyword_hg, 'x'+d);
-                    double const hg_lu = control::get(keyword, hg_iso); // "grid.spacing.x", ".y", ".z"
-                    bool const is_default_grid_spacing = (hg_lu == hg_iso);
+                    double const hg_lu = control::get(keyword, hg_isotropic); // "grid.spacing.x", ".y", ".z"
+                    bool const is_default_hg = (hg_lu == hg_isotropic);
                     double const hg = hg_lu*in_lu;
-                    if (echo > 8) std::printf("# grid spacing in %c-direction is %g %s = %g %s%s\n",
-                        'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
-                    default_grid_spacing_used += int(is_default_grid_spacing);
-                    default_grid_spacing_xyz += (int(is_default_grid_spacing) << d);
+                    if (echo > 8) std::printf("# input grid spacing in %c-direction is %g %s = %g %s%s\n",
+                                'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_hg?" (default)":"");
+                    default_hg_times +=  int(is_default_hg);
+                    default_hg_xyz   += (int(is_default_hg) << d);
                     if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
                     ng[d] = n_grid_points(std::abs(cell[d][d])/hg, n_even);
                     if (ng[d] < 1) error("no grid points with grid spacings %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-                } // ng < 1
-                ng[d] = even(ng[d], n_even); // if odd, increment to nearest higher even number
+                    ng[d] = even(ng[d], n_even); // if odd, increment to nearest higher even number
+                    if (is_default_hg) default_hg_used = std::abs(cell[d][d]/ng[d]);
+                } else {
+                    ng[d] = even(ng[d], n_even); // if odd, increment to nearest higher even number
+                }
+                if (ng_isotropic == ng[d]) {
+                    ++isotropic_ng_times;
+                    isotropic_ng_xyz += (1 << d);
+                    isotropic_ng_used = ng_isotropic;
+                } // isotropic_ng
                 if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
             } // d
-            if (default_grid_spacing_used > 0) {
-                char const which_ones[8][16] = {"", ", x", ",y", ", x and y", ", z", ", x and z", ", y and z", ", x, y, and z"};
-                if (echo > 6) std::printf("# default grid spacing %g %s used for %d directions%s\n",
-                    default_grid_spacing*Ang, _Ang, default_grid_spacing_used, which_ones[default_grid_spacing_xyz & 7]);
-            } // default_grid_spacing_used
-            g = real_space::grid_t(ng[0], ng[1], ng[2]);
 
+            char const which_ones[8][16] = {"", ", x", ", y", ", x and y", ", z", ", x and z", ", y and z", ", x, y, and z"};
+            if (default_hg_times > 0) {
+                if (echo > 6) std::printf("# default grid.spacing %g %s used for %d directions%s\n",
+                    default_hg_used*Ang, _Ang, default_hg_times, which_ones[default_hg_xyz & 7]);
+            } // default_hg_times
+            if (isotropic_ng_times > 0) {
+                if (echo > 6) std::printf("# isotropic grid.points=%d used for %d directions%s\n",
+                    isotropic_ng_used, isotropic_ng_times, which_ones[isotropic_ng_xyz & 7]);
+            } // isotropic_ng_times
+
+            g = real_space::grid_t(ng[0], ng[1], ng[2]);
         } // scope
 
         if (echo > 1) std::printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
@@ -225,12 +248,12 @@ namespace geometry_input {
         double const max_grid_spacing = std::max(std::max(std::max(1e-9, g.h[0]), g.h[1]), g.h[2]);
         if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
               g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-        for (int d = 0; d < 3; ++d) {
+        for (int d{0}; d < 3; ++d) {
             assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16 && "grid spacing and its inverse do not match");
         } // d
         if (g.is_Cartesian()) {
             if (echo > 1) std::printf("# cell is  %.9f %.9f %.9f  %s\n", cell[0][0]*Ang, cell[1][1]*Ang, cell[2][2]*Ang, _Ang);
-            for (int d = 0; d < 3; ++d) {
+            for (int d{0}; d < 3; ++d) {
                 if (std::abs(g.h[d]*g[d] - cell[d][d]) >= 1e-6) {
                     warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s",
                             'x'+d, g[d], g.h[d]*Ang, cell[d][d]*Ang, _Ang);
@@ -238,21 +261,28 @@ namespace geometry_input {
                 } // deviates
             } // d
         } else if (echo > 1) {
-            for (int d = 0; d < 3; ++d) {
+            for (int d{0}; d < 3; ++d) {
                 std::printf("# cell is  %15.9f %15.9f %15.9f  %s\n", g.cell[d][0]*Ang, g.cell[d][1]*Ang, g.cell[d][2]*Ang, _Ang);
             } // d
         } // is_Cartesian
 
         { // scope: correct the global variables, suppress warnings
-            for (int d = 0; d < 3; ++d) { // directions x, y, z
+            for (int d{0}; d < 3; ++d) { // directions x, y, z
                 char keyword[32];
-                std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
-                control::set(keyword, g[d], control::echo_set_without_warning);
+                if (ng_input[d] != g[d]) { // correct only if not matching (correcting removes the data origin visible with +control.show=-6)
+                    std::snprintf(keyword, 32, "%s.%c", keyword_ng, 'x'+d);
+                    control::set(keyword, g[d], control::echo_set_without_warning);
+                } // correct only if not matching
+                // always correct the grid spacing to the exact floating point value used
                 std::snprintf(keyword, 32, "%s.%c", keyword_hg, 'x'+d);
-                control::set(keyword, g.h[d], control::echo_set_without_warning);
+                control::set(keyword, g.h[d]*lu, control::echo_set_without_warning);
             } // d
-            control::set(keyword_hg, std::cbrt(g.dV()), control::echo_set_without_warning);
-            control::set(keyword_ng, std::cbrt(g[2]*size_t(g[1])*size_t(g[0])), control::echo_set_without_warning);
+            double const show_isotropic_ng = (isotropic_ng_used > 0) ? isotropic_ng_used : std::cbrt(g[2]*1.*g[1]*1.*g[0]);
+            if (ng_isotropic != show_isotropic_ng) {
+                control::set(keyword_ng, show_isotropic_ng, control::echo_set_without_warning);
+            } // correct only if not matching
+            double const show_default_hg = (default_hg_used > 0) ? default_hg_used : std::cbrt(g.dV());
+            control::set(keyword_hg, show_default_hg*lu,              control::echo_set_without_warning);
         } // scope
 
         return stat;

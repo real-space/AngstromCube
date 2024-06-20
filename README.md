@@ -53,15 +53,15 @@ The idea is to have a code that
 The root folder of this repository contains the following directories:
 | Directory    | Purpose                                                                        |
 |--------------|--------------------------------------------------------------------------------|
-| data         | matrix element files for SHO transforms between radial and Cartesian bases     |
-| doc          | documentation folder including manual and theory notes                         |
-| external     | put third party libraries here                                                 |
-| include      | source folder for C and C++ header files                                       |
-| interfaces   | examples for the libliveatom.so library in C, Fortran90, Julia and Python      |
-| ref          | reference outputs of certain unit tests                                        |
 | src          | source folder for C++ and CUDA C++ sources                                     |
+| include      | source folder for C and C++ header files                                       |
+| doc          | documentation folder including manual and theory notes                         |
+| data         | matrix element files for SHO transforms between radial and Cartesian bases     |
 | test         | test scripts for certain modules                                               |
+| external     | put third party libraries here                                                 |
+| interfaces   | examples for the libliveatom.so library in C, Fortran90, Julia and Python      |
 | tools        | experimental scripts in Julia and Rust (programming languages)                 |
+| ref          | reference outputs of certain unit tests                                        |
 
 **Abbreviations**
 | Abbr. | Explanation                                                                           |
