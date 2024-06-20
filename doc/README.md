@@ -15,7 +15,7 @@ To generate the PDF manual for AngstromCube run `pdflatex a43manual.tex`.
 
 ## Folders
 
-| Folder name     | Purpose                                                                       |
-|-----------------|-------------------------------------------------------------------------------|
-| fig             | Plots used in manual and theory document                                      |
-| cho             | Special images for the Circular Harmonic Oscillator (2D basis)                |
+| Folder name | Purpose                                                                         |
+|-------------|---------------------------------------------------------------------------------|
+| fig         | Plots used in manual and theory document                                        |
+| cho         | Special images and generator scripts for the Circular Harmonic Oscillator (2D)  |

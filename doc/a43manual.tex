@@ -605,11 +605,15 @@ and the atomic coordinates in \AA{} as
 It can be viewed by \ttt{Jmol}-viewer \cite{jmol-software}.
 %
 \noindent
-To check if your coordinate file is parsed correctly run
+To simply check if your coordinate file is parsed correctly run
+\begin{verbatim}
+./a43 --test geometry_input
+\end{verbatim}
+In contrast,
 \begin{verbatim}
 ./a43 --test geometry_analysis
 \end{verbatim}
-providing a rich log output about interatomic distances,
+is providing a rich log output about interatomic distances,
 auto-detected bonds and atomic coordination numbers.
 The following subsections explain the analysis results in more detail.
 

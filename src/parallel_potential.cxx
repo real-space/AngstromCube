@@ -1036,6 +1036,7 @@ namespace parallel_potential {
 
     status_t SCF(int const echo) {
         status_t stat(0);
+        SimpleTimer init_timer(strip_path(__FILE__), __LINE__, "init timer", 0);
 
         auto const comm = MPI_COMM_WORLD;
         auto const me = mpi_parallel::rank(comm);
@@ -1325,7 +1326,8 @@ namespace parallel_potential {
         int   const es_restart   = control::get("poisson.restart", 4096.);
 
         // configure the self-consistency loop
-        int   const scf_maxiter   = control::get("scf.maxiter", 1.);
+        int   const scf_maxiter  = control::get("scf.maxiter", 1.);
+        if (echo > 2) std::printf("#\n# Start up to %d SCF-iterations\n#\n", scf_maxiter);
 
         double E_Fermi{0}; // Fermi level
 
@@ -1348,17 +1350,28 @@ namespace parallel_potential {
 
         sho_unitary::Unitary_SHO_Transform const unitary(9);
 
+        {
+            auto const init_time = init_timer.stop();
+            if (echo > 2) { std::printf("# SCF initialization took %g seconds\n", init_time); }
+        }
 
         // energy contributions
         double grid_kinetic_energy{0}, grid_electrostatic_energy{0}, grid_xc_energy{0}, total_energy{0};
+
+        simple_stats::Stats<> scf_iteration_times, poisson_solver_times, green_function_times;
 
         int scf_iteration{0};
         bool scf_run{true};
         do { // self-consistency loop
 
-            mpi_parallel::barrier(comm);
             ++scf_iteration;
-            if (echo > 3) std::printf("#\n# Start SCF iteration #%i\n#\n", scf_iteration);
+            if (echo > 3) std::printf("#\n# Start SCF-iteration#%i\n#\n", scf_iteration);
+            mpi_parallel::barrier(comm);
+
+            char scf_iteration_label[64];
+            std::snprintf(scf_iteration_label, 64, "SCF-iteration#%i", scf_iteration);
+            SimpleTimer scf_iteration_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, echo*(0 == check));
+
 
             // get smooth core densities
             stat += live_atom_update("core densities", na, 0, nr2.data(), 0, atom_rhoc.data());
@@ -1431,12 +1444,17 @@ namespace parallel_potential {
             // =====                    Poisson equation                    =======================
             // ====================================================================================
             if (0 == check) { // scope: Poisson equation
-                if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF iteration #%i\n#\n", nprocs, scf_iteration);
+                if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF-iteration#%i\n#\n", nprocs, scf_iteration);
+                std::snprintf(scf_iteration_label, 64, "Poisson in SCF-iteration#%i", scf_iteration);
+                SimpleTimer poisson_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, echo);
                 double E_es{0};
                 float es_residual{0};
+
                 auto const es_stat = parallel_poisson::solve(V_electrostatic[0], augmented_density[0],
                                                 pg, *es_method, es_echo, es_threshold,
                                                 &es_residual, es_maxiter, es_miniter, es_restart, &E_es);
+
+                poisson_solver_times.add(poisson_timer.stop());
                 if (echo > 2) std::printf("# Poisson equation %s, residual= %.2e a.u.\n#\n", es_stat?"failed":"converged", es_residual);
                 stat += es_stat;
                 if (es_stat && 0 == me) warn("parallel_poisson::solve returned status= %i", int(es_stat));
@@ -1513,6 +1531,9 @@ namespace parallel_potential {
 
             case 'g':
             {
+                std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
+                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, echo*(0 == check));
+
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
                 view2D<double> V_coarse(n_blocks, 4*4*4, 0.0);
                 for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) { // parallel loop over local blocks
@@ -1560,6 +1581,7 @@ namespace parallel_potential {
                                                           pg_Interpolation, n_valence_electrons, g.dV(), echo, check);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
+                green_function_times.add(green_timer.stop());
             }
             break;
 
@@ -1635,9 +1657,31 @@ namespace parallel_potential {
 
 
 
-            scf_run = (scf_iteration < scf_maxiter && check != 0);
+            scf_run = (scf_iteration < scf_maxiter && 0 == check); // run only 1 iteration in check mode (check==1)
+
+            mpi_parallel::barrier(comm);
+
+            scf_iteration_times.add(scf_iteration_timer.stop());
 
         } while (scf_run); // self-consistency loop 
+
+
+        if (echo > 1) { std::printf("\n# SCF-iterations stopped after %d of %d iterations\n", scf_iteration, scf_maxiter); }
+        if (0 == check) {
+            if (echo > 3) {
+                auto const & s = poisson_solver_times;
+                std::printf("# %ld Poisson solutions in %s took %g seconds\n", s.tim(), s.interval().c_str(), s.sum());
+            } // echo
+            if (echo > 2 && green_function_times.tim() > 0) {
+                auto const & s = green_function_times;
+                std::printf("# %ld Green functions in %s took %g seconds\n", s.tim(), s.interval().c_str(), s.sum());
+            } // echo
+            if (echo > 2) {
+                auto const & s = scf_iteration_times;
+                std::printf("# %ld SCF-iterations in %s took %g seconds\n", s.tim(), s.interval().c_str(), s.sum());
+            } // echo
+        } // do not report execution times of the check mode
+
 
         if (1) { // scope: report GPU memory consumption
             int const memory_show = control::get("green_memory.show", 0.);
