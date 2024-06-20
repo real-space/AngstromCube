@@ -7,6 +7,8 @@ copper is named Zeff.029
 
 The file contains two columns:
   - left  column: the radial coordinate *r* in Bohr
-  - right column: the value *-rV(r)*, i.e. the potential multiplied by *-r* to remove the singularity
-
-The user may confirm that the value at *r*=0 Bohr always matches *Z* exactly.
+  - right column: the value *-rV(r)* in Bohr*Hartree. 
+  
+The potential *V(r)* is multiplied by *-r* to remove the singularity. 
+Consequently, the values at *r=0* are equal to *Z* as the potential *V(r)= -Z/r* cannot be screened at the origin.
+Without screening, all entries of the right column would read *Z*.

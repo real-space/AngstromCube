@@ -640,7 +640,7 @@ namespace geometry_analysis {
                           Sy_of_species_null[is], default_half_bond*Ang, _Ang, half_bond_length[is]*Ang, _Ang);
                   ++half_bond_lengths_modified;
               }
-              hypothetical_bond = std::max(hypothetical_bond, elongation*1.999999f*half_bond_length[is]);
+              hypothetical_bond = std::max(hypothetical_bond, elongation*2*half_bond_length[is]);
           } // is
           if (half_bond_lengths_modified) {
               if (echo > 0) std::printf("# %d of %d half bond lengths have been customized\n", half_bond_lengths_modified, nspecies);
