@@ -58,22 +58,30 @@ namespace parallel_potential {
       , float   *const fp=nullptr // quantities (input)        float   fp[natoms or less]
       , double  *const *const dpp=nullptr // quantities (input/output) double* dpp[natoms]
     ) {
-        int32_t stat(0);
+        int32_t stat(0); // status variable for
 
         static int use{-1};
         if (-1 == use) {
             use = control::get("use.live.atom", 1.);
+#ifndef   HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
             int32_t is_dynamic{0}; live_atom_is_a_dynamic_library_(&is_dynamic);
+            int const echo = (0 == mpi_parallel::rank());
             if (is_dynamic) {
                 auto const *const control_file = control::get("control.file", "");
-                int const echo = (0 == mpi_parallel::rank());
                 if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
                     "# read single_atom.*-controls from +control.file=%s\n", control_file);
                 live_atom_init_env_(control_file, &stat);
-                if (0 == *control_file && echo) warn("no +control.file for libliveatom.so, live_atom_init_env_ returned %i", int(stat))
+                if (0 != stat) {
+                    warn("+control.file=%s for libliveatom.so, live_atom_init_env_ returned %i", control_file, int(stat));
+                }
+            } else {
+                // We do not need the control file in the case of a static library 
+                //       as we share the control.o and recorded_warnings.o objects
+                if (echo > 0) std::printf("# libliveatom.so is linked as static library\n");
             } // is_dynamic
 #endif // HAS_LIVE_ATOM
+#endif // HAS_SINGLE_ATOM
         } // needs init
         if (0 == use) {
             // warn("single_atom::atom_update deactivated", 0); 
@@ -87,11 +95,14 @@ namespace parallel_potential {
         live_atom_update_(what, &natoms, dp, ip, fp, dpp, &stat);
 #else  // HAS_LIVE_ATOM
         static bool warned = false;
-        if (!warned) { warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM", natoms); warned = true; }
+        if (!warned) {
+            warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM for %d atoms", natoms);
+            warned = true;
+        } // launch warning only once
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
 
-        if (stat) warn("single_atom::atom_update(%s, natoms=%d, ...) returned status= %i", what, natoms, int(stat));
+        if (stat) { warn("single_atom::atom_update(%s, natoms=%d, ...) returned status= %i", what, natoms, int(stat)); }
         return stat;
     } // live_atom_update
 
@@ -1532,7 +1543,7 @@ namespace parallel_potential {
             case 'g':
             {
                 std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
-                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, echo*(0 == check));
+                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
 
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
                 view2D<double> V_coarse(n_blocks, 4*4*4, 0.0);
@@ -1581,7 +1592,17 @@ namespace parallel_potential {
                                                           pg_Interpolation, n_valence_electrons, g.dV(), echo, check);
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
-                green_function_times.add(green_timer.stop());
+
+                auto const green_function_took = green_timer.stop();
+                mpi_parallel::barrier(comm); // wait until other ranks have finished the Green function solution
+                simple_stats::Stats<> green_time_stats;
+                green_time_stats.add(green_function_took);
+                mpi_parallel::allreduce(green_time_stats);
+                if (0 == check && echo > 2) {
+                    std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
+                        scf_iteration, green_time_stats.interval().c_str());
+                } // echo
+                green_function_times.add(green_time_stats.max());
             }
             break;
 

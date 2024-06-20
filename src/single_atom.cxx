@@ -508,7 +508,7 @@ namespace single_atom {
 
   public:
 
-    LiveAtom( // preferred constructor method
+    LiveAtom( // preferred constructor method: generate PAW data on-the-fly
           double const Z_protons // number of protons in the nucleus
         , bool const atomic_valence_density // this option allows to make an isolated atom scf calculation
         , int32_t const global_atom_id // global atom identifier
@@ -1089,7 +1089,7 @@ namespace single_atom {
 
 #ifdef    HAS_RAPIDXML
 
-    LiveAtom( // constructor method from pawxml file
+    LiveAtom( // constructor method loading from pawxml file
           double const Z_protons // number of protons in the nucleus
         , int32_t const global_atom_id // global atom identifier
         , int const echo=0 // logg level for this constructor method only

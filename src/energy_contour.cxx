@@ -243,10 +243,11 @@ namespace energy_contour {
         // initialize an energy mesh with parameters from the control environment
         double   const kBT  = control::get("energy_contour.temperature", 1e-2);
         double   const eBot = control::get("energy_contour.band.bottom",  -1.); // w.r.t. the Fermi Level at 0
-        unsigned const nBot = control::get("energy_contour.bottom",     5.);
-        unsigned const nPar = control::get("energy_contour.parallel",  15.);
-        unsigned const nFer = control::get("energy_contour.fermidirac", 9.);
-        int      const nPol = control::get("energy_contour.matsubara",  3.);
+        double   const mE   = control::get("energy_contour", 1.); // scale the default values up or down
+        unsigned const nBot = control::get("energy_contour.bottom",     std::abs( 5*mE));
+        unsigned const nPar = control::get("energy_contour.parallel",   std::abs(15*mE));
+        unsigned const nFer = control::get("energy_contour.fermidirac", std::abs( 9*mE));
+        int      const nPol = control::get("energy_contour.matsubara",        1 + 2*mE );
         return get_energy_mesh(w8, kBT, eBot, nBot, nPar, nFer, nPol, echo);
     } // get_energy_mesh
 
@@ -287,7 +288,7 @@ namespace energy_contour {
         auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
 
-        int const iterations = control::get("green_solver.iterations", 99.);
+        int const max_iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
 
         auto const nblocks = pg.n_local();
@@ -362,7 +363,7 @@ namespace energy_contour {
 
                     view2D<Complex> rho_Ek(nblocks, n4x4x4, zero);
 
-                    stat += solver_->solve(rho_Ek[0], nblocks, iterations, echo);
+                    stat += solver_->solve(rho_Ek[0], nblocks, max_iterations, echo);
 
                     add_product(rho_E[0], nblocks*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points
                     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], nblocks*n4x4x4).imag(), comm)*dV;

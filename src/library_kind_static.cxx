@@ -5,8 +5,8 @@
 extern "C" {
     #include "single_atom.h"
 
-    void live_atom_is_a_dynamic_library_(int32_t *status) {
-        if (nullptr != status) *status = 0; // is static
+    void live_atom_is_a_dynamic_library_(int32_t *is_dynamic) {
+        if (nullptr != is_dynamic) *is_dynamic = 0; // static
     } // live_atom_is_a_dynamic_library_
 } // extern "C"
 

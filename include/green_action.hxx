@@ -79,6 +79,7 @@ namespace green_action {
             assert(nullptr != plan);
             auto & p = *p_;
             auto const nnzbX = p.colindx.size();
+            if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
 #ifdef    HAS_TFQMRGPU
             if (nnzbX > 0) {
                 if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
@@ -100,7 +101,6 @@ namespace green_action {
                 if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
             }
 #else  // HAS_TFQMRGPU
-            if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
             // memory estimate for tfQMRgpu
             // 7*nnzbX*2*LM*LN*sizeof(real_t)
             // +nnzbX*2*LM*LN*sizeof(float)  // v3
@@ -181,27 +181,28 @@ namespace green_action {
     status_t solve(
           std::complex<double> rho[] // result: density[nblocks][4*4*4]
         , uint32_t const nblocks // should match plan.nCols
-        , int const iterations=1
+        , int const max_iterations=1
         , int const echo=9
     ) {
         if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
 
-        auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD
 // #ifdef    DEBUGGPU
-        if (echo > 5) std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
+        if (echo > 5) {
+            auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD            
+            std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
+        } // echo
 // #endif // DEBUGGPU
 
         assert(p_); auto const & p = *p_;
         uint32_t const nnzbX = p.colindx.size();
-        if (echo > 9) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
 
-        if (0 == iterations) { 
+        if (0 == max_iterations) { 
             if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
             return 0;
-        } // 0 iterations
+        } // 0 max_iterations
 
 #ifdef    HAS_TFQMRGPU
-        if (iterations >= 0) {
+        if (max_iterations >= 0) {
             if (nnzbX < 1) {
                 if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
                 return 0;
@@ -212,7 +213,7 @@ namespace green_action {
             { // scope: benchmark the solver
                 SimpleTimer timer(__FILE__, __LINE__, __func__, echo*0);
 
-                tfqmrgpu::solve(*this, memory_buffer_, 1e-9, iterations, 0, true);
+                tfqmrgpu::solve(*this, memory_buffer_, 1e-9, max_iterations, 0, true);
 
                 time_needed = timer.stop();
             } // timer
@@ -237,10 +238,10 @@ namespace green_action {
             } // iCol
 
             return 0;
-        } // iterations > 0
+        } // max_iterations > 0
 #endif // HAS_TFQMRGPU
 
-        int const niterations = std::abs(iterations);
+        int const niterations = std::abs(max_iterations);
         int constexpr LM = Noco*64;
         auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
         auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");

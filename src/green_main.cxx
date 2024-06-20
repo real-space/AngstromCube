@@ -283,18 +283,18 @@
           stat += parallel_potential::SCF(echo);
       }
 
+      { // scope: show the GPU memory high water mark
+          simple_stats::Stats<> m; m.add(green_memory::high_water_mark()); mpi_parallel::allreduce(m); // MPI_COMM_WORLD
+          if (echo > 1) std::printf("# GPU memory high water mark [%g, %.3f +/- %g, %g] %s, %g %s total\n",
+                       m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
+      } // scope
+
       // finalize
       {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show all, 4:show usage
           if (control_show && verbosity > 0 && 0 == myrank) {
               stat += control::show_variables(control_show);
           }
       } // show all variable names defined in the control environment
-
-      { // scope: show the GPU memory high water mark
-          simple_stats::Stats<> m; m.add(green_memory::high_water_mark()); mpi_parallel::allreduce(m); // MPI_COMM_WORLD
-          if (echo > 1) std::printf("# GPU memory high water mark [%g, %.3f +/- %g, %g] %s, %g %s total\n",
-                       m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
-      } // scope
 
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);

@@ -294,6 +294,7 @@ add_executable(green ${green_sources} ${green_headers})
 
 
 # version control using git
+# Mind: this git key only corresponds to the actual key if you run cmake again, make alone will use the old git key!
 execute_process(COMMAND git log -1 --pretty=format:"%H"  OUTPUT_VARIABLE GIT_KEY)
 add_definitions(-D_GIT_KEY=${GIT_KEY})
 

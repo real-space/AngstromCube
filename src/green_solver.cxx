@@ -79,7 +79,7 @@ typedef green_action::action_t<double,2,2> Act822;
     status_t green_solver_t::solve(
           std::complex<double> rho[] // result: density [plan.nCols][4*4*4]
         , uint32_t const nblocks
-        , int const iterations
+        , int const max_iterations
         , int const imag // =1 // index of the exported part 1:imaginary part, 0:real part
         , int const echo // =0 // verbosity
     ) {
@@ -89,10 +89,10 @@ typedef green_action::action_t<double,2,2> Act822;
 #endif // DEBUGGPU
         assert(action_ && "action pointer must be valid for call to solve");
         switch (action_key_) {
-        case 32021: return ((Act421*)action_)->solve(rho, nblocks, iterations, echo); // complex
-        case 32022: return ((Act422*)action_)->solve(rho, nblocks, iterations, echo); // complex non-collinear
-        case 64021: return ((Act821*)action_)->solve(rho, nblocks, iterations, echo); // double complex
-        case 64022: return ((Act822*)action_)->solve(rho, nblocks, iterations, echo); // double complex non-collinear
+        case 32021: return ((Act421*)action_)->solve(rho, nblocks, max_iterations, echo); // complex
+        case 32022: return ((Act422*)action_)->solve(rho, nblocks, max_iterations, echo); // complex non-collinear
+        case 64021: return ((Act821*)action_)->solve(rho, nblocks, max_iterations, echo); // double complex
+        case 64022: return ((Act822*)action_)->solve(rho, nblocks, max_iterations, echo); // double complex non-collinear
         default: error("No solve with such action_key= %i", int(action_key_)); return action_key_;
         } // switch action_key_
     } // solve
