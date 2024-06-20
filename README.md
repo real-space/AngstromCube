@@ -8,7 +8,7 @@
     in particular the revised PAW method, see Paul F. Baumeister and Shigeru Tsukamoto,
       [proceedings of PASC19](https://dl.acm.org/doi/10.1145/3324989.3325717)
 
-![A4cube logo](doc/fig/a43_logo_bold.png)
+![AngstromCube logo](doc/fig/a43_logo_bold.png)
 
 **Name**
 The name refers to a cube with edge length 1 Angstrom

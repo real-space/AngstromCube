@@ -1,5 +1,7 @@
 ### Documentation for AngstromCube executables a43 and green
 
+![AngstromCube logo](doc/fig/a43_logo_bold_52x52.png)
+
 ## Files
 | File name         | Purpose                                                                     |
 |-------------------|-----------------------------------------------------------------------------|
