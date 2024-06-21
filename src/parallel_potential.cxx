@@ -80,12 +80,13 @@ namespace parallel_potential {
                 // We do not need the control file in the case of a static library
                 //       as we share the control.o and recorded_warnings.o objects
                 //       however, we can check if all objects are from one version
-                auto const version_atom = control::get("version.atom", "");
-                auto const version_main = control::get("version.main", "");
-                if (echo > 0) std::printf("# static library libliveatom.a git=%s\n", version_atom);
+                auto const version_none = "<none>";
+                auto const version_atom = control::get("version.atom", version_none);
+                auto const version_main = control::get("version.main", version_none);
+                if (echo > 0) std::printf("# static library libliveatom.a git checkout %s\n", version_atom);
                 if (std::string(version_atom) != version_main) {
                     warn("different versions: %s but libliveatom.a has %s", version_main, version_atom);
-                }
+                } // no warning if both versions are none
             } // is_dynamic
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
