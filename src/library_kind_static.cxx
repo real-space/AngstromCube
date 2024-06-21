@@ -2,7 +2,6 @@
 
 #include <cstdint> // int32_t
 
-#include "define_version.hxx" // define_version
 #include "control.hxx" // ::set
 
 extern "C" {
@@ -14,7 +13,7 @@ extern "C" {
 
         static bool set_version{true};
         if (set_version) {
-            auto const version_key = define_version();
+#include    "define_version.h" // define_version --> version_key
             control::set("version.atom", version_key);
             set_version = false; // only once
         } // set_version

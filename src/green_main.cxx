@@ -47,7 +47,6 @@
 #include "green_memory.hxx" // ::high_water_mark
 #include "unit_system.hxx" // ::set_output_units
 #include "control.hxx" // ::command_line_interface, ::get
-#include "define_version.hxx" // define_version
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
@@ -162,7 +161,7 @@
   } // show_help
 
   int show_version(char const *executable="#", int const echo=1) {
-      auto const version_key = define_version();
+#include    "define_version.h" // define_version --> version_key
       control::set("version.main", version_key);
       if (echo > 0) std::printf("# %s git checkout %s\n", executable, version_key);
  

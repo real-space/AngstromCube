@@ -98,7 +98,6 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "unit_system.hxx" // ::set_output_units
 #include "control.hxx" // ::command_line_interface, ::get
-#include "define_version.hxx" // define_version
 #include "mpi_parallel.hxx" // ::init, ::rank, ::finalize
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -330,7 +329,7 @@
   } // show_help
 
   int show_version(char const *executable="#", int const echo=1) {
-      auto const version_key = define_version();
+#include    "define_version.h" // define_version --> version_key
       control::set("version.main", version_key);
       if (echo > 0) std::printf("# %s git checkout %s\n", executable, version_key);
       return 0;
