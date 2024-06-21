@@ -93,6 +93,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/add_module_test.h
     ../include/bessel_transform.hxx
     ../include/dense_solver.hxx
+    ../include/define_version.hxx
     ../include/energy_contour.hxx
     ../include/energy_contribution.hxx
     ../include/gaunt_entry.h
@@ -188,6 +189,7 @@ set(green_headers
     ../include/data_list.hxx
     ../include/data_view.hxx
     ../include/debug_output.hxx
+    ../include/define_version.hxx
     ../include/display_units.h
     ../include/dyadic_plan.hxx
     ../include/energy_contour.hxx

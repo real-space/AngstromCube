@@ -78,7 +78,7 @@ namespace parallel_potential {
             } else {
                 // We do not need the control file in the case of a static library 
                 //       as we share the control.o and recorded_warnings.o objects
-                if (echo > 0) std::printf("# libliveatom.so is linked as static library\n");
+                if (echo > 0) std::printf("# libliveatom.a is linked as static library\n");
             } // is_dynamic
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
