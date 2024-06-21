@@ -162,17 +162,9 @@
   } // show_help
 
   int show_version(char const *executable="#", int const echo=1) {
-// #ifdef    _GIT_KEY
-//       // stringify the value of a macro, two expansion levels needed
-//       #define macro2string(a) stringify(a)
-//       #define stringify(b) #b
-//       auto const git_key = macro2string(_GIT_KEY);
-//       #undef  stringify
-//       #undef  macro2string
-//       control::set("git.key.green", git_key); // store in the global variable environment
-//       if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
-// #endif // _GIT_KEY
-      define_version("version.green", echo);
+      auto const version_key = define_version();
+      control::set("version.green", version_key);
+      if (echo > 0) std::printf("# %s git checkout %s\n", executable, version_key);
 
 #ifdef    HAS_NO_MPI
       if (echo > 1) std::printf("# version was compiled with -D HAS_NO_MPI\n");
