@@ -163,7 +163,7 @@
 
   int show_version(char const *executable="#", int const echo=1) {
       auto const version_key = define_version();
-      control::set("version.green", version_key);
+      control::set("version.main", version_key);
       if (echo > 0) std::printf("# %s git checkout %s\n", executable, version_key);
 
 #ifdef    HAS_NO_MPI

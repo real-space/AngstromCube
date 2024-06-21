@@ -15,7 +15,7 @@ extern "C" {
         static bool set_version{true};
         if (set_version) {
             auto const version_key = define_version();
-            control::set("version.latom", version_key);
+            control::set("version.atom", version_key);
             set_version = false; // only once
         } // set_version
 

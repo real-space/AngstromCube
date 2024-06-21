@@ -4,6 +4,7 @@
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <cstdint> // int32_t, uint32_t
+#include <string> // std::string
 #include <cmath> // std::exp, ::sqrt, ::abs
 #include <map> // std::map<Key,T>
 
@@ -76,9 +77,15 @@ namespace parallel_potential {
                     warn("+control.file=%s for libliveatom.so, live_atom_init_env_ returned %i", control_file, int(stat));
                 }
             } else {
-                // We do not need the control file in the case of a static library 
+                // We do not need the control file in the case of a static library
                 //       as we share the control.o and recorded_warnings.o objects
-                if (echo > 0) std::printf("# libliveatom.a is linked as static library\n");
+                //       however, we can check if all objects are from one version
+                auto const version_atom = control::get("version.atom", "");
+                auto const version_main = control::get("version.main", "");
+                if (echo > 0) std::printf("# static library libliveatom.a git=%s\n", version_atom);
+                if (std::string(version_atom) != version_main) {
+                    warn("different versions: %s but libliveatom.a has %s", version_main, version_atom);
+                }
             } // is_dynamic
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
