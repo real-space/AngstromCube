@@ -165,7 +165,7 @@
       auto const version_key = define_version();
       control::set("version.main", version_key);
       if (echo > 0) std::printf("# %s git checkout %s\n", executable, version_key);
-
+ 
 #ifdef    HAS_NO_MPI
       if (echo > 1) std::printf("# version was compiled with -D HAS_NO_MPI\n");
 #endif // HAS_NO_MPI
