@@ -17,6 +17,7 @@
 
 #include "sho_tools.hxx" // ...
 #include "recorded_warnings.hxx" // warn
+#include "control.hxx" // ::get
 
 namespace sho_unitary {
 
@@ -27,8 +28,8 @@ namespace sho_unitary {
       , int const numax
       , int & nu_high
       , int const echo=7
-      , char const filename[]="sho_unitary.dat"
   ) {
+      char const *const filename = control::get("sho_unitary.file", "sho_unitary.dat");
       //
       // Expected File format:
       //    Each line has the following 8 entries:
@@ -49,7 +50,7 @@ namespace sho_unitary {
       //  this would support the index ranges up to numax=255
       std::ifstream infile(filename, std::ios_base::in);
       if (infile.fail()) {
-          warn("file \'%s\' for Unitary_SHO_Transform cannot be opened!", filename);
+          warn("sho_unitary.file \'%s\' cannot be opened!", filename);
           return -1; // file not existing
       } // failed
       bool const file_is_nu_ordered = true;
@@ -118,7 +119,7 @@ namespace sho_unitary {
           } // nu
 
           int highest_nu{-1};
-          auto const stat = read_unitary_matrix_from_file(u_, numax_, highest_nu);
+          auto const stat = read_unitary_matrix_from_file(u_, numax_, highest_nu, echo/4);
           if (stat) { // an error has occured while reading it from file
               for (int nu = 0; nu <= numax_; ++nu) { // run serial forward
                   int const nb = sho_tools::n2HO(nu); // dimension of block

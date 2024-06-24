@@ -231,7 +231,7 @@ namespace control {
 
       std::ifstream infile(filename, std::ifstream::in);
       if (infile.fail()) {
-          warn("Unable to open file '%s' for reading controls", filename);
+          warn("Unable to open control.file '%s' for reading", filename);
           return -1;
       } // failed
 
