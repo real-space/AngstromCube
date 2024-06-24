@@ -33,31 +33,11 @@ namespace atom_core {
           double Zeff[] // -r*V_eff(r), -r*V_eff(r=0) should be ~= Z
         , radial_grid_t const & g // radial grid descriptor
         , double const Z // number of protons
-        , char const *basename="pot/Zeff" // beginning of the filename
+        , char const *basename="Zeff" // beginning of the filename
         , double const factor=1 // optional factor, e.g. -1 if the output is r*V(r)
         , int const echo=0 // log output level
         , char const *prefix="" // logging prefix
     ); // declaration only
-
-    status_t store_Zeff_to_file(
-          double const Zeff[] // -r*V_eff(r), -r*V_eff(r=0) should be ~= Z
-        , double const r[] // radial grid support points
-        , int const nr // number of radial grid points
-        , double const Z // number of protons
-        , char const *basename="pot/Zeff" // beginning of the filename
-        , double const factor=1 // optional factor, e.g. -1 if the input is r*V(r)
-        , int const echo=0 // log output level
-        , char const *prefix="" // ="" // logging prefix
-    ); // declaration only
-
-    inline void get_Zeff_file_name(
-          char *filename // result
-        , char const *basename // filename before the dot
-        , float const Z // number of protons
-        , size_t const nchars=128
-    ) {
-        std::snprintf(filename, nchars, "%s.%03g", basename, Z);
-    } // get_Zeff_file_name
 
     void rad_pot(
           double rV[] // result: r*V(r)

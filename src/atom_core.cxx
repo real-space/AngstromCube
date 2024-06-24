@@ -8,7 +8,7 @@
 #include <iomanip> // std::setprecision
 #include <vector> // std::vector<T>
 
-#include "atom_core.hxx" // ::guess_energy, ::nl_index, ::get_Zeff_file_name
+#include "atom_core.hxx" // ::guess_energy, ::nl_index
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "radial_grid.h" // radial_grid_t
@@ -118,87 +118,98 @@ namespace atom_core {
       return q; // charge
   } // initial_density
 
-  status_t read_Zeff_from_file(
-        double Zeff[]
-      , radial_grid_t const & g
-      , double const Z
-      , char const basename[]
-      , double const factor
-      , int const echo
-      , char const prefix[]
-  ) {
-      status_t stat(0);
-      char filename[96];
-      get_Zeff_file_name(filename, basename, Z);
-      if (echo > 3) std::printf("# %s %s Z=%g  try to read file \'%s\'\n",
-                                  prefix, __func__, Z, filename);
-      std::ifstream infile(filename);
-      int ngr{0}, ngu{0}; // number of radial grid points read and used
-      if (infile.is_open()) {
-          double r_min{9e9}, r_max{-9e9};
-          int ir{0};
-          double r, Ze, r_prev{0}, Ze_prev = Z*factor;
-          while (infile >> r >> Ze) {
-              ++ngr;
-              if (r >= 0) {
-                  r_min = std::min(r, r_min);
-                  r_max = std::max(r, r_max);
-                  if (r <= g.rmax + 1e-6) {
-                      full_debug(std::printf("# %s r=%g Zeff=%g\n",  __func__, r, Ze));
-                      Ze *= factor;
-                      while (g.r[ir] < r && ir < g.n) {
-                        // interpolate linearly
-                        Zeff[ir] = Ze_prev + (Ze - Ze_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
-                        ++ir;
-                      } // while
-                      ++ngu;
-                  } // r <= rmax
-              } // r >= 0
-              r_prev = r; Ze_prev = Ze; // pass
-              stat = (r_max < r_min);
-          } // while
-          if (echo > 3) std::printf("# %s %s Z=%g  interpolate to %d using %d of %d values\n",
-                                    prefix, __func__, Z, ir, ngu, ngr);
-      } else {
-          warn("%s Z=%g failed to open file \'%s\' for reading", prefix, Z, filename);
-          stat = -1; // failure
-      } // is_open
-      return stat;
-  } // read_Zeff_from_file
 
-  status_t store_Zeff_to_file(
-        double const Zeff[] // -r*V_eff(r), -r*V_eff(r=0) should be ~= Z
-      , double const r[] // radial grid support points
-      , int const nr // number of radial grid points
-      , double const Z // number of protons
-      , char const basename[] // beginning of the filename
-      , double const factor // optional factor, e.g. -1 if the input is r*V(r)
-      , int const echo // =9 // log output level
-      , char const prefix[] // ="" // logging prefix
-  ) {
-      char filename[96];
-      get_Zeff_file_name(filename, basename, Z);
-      if (echo > 3) std::printf("# %s %s  Z=%g  try to write file \'%s\'\n", prefix, __func__, Z, filename);
-      std::ofstream outfile(filename);
-      if (outfile.is_open()) {
-          outfile << std::setprecision(15);
-          for (int ir = 0; ir < nr; ++ir) {
-              outfile << r[ir] << " " << Zeff[ir]*factor << "\n";
-          } // write to file
-          return 0; // success
-      } else {
-          warn("%s Z=%g failed to open file \'%s\' for writing", prefix, Z, filename);
-          return 1; // failure
-      } // is_open
-  } // store_Zeff_to_file
+    void get_Zeff_file_name(
+          char *filename // result
+        , char const *basename // filename before the dot
+        , float const Z // number of protons
+        , size_t const nchars=128
+    ) {
+        auto const *const path = control::get("atom_core.path", "pot");
+        std::snprintf(filename, nchars, "%s/%s.%03g", path, basename, Z);
+    } // get_Zeff_file_name
 
 
-  typedef struct {
-      double E; // energy
-      double occ; // occupation number
-      enn_QN_t enn; // principal quantum number
-      ell_QN_t ell; // angular momentum
-  } orbital_t;
+    status_t store_Zeff_to_file(
+            double const Zeff[] // -r*V_eff(r), -r*V_eff(r=0) should be ~= Z
+            , double const r[] // radial grid support points
+            , int const nr // number of radial grid points
+            , double const Z // number of protons
+            , char const *basename="Zeff" // beginning of the filename
+            , double const factor=1 // optional factor, e.g. -1 if the input is r*V(r)
+            , int const echo=0 // log output level
+            , char const *prefix="" // ="" // logging prefix
+    ) {
+        char filename[512]; get_Zeff_file_name(filename, basename, Z, 512);
+        if (echo > 3) std::printf("# %s %s  Z=%g  try to write file \'%s\'\n", prefix, __func__, Z, filename);
+        std::ofstream outfile(filename);
+        if (outfile.is_open()) {
+            outfile << std::setprecision(15);
+            for (int ir = 0; ir < nr; ++ir) {
+                outfile << r[ir] << " " << Zeff[ir]*factor << "\n";
+            } // write to file
+            return 0; // success
+        } else {
+            warn("%s Z=%g failed to open file \'%s\' for writing", prefix, Z, filename);
+            return 1; // failure
+        } // is_open
+    } // store_Zeff_to_file
+
+
+    status_t read_Zeff_from_file(
+            double Zeff[]
+        , radial_grid_t const & g
+        , double const Z
+        , char const basename[] // typically "Zeff"
+        , double const factor
+        , int const echo
+        , char const prefix[]
+    ) {
+        status_t stat(0);
+        char filename[512]; get_Zeff_file_name(filename, basename, Z, 512);
+        if (echo > 3) std::printf("# %s %s Z=%g  try to read file \'%s\'\n",
+                                    prefix, __func__, Z, filename);
+        std::ifstream infile(filename);
+        int ngr{0}, ngu{0}; // number of radial grid points read and used
+        if (infile.is_open()) {
+            double r_min{9e9}, r_max{-9e9};
+            int ir{0};
+            double r, Ze, r_prev{0}, Ze_prev = Z*factor;
+            while (infile >> r >> Ze) {
+                ++ngr;
+                if (r >= 0) {
+                    r_min = std::min(r, r_min);
+                    r_max = std::max(r, r_max);
+                    if (r <= g.rmax + 1e-6) {
+                        full_debug(std::printf("# %s r=%g Zeff=%g\n",  __func__, r, Ze));
+                        Ze *= factor;
+                        while (g.r[ir] < r && ir < g.n) {
+                            // interpolate linearly
+                            Zeff[ir] = Ze_prev + (Ze - Ze_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
+                            ++ir;
+                        } // while
+                        ++ngu;
+                    } // r <= rmax
+                } // r >= 0
+                r_prev = r; Ze_prev = Ze; // pass
+                stat = (r_max < r_min);
+            } // while
+            if (echo > 3) std::printf("# %s %s Z=%g  interpolate to %d using %d of %d values\n",
+                                        prefix, __func__, Z, ir, ngu, ngr);
+        } else {
+            warn("%s Z=%g failed to open file \'%s\' for reading", prefix, Z, filename);
+            stat = -1; // failure
+        } // is_open
+        return stat;
+    } // read_Zeff_from_file
+
+
+    typedef struct {
+        double E; // energy
+        double occ; // occupation number
+        enn_QN_t enn; // principal quantum number
+        ell_QN_t ell; // angular momentum
+    } orbital_t;
 
 
   status_t scf_atom(
@@ -267,7 +278,7 @@ namespace atom_core {
 
       int icyc{0};
       { // start scope
-          auto const read_stat = read_Zeff_from_file(rV_old.data(), g, Z, "pot/Zeff", -1.);
+          auto const read_stat = read_Zeff_from_file(rV_old.data(), g, Z, "Zeff", -1.);
           bool loading_failed = (0 != int(read_stat));
           full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old.data(), g.r));
 
@@ -275,7 +286,7 @@ namespace atom_core {
 
           if (loading_failed) {
               if (Z != std::round(Z)) {
-                  auto const read_stat_noninteger = read_Zeff_from_file(rV_old.data(), g, std::round(Z), "pot/Zeff", -1.);
+                  auto const read_stat_noninteger = read_Zeff_from_file(rV_old.data(), g, std::round(Z), "Zeff", -1.);
                   // maybe loading failed because there is no file for non-integer core charges
                   loading_failed = (0 != int(read_stat_noninteger));
               }
@@ -425,7 +436,7 @@ namespace atom_core {
               set(export_Zeff, g.n, rV_old.data(), -1.);
           } // export_Zeff
 
-          auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1.);
+          auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "Zeff", -1.);
           if (0 != store_stat && nullptr != export_Zeff) {
               warn("Z=%g failed to store self-consistent atom potential (status=%i) but passed in memory", Z, int(store_stat));
               // ignore the store_stat
@@ -720,12 +731,12 @@ namespace atom_core {
       , int const echo=3
   ) {
     // Apply Ramer-Douglas-Peucker lossful compression
-    // to the input files full_pot/Zeff.00Z
-    // with  output files      pot/Zeff.00Z
+    // to the input files full_Zeff.00Z
+    // with  output files      Zeff.00Z
       status_t stat(0);
       auto & g = *radial_grid::create_radial_grid(radial_grid::default_points(Z));
       std::vector<double> y(g.n, 0.0);
-      stat += read_Zeff_from_file(y.data(), g, Z, "full_pot/Zeff", -1., echo);
+      stat += read_Zeff_from_file(y.data(), g, Z, "full_Zeff", -1., echo);
       // ToDo: this routine interpolates to a radial_default_grid
       //        however, we only need the position of the support points g.r
       //        so we extract that from the Zeff-file avoiding
@@ -747,7 +758,7 @@ namespace atom_core {
           } // ir
           assert(i == new_n); // after running RDP, there must be exactly new_n true entries left
       } // scope
-      stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "pot/Zeff", -1., echo));
+      stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "Zeff", -1., echo));
       radial_grid::destroy_radial_grid(&g);
       return stat;
   } // simplify_Zeff_file
