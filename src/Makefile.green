@@ -131,8 +131,13 @@ OPTFLAGS += -fsanitize=undefined
 
 # LDFLAGS += -mkl
 LDFLAGS += ## -lmkl_intel_thread
-# LDFLAGS += -L/Users/pbaum/Codes/a43/src -lliveatom
-LDFLAGS += libliveatom.a
+
+### dynamic dynamic library liblivatom.so or .dylib
+LDFLAGS += -L. -lliveatom
+
+### use static library libliveatom.a
+# LDFLAGS += libliveatom.a
+
 LDFLAGS += -lblas
 LDFLAGS += -llapack
 

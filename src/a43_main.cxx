@@ -20,6 +20,7 @@
   #include "density_generator.hxx" // ::all_tests
   #include "fourier_transform.hxx" // ::all_tests
   #include "iterative_poisson.hxx" // ::all_tests
+  #include "verify_benchmark.hxx" // ::all_tests
   #include "self_consistency.hxx" // ::all_tests
   #include "radial_potential.hxx" // ::all_tests
   #include "bessel_transform.hxx" // ::all_tests
@@ -257,6 +258,8 @@
           add_module_test(density_generator);
           add_module_test(self_consistency);
           add_module_test(parallel_potential);
+
+          add_module_test(verify_benchmark);
 
           start_a_chapter("================"); // last separator
 #undef    start_a_chapter

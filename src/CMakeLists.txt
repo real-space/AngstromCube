@@ -123,6 +123,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/sho_projection.hxx
     ../include/simple_timer.hxx
     ../include/structure_solver.hxx
+    ../include/verify_benchmark.hxx
 )
 
 set(a43_sources ${a43_atom_sources}
@@ -233,6 +234,7 @@ set(green_headers
     ../include/status.hxx
     ../include/unit_system.hxx
     ../include/vector_math.hxx
+    ../include/verify_benchmark.hxx
     ../include/xml_reading.hxx
 )
 

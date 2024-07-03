@@ -64,10 +64,12 @@ namespace parallel_potential {
         static int use{-1};
         if (-1 == use) {
             use = control::get("use.live.atom", 1.);
-#ifndef   HAS_SINGLE_ATOM
+            int const echo = (0 == mpi_parallel::rank());
+#ifdef    HAS_SINGLE_ATOM
+            if (echo > 1) std::printf("# use.live.atom=%d via single_atom::atom_update\n", use);
+#else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
             int32_t is_dynamic{0}; live_atom_is_a_dynamic_library_(&is_dynamic);
-            int const echo = (0 == mpi_parallel::rank());
             if (is_dynamic) {
                 auto const *const control_file = control::get("control.file", "");
                 if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
@@ -88,25 +90,25 @@ namespace parallel_potential {
                     warn("different versions: %s but libliveatom.a has %s", version_main, version_atom);
                 } // no warning if both versions are none
             } // is_dynamic
-#endif // HAS_LIVE_ATOM
-#endif // HAS_SINGLE_ATOM
-        } // needs init
-        if (0 == use) {
-            // warn("single_atom::atom_update deactivated", 0); 
-            return 0;
-        } // 0 == use
-
-#ifdef    HAS_SINGLE_ATOM
-        stat = single_atom::atom_update(what, natoms, dp, ip, fp, dpp);
-#else  // HAS_SINGLE_ATOM
-#ifdef    HAS_LIVE_ATOM
-        live_atom_update_(what, &natoms, dp, ip, fp, dpp, &stat);
 #else  // HAS_LIVE_ATOM
         static bool warned = false;
         if (!warned) {
             warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM for %d atoms", natoms);
             warned = true;
         } // launch warning only once
+#endif // HAS_LIVE_ATOM
+#endif // HAS_SINGLE_ATOM
+        } // needs init
+        if (0 == use) {
+            warn("single_atom::atom_update deactivated by use.live.atom=%d", use); 
+            return 0;
+        } // 0 == use
+
+#ifdef    HAS_SINGLE_ATOM
+        stat = single_atom::atom_update(what, natoms, dp, ip, fp, dpp); // C++-interface
+#else  // HAS_SINGLE_ATOM
+#ifdef    HAS_LIVE_ATOM
+        live_atom_update_(what, &natoms, dp, ip, fp, dpp, &stat); // C-interface
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
 

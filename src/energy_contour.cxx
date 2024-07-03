@@ -25,6 +25,7 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::WEIGHT
+#include "verify_benchmark.hxx" // ::verify
 
 #define ENERGY_CONTOUR_SVG_EXPORT
 
@@ -413,6 +414,14 @@ namespace energy_contour {
             if (echo + check > 3) std::printf("# solved response density has %g electrons\n", rho_integral);
             // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
         }
+
+        int const verify = control::get("verify.benchmark", 0.);
+        if (verify) {
+            assert(plan_->global_source_indices.size() == nblocks);
+            auto const stat_verify = verify_benchmark::verify(rho_444, plan_->global_source_indices.data(), nblocks, echo);
+            if (0 != stat_verify) warn("ran with +verify.benchmark=%d --> status= %i", verify, int(stat_verify));
+            stat += std::abs(stat_verify);
+        } // verify
 
         // ToDo: add response density until we match the Fermi level
 
