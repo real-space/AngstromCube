@@ -236,7 +236,7 @@ namespace verify_benchmark {
                 assert(multiplicity[i40] == 4*mult40[i40]);
                 mult_sum += size_t(mult40[i40]);
             } // m
-            assert(4096 == mult_sum);
+            assert(16*16*16 == 4*mult_sum);
 
             {
                 std::vector<uint8_t> mult176(176, 0);
