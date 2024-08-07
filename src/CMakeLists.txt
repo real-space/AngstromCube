@@ -46,6 +46,7 @@ set(a43_atom_headers
     ../include/sho_unitary.hxx
     ../include/sigma_config.hxx
     ../include/simple_math.hxx
+    ../include/simple_stats.hxx
     ../include/simple_timer.hxx
     ../include/single_atom.h
     ../include/single_atom.hxx

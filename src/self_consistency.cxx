@@ -165,7 +165,7 @@ namespace self_consistency {
       std::vector<double> rho_valence(run*g.all(), 0.0);
 
       char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
-      if (echo > 0) std::printf("\n# initial.valence.density=%s\n", initial_valence_density_method);
+      if (echo > 0) std::printf("\n# +initial.valence.density=%s\n", initial_valence_density_method);
 
       auto const spherical_valence_decay = control::get("atomic.valence.decay", 10.); // after SCF iteration # 10, take_atomic_valence_densities is zero, never if 0
       float take_atomic_valence_densities{0};
@@ -201,11 +201,11 @@ namespace self_consistency {
               std::vector<double> n_electrons_a(na, 0.); // number of valence electrons added by each atom
               stat += single_atom::atom_update("#valence electrons", na, n_electrons_a.data());
               nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
-              if (echo > 0) std::printf("\n# %s=auto --> %g valence electrons\n\n", keyword_valence_electrons, nve);
+              if (echo > 0) std::printf("\n# +%s=auto --> %g valence electrons\n\n", keyword_valence_electrons, nve);
               control::set(keyword_valence_electrons, nve, control::echo_set_without_warning);
           } else {
               nve = control::get(keyword_valence_electrons, 0.0);
-              if (echo > 0) std::printf("\n# %s=%g\n\n", keyword_valence_electrons, nve);
+              if (echo > 0) std::printf("\n# +%s=%g\n\n", keyword_valence_electrons, nve);
           } // auto
       } // scope
       double const n_valence_electrons = nve; // do not use nve beyond this point
@@ -245,20 +245,20 @@ namespace self_consistency {
       std::vector<double> Vtot(run*g.all()); // total effective potential
 
       // configuration
-      auto const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
-      if (echo > 2) std::printf("# electrostatic.solver=%s from {fft, multi-grid, MultiGrid, CG, SD, none}\n", es_solver_name);
+      auto const *es_solver_name = control::get("poisson.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
+      if (echo > 2) std::printf("# +poisson.solver=%s from {fft, multi-grid, MultiGrid, CG, SD, none}\n", es_solver_name);
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
       auto const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32; // {'f', 'g'}
-      if (echo > 2) std::printf("# electrostatic.compensator=%c from {factorizable, generalizedGaussian}\n", compensator_method);
+      if (echo > 2) std::printf("# +electrostatic.compensator=%c from {factorizable, generalizedGaussian}\n", compensator_method);
 
       auto const occupation_method = *control::get("fermi.level", "exact") | 32; // {'e':"exact", 'l':"linearized"}
-      if (echo > 2) std::printf("# fermi.level=%c from {exact, linearized}\n", occupation_method);
+      if (echo > 2) std::printf("# +fermi.level=%c from {exact, linearized}\n", occupation_method);
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, geometry_input::get_temperature(echo), echo);
 
-      double const density_mixing_fixed = control::get("self_consistency.mix.density", 0.25);
+      double const density_mixing_fixed = control::get("scf.mix.density", 0.25);
       double density_mixing{1.0}; // initialize with 100% since we have no previous density
 
       std::vector<double> sigma_a(na, .5);
@@ -294,7 +294,7 @@ namespace self_consistency {
       // total energy contributions
       double grid_electrostatic_energy{0}, grid_kinetic_energy{0}, grid_xc_energy{0}, total_energy{0};
 
-      int const max_scf_iterations_input = control::get("self_consistency.max.scf", 1.);
+      int const max_scf_iterations_input = control::get("scf.maxiter", 1.);
       int max_scf_iterations{max_scf_iterations_input}; // non-const, may be modified by the stop file during the run
       { // scope: create a stop file with standard name
           auto const stat = manage_stop_file(max_scf_iterations, 'w', echo);

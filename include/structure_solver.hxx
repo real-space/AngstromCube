@@ -114,7 +114,7 @@ namespace structure_solver {
                     for (int iband = 0; iband < nbands; ++iband) {
                         int const ia = iband % na; // which atom?
                         int const io = iband / na; // which orbital?
-                        if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands/double(na));
+                        if (io >= 20) error("requested more than 20 start wave functions per atom! +bands.per.atom=%g", nbands/double(na));
                         auto const q = qn[io]; auto const nu = q[3];
                         if (echo > 7) std::printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2],q[1],q[0], ia);
                         int const isho = sho_tools::zyx_index(numax, q[0], q[1], q[2]); // isho in order_zyx
@@ -341,7 +341,7 @@ namespace structure_solver {
 
         double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
         int    const nbands_extra    = control::get("bands.extra", 0.);
-        if (echo > 0) std::printf("# bands.per.atom=%g\n# bands.extra=%d\n", nbands_per_atom, nbands_extra);
+        if (echo > 0) std::printf("# +bands.per.atom=%g\n# +bands.extra=%d\n", nbands_per_atom, nbands_extra);
         nbands = int(nbands_per_atom*na) + nbands_extra;
 
 

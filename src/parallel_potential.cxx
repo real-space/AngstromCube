@@ -71,13 +71,15 @@ namespace parallel_potential {
 #ifdef    HAS_LIVE_ATOM
             int32_t is_dynamic{0}; live_atom_is_a_dynamic_library_(&is_dynamic);
             if (is_dynamic) {
-                auto const *const control_file = control::get("control.file", "");
-                if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
-                    "# read single_atom.*-controls from +control.file=%s\n", control_file);
-                live_atom_init_env_(control_file, &stat);
-                if (0 != stat) {
-                    warn("+control.file=%s for libliveatom.so, live_atom_init_env_ returned %i", control_file, int(stat));
-                }
+                if (use > 1) {
+                    auto const *const control_file = control::get("control.file", "");
+                    if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
+                        "# read single_atom.*-controls from +control.file=%s\n", control_file);
+                    live_atom_init_env_(control_file, &stat);
+                    if (0 != stat) {
+                        warn("+control.file=%s for libliveatom.so, live_atom_init_env_ returned %i", control_file, int(stat));
+                    }
+                } // use.live.atom > 1 
             } else {
                 // We do not need the control file in the case of a static library
                 //       as we share the control.o and recorded_warnings.o objects
@@ -245,7 +247,6 @@ namespace parallel_potential {
         } // i
         mpi_parallel::allreduce(s, comm);
         if (echo) {
-         // std::printf("%s grid stats min %g max %g avg %g", prefix, s.min()*unit, s.max()*unit, s.mean()*unit);
             std::printf("%s grid stats [%g, %g +/- %g, %g]", prefix, s.min()*unit, s.mean()*unit, s.dev()*unit, s.max()*unit);
             if (dV > 0) std::printf(" %g electrons", s.sum()*dV*unit);
             std::printf(" %s\n", _unit);
@@ -1360,11 +1361,11 @@ namespace parallel_potential {
                 stat += live_atom_update("#valence electrons", na, n_electrons_a.data());
                 nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
                 nve = mpi_parallel::sum(nve, comm);
-                if (echo > 0) std::printf("\n# %s=auto --> %g valence electrons\n\n", keyword_valence_electrons, nve);
+                if (echo > 0) std::printf("\n# +%s=auto --> %g valence electrons\n\n", keyword_valence_electrons, nve);
                 control::set(keyword_valence_electrons, nve, control::echo_set_without_warning);
             } else {
                 nve = control::get(keyword_valence_electrons, 0.0);
-                if (echo > 0) std::printf("\n# %s=%g\n\n", keyword_valence_electrons, nve);
+                if (echo > 0) std::printf("\n# +%s=%g\n\n", keyword_valence_electrons, nve);
             } // auto
         } // scope
         double const n_valence_electrons = nve; // do not use nve beyond this point

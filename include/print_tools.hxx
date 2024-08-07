@@ -6,6 +6,7 @@
 #include <algorithm> // std::min, ::max
 
 #include "inline_math.hxx" // pow2
+#include "simple_stats.hxx" // ::Stats
 
   template <typename T>
   int printf_vector( // returns the total number of chars written
@@ -45,17 +46,14 @@
       , double const unit=1 // unit conversion factor
       , char const *_unit="" // unit indicator
   ) {
-      double gmin{9e307}, gmax{-gmin}, gsum{0}, gsum2{0};
-      for (size_t i = 0; i < all; ++i) {
-          gmin = std::min(gmin, double(values[i]));
-          gmax = std::max(gmax, double(values[i]));
-          gsum  += values[i];
-          gsum2 += pow2(values[i]);
+      simple_stats::Stats<double> s(0);
+      for (size_t i{0}; i < all; ++i) {
+          s.add(values[i]);
       } // i
-      std::printf("%s grid stats min %g max %g avg %g", prefix, gmin*unit, gmax*unit, gsum/all*unit);
-      if (dV > 0) std::printf(" integral %g", gsum*dV*unit);
+      std::printf("%s grid stats [%g, %g +/- %g, %g]", prefix, s.min()*unit, s.mean()*unit, s.dev()*unit, s.max()*unit);
+      if (dV > 0) std::printf(" %g electrons", s.sum()*dV*unit);
       std::printf(" %s\n", _unit);
-      return gsum*dV;
+      return s.sum()*dV;
   } // print_stats
 
   template <typename int_t=int32_t>

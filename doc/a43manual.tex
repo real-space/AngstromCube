@@ -965,8 +965,8 @@ Most important variables to control self-consistency iterations in \codename{}.
   \ttt{bands.per.atom} & $10$ 			  & Number of eigenstates per atom \\
   \ttt{electronic.temperature} & \unit[315.8]{K} & Electronic smearing temperature \\
   \ttt{fermi.level}   & \ttt{exact}       & Fermi level method, \ttt{linearized} \\
-  \ttt{self\_consistency.mix.density} & $0.25$ & Simple density mixing parameter \\
-  \ttt{self\_consistency.max.scf} & $1$   & Max.~number of \ac{SCF} iterations \\
+  \ttt{scf.mix.density} & $0.25$          & Simple density mixing parameter \\
+  \ttt{scf.maxiter}   & $1$               & Max.~number of \ac{SCF} iterations \\
   \ttt{start.waves}   &                   & Load wave functions from this file \\
   \ttt{store.waves}   &                   & Store wave functions to this file \\
 \hline
@@ -994,7 +994,7 @@ wave functions cannot be real-valued due to complex phase factors.
 %
 The configuration of chemical elements contains various parts:
 \begin{itemize}
-  \item Occupation numbers for spherical calculations
+  \item Occupation numbers for spherical atom calculations
   \item Orbital classification into \ttt{core}, \ttt{semicore} and \ttt{valence}
   \item \ac{PAW} generation parameters
 \end{itemize}
@@ -1020,6 +1020,7 @@ in the \ttt{+control.file} or via the command line as
 ./a43 --test sigma_config +sigma_config.test.Z=38 \
         +element_Sr="4s 2 5s 2 4p* 6 4d | 2.37 sigma .666"
 \end{verbatim}
+using high quotes to group words into a string.
 The variable name \ttt{+element\_}$Sy$ expects an element symbol $Sy$ 
 like \ttt{Sr} for strontium or \ttt{S} for sulfur, case-sensitive, no blank between keyword and \ttt{=} sign.
 In the electronic configuration string the orbital specifier \ttt{4s} sets the 4$s$-state to be 
@@ -1100,6 +1101,8 @@ Control variables for \ttt{element\_config}
 \end{tabular}
 \end{table}
 %
+
+\noindent
 If \ttt{+single\_atom.core.state.localization} is not a positive number
 an energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{valence} states, see l), m) and n) in Table \ref{tab:element-config-variables}.
 
@@ -1121,7 +1124,7 @@ an energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{v
 
 \subsection{Theory}
 In wave function methods the electron density is found as sum over the absolute square of occupied wave functions, see Eq.~(\ref{eqn:simplified_density_generation}).
-Mathematically, we can also find the electron density integrating over an energy contour over the imaginary part of the trace of the green function, i.e.
+Mathematically, we can also find the electron density integrating over an energy contour of the imaginary part of the trace of the green function, i.e.
 \begin{align}
   \int\limits_{\mathcal C} \mathrm{d}E \, \Im\{ G(\vec r, \vec r; E) \} &= \varrho(\vec r) \\
   \left( \hat H - E \cdot \hat S \right) \cdot \hat G &= \mathbf{1}
@@ -1767,7 +1770,7 @@ The \ttt{radial\_eigensolver} has two relevant operations modes: \ttt{non}-\ttt{
 			 the hydrogen-like energy levels $E_{n\ell}$ are analytically known as $-{Z^2}/({2n^2})$,
 			 independent of $\ell$ (solid black lines).
 			 With the \ttt{scalar}-\ttt{relativistic} solver the energy levels are found below $E_{n\ell}$
-			 and the $\ell$-degeneracy is lifted (solid orange lines).
+			 and the $\ell$-degeneracy is lifted (solid orange lines). The start and end of the solid lines indicate the radii where the associated states reach 5\% and 95\% of their density, respectively.
 	         }
 \end{figure}
 
