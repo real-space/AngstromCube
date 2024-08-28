@@ -262,17 +262,18 @@ namespace verify_benchmark {
 
 
     inline status_t verify(
-          view2D<double> const & density
+          view2D<double> const & density // or local effective potential
         , int64_t const gid[]
         , size_t const nblocks
         , int const echo=0 // log output level
     ) {
-        auto const dia = control::get("verify.benchmark.diamond", 0.);
+        auto const verify_benchmark_diamond = "verify.benchmark.diamond";
+        auto const dia = control::get(verify_benchmark_diamond, 0.);
         if (dia) {
             assert(density.stride() == 4*4*4);
             return verify_diamond(density, gid, nblocks, echo);
-        } else
-        {
+        } else {
+            if (echo > 9) std::printf("# %s: no verification found, activate e.g. +%s=1\n", __func__, verify_benchmark_diamond);
             return 0;
         }
     } // verify

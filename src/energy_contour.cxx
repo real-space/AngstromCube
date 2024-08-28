@@ -324,8 +324,18 @@ namespace energy_contour {
 
         std::vector<double> Veff(nblocks*n4x4x4, 0.);
         double constexpr scale_V = 1.0;
-        set(Veff.data(), nblocks*size_t(64), Vtot, scale_V);
+        set(Veff.data(), nblocks*n4x4x4, Vtot, scale_V);
         stat += green_function::update_potential(plan, pg.grid_blocks(), Veff, AtomMatrices, echo, Noco);
+
+        int const verify_pot = control::get("verify.potential", 0.);
+        if (verify_pot) {
+            if (echo > 3) std::printf("# +verify.potential=%i\n", verify_pot);
+            assert(plan_->global_source_indices.size() == nblocks);
+            view2D<double> pot_444(Veff.data(), 64);
+            auto const stat_verify = verify_benchmark::verify(pot_444, plan_->global_source_indices.data(), nblocks, echo);
+            if (0 != stat_verify) warn("ran with +verify.potential=%i --> status= %i", verify_pot, int(stat_verify));
+            stat += std::abs(stat_verify);
+        } // verify_pot
 
         view2D<double> kpoint_mesh;
         // get a kpoint mesh controlled by +hamiltonian.kmesh.x .y .z, the same for each energy point
