@@ -277,7 +277,7 @@ namespace parallel_potential {
         , int32_t const n_all_atoms
         , view2D<double> const & xyzZ_all // [n_all_atoms][4] all atomic coordinates and atomic numbers
         , parallel_poisson::parallel_grid_t const & pg
-        , real_space::grid_t const & g
+        , real_space::grid_t const & g // dense grid with 8x8x8 grid points per cube
         , double const grid_center[3]
         , int const echo=0
         , float const r_cut=16.f // truncation radius of atom-cube interactions, largest radius for smooth core densities, vbar, 9*sigma_cmp
@@ -290,8 +290,8 @@ namespace parallel_potential {
         if (n_blocks < 1) return atom_images;
 
         // determine the sphere around an 8x8x8 cube
-        auto const h = g.grid_spacings();
-        auto const r_circum = 4*std::sqrt(pow2(h[0]) + pow2(h[1]) + pow2(h[2]));
+        auto const hg = g.grid_spacings();
+        auto const r_circum = 4*std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
 
         assert(block_coords.stride() >= 4);
 
@@ -299,16 +299,15 @@ namespace parallel_potential {
         double cow[] = {0, 0, 0};
         auto const local_ids = pg.local_ids();
         for (uint32_t ilb{0}; ilb < n_blocks; ++ilb) {
-            uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
+            uint32_t cube_coords[3]; global_coordinates::get(cube_coords, local_ids[ilb]);
             auto *const block_pos = block_coords[ilb]; 
             for (int d{0}; d < 3; ++d) {
-                auto const p = h[d]*(ixyz[d]*8. + 4.) - grid_center[d];
+                auto const p = cube_coords[d]*8*hg[d] - grid_center[d];
                 block_pos[d] = p;
                 cow[d] += p;
             } // d
         } // ilb
-        assert(n_blocks > 0);
-        scale(cow, 3, 1./n_blocks);
+        scale(cow, 3, (n_blocks > 0) ? 1./n_blocks : 0.);
 
         // determine the largest distance of a cube from the center of mass
         double max_dist2{0};
@@ -730,9 +729,9 @@ namespace parallel_potential {
         for (int iz{0}; iz < n8; ++iz) {
         for (int iy{0}; iy < n8; ++iy) {
         for (int ix{0}; ix < n8; ++ix) {
-            auto const r2 = pow2(block_coords[0] + hg[0]*(ix + .5) - atom_center[0])
-                          + pow2(block_coords[1] + hg[1]*(iy + .5) - atom_center[1])
-                          + pow2(block_coords[2] + hg[2]*(iz + .5) - atom_center[2]);
+            auto const r2 = pow2(block_coords[0] + (ix + .5)*hg[0] - atom_center[0])
+                          + pow2(block_coords[1] + (iy + .5)*hg[1] - atom_center[1])
+                          + pow2(block_coords[2] + (iz + .5)*hg[2] - atom_center[2]);
             if (r2 < r2cut) {
                 int const ir2 = int(ar2*r2);
                 if (ir2 + 1 < nr2) {
@@ -1091,14 +1090,14 @@ namespace parallel_potential {
         {
             assert(gc[0]*2 == g[0]); assert(gc[1]*2 == g[1]); assert(gc[2]*2 == g[2]); // g.grid_points must be an even number
             auto const gbc = g.boundary_conditions();
-            gc.set_boundary_conditions(gbc);
+            gc.set_boundary_conditions(gbc); // copy original boundary conditions {isolated, vacuum, repeat, periodic}
             gc.set_cell_shape(g.cell, echo*0); // muted
             gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2); // twice the grid spacing
             for (int d{0}; d < 3; ++d) { assert(0 == (gc[d] & 0x3)); } // all grid numbers must be a multiple of 4
             auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
             if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
                       gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-            g.set_boundary_conditions(boundary_condition::potential_bc(gbc[0]), 
+            g.set_boundary_conditions(boundary_condition::potential_bc(gbc[0]),
                                       boundary_condition::potential_bc(gbc[1]), // map vacuum --> isolated, repeat --> periodic
                                       boundary_condition::potential_bc(gbc[2]));
         }

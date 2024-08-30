@@ -329,12 +329,13 @@ namespace energy_contour {
 
         int const verify_pot = control::get("verify.potential", 0.);
         if (verify_pot) {
-            if (echo > 3) std::printf("# +verify.potential=%i\n", verify_pot);
+            if (echo > 3) std::printf("\n# +verify.potential=%i\n", verify_pot);
             assert(plan_->global_source_indices.size() == nblocks);
-            view2D<double> pot_444(Veff.data(), 64);
+            view2D<double> pot_444(Veff.data(), n4x4x4); // wrap
             auto const stat_verify = verify_benchmark::verify(pot_444, plan_->global_source_indices.data(), nblocks, echo);
             if (0 != stat_verify) warn("ran with +verify.potential=%i --> status= %i", verify_pot, int(stat_verify));
             stat += std::abs(stat_verify);
+            if (echo > 0) std::fflush(stdout);
         } // verify_pot
 
         view2D<double> kpoint_mesh;

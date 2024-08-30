@@ -112,6 +112,12 @@ namespace self_consistency {
       real_space::grid_t g;
       int na_noconst{0};
       stat += geometry_input::init_geometry_and_grid(g, xyzZ, na_noconst, 2, echo);
+      { // scope: correct if BCs as {vacuum, repeat} are used
+            auto const gbc = g.boundary_conditions();
+            g.set_boundary_conditions(boundary_condition::potential_bc(gbc[0]),
+                                      boundary_condition::potential_bc(gbc[1]), // map vacuum --> isolated, repeat --> periodic
+                                      boundary_condition::potential_bc(gbc[2]));
+      }
       int const na{na_noconst}; // total number of atoms
 
       std::vector<float> ionization(na, 0.f);
