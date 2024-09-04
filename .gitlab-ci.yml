@@ -6,6 +6,9 @@ stages:     # List of stages for jobs, and their order of execution
   - run
 
 build_on_JUSUF:
+  id_tokens:
+    SITE_ID_TOKEN:
+      aud: "https://gitlab.jsc.fz-juelich.de"
   stage: build
   script:
     - echo "Set module environment"
@@ -26,6 +29,9 @@ build_on_JUSUF:
     - shell
 
 interfaces_on_JUSUF:
+  id_tokens:
+    SITE_ID_TOKEN:
+      aud: "https://gitlab.jsc.fz-juelich.de"
   stage: test
   script:
     - echo "Set module environment"
@@ -63,6 +69,9 @@ interfaces_on_JUSUF:
     - shell
 
 test_on_JUSUF:
+  id_tokens:
+    SITE_ID_TOKEN:
+      aud: "https://gitlab.jsc.fz-juelich.de"
   stage: test
   script:
     - echo "Run A43 unit tests..."
@@ -92,6 +101,9 @@ test_on_JUSUF:
     - shell
 
 run_on_JUSUF:
+  id_tokens:
+    SITE_ID_TOKEN:
+      aud: "https://gitlab.jsc.fz-juelich.de"
   stage: run
   script:
     - echo "Run green unit tests..."
