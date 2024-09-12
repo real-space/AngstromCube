@@ -874,22 +874,51 @@ The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy} $logfile$.
 %
 \noindent
 For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
-\ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of \ttt{eV}.
+\ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of \ttt{eV}, otherwise the default unit is \ttt{Ha} for Hartree.
 
 \noindent
 Logarithmic derivatives are summarized by the position of the resonances (poles).
 At \ttt{+verbosity=8} or higher the generalized node counts are given plottable in the log file.
+Usual logarithmic derivatives are shaped like a cotangent function with infinite poles.
+The generalized node count takes the \ttt{arctan} of the logarithmic derivative and adds integers where necessary to form a contiguous and strictly monotonously growing function.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=.99\textwidth]{fig/20240912_logarithmic_derivative_Cu}
+	%% generated:
+	%% ./a43 -t single_atom +verbosity=8 +logder.step=1e-3 +output.energy.unit=eV
+	\label{fig:logarithmic-derivative-Cu}
+	\caption{Logarithmic derivative for copper. 
+	         }
+\end{figure}
+
 
 \noindent
 The \ttt{eigenstate\_analysis} tool solves the spherically symmetric pseudo atom
-problem on an equidistant radial mesh. This allows to check for ghost states of the pseudopotential.
+problem on an equidistant radial mesh. The by default modest number of grid points (\ttt{+single\_atom.eigenstate.analysis.points=384}) allows to check for ghost states of the pseudopotential using a direct dense matrix eigenvalue solver.
 Increase \ttt{+scattering\_test.eigenstate.analysis.warn=.005} (5 mHa) to suppress warnings about deviations.
 To check correct functionality, run
 \begin{verbatim}
 ./a43 --test scattering_test
 \end{verbatim}
-on the analytically solvable problem of the \ac{SHO}.
+on the analytically solvable problem of the \ac{SHO}, i.e.~only a parabolic potential $V(r) = {\vec r}^2/2$.
 You can verify that the deviation from pure half-integer energies is small.
+\small
+\begin{verbatim}
+#  eigenstate_analysis nr=384 dr=0.0245455 rmax=9.42545 Bohr
+#  eigenstate_analysis finite difference with 8 neighbors
+#  lowest s-eigenvalues   1.496408  3.498273  5.499641  7.500761  9.501726  Ha
+#  lowest p-eigenvalues   2.497429  4.497387  6.497344  8.497297 10.497248  Ha
+#  lowest d-eigenvalues   3.498422  5.498395  7.498367  9.498338  Ha
+#  lowest f-eigenvalues   4.498845  6.498825  8.498803 10.498781  Ha
+#  lowest g-eigenvalues   5.499080  7.499063  9.499045  Ha
+#  lowest h-eigenvalues   6.499229  8.499213 10.499197  Ha
+#  lowest i-eigenvalues   7.499331  9.499317  Ha
+#  lowest j-eigenvalues   8.499405 10.499392  Ha
+\end{verbatim}
+\normalsize
+Most energies are less than a miliHartree below the analytical half-integer value due to the underestimation of the kinetic energy using the finite-difference approximation, even though a 16th order stencil has been use here.
+The deviation towards higher energies in the higher states of the $s$-channel can be explained by the finite radial mesh of \unit[5]{\AA}.
 
 \noindent
 \ttt{./a43 --test single\_atom} produces a lot of output (more than 100 lines).
@@ -1108,9 +1137,10 @@ an energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{v
 
 
 
-
-
-
+%\subsection{PAW data testing} \label{sec:paw-data-testing}
+%The scattering properties of \ac{PAW} data sets should be tested using both, the logarithmic derivative and the radial eigenstate analysis. Both methods are include in the module \ttt{scattering\_test}.
+%\subsubsection{Logarithmic derivative} \label{sec:logarithmic-derivative}
+%\subsubsection{Radial eigenstate analysis} \label{sec:radial-eigenstate-analysis}
 
 
 

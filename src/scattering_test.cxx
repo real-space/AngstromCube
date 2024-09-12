@@ -700,7 +700,7 @@ namespace scattering_test {
       product(V.data(), rg.n, rg.r, rg.r, 0.5/pow4(sigma)); // harmonic potential V(r)= r^2/(2 sigma^4)
       if (echo > 0) std::printf("# %s use a harmonic potential with sigma= %g %s\n", __func__, sigma*Ang, _Ang);
       if (echo > 0) std::printf("# %s expect eigenenergies to be half-integer multiples of %g %s\n", __func__, 1/pow2(sigma)*eV, _eV);
-      return eigenstate_analysis(rg, V.data(), sigma, ellmax, ellmax, aHm.data(), aHm.data(), 256, 0., "", echo);
+      return eigenstate_analysis(rg, V.data(), sigma, ellmax, ellmax, aHm.data(), aHm.data(), 384, 0., "", echo);
       // expected result: eigenstates at (1.5 + 2*nrn + ell)*sigma^-2 Hartree
       // needs to be checked by human, ToDo: how to export the result?
   } // test_eigenstate_analysis

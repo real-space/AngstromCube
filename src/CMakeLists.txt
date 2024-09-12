@@ -312,7 +312,7 @@ if(HAS_CUDA)
     # target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo -Xptxas -v>)
     target_link_libraries(green PUBLIC cuda curand)
     # CUDA architectures 70=Volta, 80=Ampere, 90=Hopper
-    set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80)
+    set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80 90)
 else(HAS_CUDA)
     target_compile_definitions(green PUBLIC -DHAS_NO_CUDA)
 endif(HAS_CUDA)
