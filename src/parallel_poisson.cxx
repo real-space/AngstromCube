@@ -99,7 +99,7 @@ namespace parallel_poisson {
         double rank_center[4] = {0,0,0,  0};
 
         load_ = load_balancer::get(np, me, nb, echo, rank_center, owner_rank_.data());
-        n_local_blocks_ = rank_center[3]; // the 4th component contains the number of items
+        n_local_cubes_ = rank_center[3]; // the 4th component contains the number of items
         if (echo > 7) std::printf("# rank#%i rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
 
         if (true) {
@@ -158,12 +158,12 @@ namespace parallel_poisson {
                 } // d
             } // my
         }}} // iz iy ix
-        if (nown != n_local_blocks_) {
-            warn("expected match between n_local_blocks= %d and count(owner_rank[]==me)= %ld\n", n_local_blocks_, nown);
-            n_local_blocks_ = nown;
+        if (nown != n_local_cubes_) {
+            warn("expected match between n_local_blocks= %d and count(owner_rank[]==me)= %ld\n", n_local_cubes_, nown);
+            n_local_cubes_ = nown;
         }
         if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %g items, %d local blocks\n",
-                                            me, __func__, load_, rank_center[3], n_local_blocks_);
+                                            me, __func__, load_, rank_center[3], n_local_cubes_);
         auto const by_nown = nown ? 1./nown : 0;
         for (int d = 0; d < 3; ++d) {
             dom_center_[d] = dom_center[d] * by_nown;
@@ -189,7 +189,7 @@ namespace parallel_poisson {
         comm_ = lb.comm(); // copy the communicator
         int32_t const me = mpi_parallel::rank(comm_);
         auto nb = nb_;
-        set(nb, 3, lb.grid_blocks());
+        set(nb, 3, lb.grid_cubes());
 
         auto const bc = g.boundary_conditions();
         if (echo > 3) std::printf("# %s(nb= [%d %d %d], nall= %ld, bc=[%d %d %d], what=%s)\n", __func__,
@@ -593,8 +593,8 @@ namespace parallel_poisson {
 
     template <typename real_t>
     status_t solve(
-          real_t xx[] // result to Laplace(x)/(-4*pi) == b, only rank-local blocks, data layout x[][8*8*8]
-        , real_t const bb[] // right hand side b          , only rank-local blocks, data layout b[][8*8*8]
+          real_t xx[] // result to Laplace(x)/(-4*pi) == b, only rank-local cubes, data layout x[][8*8*8]
+        , real_t const bb[] // right hand side b          , only rank-local cubes, data layout b[][8*8*8]
         , parallel_grid_t const & pg // parallel grid descriptor
         , char const method // ='c' // use mixed precision as preconditioner
         , int const echo // =0 // log level
@@ -609,7 +609,7 @@ namespace parallel_poisson {
         auto const comm = pg.comm();
         int const echo_L = echo >> 3; // verbosity of Lapacian16th
 
-        auto const nb = pg.grid_blocks();
+        auto const nb = pg.grid_cubes();
         size_t const n_all_grid_points = size_t(nb[2]*8)*size_t(nb[1]*8)*size_t(nb[0]*8);
         auto const nall = pg.n_local()* size_t(512),
                    nrem = pg.n_remote()*size_t(512);

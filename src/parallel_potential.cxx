@@ -1105,7 +1105,7 @@ namespace parallel_potential {
 
         // distribute the dense grid in 8x8x8 grid blocks to parallel owners
         parallel_poisson::load_balancing_t const lb(g, comm, 8, echo);
-        if (echo > 1) { auto const nb = lb.grid_blocks(); std::printf("# use  %d %d %d  grid blocks\n", nb[0], nb[1], nb[2]); }
+        if (echo > 1) { auto const nb = lb.grid_cubes(); std::printf("# use  %d %d %d  grid cubes\n", nb[0], nb[1], nb[2]); }
 
         parallel_poisson::parallel_grid_t const pg(g, lb, echo, "grid distribution");
 

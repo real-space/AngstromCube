@@ -58,8 +58,8 @@ namespace green_action {
     class action_t { // an action as used in tfQMRgpu
     public:
         typedef floating_point_t real_t;
-        static unsigned constexpr LM = Noco*n64, // number of rows per block
-                                  LN = LM;    // number of columns per block
+        static unsigned constexpr LM = Noco*n64, // number of source grid points per cube
+                                  LN = LM;       // number of target grid points per cube
         // action_t::LN is needed to support the rectangular blocks feature in tfQMRgpu
         //
         // This action is an implicit linear operator onto block-sparse structured data.
@@ -179,8 +179,8 @@ namespace green_action {
 
 
     status_t solve(
-          std::complex<double> rho[] // result: density[nblocks][4*4*4]
-        , uint32_t const nblocks // should match plan.nCols
+          std::complex<double> rho[] // result: density[ncubes][4*4*4]
+        , uint32_t const ncubes // should match plan.nCols
         , int const max_iterations=1
         , int const echo=9
     ) {
@@ -224,8 +224,8 @@ namespace green_action {
             // export solution
 
             auto const Green = (real_t const (*)[2][Noco*64][Noco*64])memory_buffer_;
-            if (echo > 5) std::printf("# copy %d diagonal blocks of the Green function\n", p.nCols);
-            if (nblocks != p.nCols) warn("Green function solution provides %d 4x4x4 blocks, but requested %d", p.nCols, nblocks);
+            if (echo > 5) std::printf("# copy %d diagonal cubes of the Green function\n", p.nCols);
+            if (ncubes != p.nCols) warn("Green function solution provides %d 4x4x4 cubes, but requested %d", p.nCols, ncubes);
             double const f_Kramers_Kronig = 1.0/constants::pi;
             for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
                 auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal

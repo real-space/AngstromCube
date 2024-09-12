@@ -23,7 +23,7 @@ public:
 
     status_t solve(
           std::complex<double> rho[] // result: density rho data layout[plan.nCols][4*4*4]
-        , uint32_t const nblocks // should match plan.nCols
+        , uint32_t const ncubes // should match plan.nCols
         , int const iterations
         , int const imag=1 // index of the exported part 1:imaginary part, 0:real part
         , int const echo=0

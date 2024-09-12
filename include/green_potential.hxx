@@ -21,11 +21,11 @@ namespace green_potential {
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input Green function
         , double  const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][iloc][4*4*4]
         , int32_t const (*const __restrict__ iloc_of_inzb) // translation from inzb to iloc, [inzb]
-        , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused, [inzb][0:2]
-        // , float   const (*const __restrict__ rowCubePos)[3+1] // target block coords
-        // , float   const (*const __restrict__ colCubePos)[3+1] // source block coords
+        , int16_t const (*const __restrict__ shift)[3+1] // 3D cube shift vector (target minus source), 4th component unused, [inzb][0:2]
+        // , float   const (*const __restrict__ rowCubePos)[3+1] // target cube coords
+        // , float   const (*const __restrict__ colCubePos)[3+1] // source cube coords
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
-        , int     const nnzb // number of all blocks to be treated
+        , int     const nnzb // number of all cubes to be treated
         , float   const Vconf // prefactor for the confinement potential
         , float   const rcut2 // cutoff radius^2 for the confinement potential, negative for no confinement
         , real_t  const E_real // real      part of the energy parameter, this could be subtracted from Vloc beforehand
@@ -83,7 +83,7 @@ namespace green_potential {
                               + pow2((int(s[2])*n4 + z)*real_t(hxyz[2]));
                 auto const d2out = real_t(d2 - rcut2);
                 Vconfine = (d2out > 0) ? Vconf*pow2(d2out) : 0; // quartic confinement potential, V ~ d^4
-//              std::printf("%.1f %.3f  %d %d %d  %d\n", d2, Vconfine, s[0], s[1], s[2], s[3]); // s[3] == source block index
+//              std::printf("%.1f %.3f  %d %d %d  %d\n", d2, Vconfine, s[0], s[1], s[2], s[3]); // s[3] == source cube index
             } // rcut^2 >= 0
 #endif // CONFINEMENT_POTENTIAL
 
@@ -145,9 +145,9 @@ namespace green_potential {
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , double   const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][iloc][4*4*4]
         , int32_t  const (*const __restrict__ vloc_index) // iloc_of_inzb[nnzb]
-        , int16_t  const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
+        , int16_t  const (*const __restrict__ shift)[3+1] // 3D cube shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
-        , uint32_t const nnzb // number of all blocks to be treated
+        , uint32_t const nnzb // number of all cubes to be treated
         , std::complex<double> const E_param=0 // energy parameter, the real part could be subtracted from Vloc beforehand
         , float    const Vconf=0  // prefactor for the confinement potential
         , float    const rcut2=-1 // cutoff radius^2 for the confinement potential, -1: no confinement

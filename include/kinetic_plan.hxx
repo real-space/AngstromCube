@@ -42,7 +42,7 @@ namespace kinetic_plan {
     class kinetic_plan_t {
     public:
 
-        static int constexpr nhalo = kinetic_plan::nhalo; // a maximum of 4 blocks (i.e. 16 grid points) is the range of the FD stencil.
+        static int constexpr nhalo = kinetic_plan::nhalo; // a maximum of 4 cubes (i.e. 16 grid points) is the range of the FD stencil.
 
         kinetic_plan_t() {} // default constructor
 
@@ -72,7 +72,7 @@ namespace kinetic_plan {
         // members
         green_sparse::sparse_t<int32_t> sparse_;
         double prefactor_ = 0; // = -0.5/h^2,  h:grid spacing in X,Y,Z // prefactor of the kinetic energy in Hartree atomic units
-        size_t nnzb_; // total number of non-zero blocks (to get the operations count correct)
+        size_t nnzb_; // total number of non-zero cubes (to get the operations count correct)
         int16_t FD_range_ = 8; // 4 or 8
         int32_t const ** lists_ = nullptr; // in device memory
         int derivative_direction_ = -1; // derivative direction

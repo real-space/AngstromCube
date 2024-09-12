@@ -16,26 +16,26 @@ namespace parallel_poisson {
         load_balancing_t(
               real_space::grid_t const & g
             , MPI_Comm const comm=MPI_COMM_WORLD // MPI communicator
-            , unsigned const n8=8 // number of grid points per block edge
+            , unsigned const n8=8 // number of grid points per cube edge
             , int const echo=0 // log-level
         ); // declaration only
     private:
         MPI_Comm comm_ = MPI_COMM_NULL; // which MPI communicator is to be used?
-        uint32_t nb_[3]; // box of blocks
-        uint32_t n_local_blocks_ = 0;
+        uint32_t nb_[3]; // box of cubes
+        uint32_t n_local_cubes_ = 0;
         double dom_center_[3];
         double load_ = 0;
         int32_t min_domain_[3];
         int32_t max_domain_[3];
         view3D<green_parallel::rank_int_t> owner_rank_;
     public:
-        uint32_t const * grid_blocks() const { return nb_; }
+        uint32_t const * grid_cubes() const { return nb_; }
         view3D<green_parallel::rank_int_t> const & owner_rank() const { return owner_rank_; }
         MPI_Comm comm() const { return comm_; }
         int32_t const * min_domain() const { return min_domain_; }
         int32_t const * max_domain() const { return max_domain_; }
         double load() const { return load_; }
-        uint32_t n_local() const { return n_local_blocks_; }
+        uint32_t n_local() const { return n_local_cubes_; }
     }; // class load_balancing_t
 
 
@@ -53,19 +53,19 @@ namespace parallel_poisson {
         green_parallel::RequestList_t requests_;
         std::vector<int64_t> remote_global_ids_; // may contain "-1"-entries, could be removed after setup keeping only a uint32_t n_remote_blocks;
         std::vector<int64_t> local_global_ids_;  // may not contain "-1"-entries
-        view2D<uint32_t> star_; // local indices of 6 nearest finite-difference neighbors, star(n_local_blocks,6). Should be backed with GPU memory in the future
+        view2D<uint32_t> star_; // local indices of 6 nearest finite-difference neighbors, star(n_local_cubes,6). Should be backed with GPU memory in the future
         std::vector<bool> inner_cell_; // mark those of the n_local cells that can start to execute a stencil without waiting for remote data
         MPI_Comm comm_; // which MPI communicator is to be used?
         double h2_[3];
         double dVol_;
-        uint32_t nb_[3]; // box of blocks
+        uint32_t nb_[3]; // box of cubes
         int8_t bc_[3];
         uint8_t nperiodic_;
     public:
         double const * get_prefactors() const { return h2_; }
-        uint32_t const * grid_blocks() const { return nb_; }
-        uint32_t n_local()  const { return local_global_ids_.size();  } // number of blocks owned by this MPI rank
-        uint32_t n_remote() const { return remote_global_ids_.size(); } // number of blocks requested by this MPI rank
+        uint32_t const * grid_cubes() const { return nb_; }
+        uint32_t n_local()  const { return local_global_ids_.size();  } // number of cubes owned by this MPI rank
+        uint32_t n_remote() const { return remote_global_ids_.size(); } // number of cubes requested by this MPI rank
         uint32_t const* star() const { return (uint32_t const*)star_.data(); }
         uint32_t star_dim() const { return star_.stride(); }
         std::vector<int64_t> const & local_ids() const { return local_global_ids_; }
@@ -79,8 +79,8 @@ namespace parallel_poisson {
 
     template <typename real_t>
     status_t solve(
-          real_t x[] // result to Laplace(x)/(-4*pi) == b, only rank-local blocks, data layout x[][8*8*8]
-        , real_t const b[] // right hand side b          , only rank-local blocks, data layout x[][8*8*8]
+          real_t x[] // result to Laplace(x)/(-4*pi) == b, only rank-local cubes, data layout x[][8*8*8]
+        , real_t const b[] // right hand side b          , only rank-local cubes, data layout x[][8*8*8]
         , parallel_grid_t const & g8 // parallel grid descriptor
         , char const method='c' // solver method c:conjugate-gradient, s:steepest-descent
         , int const echo=0 // log level
@@ -94,8 +94,8 @@ namespace parallel_poisson {
 
     template <typename real_t=double>
     status_t block_interpolation(
-          real_t       *const v888 // result array, data layout v888[n_local_blocks][8*8*8]
-        , real_t const *const v444 // input  array, data layout v444[n_local_blocks][4*4*4]
+          real_t       *const v888 // result array, data layout v888[n_local_cubes][8*8*8]
+        , real_t const *const v444 // input  array, data layout v444[n_local_cubes][4*4*4]
         , parallel_grid_t const & pg // descriptor, must be prepared with "3x3x3"
         , int const echo=0 // log level
         , double const factor=1

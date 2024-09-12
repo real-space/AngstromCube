@@ -44,9 +44,9 @@ namespace energy_contour {
     public: // methods
 
         status_t integrate(
-              double rho_new[] // result density in [nblocks][8*8*8] data layout
+              double rho_new[] // result density in [ncubes][8*8*8] data layout
             , double & Fermi_level // Fermi level
-            , double const Vtot[] // input potential in [nblocks][4*4*4], coarsening could be performed here...
+            , double const Vtot[] // input potential in [ncubes][4*4*4], coarsening could be performed here...
             , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
             , std::vector<int32_t> const & numax_prj
             , std::vector<double> const & sigma_prj

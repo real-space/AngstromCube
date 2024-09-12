@@ -38,10 +38,10 @@ namespace green_dyadic {
         , int    const ivec // thread index used for the vectorization (at least 3*4==12 threads must run)
         , int    const lmax
         , double const xyza[3+1] // atom image position in [0],[1],[2], sigma^{-1/2} in [3]
-        , float  const xyzc[3]   // position of the target block (in units of 4*grid spacing)
+        , float  const xyzc[3]   // position of the target cube (in units of 4*grid spacing)
         , double const hxyz[3+1] // grid spacings in [0],[1],[2], projection radius in [3]
     )
-      // Evaluate the 1D Hermite-Gauss functions on a 3D block of 4^3 grid points in parallel
+      // Evaluate the 1D Hermite-Gauss functions on a 3D cube of 4^3 grid points in parallel
     {
 
         double const R2_projection = hxyz[3]*hxyz[3]; // projection radius can be controlled from outside
@@ -49,7 +49,7 @@ namespace green_dyadic {
         if (lmax < 0) return R2_projection; // as float
 
         int constexpr l2b = 2;
-        int constexpr n4 = 1 << l2b; // Block edge length is 2^l2b
+        int constexpr n4 = 1 << l2b; // cube edge length is 2^l2b
         assert(4 == n4);
         if (ivec < 3*n4) { // use only the lowest 3*n4 threads
 
@@ -64,7 +64,7 @@ namespace green_dyadic {
             assert(i4 >= 0); assert(i4 < n4);
 
             double const grid_spacing  = hxyz[idir]; // load a float and convert to double
-            double const cube_position = xyzc[idir]; // position of the target block, lower left front corner, in units of 4 grid spacings
+            double const cube_position = xyzc[idir]; // position of the target cube, lower left front corner, in units of 4 grid spacings
             double const atom_position = xyza[idir]; // load atomic image coordinate
             double const sigma_inverse = xyza[3]*xyza[3]; // sigma_inverse = inverse of the Gaussian width sigma
 
@@ -299,7 +299,7 @@ namespace green_dyadic {
         , uint32_t const (*const __restrict__ RowIndexCube) // row index of the Green function as a function of the non-zero index
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
-        , int      const nrhs // number of block columns in the Green function, max due to data type 2^16, due to GPU launch 2^16-1
+        , int      const nrhs // number of cube columns in the Green function, max due to data type 2^16, due to GPU launch 2^16-1
         , int const echo=0
     ) {
         if (natoms*nrhs < 1) return;
@@ -338,7 +338,7 @@ namespace green_dyadic {
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius [3]
-        , int      const nrhs // number of block columns in the Green function
+        , int      const nrhs // number of cube columns in the Green function
     )
       // Add linear combinations of SHO-basis function to wave/Green functions
     {
@@ -531,7 +531,7 @@ namespace green_dyadic {
         , uint16_t const (*const __restrict__ ColIndexCubes) // col index of the Green function [nnzb]
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
-        , int      const nnzb // == number of all non-zero blocks in the Green function
+        , int      const nnzb // == number of all non-zero cubes in the Green function
         , int      const nrhs // == number of columns in the Green function
         , int const echo=0
     ) {
@@ -581,13 +581,13 @@ namespace green_dyadic {
     // SHOprj: p_{ai}[64_i] * X[icube][R1C2][Noco*64_i][Noco*64_j] summed over 64_i -> c[nai][R1C2][Noco][Noco*64_j]
     // SHOadd: Y[icube][R1C2][Noco*64_i][Noco*64_j] += p_{ai}[64_i] * d[nai][R1C2][Noco][Noco*64_j] summed over ai
 
-    // Memory estimate: double complex Noco=1 --> 2^16 Byte =  64 KiByte per block
-    //                  double complex Noco=2 --> 2^18 Byte = 256 KiByte per block
+    // Memory estimate: double complex Noco=1 --> 2^16 Byte =  64 KiByte per matrix block
+    //                  double complex Noco=2 --> 2^18 Byte = 256 KiByte per matrix block
     // GPU capacity 40 GiByte
     // tfQMRgpu needs 10 instances --> 4 GiByte = 2^32 Byte per instance
     // max number of blocks is 2^16 = 65,536 (Noco=1) or 2^14 = 16,384 (Noco=2)
     //
-    // typical coarse grid spacing: 1 block edge = 1 Angstrom --> grid spacing 0.25 Angstrom == 0.47 Bohr
+    // typical coarse grid spacing: 1 cube edge = 1 Angstrom --> grid spacing 0.25 Angstrom == 0.47 Bohr
     // sphere with volume 65ki has radius 25.011 (Noco=1)
     // sphere with volume 16ki has radius 15.756 (Noco=2)
     // Lattice constant of gold: 4.078  Angstrom (fcc) --> 4 atoms per (4.078  Angstrom)^3 --> ~17 Angstrom^3 per atom, 1088 DoF per atom
