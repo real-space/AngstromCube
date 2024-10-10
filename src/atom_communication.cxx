@@ -3,6 +3,7 @@
 #include <cstdio> // std::printf
 #include <cassert> // assert
 #include <vector> // std::vector<T>
+#include <utility> // std::pair, ::make_pair
 #include <cstdint> // int32_t, uint32_t
 
 #include "status.hxx" // status_t
@@ -40,13 +41,17 @@ namespace atom_communication {
 #else  // HAS_NO_MPI
             for (int ia{0}; ia < na; ++ia) { list_[ia].resize(0); } // init
 
+            contributing_.resize(0);
+
             view3D<uint8_t> bits(2, nprocs, na_max8, uint8_t(0)); // group 8 atom-process pairings into 1 Byte, total size: ~ n_all_atoms/4 Byte
             auto bits_send = bits[0], bits_recv = bits[1];
+ 
             for (auto const & global_atom_id : global_atom_ids) {
                 auto const atom_owner = global_atom_id % nprocs; // atom owner rank
                 auto const ia =         global_atom_id / nprocs; // local index in atom owner process
                 bits_send(atom_owner,ia >> 3) |= (uint8_t(1) << (ia & 7)); // set bit #ia
                 //   bits(0, atom_owner, ia) = 1; (if we used a view3D<bool>(2, nprocs, na_max) array)
+                contributing_.push_back(std::make_pair(uint32_t(atom_owner), uint32_t(ia))); // store (owner_rank,ia) pairs
             } // global_atom_id
 
             auto const stat = MPI_Alltoall(bits_send[0], na_max8, MPI_UINT8_T, bits_recv[0], na_max8, MPI_UINT8_T, comm);
@@ -75,7 +80,165 @@ namespace atom_communication {
             } // echo
 #endif // HAS_NO_MPI
 
-        } // constructor
+    } // AtomCommList_t constructor
+
+
+    status_t AtomCommList_t::broadcast(
+          data_list<double> & atom_data // result [natoms]
+        , data_list<double> const & owner_data // input [na], only accessed in atom owner rank
+        , char const *const what
+        , int const echo // =0 // log level
+    ) const {
+        // send atom data updated by the atom owner to contributing MPI ranks
+        status_t stat(0);
+        auto const nprocs = mpi_parallel::size(comm_); assert(nprocs > 0);
+        auto const me     = mpi_parallel::rank(comm_); assert(me < nprocs);
+
+        mpi_parallel::barrier(comm_);
+
+        // atom owners send their data
+        auto const na = owner_data.nrows();
+        assert(na == list_.size());
+#ifdef    HAS_NO_MPI
+        bool const remote_atom_is_error = (0 == control::get("mpi.fake.size", 0.));
+#else  // HAS_NO_MPI
+        for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
+            auto const list_ia = list_.at(ia);
+            auto const count = owner_data.ncols(ia);
+            for (auto const rank : list_ia) {
+                if (rank != me) {
+                    auto const gid = ia*nprocs + me;
+                    if (echo > 13) std::printf("# rank#%i %s: send %s, %d doubles for my owned atom#%i, global#%i to contributing rank#%i\n",
+                                                       me, __func__, what, count, ia, gid, rank);
+                    MPI_Request send_request;
+                    stat += MPI_Isend(owner_data[ia], count, MPI_DOUBLE, rank, ia, comm_, &send_request);
+                } // remote
+            } // rank
+        } // ia
+        uint32_t irequest{0};
+#endif // HAS_NO_MPI
+
+
+        // contributing atoms receive the data
+        if (echo > 8) std::printf("# %s of %s, %d owned atoms to %d atoms\n", __func__, what, na, natoms_);
+        std::vector<MPI_Request> recv_requests(natoms_, MPI_REQUEST_NULL);
+        for (uint32_t iatom{0}; iatom < natoms_; ++iatom) { // loop over contributing atoms
+            auto const atom_owner = contributing_[iatom].first;
+            auto const ia         = contributing_[iatom].second;
+            auto const global_atom_id = ia*nprocs + atom_owner;
+
+            int const count = atom_data.ncols(iatom);
+            if (atom_owner == me) {
+                assert(count == owner_data.ncols(ia));
+                if (echo > 11) std::printf("# rank#%i %s: copy %s, %d doubles for owned atom#%i to contributing atom#%i, global#%i, owner rank#%i\n",
+                                                   me, __func__, what, count, ia, iatom, global_atom_id, atom_owner);
+                set(atom_data[iatom], count, owner_data[ia]); // local copy
+            } else {
+#ifdef    HAS_NO_MPI
+                if (remote_atom_is_error) error("cannot operate remote atoms without MPI, iatom= %i", iatom);
+#else  // HAS_NO_MPI
+                if (echo > 11) std::printf("# rank#%i %s: recv %s, %d doubles for owned atom#%i from owner rank#%i to contributing atom#%i, global#%i\n",
+                                                   me, __func__, what, count, ia, atom_owner, iatom, global_atom_id);
+                stat += MPI_Irecv(atom_data[iatom], count, MPI_DOUBLE, atom_owner, ia, comm_, &recv_requests[irequest]);
+                ++irequest;
+#endif // HAS_NO_MPI
+            }
+        } // iatom
+
+#ifndef   HAS_NO_MPI
+        auto const nrequests = irequest;
+        std::vector<MPI_Status> statuses(nrequests);
+        stat += MPI_Waitall(nrequests, recv_requests.data(), statuses.data());
+#endif // HAS_NO_MPI
+
+        mpi_parallel::barrier(comm_);
+
+        if (stat) warn("failed for %s with status= %i", what, int(stat));
+        return stat;
+    } // AtomCommList_t::broadcast
+
+    status_t AtomCommList_t::allreduce(
+          data_list<double> & owner_data // result [na], only correct in atom owner rank
+        , data_list<double> const & atom_data // input [natoms]
+        , char const *const what
+        , double const factor // =1 // scaling factor, usually g.dV(), the grid volume element
+        , int const echo // =0 // log level
+    ) const {
+        // collect the unrenormalized atom_vlm data from contributing MPI ranks
+        status_t stat(0);
+        auto const nprocs = mpi_parallel::size(comm_);
+        auto const me     = mpi_parallel::rank(comm_);
+
+        mpi_parallel::barrier(comm_);
+
+        // initialize the accumulators
+        auto const na = owner_data.nrows();
+        for (int ia{0}; ia < na; ++ia) {
+            set(owner_data[ia], owner_data.ncols(ia), 0.0); // clear
+        } // ia
+
+        // contributing atoms send data
+        if (echo > 8) std::printf("# %s of %s, %d atoms to %d owned atoms\n", __func__, what, natoms_, na);
+        for (uint32_t iatom{0}; iatom < natoms_; ++iatom) { // loop over contributing atoms
+            auto const atom_owner = contributing_[iatom].first;
+            auto const ia         = contributing_[iatom].second;
+            auto const global_atom_id = ia*nprocs + atom_owner;
+
+            int const count = atom_data.ncols(iatom);
+            if (atom_owner == me) {
+                assert(count == owner_data.ncols(ia));
+                if (echo > 11) std::printf("# rank#%i %s:  add %s, %d doubles for owned atom#%i to contributing atom#%i, global#%i, owner rank#%i\n",
+                                                   me, __func__, what, count, ia, iatom, global_atom_id, atom_owner);
+                add_product(owner_data[ia], count, atom_data[iatom], factor); // local accumulation
+            } else {
+#ifdef    HAS_NO_MPI
+                error("cannot operate remote atoms without MPI, iatom= %i", iatom);
+#else  // HAS_NO_MPI
+                if (echo > 11) std::printf("# rank#%i %s: send %s, %d doubles for contributing atom#%i, global#%i to owned atom#%i at owner rank#%i\n",
+                                                   me, __func__, what, count, iatom, global_atom_id, ia, atom_owner);
+                MPI_Request send_request;
+                stat += MPI_Isend(atom_data[iatom], count, MPI_DOUBLE, atom_owner, ia, comm_, &send_request);
+#endif // HAS_NO_MPI
+            }
+        } // iatom
+
+        // atom owners receive and collect the data
+        assert(na == list_.size());
+#ifndef   HAS_NO_MPI
+        std::vector<MPI_Request> recv_requests(1);
+        for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
+            auto const list_ia = list_.at(ia);
+            auto const count = owner_data.ncols(ia);
+            std::vector<double> contrib(count);
+            for (auto const rank : list_ia) {
+                if (rank != me) {
+                    if (echo > 13) std::printf("# rank#%i %s: recv %s, %d doubles for my owned atom#%i, global#%i from contributing rank#%i\n",
+                                                       me, __func__, what, count, ia, ia*nprocs + me, rank);
+                    MPI_Status status;     // Mind that this is a blocking communication routine
+                    stat += MPI_Recv(contrib.data(), count, MPI_DOUBLE, rank, ia, comm_, &status);
+                    add_product(owner_data[ia], count, contrib.data(), factor); // accumulation
+                } // remote
+            } // rank
+        } // ia
+#endif // HAS_NO_MPI
+
+        mpi_parallel::barrier(comm_);
+
+        if (stat) warn("failed with status= %i", int(stat));
+        return stat;
+    } // AtomCommList_t::allreduce
+
+
+
+
+
+
+
+
+
+
+
+    // old interfaces
 
     status_t atom_data_broadcast(
           data_list<double> & atom_data // result [natoms]
@@ -105,8 +268,9 @@ namespace atom_communication {
             auto const count = owner_data.ncols(ia);
             for (auto const rank : list_ia) {
                 if (rank != me) {
+                    auto const gid = ia*nprocs + me;
                     if (echo > 13) std::printf("# rank#%i %s: send %s, %d doubles for my owned atom#%i, global#%i to contributing rank#%i\n",
-                                                       me, __func__, what, count, ia, ia*nprocs + me, rank);
+                                                       me, __func__, what, count, ia, gid, rank);
                     MPI_Request send_request;
                     stat += MPI_Isend(owner_data[ia], count, MPI_DOUBLE, rank, ia, comm, &send_request);
                 } // remote
@@ -154,9 +318,6 @@ namespace atom_communication {
         if (stat) warn("failed for %s with status= %i", what, int(stat));
         return stat;
     } // atom_data_broadcast
-
-
-
 
     status_t atom_data_allreduce(
           data_list<double> & owner_data // result [na], only correct in atom owner rank

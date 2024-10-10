@@ -1,6 +1,7 @@
 // This file is part of AngstromCube under MIT License
 
 #include <vector> // std::vector<T>
+#include <utility> // std::pair
 #include <cstdint> // uint32_t
 
 #include "status.hxx" // status_t
@@ -24,8 +25,24 @@ namespace atom_communication {
         MPI_Comm comm()   const { return comm_; }
         uint32_t natoms() const { return natoms_; }
 
+        status_t broadcast(
+              data_list<double> & atom_data // result [natoms]
+            , data_list<double> const & owner_data // input [na], only accessed in atom owner rank
+            , char const *const what
+            , int const echo=0 // log level
+        ) const; // declaration only
+
+        status_t allreduce(
+              data_list<double> & owner_data // result [na], only correct in atom owner rank
+            , data_list<double> const & atom_data // input [natoms]
+            , char const *const what
+            , double const factor=1 // scaling factor, usually g.dV(), the grid volume element
+            , int const echo=0 // log level
+        ) const; // declaration only
+
     private: // members
         std::vector<std::vector<uint32_t>> list_;
+        std::vector<std::pair<uint32_t,uint32_t>> contributing_;
         MPI_Comm comm_ = MPI_COMM_NULL;
         uint32_t natoms_ = 0;
     }; // class AtomCommList_t
