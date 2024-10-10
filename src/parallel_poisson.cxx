@@ -159,7 +159,7 @@ namespace parallel_poisson {
             } // my
         }}} // iz iy ix
         if (nown != n_local_cubes_) {
-            warn("expected match between n_local_blocks= %d and count(owner_rank[]==me)= %ld\n", n_local_cubes_, nown);
+            warn("expected match between n_local_blocks= %d and count(owner_rank[]==me)= %ld", n_local_cubes_, nown);
             n_local_cubes_ = nown;
         }
         if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %g items, %d local blocks\n",
@@ -838,9 +838,9 @@ namespace parallel_poisson {
         double const cnt[] = {.5*g[0], .5*g[1], .5*g[2]};
         { // scope: prepare the charge density (right-hand-side) rho
             double integral{0};
-            for (int iz = 0; iz < g[2]; ++iz) {
-            for (int iy = 0; iy < g[1]; ++iy) {
-            for (int ix = 0; ix < g[0]; ++ix) {
+            for (int iz{0}; iz < g[2]; ++iz) {
+            for (int iy{0}; iy < g[1]; ++iy) {
+            for (int ix{0}; ix < g[0]; ++ix) {
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
                 double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
                 integral += rho;
@@ -858,7 +858,7 @@ namespace parallel_poisson {
         view3D<real_t> xb_local(2, std::max(pg.n_local(), 1u), 512, real_t(0)); // create parallelized memory load
         { // scope: copy in
             auto const local_ids = pg.local_ids();
-            for (int ilb = 0; ilb < pg.n_local(); ++ilb) {
+            for (int ilb{0}; ilb < pg.n_local(); ++ilb) {
                 uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
                 size_t const j512 = (ixyz[2]*nb[1] + ixyz[1])*nb[0] + ixyz[0];
                 set(xb_local(1,ilb), 512, b + j512*512); // copy one block of b
@@ -874,7 +874,7 @@ namespace parallel_poisson {
 
         { // scope: copy out
             auto const local_ids = pg.local_ids();
-            for (int ilb = 0; ilb < pg.n_local(); ++ilb) {
+            for (int ilb{0}; ilb < pg.n_local(); ++ilb) {
                 uint32_t ixyz[3]; global_coordinates::get(ixyz, local_ids[ilb]);
                 size_t const j512 = (ixyz[2]*nb[1] + ixyz[1])*nb[0] + ixyz[0];
                 set(x + j512*512, 512, xb_local(0,ilb)); // copy one block of x
@@ -896,9 +896,9 @@ namespace parallel_poisson {
             auto const ng_all = size_t(g[2])*size_t(g[1])*size_t(g[0]);
             std::vector<std::array<float,4>> vec(sorted*ng_all);
             if (0 == compressed) std::printf("\n\n## r, V_fd, V_fft, rho (all in a.u.)\n"); // show all grid values
-            for (int iz = 0; iz < g[2]; ++iz) {
-            for (int iy = 0; iy < g[1]; ++iy) {
-            for (int ix = 0; ix < g[0]; ++ix) {
+            for (int iz{0}; iz < g[2]; ++iz) {
+            for (int iy{0}; iy < g[1]; ++iy) {
+            for (int ix{0}; ix < g[0]; ++ix) {
                     size_t const ifft = (iz*g[1] + iy)*g[0] + ix;
                     size_t const izyx = parallel_grid_index(nb, ix, iy, iz);
                     double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]), r = std::sqrt(r2);
@@ -912,15 +912,15 @@ namespace parallel_poisson {
                 auto lambda = [](std::array<float,4> const & left, std::array<float,4> const & right) { return left[0] < right[0]; };
                 std::stable_sort(vec.begin(), vec.end(), lambda);
                 view2D<float> columns(4*(compressed > 0), ng_all, 0.f);
-                for (size_t izyx = 0; izyx < ng_all; ++izyx) {
+                for (size_t izyx{0}; izyx < ng_all; ++izyx) {
                     auto const & v = vec[izyx];
                     if (0 == compressed) {
                         std::printf("%g %g %g %g\n", v[0], v[1], v[2], v[3]); // V_fd, V_fft and rho as lines
                     } else {
-                        for (int ic = 0; ic < 4; ++ic) { columns(ic,izyx) = v[ic]; } // store
+                        for (int ic{0}; ic < 4; ++ic) { columns(ic,izyx) = v[ic]; } // store
                     }
                 } // izyx
-                for (int ic = 1; ic < 4*(compressed > 0); ++ic) {
+                for (int ic{1}; ic < 4*(compressed > 0); ++ic) {
                     if (echo > 6 + ic) {
                         auto const *const label = (1==ic)?"V_fd":((2==ic)?"V_fft":"rho");
                         std::printf("\n# r, %s (in a.u.):\n", label);
@@ -956,16 +956,16 @@ namespace parallel_poisson {
             // test various combinations of grids
         char what[] = "???";
         for (char w{'F'}; w <= 'I'; w += 'I' - 'F') { what[0] = w;
-        for (uint32_t gz = 1; gz <= 1+0*gm; ++gz) {
-        for (uint32_t gy = 3; gy <= 3+0*gm; ++gy) {
-        for (uint32_t gx = 1; gx <= 1+0*gm; ++gx) {
+        for (uint32_t gz{1}; gz <= 1+0*gm; ++gz) {
+        for (uint32_t gy{3}; gy <= 3+0*gm; ++gy) {
+        for (uint32_t gx{1}; gx <= 1+0*gm; ++gx) {
             if (echo > 9) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n\n");
             real_space::grid_t g(8*gx, 8*gy, 8*gz);
             if (echo > 7) std::printf("\n#\n# %s with grid [%d %d %d]\n", __func__, g[0], g[1], g[2]);
             load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo); // reacts to +parallel_poisson.nprocs (fake MPI processes)
-        for (int8_t bz = 0; bz < nBCs; ++bz) {
-        for (int8_t by = 0; by < nBCs; ++by) {
-        for (int8_t bx = 0; bx < nBCs; ++bx) {
+        for (int8_t bz{0}; bz < nBCs; ++bz) {
+        for (int8_t by{0}; by < nBCs; ++by) {
+        for (int8_t bx{0}; bx < nBCs; ++bx) {
             int8_t const bc[] = {BCs[bx], BCs[by], BCs[bz]};
             if (echo > 3) std::printf("# %s with boundary conditions [%d %d %d]\n", __func__, bc[0], bc[1], bc[2]);
             std::fflush(stdout);
@@ -991,14 +991,18 @@ namespace parallel_poisson {
         view3D<real_t> xAx(2, std::max(1, int(nl + nr)), 512, real_t(0));
         auto const  x = (real_t (*)[512]) xAx(0,0);
         auto const Ax = (real_t (*)[512]) xAx(1,0);
-        for (int i512 = 0; i512 < nl*512; ++i512) { x[0][i512] = 1; }
+        for (int il{0}; il < nl; ++il) { 
+            for (int i512{0}; i512 < 512; ++i512) {
+                x[il][i512] = 1;
+            } // i512
+        } // il
         if (echo > 3) std::printf("# %s array prepared: x[%d][512]\n", __func__, std::max(1, int(nl + nr)));
 
         stat += Laplace16th(Ax[0], x[0], pg, echo);
 
         if (pg.n_local() > 0) {
             double diff{0};
-            for (int i512 = 0; i512 < 512; ++i512) { diff += std::abs(Ax[0][i512]); }
+            for (int i512{0}; i512 < 512; ++i512) { diff += std::abs(Ax[0][i512]); }
             if (echo > 3) std::printf("# %s<%s>: diff= %g\n\n", __func__, (8 == sizeof(real_t))?"double":"float", diff/512);
         } // n_local > 0
         // with double_t=float, we find diff=5.5e-7 per grid point,
@@ -1009,9 +1013,9 @@ namespace parallel_poisson {
     status_t test_Laplace16th_bc(int const echo=0) { // test a single iteration
         status_t stat(0);
         int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary};
-        for (int8_t bz = 0; bz < 2; ++bz) {
-        for (int8_t by = 0; by < 2; ++by) {
-        for (int8_t bx = 0; bx < 2; ++bx) {
+        for (int8_t bz{0}; bz < 2; ++bz) {
+        for (int8_t by{0}; by < 2; ++by) {
+        for (int8_t bx{0}; bx < 2; ++bx) {
             int8_t const bc[] = {BCs[bx], BCs[by], BCs[bz]};
             stat += test_Laplace16th<double>(bc, echo);
             stat += test_Laplace16th<float> (bc, echo);

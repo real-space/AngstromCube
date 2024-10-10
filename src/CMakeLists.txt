@@ -92,6 +92,7 @@ set(all_targets ${all_targets} a43)
 
 set(a43_headers ${a43_atom_headers}
     ../include/add_module_test.h
+    ../include/atom_communication.hxx
     ../include/bessel_transform.hxx
     ../include/dense_solver.hxx
     ../include/define_version.h
@@ -129,6 +130,7 @@ set(a43_headers ${a43_atom_headers}
 
 set(a43_sources ${a43_atom_sources}
     a43_main.cxx
+    atom_communication.cxx
     bessel_transform.cxx
     dense_solver.cxx
     energy_contour.cxx
@@ -181,6 +183,7 @@ set(all_targets ${all_targets} green)
 set(green_headers
     ../include/action_plan.hxx
     ../include/add_module_test.h
+    ../include/atom_communication.hxx
     ../include/boundary_condition.hxx
     ../include/brillouin_zone.hxx
     ../include/chemical_symbol.h
@@ -241,6 +244,7 @@ set(green_headers
 
 set(green_sources
     action_plan.cxx
+    atom_communication.cxx
     chemical_symbol.cxx
     control.cxx
     display_units.cxx

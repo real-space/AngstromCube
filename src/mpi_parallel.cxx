@@ -69,9 +69,9 @@ namespace mpi_parallel {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_simple(int const echo=0) {
       status_t stat(0);
@@ -131,6 +131,6 @@ namespace mpi_parallel {
       return stat;
   } // all_tests
 
-#endif
+#endif // NO_UNIT_TESTS
 
 } // namespace mpi_parallel

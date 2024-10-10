@@ -30,7 +30,7 @@ public:
         assert(n == n_); // safety checks on upper limit of n
         size_t num{0}; // total number of elements
         for (uint32_t i = 0; i < n; ++i) {
-            auto const m = uint32_t(std::max(ms[i], int_t(0)));
+            uint32_t const m = std::max(ms[i], int_t(0));
             m_[i] = m;
             assert(ms[i] == m_[i]); // safety checks on upper limit of ms[i]
             max_m_ = std::max(max_m_, m);

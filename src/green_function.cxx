@@ -172,7 +172,7 @@ namespace green_function {
         if (pot_exchange) {
             green_parallel::potential_exchange(p.Veff, Vinp, p.potential_requests, Noco, echo);
         } else {
-            warn("# +green_function.potential.exchange=%d --> skip\n", pot_exchange);
+            warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         } // needs exchange
 
         delete[] Vinp;
@@ -204,7 +204,7 @@ namespace green_function {
             green_parallel::exchange(p.dyadic_plan.AtomMatrices_.data(), input.data(), p.matrices_requests, count, echo, "atom_mat");
             // now atom matrices are stored in p.dyadic_plan.AtomMatrices_, call update_energy_parameter to transfer them into GPU memory
         } else {
-            warn("# +green_function.matrices.exchange=%d --> skip\n", mat_exchange);
+            warn("# +green_function.matrices.exchange=%d --> skip", mat_exchange);
         } // needs exchange
 
         return 0;
@@ -1013,7 +1013,7 @@ namespace green_function {
                                                                  p.global_source_indices, // offerings
                                                                  owner_rank.data(), n_blocks, echo, "potential");
         } else {
-            warn("# +green_function.potential.exchange=%d --> skip\n", pot_exchange);
+            warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         }
 
         FILE* svg{nullptr};

@@ -33,6 +33,7 @@ OBJATOM = $(addprefix $(OBJDIR)/, \
 
 OBJ = $(addprefix $(OBJDIR)/, \
 	action_plan.o \
+	atom_communication.o \
 	dyadic_plan.o \
 	kinetic_plan.o \
 	geometry_input.o \

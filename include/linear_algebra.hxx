@@ -371,9 +371,9 @@ namespace linear_algebra {
   ) {
       // measure the deviation of A from a given matrix (or the unit matrix if no matrix is given)
       double dev{0};
-      for (int i = 0; i < n; ++i) {
+      for (int i{0}; i < n; ++i) {
           if (echo > 0) std::printf("# %s: A[%2i]  ", __func__, i);
-          for (int j = 0; j < m; ++j) {
+          for (int j{0}; j < m; ++j) {
               complex_t const reference = from ? from[i*m + j] : complex_t(i == j);
               dev = std::max(dev, double(std::norm(A[i*m + j] - reference)));
               if (echo > 0) {
@@ -401,12 +401,14 @@ namespace linear_algebra {
       double const prec = (sizeof(real_t) > 4) ? 1e-24 : 1e-10;
       complex_t A[N][N];
       // fill A with random values
-      for (int ij = 0; ij < N*N; ++ij) {
-          auto const rr = simple_math::random(-1., 1.),
-                     ri = simple_math::random(-1., 1.);
-          auto const rc = std::complex<double>(rr, ri);
-          A[0][ij] = to_complex_t<complex_t, double>(rc);
-      } // ij
+      for (int i{0}; i < N; ++i) {
+          for (int j{0}; j < N; ++j) {
+              auto const rr = simple_math::random(-1., 1.),
+                         ri = simple_math::random(-1., 1.);
+              auto const rc = std::complex<double>(rr, ri);
+              A[i][j] = to_complex_t<complex_t, double>(rc);
+          } // j
+      } // i
 
       { // scope: test inversion and matrix-matrix multiplication
           complex_t Ainv[N][N];
@@ -421,9 +423,9 @@ namespace linear_algebra {
 
       { // scope: test eigenvector algorithms
           // make A symmetric/hermitian
-          for (int i = 0; i < N; ++i) {
+          for (int i{0}; i < N; ++i) {
               A[i][i] = real_t(std::real(A[i][i]));
-              for (int j = 0; j < i; ++j) { // triangular loop without diagonal
+              for (int j{0}; j < i; ++j) { // triangular loop without diagonal
                   A[j][i] = conjugate(A[i][j]);
               } // j
           } // i
@@ -434,7 +436,7 @@ namespace linear_algebra {
           // eigenvalue decomposition into Evec^T * diag(Eval) * Evec
           stat += eigenvalues(Eval, N, Evec[0], N);
 
-          for (int i = 0; i < N; ++i) {
+          for (int i{0}; i < N; ++i) {
               set(Dvec[i], N, Evec[i], complex_t(Eval[i])); // scale eigenvectors with corresponding eigenvalue
               for (int j = 0; j < N; ++j) Atrp[j][i] = conjugate(A[i][j]);
           } // i

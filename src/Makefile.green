@@ -18,6 +18,7 @@ OBJDIR=obj_green
 
 OBJECTS = $(addprefix $(OBJDIR)/, \
 	action_plan.o \
+	atom_communication.o \
 	chemical_symbol.o \
 	control.o \
 	display_units.o \

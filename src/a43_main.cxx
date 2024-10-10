@@ -6,6 +6,7 @@
   #include "spherical_harmonics.hxx" // ::all_tests
   #include "conjugate_gradients.hxx" // ::all_tests
   #include "potential_generator.hxx" // ::all_tests
+  #include "atom_communication.hxx" // ::all_tests
   #include "parallel_potential.hxx" // ::all_tests
   #include "hermite_polynomial.hxx" // ::all_tests
   #include "global_coordinates.hxx" // ::all_tests
@@ -180,6 +181,7 @@
           add_module_test(mpi_parallel);
           add_module_test(omp_parallel);
           add_module_test(parallel_domains);
+          add_module_test(atom_communication);
           add_module_test(global_coordinates);
           add_module_test(load_balancer);
 

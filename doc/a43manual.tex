@@ -1390,11 +1390,11 @@ Finally, in the linear-scaling regime we can expect a memory requirement for abo
 	the transition from the cubic volume-dependence to a constant depends on the boundary conditions.}
 \end{figure}
 
-\subsection{Discussion of the $4 \times 4 \times 4$ Block structure}
+\subsection{Discussion of the $4 \times 4 \times 4$ Cube structure}
 %
-From the block structure of $4 \times 4 \times 4$ grid points there is some overhead to the memory consumption model in Eq.~(\ref{eqn:memory}). Overheads mainly stem from the description of the truncation sphere in terms of blocks.
+From the cube structure of $4 \times 4 \times 4$ grid points there is some overhead to the memory consumption model in Eq.~(\ref{eqn:memory}). Overheads mainly stem from the description of the truncation sphere in terms of cubes.
 For small truncation radii these can be severe, however, the effect becomes weaker for large $R\um{trunc}$.
-For example, the memory overhead factors for truncation radii $\{10.6, 21.2, 31.8, 42.3\}$ grid spacings are ${2.94, 1.64, 1.47, 1.37}$, respectively. So in the smallest case we need almost $3\times$ as much memory: $19$ blocks are fully inside the truncation sphere while $208$ blocks need to be stored due to partial hits. A partial hit occurs when any of the $64$ source grid points is closer to any of the $64$ target grid points than the truncation radius, but not all of them.
+For example, the memory overhead factors for truncation radii $\{10.6, 21.2, 31.8, 42.3\}$ grid spacings are ${2.94, 1.64, 1.47, 1.37}$, respectively. So in the smallest case we need almost $3\times$ as much memory: $19$ cubes are fully inside the truncation sphere while $208$ cubes need to be stored due to partial hits. A partial hit occurs when any of the $64$ source grid points is closer to any of the $64$ target grid points than the truncation radius, but not all of them.
 In the largest case which depending on the system might be converged w.r.t.~the truncation radius, the overhead is still about $37\,\%$. However, the advantage from negligible bandwidths spent on loading index lists should remedy these extra costs.
 Certainly, the overheads would be much smaller if we grouped $2\times 2\times 2$ grid points into a \emph{cube}, however,
 other advantages related to the on-the-fly evaluation of \ac{PAW} projectors and the data-in-register-reuse implementation of the finite-difference kinetic energy might be weakened, hindering performance on the other end.
@@ -1405,8 +1405,8 @@ other advantages related to the on-the-fly evaluation of \ac{PAW} projectors and
 	%% git checkout 51e168d41522d3cc0ba87dbdb3b07796038d0db9
 	\includegraphics[width=.99\textwidth]{fig/memory_consumption_overhead}
 	\label{fig:memory-consumption-overhead}
-	\caption{Number of blocks fully inside (black) and number of block with partial hits (red) as functions of the truncation radius.
-	A simple model for the number of blocks inside should show a $R^3$-dependence, for the partial hits $R^2$ - proportional to the truncation spheres surface area. 
+	\caption{Number of cubes fully inside (black) and number of cubes with partial hits (red) as functions of the truncation radius.
+	A simple model for the number of cubes inside should show a $R^3$-dependence, for the partial hits $R^2$ - proportional to the truncation spheres surface area. 
 	The memory (solid pink line) is given in MByte for 64 right hand sides and \ttt{double} precision complex numbers.
 	Values range up to \unit[3.55]{GByte} in this plot.
 	The memory overhead compared to the analytical truncation sphere volume is shown in blue, scale on the right.} 
