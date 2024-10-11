@@ -125,9 +125,9 @@ namespace parallel_potential {
     ) {
         if (Ekin <= 0) { derivative = 0; return 0; }
         double constexpr by_pi2 = 1./pow2(constants::pi);
-        derivative = by_pi2 * std::sqrt(2*Ekin);
+        derivative = by_pi2 * std::sqrt(2*Ekin); // d/dE = (2*Ekin)^(1/2)/(pi^2)
         double const rho = derivative * Ekin * (2./3.);
-        return rho;
+        return rho; // rho == (2*Ekin)^(3/2)/(3*pi^2)
     } // rho_Thomas_Fermi
 
 
@@ -1327,6 +1327,12 @@ namespace parallel_potential {
 
                 double band_bottom{-1.};
                 { // scope: extract the highest core state energy and an estimate for the lowest valence state energy
+
+                    if (0.0 == E_Fermi) {
+                        E_Fermi = control::get("fermi.level", 0.0);
+                        if (echo > 0) std::printf("# initialize fermi.level as %g %s\n", E_Fermi*eV, _eV);
+                    }
+
                     view2D<float> extreme_energy_a(3, na, 0.); // extremal energy for {core, semicore, valence}
                     stat += live_atom_update("#core electrons"   , na, 0, 0, extreme_energy_a[0]);
                     // ToDo: semicore states ...
