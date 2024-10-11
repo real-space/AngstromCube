@@ -21,21 +21,18 @@ namespace atom_communication {
         ); // constructor, declaration only
 
     public:
-        std::vector<std::vector<uint32_t>> const & list() const { return list_; }
-        MPI_Comm comm()   const { return comm_; }
-        uint32_t natoms() const { return natoms_; }
-
+ 
         status_t broadcast(
-              data_list<double> & atom_data // result [natoms]
-            , data_list<double> const & owner_data // input [na], only accessed in atom owner rank
-            , char const *const what
+              data_list<double> & atom_contribution_data // result [natoms]
+            , data_list<double> const & atom_owner_data // input [na], only accessed in atom owner rank
+            , char const *const what // descriptive string for debugging
             , int const echo=0 // log level
         ) const; // declaration only
 
         status_t allreduce(
-              data_list<double> & owner_data // result [na], only correct in atom owner rank
-            , data_list<double> const & atom_data // input [natoms]
-            , char const *const what
+              data_list<double> & atom_owner_data // result [na], only correct in atom owner rank
+            , data_list<double> const & atom_contribution_data // input [natoms]
+            , char const *const what // descriptive string for debugging
             , double const factor=1 // scaling factor, usually g.dV(), the grid volume element
             , int const echo=0 // log level
         ) const; // declaration only
@@ -44,30 +41,9 @@ namespace atom_communication {
         std::vector<std::vector<uint32_t>> list_;
         std::vector<std::pair<uint32_t,uint32_t>> contributing_;
         MPI_Comm comm_ = MPI_COMM_NULL;
-        uint32_t natoms_ = 0;
+        uint32_t nprocs_; // == mpi_parallel::size(comm_)
+        uint32_t me_;     // == mpi_parallel::rank(comm_)
     }; // class AtomCommList_t
-
-    // Discuss: make the following two routines methods of AtomCommList_t
-    // (but it would make it more complicated if we wanted to generalize double --> typename T)
-
-    status_t atom_data_broadcast(
-          data_list<double> & atom_data // result [natoms]
-        , data_list<double> const & owner_data // input [na], only accessed in atom owner rank
-        , char const *const what
-        , AtomCommList_t const & atom_comm_list
-        , std::vector<uint32_t> const & global_atom_ids
-        , int const echo=0 // log level
-    ); // declaration only
-
-    status_t atom_data_allreduce(
-          data_list<double> & owner_data // result [na], only correct in atom owner rank
-        , data_list<double> const & atom_data // input [natoms]
-        , char const *const what
-        , AtomCommList_t const & atom_comm_list
-        , std::vector<uint32_t> const & global_atom_ids
-        , double const factor=1 // scaling factor, usually g.dV(), the grid volume element
-        , int const echo=0 // log level
-    ); // declaration only
 
     status_t all_tests(int const echo=0); // declaration only
 

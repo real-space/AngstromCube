@@ -6,6 +6,8 @@
 #include <cstdint> // uint32_t
 #include <vector> // std::vector<T>
 #include <algorithm> // std::fill
+#include <type_traits> // std::is_unsigned
+
 
 // #define debug_printf(...) std::printf(__VA_ARGS__)
 #define debug_printf(...)
@@ -25,7 +27,7 @@ public:
     data_list(uint32_t const n, int_t const ms[], T const init_value=T(0)) 
         : ptrs_(n, nullptr), m_(n), mem_(0), n_(n), max_m_(0) {
 #ifdef    DEBUGGPU
-        std::printf("# new data_list(n=%d) at %p\n", n, (void*)this);
+        std::printf("# new data_list<%sint%d_t>(n=%d) at %p\n", std::is_unsigned<int_t>::value ? "u" : "", sizeof(int_t)*8, n, (void*)this);
 #endif // DEBUGGPU
         assert(n == n_); // safety checks on upper limit of n
         size_t num{0}; // total number of elements
@@ -95,9 +97,9 @@ public:
     T       *const * data()       { return ptrs_.data(); }
 
     uint32_t nrows() const { return n_; } // number of rows
-    uint32_t mcols() const { return max_m_; } // max. number of cols
-    uint32_t ncols(uint32_t const i) const { assert(i < n_); return m_[i]; }
-    uint32_t const * m() const { return m_.data(); } // numbers of cols
+    uint32_t mcols() const { return max_m_; } // max. number of columns
+    uint32_t ncols(uint32_t const i) const { assert(i < n_); return m_[i]; } // number of columns
+    uint32_t const * m() const { return m_.data(); } // vector of numbers of columns, [nrows]
     size_t fill(T const value=T(0)) { std::fill(data_.begin(), data_.end(), value); return data_.size(); } // set value
 
 }; // data_list

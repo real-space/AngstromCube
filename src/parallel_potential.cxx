@@ -998,7 +998,6 @@ namespace parallel_potential {
                 num.resize(natoms, m8);
                 data_list<double> atoms_recv(num, 0.0);
 
-             // stat += atom_communication::atom_data_broadcast(atoms_recv, atom_send, "eight atom scalars", atom_comm_list, global_atom_ids, echo);
                 stat += atom_comm_list.broadcast(atoms_recv, atom_send, "eight atom scalars", echo);
 
                 for (uint32_t iatom{0}; iatom < natoms; ++iatom) { // contributing atoms
@@ -1172,7 +1171,6 @@ namespace parallel_potential {
                     if (echo > 15) std::printf("# rank#%i atom#%i wants to add %g core+valence electrons\n", me, ia, integrate_r2grid(atom_rhoc[ia], nr2[ia]));
                 } // ia
             } // take_atomic_valence_densities > 0
-         // stat += atom_communication::atom_data_broadcast(atoms_rhoc, atom_rhoc, "core densities", atom_comm_list, global_atom_ids, echo);
             stat += atom_comm_list.broadcast(atoms_rhoc, atom_rhoc, "core densities", echo);
 
             auto const total_charge_added = add_r2grid_quantity(core_density, "smooth core density", atoms_rhoc,
@@ -1218,7 +1216,6 @@ namespace parallel_potential {
                 if (stat_den) warn("denormalize_electrostatics failed with status= %i for atom#%i", int(stat_den), global_atom_id);
                 stat += stat_den;
             } // ia
-         // stat += atom_communication::atom_data_broadcast(atoms_qzyx, atom_qzyx, "compensator multipole moments", atom_comm_list, global_atom_ids, echo);
             stat += atom_comm_list.broadcast(atoms_qzyx, atom_qzyx, "compensator multipole moments", echo);
 
             add_to_grid(augmented_density, cube_coords, n_cubes, atoms_qzyx, lmaxs_qlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
@@ -1258,7 +1255,6 @@ namespace parallel_potential {
             // project the electrostatic grid onto the localized compensation charges
             project_grid(atoms_vzyx, V_electrostatic, cube_coords, n_cubes, lmaxs_vlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
-         // stat += atom_communication::atom_data_allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", atom_comm_list, global_atom_ids, g.dV(), echo);
             stat += atom_comm_list.allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", g.dV(), echo);
             for (int32_t ia{0}; ia < na; ++ia) {
                 auto const global_atom_id = ia*nprocs + me;
@@ -1294,7 +1290,6 @@ namespace parallel_potential {
             stat += live_atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
             stat += live_atom_update("zero potentials", na, 0, nr2.data(), 0, atom_vbar.data());
 
-         // stat += atom_communication::atom_data_broadcast(atoms_vbar, atom_vbar, "zero potentials", atom_comm_list, global_atom_ids, echo);
             stat += atom_comm_list.broadcast(atoms_vbar, atom_vbar, "zero potentials", echo); // assume vbar is updated every scf-iteration
 
             add_r2grid_quantity(V_effective, "smooth effective potential", atoms_vbar,
