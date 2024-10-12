@@ -1,3 +1,4 @@
+# This file is part of AngstromCube under MIT License
 ### 
 ### CMake file for ./a43 and libliveatom.so and ./green
 ### 
@@ -288,18 +289,16 @@ else(HAS_CUDA)
         green_potential.cxx
         green_solver.cxx
         green_tests.cxx
-)
+    )
 endif(HAS_CUDA)
 
 set(green_sources ${green_sources}
     green_main.cxx
 )
 
+
 # build a parallel GPU application
 add_executable(green ${green_sources} ${green_headers})
-
-
-
 
 
 # version control using git
@@ -353,8 +352,6 @@ else(HAS_MPI)
     target_compile_definitions(green PUBLIC -DHAS_NO_MPI)
 endif(HAS_MPI)
 
-
-
 if(MKL_FOUND)
     # add MKL (Intel Math Kernel Library)
     target_link_libraries(liveatom PUBLIC iomp5 mkl)
@@ -406,7 +403,7 @@ if(HAS_RAPIDJSON)
 endif(HAS_RAPIDJSON)
 
 if(HAS_TFQMRGPU)
-    # tfQMRgpu is a header-only library
+    # we use the header-only part of the tfQMRgpu library
     target_compile_definitions(green PUBLIC -DHAS_TFQMRGPU)
     target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/tfqmrgpu-src/tfQMRgpu/include>)
 endif(HAS_TFQMRGPU)

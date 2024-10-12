@@ -1,6 +1,6 @@
 # This file is part of AngstromCube under MIT License
 #
-# CMake for AngstromCube
+# CMake file for AngstromCube
 #
 cmake_minimum_required(VERSION 3.21)
 
@@ -23,16 +23,6 @@ if(CUDA_FOUND)
 else(CUDA_FOUND)
     option(HAS_CUDA         "Using the CUDA programming model for GPUs"    OFF)
 endif(CUDA_FOUND)
-
-
-# list(APPEND CMAKE_MODULE_PATH ~/tfQMRgpu-install/lib64/cmake/tfQMRgpu)
-# set(tfQMRgpu_DIR ~/tfQMRgpu-install/lib64/cmake/tfQMRgpu)
-# find_package(tfQMRgpu)
-# if(tfQMRgpu_FOUND)
-#     option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     ON )
-# else(tfQMRgpu_FOUND)
-#     option(HAS_TFQMRGPU     "Using the header-only version of tfQMRgpu"     OFF)
-# endif(tfQMRgpu_FOUND)
 
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 11)
