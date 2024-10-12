@@ -6,8 +6,10 @@
 set(a43_version 0.0.1)
 
 set(all_targets )
+# add libliveatom.so to targets
 set(all_targets ${all_targets} liveatom)
 
+# header files needed for libliveatom.so
 set(a43_atom_headers
     ../include/angular_grid.hxx
     ../include/atom_core.hxx
@@ -60,6 +62,7 @@ set(a43_atom_headers
     ../include/xml_reading.hxx
 )
 
+# source files needed for libliveatom.so
 set(a43_atom_sources
     angular_grid.cxx
     atom_core.cxx
@@ -79,7 +82,7 @@ set(a43_atom_sources
     single_atom.cxx
 )
    
-# build a shared library for the liveatom
+# build a shared library libliveatom.so
 add_library(liveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 
 
@@ -88,9 +91,10 @@ add_library(liveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 ################
 
 
-
+# add executable ./a43 to targets
 set(all_targets ${all_targets} a43)
 
+# header files needed for ./a43
 set(a43_headers ${a43_atom_headers}
     ../include/add_module_test.h
     ../include/atom_communication.hxx
@@ -129,6 +133,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/verify_benchmark.hxx
 )
 
+# source files needed for ./a43
 set(a43_sources ${a43_atom_sources}
     a43_main.cxx
     atom_communication.cxx
@@ -179,8 +184,10 @@ add_executable(a43 ${a43_sources} ${a43_headers})
 ################
 ################
 
+# add ./green to targets
 set(all_targets ${all_targets} green)
 
+# header files needed for ./green
 set(green_headers
     ../include/action_plan.hxx
     ../include/add_module_test.h
@@ -243,6 +250,7 @@ set(green_headers
     ../include/xml_reading.hxx
 )
 
+# source files needed for ./green (independent of CUDA or no-CUDA)
 set(green_sources
     action_plan.cxx
     atom_communication.cxx
@@ -255,6 +263,7 @@ set(green_sources
     geometry_input.cxx
     green_function.cxx
     green_input.cxx
+    green_main.cxx
     green_parallel.cxx
     green_sparse.cxx
     kinetic_plan.cxx
@@ -266,9 +275,9 @@ set(green_sources
     sho_unitary.cxx
 )
 
-
 if(HAS_CUDA)
     enable_language(CUDA)
+    # add CUDA source files needed for ./green
     set(green_sources ${green_sources}
         green_action.cu
         green_dyadic.cu
@@ -280,6 +289,7 @@ if(HAS_CUDA)
         green_tests.cu
     )
 else(HAS_CUDA)
+    # add no-CUDA source files needed for ./green
     set(green_sources ${green_sources}
         green_action.cxx
         green_dyadic.cxx
@@ -291,11 +301,6 @@ else(HAS_CUDA)
         green_tests.cxx
     )
 endif(HAS_CUDA)
-
-set(green_sources ${green_sources}
-    green_main.cxx
-)
-
 
 # build a parallel GPU application
 add_executable(green ${green_sources} ${green_headers})
