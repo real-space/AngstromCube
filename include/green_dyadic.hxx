@@ -845,7 +845,7 @@ namespace green_dyadic {
         SHOmul<real_t,R1C2,Noco,n64> // launch <<< {nAtoms, nrhs, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef   HAS_NO_CUDA
             <<< gridDim, blockDim >>> (
-#else //  HAS_NO_CUDA
+#else  // HAS_NO_CUDA
            (    gridDim, blockDim,
 #endif // HAS_NO_CUDA
             aac, apc, AtomMatrices, AtomLmax, AtomStarts);

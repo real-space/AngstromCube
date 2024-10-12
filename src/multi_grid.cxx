@@ -15,7 +15,7 @@
   #include "simple_math.hxx" // ::random
   #include "debug_output.hxx" // dump_to_file
   #include "control.hxx" // ::get
-#endif // NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS undefined
 
 #include "real_space.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
@@ -76,9 +76,9 @@ namespace multi_grid {
   } // analyze_grid_sizes
 
   
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   int64_t grid_point_id(uint32_t const x, uint32_t const y, uint32_t const z) {
       assert(x < (1 << 21)); 

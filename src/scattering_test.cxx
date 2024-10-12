@@ -82,13 +82,16 @@ namespace scattering_test {
 
       assert(rg.n <= stride);
       if (echo > 16) std::printf("# %s nln*stride= %d*%d = %d:\n", __func__, nln, stride, nln*stride);
-#ifdef DEVEL
+#ifdef    DEVEL
       std::vector<double> norm(nln, 0.0);
 #endif // DEVEL
       if (echo > 18) std::printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
       for (int ir = 0; ir < rg.n; ++ir) { // parallel over ir
           assert(ir < stride);
-          double const r = rg.r[ir], r2dr = rg.r2dr[ir]; // load grid from radial grid descriptor
+          double const r = rg.r[ir]; // load grid from radial grid descriptor
+#ifdef    DEVEL
+          double const r2dr = rg.r2dr[ir];
+#endif // DEVEL
 //        double const dr = 0.03125, r = dr*ir, r2dr = r*r*dr; // use an equidistant grid
           double const r_pow_rpow = intpow(r, rpow);
 
@@ -110,7 +113,7 @@ namespace scattering_test {
                   assert(iln < nln);
                   double const poly_value = sho_radial::expand_poly(poly(0,iln), 1 + nrn, x2);
                   double const projector_value = poly_value * Gaussian * x_pow_ell;
-#ifdef DEVEL
+#ifdef    DEVEL
                   if (echo > 18) std::printf(" %g", projector_value);
                   norm[iln] += pow2(projector_value) * r2dr;
 #endif // DEVEL
@@ -137,7 +140,7 @@ namespace scattering_test {
           if (echo > 18) std::printf("\n");
       } // ir
       if (echo > 18) std::printf("\n\n");
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 9) {
           std::printf("# projector normalizations are ");
           printf_vector(" %g", norm.data(), nln);
@@ -508,7 +511,7 @@ namespace scattering_test {
               } // nrn
           } // ir
 
-#ifdef DEVEL
+#ifdef    DEVEL
           if (nn > 0) {
               if (echo > 19) { // debug
                   std::printf("# %s: projector norm of ell=%i is ", __func__, ell);
@@ -685,9 +688,9 @@ namespace scattering_test {
       return 0;
   } // emm_average
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_eigenstate_analysis(int const echo=3, int const ellmax=7) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
@@ -722,7 +725,7 @@ namespace scattering_test {
       stat += expand_sho_projectors(prj(1,0), prj.stride(), rg, sigma*(1 - delta), numax, 0, echo);
       stat += expand_sho_projectors(prj(2,0), prj.stride(), rg, sigma*(1 + delta), numax, 0, echo);
 
-#ifdef DEVEL
+#ifdef    DEVEL
       // check how much <sho_ell_irn|sho_ell_jrn> deviates from a unit matrix
       for (int k = 0; k < 3; ++k) { // loop over 3 different sigma-values: sigma, sigma*(1-delta), sigma*(1+delta)
           double max_dev{0};
@@ -772,7 +775,7 @@ namespace scattering_test {
           stat += (max_dev > 2e-6);
       } // scope
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 21) {
           std::printf("\n## %s: plot numerical and analytical derivative:\n", __func__);
           for (int ir = 0; ir < rg.n; ++ir) {

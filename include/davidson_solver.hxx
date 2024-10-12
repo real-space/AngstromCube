@@ -17,13 +17,13 @@
 #include "recorded_warnings.hxx" // warn, error
 #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms, ::kpoint_t
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
 //  // additional includes needed by test_eigensolve in particle_in_box.hxx
 //  #include <cmath> // std::cos
 //  #include <complex> // std::complex
 //  #include "complex_tools.hxx" // complex_name
     #include "simple_math.hxx" // ::random
-#endif
+#endif // NO_UNIT_TESTS undefined
 
 namespace davidson_solver {
   // An iterative eigensolver using the Davidson subspace method
@@ -50,7 +50,7 @@ namespace davidson_solver {
               } // dof
               s[ibra*stride + jket] = tmp*factor; // init
           } // jket
-#ifdef NEVER
+#ifdef    NEVER
           std::printf("\n# davidson_solver: inner_products: coeffs (%i,:) ", ibra);
           printf_vector("%g ", &s[ibra*stride], mstates);
 #endif // NEVER
@@ -252,7 +252,7 @@ namespace davidson_solver {
                   } // i
                   vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space, 
                                                with_overlap ? spsi.data() : nullptr, dV);
-#ifdef DEBUG
+#ifdef    DEBUG
                   std::printf("# Davidson: unsorted residual norms^2 ");
                   printf_vector(" %.1e", residual_norm2s.data(), sub_space);
 #endif // DEBUG
@@ -261,7 +261,7 @@ namespace davidson_solver {
                   set(res_norm2_sort.data(), sub_space, residual_norm2s.data()); // copy
                   std::sort(res_norm2_sort.rbegin(), res_norm2_sort.rend()); // sort in place, reversed
                   // reverse as we seek for the largest residuals
-#ifdef DEBUG
+#ifdef    DEBUG
                   std::printf("# Davidson: largest residual norms^2 ");
                   printf_vector(" %.1e", res_norm2_sort.data(), sub_space);
 #endif // DEBUG
@@ -343,9 +343,9 @@ namespace davidson_solver {
       return eigensolve(waves, energies, nbands, op, kp, echo, 1, 1, 0.f, __func__);
   } // rotate
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   #include "particle_in_box.hxx" // test_eigensolve
 

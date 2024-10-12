@@ -1,7 +1,7 @@
 // This file is part of AngstromCube under MIT License
 
   #include "self_consistency.hxx" // ::SCF
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "exchange_correlation.hxx" // ::all_tests
   #include "spherical_harmonics.hxx" // ::all_tests
   #include "conjugate_gradients.hxx" // ::all_tests
@@ -92,7 +92,7 @@
 //   #include "green_dyadic.hxx" // ::all_tests
 //   #include "green_action.hxx" // ::all_tests
 
-#endif // not NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS undefined
 
 #include <cstdlib> // std::abs, ::abort
 

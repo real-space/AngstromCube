@@ -630,7 +630,7 @@ namespace parallel_potential {
         auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
         std::vector<size_t> hits_per_atom(sigma.size(), 0);
         for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // OMP PARALLEL
-            size_t hits_per_cube{0};
+            size_t hits_per_cube{0}; // DEVEL stats
             for (auto const & ai : atom_images) {
                 auto const iatom = ai.atom_id_;
                 float const r_cut = 9*sigma[iatom];
@@ -642,6 +642,8 @@ namespace parallel_potential {
 #ifdef    DEVEL
             if (echo > 17 && hits_per_cube) std::printf("# %s: cube #%i at %g %g %g Bohr has %.3f k hits\n", __func__,
                 ilb, cube_coords[ilb][0], cube_coords[ilb][1], cube_coords[ilb][2], hits_per_cube*1e-3);
+#else  // DEVEL
+            if (0) std::printf("%ld", hits_per_cube);
 #endif // DEVEL
         } // ilb
 #ifdef    DEVEL
@@ -679,7 +681,7 @@ namespace parallel_potential {
             auto const iatom = ai.atom_id_;
             assert(iatom < natoms);
             float const r_cut = 9*sigma[iatom];
-            size_t hits_per_atom{0};
+            size_t hits_per_atom{0}; // DEVEL stats
             for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) {
                 auto const hits = sho_project0_or_add1<0,8>(atom_coeff[iatom], grid_values[ilb], cube_coords[ilb],
                                                             hg, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
@@ -689,6 +691,8 @@ namespace parallel_potential {
 #ifdef    DEVEL
             if (echo > 17 && hits_per_atom) std::printf("# %s: image of atom #%i at %g %g %g Bohr has %.3f k hits\n",
                                            __func__, iatom, ai.pos_[0], ai.pos_[1], ai.pos_[2], hits_per_atom*1e-3);
+#else  // DEVEL
+            if (0) std::printf("%ld", hits_per_atom);
 #endif // DEVEL
         } // ai
 #ifdef    DEVEL
@@ -726,7 +730,7 @@ namespace parallel_potential {
 
         auto const r2cut = pow2(r_cut);
         double added_charge{0};
-        size_t grid_points_inside{0};
+        size_t grid_points_inside{0}; // DEVEL stats
         for (int iz{0}; iz < n8; ++iz) {
         for (int iy{0}; iy < n8; ++iy) {
         for (int ix{0}; ix < n8; ++ix) {
@@ -748,6 +752,8 @@ namespace parallel_potential {
 #ifdef    DEVEL
         if (grid_points_inside && echo > 17) std::printf("# %ld grid points inside %g %s for grid cube at [%g %g %g] Bohr\n",
             grid_points_inside, r_cut*Ang, _Ang, cube_coords[0], cube_coords[1], cube_coords[2]);
+#else  // DEVEL
+            if (0) std::printf("%ld", grid_points_inside);
 #endif // DEVEL
         return added_charge;
     } // add_r2grid_to_cube
@@ -767,7 +773,6 @@ namespace parallel_potential {
         , uint32_t const nr2=4096 // r^2-grid size
         , float const ar2=16.f // r^2-grid parameter
     ) {
-        auto const me = mpi_parallel::rank(comm);
         // ToDo: get atom_r2coeff from atom owners
         auto const *const hg = g.grid_spacings();
         auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
@@ -780,6 +785,7 @@ namespace parallel_potential {
 
         double rho_total{0}; // prepare result
 #ifdef    DEVEL
+        auto const me = mpi_parallel::rank(comm);
         std::vector<double> added_charge_per_atom(natoms, 0.0);
 #endif // DEVEL
         for (auto const & ai : atom_images) {
@@ -1511,9 +1517,9 @@ namespace parallel_potential {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
     status_t test_r2grid_integrator(int const echo=0, int const nr2=4096, float const ar2=16) {
         status_t stat(0);

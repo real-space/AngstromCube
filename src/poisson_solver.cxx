@@ -27,7 +27,7 @@
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary
 #include "debug_tools.hxx" // ::read_from_file
 
-#ifdef DEVEL
+#ifdef    DEVEL
     #include "bessel_transform.hxx" // ::Bessel_j0
     #include "lossful_compression.hxx" // print_compressed
     #include "debug_output.hxx" // dump_to_file, ::write_array_to_file, 
@@ -165,7 +165,7 @@ namespace poisson_solver {
 
       { // scope: solve the Poisson equation: Laplace Ves == -4 pi rho
 //        SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
-#ifdef DEVEL
+#ifdef    DEVEL
           if (echo > 0) {
               std::printf("\n# Solve Poisson equation\n\n");
               std::fflush(stdout); // if the Poisson solver takes long, we can already see the output up to here
@@ -181,7 +181,7 @@ namespace poisson_solver {
           } else
           if ('M' == method) { // "Multi-grid" (upper case!)
               assert(g.is_Cartesian());
-#ifdef DEVEL
+#ifdef    DEVEL
               // create a 2x denser grid descriptor
               real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);
               if (echo > 2) std::printf("# electrostatic.solver=%c (Multi-grid) is a multi-grid solver"
@@ -201,7 +201,7 @@ namespace poisson_solver {
 #endif // DEVEL
           } else
           if ('B' == method) { // "Bessel0" (upper case!)
-#ifdef DEVEL
+#ifdef    DEVEL
               if (echo > 0) std::printf("# use a spherical Bessel solver for the Poisson equation\n");
               auto const st = Bessel_Poisson_solver(Ves, rho, g, Bessel_center, echo);
               if (st) warn("Bessel Poisson solver failed with status=%i", int(st));
@@ -211,7 +211,7 @@ namespace poisson_solver {
 #endif // DEVEL
           } else
           if ('l' == (method | 32)) { // "load"
-#ifdef DEVEL
+#ifdef    DEVEL
               auto const Ves_in_filename = control::get("electrostatic.potential.from.file", "v_es.dat");
               auto const nerrors = debug_tools::read_from_file(Ves, Ves_in_filename, g.all(), 1, 1, "electrostatic potential", echo);
               if (nerrors) warn("electrostatic.solver=%c (load) from file %s had %d errors", es_solver_name, Ves_in_filename, nerrors); 
@@ -228,7 +228,7 @@ namespace poisson_solver {
           } // method
 
           if (echo > 1) print_stats(Ves, g.all(), g.dV(), "\n# electrostatic potential", eV);
-#ifdef DEVEL
+#ifdef    DEVEL
           if (echo > 6) {
               std::printf("# electrostatic potential at grid corners:");
               for (int iz = 0; iz < g[2]; iz += g[2] - 1) {
@@ -241,7 +241,7 @@ namespace poisson_solver {
 #endif // DEVEL
       } // scope
 
-#ifdef DEVEL
+#ifdef    DEVEL
       { // scope: export electrostatic potential to ASCII file
           auto const Ves_out_filename = control::get("electrostatic.potential.to.file", "");
           if (Ves_out_filename && *Ves_out_filename) {
@@ -268,9 +268,9 @@ namespace poisson_solver {
   } // solve
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_solve(int const echo=3) {
       real_space::grid_t g(12, 14, 16);

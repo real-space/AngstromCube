@@ -24,7 +24,7 @@ namespace green_memory {
 #endif // HAS_MEMORY_COUNTER
 
     void* malloc(std::size_t const size_in_Bytes, char const *const name) {
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
         void* ptr{nullptr};
         cuCheck(cudaMallocManaged(&ptr, size_in_Bytes));
 #else  // HAS_NO_CUDA
@@ -59,7 +59,7 @@ namespace green_memory {
         } // found
 #endif // HAS_MEMORY_COUNTER
 
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
           cuCheck(cudaFree((void*)ptr));
 #else  // HAS_NO_CUDA
           delete[] (char*)ptr;
@@ -85,9 +85,9 @@ namespace green_memory {
     } // high_water_mark
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
     status_t test_green_memory(int const echo=0) {
         status_t stat(0);

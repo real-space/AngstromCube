@@ -92,7 +92,7 @@ namespace bisection_tools {
             return true; // run again
         } // root
 
-#ifdef DEVEL
+#ifdef    DEVEL
         bool extremum(real_t & new_x, real_t const last_y, int const echo=0) { // WARNING, not reliable
             if (_is_converged) return false;
             if (_iter > _maxiter) return false;
@@ -134,9 +134,9 @@ namespace bisection_tools {
   }; // bisector_t
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_bisection_zero(int const echo=3) {
       bisector_t<double> bisector(0., 3., 1e-15);
@@ -151,7 +151,7 @@ namespace bisection_tools {
   } // test_bisection_zero
 
   inline status_t test_bisection_maximum(int const echo=3) {
-#ifdef DEVEL
+#ifdef    DEVEL
       bisector_t<double> bisector(0., 3., 1e-15);
       double x, y{0};
       while(bisector.extremum(x, y, echo)) {

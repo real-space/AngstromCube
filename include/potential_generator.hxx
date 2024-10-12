@@ -66,14 +66,16 @@ namespace potential_generator {
               std::printf("\n## r, %s of atom #%i\n", quantity, ia);
               print_compressed(radial_r2grid::r_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
           } // echo
-#endif // DEVEL
           double q_added{0};
+#endif // DEVEL
           for (int ii = 0; ii < n_periodic_images; ++ii) {
               double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
               double q_added_image{0};
               stat += real_space::add_function(values, g, atom_qnt[ia], nr2[ia], ar2[ia], &q_added_image, cnt, factor);
               if (echo_q > 11) std::printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
+#ifdef    DEVEL
               q_added += q_added_image;
+#endif // DEVEL
           } // periodic images
 #ifdef    DEVEL
           if (echo_q > 0) {

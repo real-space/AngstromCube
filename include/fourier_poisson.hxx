@@ -92,9 +92,9 @@ namespace fourier_poisson {
 
 
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_FFT_Poisson_solver(int const echo=3) {
       if (echo > 1) std::printf("\n# %s:\n", __func__);

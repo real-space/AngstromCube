@@ -7,10 +7,10 @@
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
 
-#ifdef HAS_TFQMRGPU
+#ifdef    HAS_TFQMRGPU
 
 //  #define DEBUG
-    #ifdef HAS_NO_CUDA
+    #ifdef    HAS_NO_CUDA
         #include "tfqmrgpu_cudaStubs.hxx" // cuda... (dummies)
         #define devPtr const __restrict__
     #else  // HAS_NO_CUDA
@@ -24,7 +24,7 @@
 
     #include <utility> // std::pair<T>
     typedef std::pair<size_t,size_t> memWindow_t;
-    #ifdef HAS_NO_CUDA
+    #ifdef    HAS_NO_CUDA
         typedef size_t cudaStream_t;
     #endif // HAS_NO_CUDA
 

@@ -16,9 +16,9 @@
 #include <cmath> // std::ceil, ::pow, ::cbrt
 #include <numeric> // std::iota
 #ifndef   NO_UNIT_TESTS
-  #include <cstdlib> // rand, RAND_MAX
-  #include "progress_report.hxx" // ProgressReport
-#endif // NO_UNIT_TESTS
+    #include <cstdlib> // rand, RAND_MAX
+    #include "progress_report.hxx" // ProgressReport
+#endif // NO_UNIT_TESTS undefined
 
 #include "load_balancer.hxx"
 
@@ -30,15 +30,15 @@
 #include "print_tools.hxx" // printf_vector
 
 #ifndef   NO_UNIT_TESTS
-  #include "control.hxx" // ::get
-  #ifdef    HAS_BITMAP_EXPORT
-    #include "bitmap.hxx" // ::write_bmp_file
-  #endif // HAS_BITMAP_EXPORT
-#endif // NO_UNIT_TESTS
+    #include "control.hxx" // ::get
+    #ifdef    HAS_BITMAP_EXPORT
+        #include "bitmap.hxx" // ::write_bmp_file
+    #endif // HAS_BITMAP_EXPORT
+#endif // NO_UNIT_TESTS undefined
 
 namespace load_balancer {
 
-// #define   LOAD_BALANCER_DRAW_SVG
+//#define LOAD_BALANCER_DRAW_SVG
 #ifdef    LOAD_BALANCER_DRAW_SVG
   static std::vector<double> draw2D; // global field
 #endif // LOAD_BALANCER_DRAW_SVG
@@ -330,9 +330,9 @@ namespace load_balancer {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename real_t>
   real_t analyze_load_imbalance(real_t const load[], int const nprocs, int const echo=1) {

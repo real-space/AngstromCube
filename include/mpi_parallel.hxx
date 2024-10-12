@@ -59,7 +59,7 @@
   inline int MPI_Comm_rank(MPI_Comm comm, int *rank) { assert(rank); *rank = 0; ok; }
   inline int MPI_Comm_size(MPI_Comm comm, int *size) { assert(size); *size = 1; ok; }
   inline int MPI_Allreduce(void const *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
-      if (sendbuf) { std::memcpy(recvbuf, sendbuf, count*size_of(datatype)); } ok; }
+      if (MPI_IN_PLACE != sendbuf) { std::memcpy(recvbuf, sendbuf, count*size_of(datatype)); } ok; }
   inline int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm) { ok; }
   inline int MPI_Barrier(MPI_Comm comm) { ok; }
   inline double MPI_Wtime(void) { return 0; } // ToDo
@@ -75,19 +75,20 @@
 namespace mpi_parallel {
 
   #define MPI_Check(MPI_Function) \
-    mpi_parallel::__check_MPI_call((MPI_Function), __FILE__, __LINE__, #MPI_Function)
+      mpi_parallel::__check_MPI_call((MPI_Function), __FILE__, __LINE__, #MPI_Function, __func__)
 
   inline int __check_MPI_call( // --> always envoke via the macro MPI_Check
         int const MPI_status
       , char const *const file
       , unsigned const line
-      , char const* const name
+      , char const* const call
+      , char const* const func // host function
   ) {
-#ifdef FULLDEBUG
-      std::printf("# calling %s in %s:%d returned status= %i\n", name, file, line, MPI_status);
-#endif
+#ifdef    FULLDEBUG
+      std::printf("# calling %s in %s %s:%d returned status= %i\n", call, func, file, line, MPI_status);
+#endif // FULLDEBUG
       if (MPI_SUCCESS != MPI_status) {
-          std::printf("\n# in %s:%d failed with status= %i calling %s\n", file, line, MPI_status, name);
+          std::printf("\n# in %s:%d failed with status= %i calling %s from %s\n", file, line, MPI_status, call, func);
           // add here how to react to 
       } // failure
       return MPI_status; // for futher use

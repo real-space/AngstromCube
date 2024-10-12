@@ -8,18 +8,18 @@
 #include <complex> // std::complex<real_t>
 
 #ifndef   HAS_NO_MKL
-  #include "mkl_dfti.h" // Dfti* (discrete Fourier transform interface of the Intel(c) Math Kernel Library)
-#endif // HAS_NO_MKL
+    #include "mkl_dfti.h" // Dfti* (discrete Fourier transform interface of the Intel(c) Math Kernel Library)
+#endif // HAS_NO_MKL undefined
 
 #ifdef    HAS_FFTW
 extern "C" {
-  #include <fftw3.h> // fftw_plan, fftw_plan_dft_r2r_3d
+    #include <fftw3.h> // fftw_plan, fftw_plan_dft_r2r_3d
 } // extern "C"
 #endif // HAS_FFTW
 
 #ifndef   NO_UNIT_TESTS
-  #include "constants.hxx" // ::pi
-#endif // HAS_UNIT_TESTS
+    #include "constants.hxx" // ::pi
+#endif // HAS_UNIT_TESTS undefined
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
@@ -34,7 +34,7 @@ namespace fourier_transform {
              , bool const forward=true
              , int const echo=0
               ) { // log level
-#ifndef HAS_NO_MKL
+#ifndef   HAS_NO_MKL
       MKL_LONG status;
       MKL_LONG const l[3] = {ng[2], ng[1], ng[0]};
 //    size_t const ngall = l[2]*l[1]*l[0];
@@ -51,9 +51,9 @@ namespace fourier_transform {
       DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
       if (status != 0 && echo > 0) std::printf("# MKL-FFT returns status=%li\n", status);
       return status;
-#else // not defined HAS_NO_MKL
+#else  // HAS_NO_MKL
 
-#ifdef HAS_FFTW
+#ifdef    HAS_FFTW
       size_t const ngall = size_t(ng[2]) * size_t(ng[1]) * size_t(ng[0]);
       std::vector<std::complex<double>> cvi(ngall), cvo(ngall); // complex arrays
       for (size_t i = 0; i < ngall; ++i) { // ToDo: OpenMP for, SIMD
@@ -70,10 +70,10 @@ namespace fourier_transform {
           out_imag[i] = cvo[i].imag();
       } // i
       return 0; // success
-#endif // defined HAS_FFTW
+#endif // HAS_FFTW
 
       return -1; // has no FFT library
-#endif // defined HAS_NO_MKL
+#endif // HAS_NO_MKL
   } // fft
 
   inline status_t fft(std::complex<double> out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]

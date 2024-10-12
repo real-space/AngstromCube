@@ -64,12 +64,12 @@ namespace parallel_domains {
               if (echo > 7) std::printf("# parallelize %d grid points as %s + %s + %s with %d process elements (BC=%s)\n", 
                           ng, dec_str[0], dec_str[1], dec_str[2], npe, bc?"periodic":"isolated");
 
-#ifdef DEBUG
+#ifdef    DEBUG
               // check that this distribution routine works correctly
               assert(ng == ng_more*np_lowr + ng_less*np_less + ng_more*np_uppr);
               assert(npe == np_lowr + np_less + np_uppr);
               assert(npe == np_more + np_less);
-#endif
+#endif // DEBUG
               stat += (ng != ng_more*np_lowr + ng_less*np_less + ng_more*np_uppr);
               stat += (npe != np_lowr + np_less + np_uppr);
               stat += (npe != np_more + np_less);
@@ -78,9 +78,9 @@ namespace parallel_domains {
       return stat;
   } // decompose_grid
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_analysis(int const echo=0) {
       status_t stat(0);

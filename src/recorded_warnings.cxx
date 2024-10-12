@@ -49,7 +49,7 @@ namespace recorded_warnings {
         , times_printed_(0)
         , source_file_line_(line)
       {
-#ifdef  DEBUG
+#ifdef    DEBUG
           std::printf("# WarningRecord:constructor allocates a new warning message string with"
               " max. %d chars at %p\n# ... for warnings launched at %s:%d --> hash = %16llx\n",
                      message_length, (void*)message_,             file,line,  hash_);
@@ -57,7 +57,7 @@ namespace recorded_warnings {
       } // constructor
 
       ~WarningRecord(void) {
-#ifdef  DEBUG
+#ifdef    DEBUG
           std::printf("# WarningRecord:destructor: old warning message"
                       " at %p for warnings launched at %s:%d reads:\n#\t%s\n",
                       (void*)message_, get_sourcefile(), source_file_line_, message_);
@@ -176,9 +176,9 @@ namespace recorded_warnings {
   } // clear_warnings
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
       if (echo > 1) std::printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);

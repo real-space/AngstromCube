@@ -22,16 +22,12 @@
 #include "display_units.h" // Ang, _Ang, eV, _eV
 #include "print_tools.hxx" // printf_vector
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
     #include "simple_math.hxx" // ::random<real_or_int_t>
-#endif
+#endif // NO_UNIT_TESTS undefined
 
 // #define FULL_DEBUG
 // #define DEBUG
-
-#ifdef    DEBUG
-    #include "debug_output.hxx" // dump_to_file
-#endif // DEBUG
 
 #ifdef    FULL_DEBUG
     #define full_debug(print) print
@@ -40,6 +36,7 @@
 #endif // FULL_DEBUG
 
 #ifdef    DEBUG
+    #include "debug_output.hxx" // dump_to_file
     #define debug(print) print
 #else  // DEBUG
     #define debug(print)
@@ -531,9 +528,9 @@ namespace sho_overlap {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
 #if 0
   template <typename real_t>
@@ -1003,7 +1000,7 @@ namespace sho_overlap {
                       assert(std::abs(m(in,in).imag()) < threshold);
                   } // in
               } // m
-#endif
+#endif // 0
               // LAPACK call (Fortran77 interface);
               if (overlap_eigvals) {
 
@@ -1021,7 +1018,7 @@ namespace sho_overlap {
                         std::printf("(%.9f,%.9f) ", c.real(), c.imag());
                     }  std::printf("\n");
                   } // DEBUG
-#endif
+#endif // 0
               } else { // overlap_eigvals
 
                   // solve generalized eigenvalue problem kin_mat*X == diag*ovl_mat*X

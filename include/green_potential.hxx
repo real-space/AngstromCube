@@ -41,7 +41,7 @@ namespace green_potential {
 
         bool const imaginary = ((2 == R1C2) && (0 != E_imag));
 
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
         int const inz0 = blockIdx.y;  // start of the grid-stride loop on y-blocks
         int const i64  = blockIdx.x;  // target grid point index == inner column dimension, in [0, 64)
         int const reim = threadIdx.z; // real or imaginary part of the Green function
@@ -57,8 +57,8 @@ namespace green_potential {
 #endif // HAS_NO_CUDA
         { // threads loops and block loop
 
-// #define CONFINEMENT_POTENTIAL
-#ifdef  CONFINEMENT_POTENTIAL
+//#define CONFINEMENT_POTENTIAL
+#ifdef    CONFINEMENT_POTENTIAL
         // generate the position difference of grid points (target minus source)
         int const x = ( i64       & 0x3) - ( j64       & 0x3);
         int const y = ((i64 >> 2) & 0x3) - ((j64 >> 2) & 0x3);
@@ -74,7 +74,7 @@ namespace green_potential {
         for (int inzb = inz0; inzb < nnzb; inzb += gridDim.y) { // grid-stride loop on y-blocks
 
             real_t Vconfine = 0; // non-const
-#ifdef  CONFINEMENT_POTENTIAL
+#ifdef    CONFINEMENT_POTENTIAL
             if (rcut2 >= 0.f) {
                 int constexpr n4 = 4;
                 auto const s = shift[inzb]; // shift vectors between target minus source cube, ToDo: we could generate it from rowCubeCoords - colCubeCoords
@@ -171,7 +171,7 @@ namespace green_potential {
         return (  1ul
                +  2ul*(0 != E_param.imag())
                +  4ul*(2 == Noco)
-#ifdef CONFINEMENT_POTENTIAL
+#ifdef    CONFINEMENT_POTENTIAL
                + 10ul*(rcut2 >= 0.f)
 #endif // CONFINEMENT_POTENTIAL
                )*nnzb*pow2(64ul*Noco)*R1C2; // total number of floating point operations performed

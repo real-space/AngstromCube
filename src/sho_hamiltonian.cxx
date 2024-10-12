@@ -102,7 +102,7 @@ namespace sho_hamiltonian {
       using real_t = decltype(std::real(complex_t(1))); // base type of complex_t
 
       status_t stat(0);
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 3) std::printf("\n\n# start %s<%s, phase_t=%s> nB=%d n_periodic_images=%d\n", 
           __func__, complex_name<complex_t>(), complex_name(*Bloch_phase), nB, n_periodic_images);
 #endif // DEVEL
@@ -683,9 +683,9 @@ namespace sho_hamiltonian {
 
   
   
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_Hamiltonian(int const echo=5) {
       status_t stat(0);

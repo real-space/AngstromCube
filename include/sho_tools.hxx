@@ -5,9 +5,9 @@
 #include <cstdint> // int64_t
 #include <string> // std::string
 
-#ifndef NO_UNIT_TESTS
-  #include <vector> // std::vector<T>
-#endif
+#ifndef   NO_UNIT_TESTS
+    #include <vector> // std::vector<T>
+#endif // NO_UNIT_TESTS undefined
 
 #include "status.hxx" // status_t
 #include "inline_math.hxx" // pow2, pow3
@@ -387,9 +387,9 @@ namespace sho_tools {
       return 0; // success
   } // construct_label_table
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_order_enum(int const echo=4) {
       SHO_order_t const ord[9] = {order_zyx, order_Ezyx, order_lmn, order_lnm,

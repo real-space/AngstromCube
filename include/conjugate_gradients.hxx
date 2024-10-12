@@ -16,14 +16,14 @@
 #include "control.hxx" // ::get
 #include "grid_operators.hxx" // ::kpoint_t<>
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
 //  // additional includes needed by test_eigensolve in particle_in_box.hxx
 //  #include <cmath> // std::cos
 //  #include <complex> // std::complex
 //  #include "complex_tools.hxx" // complex_name
     #include "simple_math.hxx" // ::random
     #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
-#endif
+#endif // NO_UNIT_TESTS undefined
 
 namespace conjugate_gradients {
 
@@ -343,9 +343,9 @@ namespace conjugate_gradients {
       return stat;
   } // eigensolve
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   #include "particle_in_box.hxx" // test_eigensolve
 

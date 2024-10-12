@@ -3,14 +3,14 @@
 
 #include <cmath> // std::exp
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
     #include <cstdio> // std::printf
     #include <algorithm> // std::max
     #include <cmath> // std::abs, std::sqrt
     #include <cassert> // assert
 
     #include "constants.hxx" // constants::pi
-#endif // NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS undefined
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 
@@ -36,9 +36,9 @@
 
 namespace hermite_polynomial {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename real_t>
   inline status_t test_Gauss_Hermite_polynomials(int const echo=4, double const threshold=7e-15) {

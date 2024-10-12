@@ -17,15 +17,15 @@
 #include "linear_algebra.hxx" // ::linear_solve
 #include "boundary_condition.hxx" // Periodic_Boundary
 
-#ifndef NO_UNIT_TESTS
-  #include "real_space.hxx" // ::grid_t, ::Bessel_projection
-  #include "radial_grid.h" // radial_grid_t
-  #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant, ::destroy_radial_grid
-  #include "bessel_transform.hxx" // ::transform_s_function
-  #include "radial_potential.hxx" // ::Hartree_potential
-  #include "fourier_poisson.hxx" // ::solve
-  #include "control.hxx" // ::get
-#endif
+#ifndef   NO_UNIT_TESTS
+    #include "real_space.hxx" // ::grid_t, ::Bessel_projection
+    #include "radial_grid.h" // radial_grid_t
+    #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant, ::destroy_radial_grid
+    #include "bessel_transform.hxx" // ::transform_s_function
+    #include "radial_potential.hxx" // ::Hartree_potential
+    #include "fourier_poisson.hxx" // ::solve
+    #include "control.hxx" // ::get
+#endif // NO_UNIT_TESTS undefined
 
 namespace iterative_poisson {
   // solve the Poisson equation iteratively using the conjugate gradients method + finite difference

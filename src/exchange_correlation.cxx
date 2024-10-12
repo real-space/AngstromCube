@@ -4,9 +4,9 @@
 #include <cassert> // assert
 #include <cstdio> // std::printf
 
-#ifndef  NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "display_units.h" // eV, _eV, Ang, _Ang
-#endif
+#endif // NO_UNIT_TESTS
 
 #include "exchange_correlation.hxx"
 

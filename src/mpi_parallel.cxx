@@ -39,97 +39,107 @@ namespace mpi_parallel {
 
 #ifndef   MPI_SIZE_AND_RANK_INLINED
 
-  // this solution is not correct if we work with more than 1 different communicator
-  unsigned size(MPI_Comm const comm) {
-      static int size{0};
-      if (0 == size) {
-          size = control::get("mpi.fake.size", 0.);
-          if (size < 1) {
-              MPI_Check(MPI_Comm_size(comm, &size));
-          }
-      } // 1st time
-      assert( size > 0 );
-      return size;
-  } // size
+    // this solution is not correct if we work with more than 1 different communicator
+    unsigned size(MPI_Comm const comm) {
+        static int size{0};
+        if (0 == size) {
+            size = control::get("mpi.fake.size", 0.);
+            if (size < 1) {
+                MPI_Check(MPI_Comm_size(comm, &size));
+            }
+        } // 1st time
+        assert( size > 0 );
+        return size;
+    } // size
 
-  int rank(MPI_Comm const comm, unsigned const check_size) {
-      static int rank{-1};
-      if (-1 == rank) {
-          rank = control::get("mpi.fake.rank", -1.);
-          if (rank < 0) {
-              MPI_Check(MPI_Comm_rank(comm, &rank));
-          }
-      }
-      assert( rank >= 0 );
-      if (check_size > 0) assert( rank < check_size );
-      return rank;
-  } // rank
+    int rank(MPI_Comm const comm, unsigned const check_size) {
+        static int rank{-1};
+        if (-1 == rank) {
+            rank = control::get("mpi.fake.rank", -1.);
+            if (rank < 0) {
+                MPI_Check(MPI_Comm_rank(comm, &rank));
+            }
+        }
+        assert( rank >= 0 );
+        if (check_size > 0) assert( rank < check_size );
+        return rank;
+    } // rank
 
 #endif // MPI_SIZE_AND_RANK_INLINED
 
 
 
 #ifdef    NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  status_t test_simple(int const echo=0) {
-      status_t stat(0);
-//    int argc{0}; char **argv{nullptr};
-//    MPI_Check(MPI_Init(&argc, &argv));
-      MPI_Comm const comm{MPI_COMM_WORLD};
-      int size{0};  MPI_Check(MPI_Comm_size(comm, &size));
-      int rank{-1}; MPI_Check(MPI_Comm_rank(comm, &rank));
-      MPI_Check(MPI_Barrier(comm));
-      if (echo > 0) std::printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
-//    MPI_Check(MPI_Finalize());
+    int will_fail() { return 1; }
 
-      stat += (size < 1); // error if less than 1 process
-      stat += (rank < 0); // error if negative rank
-      stat += (rank >= size); // error if rank out of range
-      return stat;
-  } // test_simple
+    status_t test_MPI_Check_macro(int const echo=0) {
+        if (echo > 0) std::printf("# %s: inject a failing function\n", __func__);
+        return (1 != MPI_Check(will_fail()));
+    } // test_MPI_Check_macro
 
-  status_t test_wrappers(int const echo=0) {
-      status_t stat(0);
-//    stat += mpi_parallel::init();
-      auto const comm = mpi_parallel::comm();
-      auto const size = mpi_parallel::size(comm);
-      auto const rank = mpi_parallel::rank(comm, size);
-      stat += mpi_parallel::barrier(comm);
-      if (echo > 0) std::printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
-//    stat += mpi_parallel::finalize();
+    status_t test_simple(int const echo=0) {
+        // test MPI_Comm_size, MPI_Comm_rank and MPI_Barrier without wrappers
+        status_t stat(0);
+//      int argc{0}; char **argv{nullptr};
+//      MPI_Check(MPI_Init(&argc, &argv));
+        MPI_Comm const comm{MPI_COMM_WORLD};
+        int size{0};  MPI_Check(MPI_Comm_size(comm, &size));
+        int rank{-1}; MPI_Check(MPI_Comm_rank(comm, &rank));
+        MPI_Check(MPI_Barrier(comm));
+        if (echo > 0) std::printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
+//      MPI_Check(MPI_Finalize());
 
-      stat += (size < 1); // error if less than 1 process
-      stat += (rank < 0); // error if negative rank
-      stat += (rank >= size); // error if rank out of range
-      return stat;
-  } // test_wrappers
+        stat += (size < 1); // error if less than 1 process
+        stat += (rank < 0); // error if negative rank
+        stat += (rank >= size); // error if rank out of range
+        return stat;
+    } // test_simple
 
-  template <typename T=uint16_t>
-  status_t test_constants(int const echo=0) {
-      // check that get<T>() produces the right constant, in particular MPI_UINT16 is correct for uint16_t
-      T a[] = {0, 1, 2, 3};
-      auto const np = mpi_parallel::size();
-      if (np > (1u << 14)) {
-          if (echo > 1) std::printf("# %s %s cannot test with more than 2^14 processes, found %d\n", __FILE__, __func__, np);
-          return 1;
-      }
-      MPI_Allreduce(MPI_IN_PLACE, a, 4, get<T>(), MPI_SUM, MPI_COMM_WORLD);
-      return (0 != a[0]) + (np != a[1]) + (2*np != a[2]) + (3*np != a[3]);
-  } // test_constants
+    status_t test_wrappers(int const echo=0) {
+        // test the wrappers to MPI_Comm_size, MPI_Comm_rank and MPI_Barrier
+        status_t stat(0);
+//      bool const already_initialized = mpi_parallel::init();
+        auto const comm = mpi_parallel::comm();
+        auto const size = mpi_parallel::size(comm);
+        auto const rank = mpi_parallel::rank(comm, size);
+        stat += mpi_parallel::barrier(comm);
+        if (echo > 0) std::printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
+//      if (!already_initialized) mpi_parallel::finalize();
 
-  status_t all_tests(int const echo) {
-      status_t stat(0);
-      bool const already_initialized = mpi_parallel::init();
-      stat += test_wrappers(echo);
-      stat += test_simple(echo);
-      stat += test_constants(echo);
-      stat += test_constants<double>(echo);
-      stat += test_constants<size_t>(echo);
-      if (!already_initialized) mpi_parallel::finalize();
-      return stat;
-  } // all_tests
+        stat += (size < 1); // error if less than 1 process
+        stat += (rank < 0); // error if negative rank
+        stat += (rank >= size); // error if rank out of range
+        return stat;
+    } // test_wrappers
+
+    template <typename T=uint16_t>
+    status_t test_constants(int const echo=0) {
+        // check that mpi_parallel::get<T>() produces the right constant MPI_Datatype, in particular MPI_UINT16 is correct for uint16_t
+        T a[] = {0, 1, 2, 3};
+        auto const np = mpi_parallel::size();
+        if (np > (1u << 14)) {
+            if (echo > 1) std::printf("# %s %s cannot test with more than 2^14 processes, found %d\n", __FILE__, __func__, np);
+            return 1;
+        }
+        MPI_Check(MPI_Allreduce(MPI_IN_PLACE, a, 4, mpi_parallel::get<T>(), MPI_SUM, MPI_COMM_WORLD));
+        return (0 != a[0]) + (np != a[1]) + (2*np != a[2]) + (3*np != a[3]);
+    } // test_constants
+
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        bool const already_initialized = mpi_parallel::init();
+        stat += test_MPI_Check_macro(echo);
+        stat += test_wrappers(echo);
+        stat += test_simple(echo);
+        stat += test_constants<uint16_t>(echo);
+        stat += test_constants<double>(echo);
+        stat += test_constants<size_t>(echo);
+        if (!already_initialized) mpi_parallel::finalize();
+        return stat;
+    } // all_tests
 
 #endif // NO_UNIT_TESTS
 

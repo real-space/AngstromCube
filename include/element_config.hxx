@@ -215,9 +215,9 @@ namespace element_config {
       return e;
   } // get
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_show_all_elements(int const echo=2) {
       if (echo > 0) std::printf("# %s:  %s\n", __FILE__, __func__);
