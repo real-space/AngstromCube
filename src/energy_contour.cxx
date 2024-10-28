@@ -347,6 +347,8 @@ namespace energy_contour {
         int const nEpoints = energy_mesh.size();
         if (echo > 0) std::printf("# energy_contour::integration with %d energy points and %d k-points\n", nEpoints, nkpoints);
 
+        int const echo_dos = 10*(0 == control::get("energy_contour.matsubara", 0.)); // more verbose in a DoS (density-of-state) calculation
+
         Complex constexpr zero = 0;
         view2D<Complex> rho_c(nblocks, n4x4x4, zero); // complex density
         view2D<Complex> res_c(nblocks, n4x4x4, zero); // complex response density
@@ -386,7 +388,7 @@ namespace energy_contour {
             } // ikpoint
             if (0 == check) {
                 auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], nblocks*n4x4x4).imag(), comm)*dV;
-                if (echo > 5) std::printf("# Green function solution for E=%s has %g electrons\n",
+                if (echo + echo_dos > 5) std::printf("# Green function solution for E=%s has %g electrons\n",
                                                             energy_parameter_label, rho_integral);
                 // accumulate density over E-points
                 add_product(rho_c[0], nblocks*n4x4x4, rho_E[0], energy_weight);

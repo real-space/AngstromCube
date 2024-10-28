@@ -961,7 +961,9 @@ namespace parallel_potential {
 #endif // HAS_SINGLE_ATOM
 
             std::vector<float> ionization(na, 0.f);
+            {   SimpleTimer atom_init_timer(strip_path(__FILE__), __LINE__, "atom init", 0);
             stat += live_atom_update("initialize", na, Z_owned_atoms.data(), numax.data(), ionization.data(), (double**)1);
+            } // timer
             stat += live_atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
             stat += live_atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
             stat += live_atom_update("sigma cmp",  na, sigma_cmp.data());
