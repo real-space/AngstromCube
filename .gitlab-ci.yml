@@ -18,7 +18,7 @@ build_on_JUSUF:
     - rm -rf build && mkdir build && cd build
     - cmake .. -DCMAKE_INSTALL_PREFIX=~/a43 -DHAS_MKL=ON -DHAS_MPI=ON -DHAS_DEVEL=ON -DHAS_TFQMRGPU=ON -DHAS_RAPIDXML=ON -DHAS_RAPIDJSON=OFF -DHAS_FFTW=ON -DHAS_OPENMP=ON
     - echo "Compiling the code..."
-    - make -j install
+    - make -j
     - cd ..
     - echo "Compile complete."
     - ls ~/a43/lib64 ~/a43/bin
