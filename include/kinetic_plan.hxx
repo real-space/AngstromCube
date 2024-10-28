@@ -16,24 +16,24 @@
 
 namespace kinetic_plan {
 
-    int constexpr nhalo = 4;
+    int constexpr nhalo = 4; // a maximum of 4 cubes (i.e. 16 grid points) is the range of the FD stencil
 
-    int32_t constexpr CUBE_EXISTS = 1;
-    int32_t constexpr CUBE_IS_ZERO = 0;
-    int32_t constexpr CUBE_NEEDS_PHASE = -1;
+    int32_t constexpr CUBE_EXISTS = 1; // positive indices must be reduced by 1 to find the real index
+    int32_t constexpr CUBE_IS_ZERO = 0; // and thus is not stored
+    int32_t constexpr CUBE_NEEDS_PHASE = -1; // negative indices refer to their positive counterparts but with a phase
 
 
     double set_phase(
-          double phase[2][2] // resulting phase factors[forward+backward][real+imag]
+          double phase[2][2] // result: phase factors[forward+backward][real+imag]
         , double const phase_angle=0 // phase_angle in units of 2*pi
         , char const direction='?' // should be 'x', 'y', or 'z'
         , int const echo=0 // verbosity
     ); // declaration only
 
-    void set_phase( // wrapper for set_phase defined above
+    void set_phase( // wrapper for set_phase defined above for all 3 directions
           double phase[3][2][2]
         , double const phase_angles[3]=nullptr
-        , int const echo=0
+        , int const echo=0 // verbosity
     ); // declaration only
 
 } // namespace kinetic_plan
@@ -42,33 +42,33 @@ namespace kinetic_plan {
     class kinetic_plan_t {
     public:
 
-        static int constexpr nhalo = kinetic_plan::nhalo; // a maximum of 4 cubes (i.e. 16 grid points) is the range of the FD stencil.
+        static int constexpr nhalo = kinetic_plan::nhalo; // a maximum of 4 cubes (i.e. 16 grid points) is the range of the FD stencil
 
         kinetic_plan_t() {} // default constructor
 
         kinetic_plan_t(
-            int16_t & FD_range // side result
+            int16_t & FD_range // side result: finite-difference range
           , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
-          , uint32_t const periodicity
-          , std::vector<int32_t> const target_axes[3]
-          , uint32_t const RowStart[]
-          , uint16_t const ColIndex[]
+          , uint32_t const periodicity // number of blocks in the periodic direction (if periodic, 0 otherwise)
+          , std::vector<int32_t> const target_axes[3] // global index labels
+          , uint32_t const RowStart[] // row starts      for the sparse block array to be derived
+          , uint16_t const ColIndex[] // columns indices for the sparse block array to be derived
           , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
           , std::vector<std::vector<bool>> const & sparsity_pattern // memory saving bit-arrays sparsity_pattern[nrhs][idx3]
           , int const echo=0 // log level
-      ); // constructor
+      ); // constructor, declaration only
 
-      ~kinetic_plan_t(); // destructor
+      ~kinetic_plan_t(); // destructor, declaration only
 
       void set(
-            int const dd
-          , double const grid_spacing=1
-          , size_t const nnzbX=1
+            int const derivative_direction // 0:X, 1:Y, 2:Z
+          , double const grid_spacing=1 // in Bohr
+          , size_t const nnzbX=1 // number of non-zero blocks in X
           , int const echo=0 // log level
-          , double const scale_T=1 // scaling
+          , double const scale_T=1 // scaling factor for the kinetic energy
       ); // declaration only
 
-    public: // ToDo: check which members could be private
+    public: // all members are public, ToDo: use accessors
         // members
         green_sparse::sparse_t<int32_t> sparse_;
         double prefactor_ = 0; // = -0.5/h^2,  h:grid spacing in X,Y,Z // prefactor of the kinetic energy in Hartree atomic units
@@ -78,4 +78,3 @@ namespace kinetic_plan {
         int derivative_direction_ = -1; // derivative direction
 
     }; // class kinetic_plan_t
-

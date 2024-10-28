@@ -29,7 +29,7 @@ namespace control {
   } // string2double
 
 
-  int32_t constexpr default_value_tag = 2e9; // pass this as linenumber to _environment
+  int32_t constexpr _default_value_tag = 2e9; // pass this as linenumber to _environment
 
   // hidden function:
   //    _environment(echo, name, value) --> set
@@ -56,7 +56,7 @@ namespace control {
           if (nullptr != value) {
 
               // set
-              bool const warn_about_redefinitons = (echo >= 0); // use a negative echo to suppress re-definition warnings
+              bool const warn_about_redefinitons = (echo > echo_set_without_warning); // use a negative echo to suppress re-definition warnings
               if (warn_about_redefinitons) {
                   auto const oldvalue = std::get<0>(tuple).c_str();
                   assert(nullptr != oldvalue);
@@ -71,7 +71,7 @@ namespace control {
                   } // redefined
               } // warn_about_redefinitons
               std::get<0>(tuple) = value;
-              std::get<1>(tuple) = (default_value_tag == linenumber); // counter how many times this variable was evaluated: init as 1 for defaults, 0 otherwise
+              std::get<1>(tuple) = (_default_value_tag == linenumber); // counter how many times this variable was evaluated: init as 1 for defaults, 0 otherwise
               std::get<2>(tuple) = linenumber; // store line number in input file
                                                // or (if negative) command line argument number
               return value;
@@ -95,27 +95,33 @@ namespace control {
               bool const show_unused  = std::abs(show) & 0x2; // all or only accessed ones
               bool const show_default = std::abs(show) & 0x4; // list also variables that are at their default value
               bool const show_details = (show < 0); // show access count and is_default
+              if (show_details) {
+                  // give a legend to the abbreviations {set, def, file, argv}
+                  std::printf("# definition locations: def=default, argv=command line, file=control.file, set=in code\n");
+              }
               std::printf("# control has the following variables defined:\n#\n");
               int listed{0};
               for (auto const & pair : _map) {
                   auto const times_used = std::get<1>(pair.second); // how many times was this value used?
                   if (show_unused || times_used > 0) {
-                      auto const line = std::get<2>(pair.second);
-                      bool const is_default = (default_value_tag == line);
+                      auto const line = std::get<2>(pair.second); // line number in input file
+                      bool const is_default = (_default_value_tag == line);
                       if (show_default || !is_default) {
                           if (show_details) {
                               std::printf("# used %dx, %s %3d\t", times_used,
-                                  is_default?"def ":((line > 0)?"argv":(line?"line":"set ")),
+                                  is_default?"def ":((line > 0)?"argv":(line?"file":"set ")),
                                   is_default?0:std::abs(line));
                           } // show_details
+                          auto const *const name = pair.first.c_str();
                           auto const & string = std::get<0>(pair.second);
-                          double const numeric = string2double(string.c_str());
+                          auto const *const value = string.c_str();
+                          double const numeric = string2double(value);
                           char buffer[32]; double2string(buffer, numeric);
                           if (string == buffer) {
                               // can be parsed as double, print with %g format
-                              std::printf("# %s=%g\n", pair.first.c_str(), numeric);
+                              std::printf("# %s=%g\n", name, numeric);
                           } else {
-                              std::printf("# %s=%s\n", pair.first.c_str(), string.c_str());
+                              std::printf("# %s=%s\n", name, value);
                           }
                           ++listed;
                       } // variable is at its default value
@@ -155,7 +161,7 @@ namespace control {
           return value;
       } else {
           if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
-          return _environment(echo, name, default_value, default_value_tag); // set_to_default
+          return _environment(echo, name, default_value, _default_value_tag); // set_to_default
       }
   } // get<string>
 
@@ -165,7 +171,11 @@ namespace control {
       return 0;
   } // show_variables
 
-  status_t command_line_interface(char const *const statement, int const iarg, int const echo) {
+  status_t command_line_interface(
+        char const *const statement // string containing "name=value"-statements
+      , int const iarg // index of argument in command line calling sequence, <0 for input file line
+      , int const echo // = default_echo_level, log-level
+  ) {
       auto const equal = (char const*)std::strchr(statement, '='); // find the position of '=' in statement
       if (nullptr == equal) {
           warn("ignored statement \"%s\", maybe missing \'=\'", statement);
@@ -174,9 +184,9 @@ namespace control {
       auto const equal_char = equal - statement;
       assert('=' == statement[equal_char]);
       char name[MaxNameLength]; // get a mutable string
-      std::strncpy(name, statement, std::min(MaxNameLength, int(equal_char))); // copy the statement up to '='
+      std::strncpy(name, statement, std::min(MaxNameLength, int(equal_char))); // copy the statement up to the '=' marker
       name[equal_char] = '\0'; // delete the '=' sign to mark the name
-      char const *const value = equal + 1; // everything after the '=' marker
+      char const *const value = equal + 1; // everything immediately after the '=' marker
       if (echo > 7) std::printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
       _environment(echo, name, value, iarg); // set
       return 0;
@@ -220,14 +230,14 @@ namespace control {
   // read definitions of variables from an input file
   status_t read_control_file(char const *const filename, int const echo) {
       status_t stat(0);
-      char const CommentChar = '#'; // commented lines in control files
-      char const EchoComment = '!'; // comments that should appear in the log
+      char const CommentChar0 = '#'; // commented out lines in the control.file start from '#'
+      char const EchoComment1 = '!'; // comments that should appear in the log file start from "#!"
 
       assert(nullptr != filename);
       if ('\0' == *filename) {
           if (echo > 1) std::printf("# no control file given\n");
           return stat; // 0
-      } // filename != ""
+      } // filename empty
 
       std::ifstream infile(filename, std::ifstream::in);
       if (infile.fail()) {
@@ -242,12 +252,12 @@ namespace control {
           ++linenumber;
           if (echo > 18) std::printf("# %s:%d\t  %s\n", filename, linenumber, line.c_str());
           auto const tlin = left_trim(line);
-          if (CommentChar == tlin[0]) {
+          if (CommentChar0 == tlin[0]) {
               ++ncomments;
               if (echo > 9) std::printf("# %s:%d\t comment: %s\n",
                                            filename, linenumber, tlin.c_str());
-              if (EchoComment == tlin[1]) {
-                  if (echo > 0) std::printf("%s\n", tlin.c_str());
+              if (EchoComment1 == tlin[1]) {
+                  if (echo > 0) std::printf("%s\n", tlin.c_str()); // show comment in the log file
               }
           } else if ("" == tlin) {
               ++nempty;
@@ -258,7 +268,7 @@ namespace control {
               if (line_stat) {
                   warn("failure parsing %s:%d \'%s\'", filename, linenumber, line.c_str());
               } else {
-                 if (echo > 0) std::printf("# %s\n", tlin.c_str()); // show the valid commands
+                  if (echo > 0) std::printf("# %s\n", tlin.c_str()); // show the valid commands
               }
               stat += line_stat;
           }

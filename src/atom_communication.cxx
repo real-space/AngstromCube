@@ -280,8 +280,8 @@ namespace atom_communication {
             stat += acomm.allreduce(owner_data, atom_data, "TEST allreduce", 1., echo);
             mpi_parallel::barrier(comm);
             for (int ia{0}; ia < na; ++ia) {
-                auto const expected = (ia + .25)*owner_data[ia][1];
-                auto const found    =            owner_data[ia][0];
+                auto const expected = owner_data[ia][1]*(ia + .25);
+                auto const found    = owner_data[ia][0];
                 if (echo > 11) std::printf("# rank#%i on owned atom#%i finds %g expects %g\n", me, ia, found, expected);
                 stat += (found != expected);
             } // ia

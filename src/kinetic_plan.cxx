@@ -28,7 +28,7 @@ namespace kinetic_plan {
         auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
         assert(iRow >= 0 && "sparsity_pattern[irhs][idx3] does not match iRow_of_coords[iz][iy][ix]");
 
-        for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+        for (auto inz{RowStart[iRow]}; inz < RowStart[iRow + 1]; ++inz) {
             if (ColIndex[inz] == irhs) return inz; // ToDo: bisection search would be smarter...
         } // search
         return -1; // not found
@@ -111,13 +111,13 @@ namespace kinetic_plan {
         std::vector<std::vector<int32_t>> list(max_lists);
 
         size_t ilist{0}, boundary_block_missing{0};
-        for (uint32_t irhs = 0; irhs < nrhs; ++irhs) {
+        for (uint32_t irhs{0}; irhs < nrhs; ++irhs) {
 //          if (echo > 5) std::printf("# FD list for RHS #%i\n", irhs);
             auto const & sparsity_rhs = sparsity_pattern[irhs];
             assert(number_all_target_coords == sparsity_rhs.size());
-            for (uint32_t iz = 0; iz < num[Z]; ++iz) { //
-            for (uint32_t iy = 0; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
-            for (uint32_t ix = 0; ix < num[X]; ++ix) { //
+            for (uint32_t iz{0}; iz < num[Z]; ++iz) { //
+            for (uint32_t iy{0}; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
+            for (uint32_t ix{0}; ix < num[X]; ++ix) { //
                 uint32_t idx[] = {ix, iy, iz}; // non-const
                 assert(ilist < max_lists);
                 assert(0 == list[ilist].size()); // make sure the list is empty at start
@@ -146,18 +146,22 @@ namespace kinetic_plan {
                     length_stats.add(list_length - nhalo);
 //                  if (echo > 7) std::printf("# FD list of length %d for RHS#%i in %c-direction %i %i %i\n", list_length - nhalo, irhs, direction, idx[X], idx[Y], idx[Z]);
                     // add nhalo end-of-sequence markers
-                    for (int ihalo = 0; ihalo < nhalo; ++ihalo) {
+                    for (int ihalo{0}; ihalo < nhalo; ++ihalo) {
                         list[ilist].push_back(CUBE_IS_ZERO); // append {0, 0, 0, 0} to mark the end of the derivative sequence
                     } // ihalo
 
                     if (periodicity) {
 //                      if (echo > 6) std::printf("# FD list of length %d for RHS#%i in %c-direction first=%i last=%i\n", list_length - nhalo, irhs, direction, first_id, last_id);
-                        assert(first_id >= 0); assert(last_id >= 0);
-                        if(last_id + 1 - first_id != periodicity) error("last_id= %i first_id= %i periodicity= %d RHS#%i xyz={%i %i %i} dd=%c",
-                                                                         last_id,    first_id,    periodicity,   irhs,        ix,iy,iz, dd+'x');
+                        assert(first_id >= 0);
+                        assert(last_id >= 0);
+                        if (last_id + 1 - first_id != periodicity) {
+                            error("last_id= %i first_id= %i periodicity= %d RHS#%i xyz={%i %i %i} dd=%c",
+                                   last_id,    first_id,    periodicity,   irhs,        ix,iy,iz, dd+'x');
+                        } // sanity
                         assert(last_id + 1 - first_id == periodicity); // if the direction is periodic, exactly periodicity adjacent blocks must be nonzero
+
                         for (int i01{0}; i01 < 2; ++i01) { // i01==0:start and i01==1:end
-                            for (int ihalo = 0; ihalo < nhalo; ++ihalo) {
+                            for (int ihalo{0}; ihalo < nhalo; ++ihalo) {
                                 int32_t const jdx_dd = i01 ? (last_id - periodicity + ihalo + 1):
                                                             (first_id + periodicity + ihalo - nhalo);
                                 if (jdx_dd >= 0 && jdx_dd < num_target_coords[dd]) {
@@ -273,7 +277,7 @@ namespace kinetic_plan {
         , double const phase_angles[3] // =nullptr
         , int const echo // =0
     ) {
-        for (int dd = 0; dd < 3; ++dd) {
+        for (int dd{0}; dd < 3; ++dd) {
             set_phase(phase[dd], phase_angles ? phase_angles[dd] : 0, 'x' + dd, echo);
         } // dd
     } // set_phase
@@ -316,7 +320,7 @@ namespace kinetic_plan {
             lists_ = get_memory<int32_t const *>(sparse_.nRows(), echo, _lists);
             auto const rowStart = sparse_.rowStart();
             auto const colIndex = sparse_.colIndex();
-            for (uint32_t il = 0; il < sparse_.nRows(); ++il) {
+            for (uint32_t il{0}; il < sparse_.nRows(); ++il) {
                 lists_[il] = &colIndex[rowStart[il]];
             } // il
       } // set

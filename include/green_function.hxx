@@ -41,7 +41,7 @@ namespace green_function {
 
     status_t update_energy_parameter(
           action_plan_t & p // modify
-        , std::complex<double> E_param
+        , std::complex<double> const E_param
         , double const dVol // volume element of the grid
         , int const echo=0 // verbosity
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear
