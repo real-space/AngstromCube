@@ -12,9 +12,9 @@
 
 namespace potential_generator {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_generalized_Gaussian(int const echo=0) {
       status_t stat(0);

@@ -1,11 +1,12 @@
 // This file is part of AngstromCube under MIT License
 
   #include "self_consistency.hxx" // ::SCF
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "exchange_correlation.hxx" // ::all_tests
   #include "spherical_harmonics.hxx" // ::all_tests
   #include "conjugate_gradients.hxx" // ::all_tests
   #include "potential_generator.hxx" // ::all_tests
+  #include "atom_communication.hxx" // ::all_tests
   #include "parallel_potential.hxx" // ::all_tests
   #include "hermite_polynomial.hxx" // ::all_tests
   #include "global_coordinates.hxx" // ::all_tests
@@ -91,7 +92,7 @@
 //   #include "green_dyadic.hxx" // ::all_tests
 //   #include "green_action.hxx" // ::all_tests
 
-#endif // not NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS undefined
 
 #include <cstdlib> // std::abs, ::abort
 
@@ -180,6 +181,7 @@
           add_module_test(mpi_parallel);
           add_module_test(omp_parallel);
           add_module_test(parallel_domains);
+          add_module_test(atom_communication);
           add_module_test(global_coordinates);
           add_module_test(load_balancer);
 

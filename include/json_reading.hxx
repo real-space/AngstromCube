@@ -5,12 +5,12 @@
 #include <vector> // std::vector<T>
 
 #ifdef    HAS_RAPIDJSON
-  #include <cassert> // assert
-  #include <algorithm> // std::min
-  #include <fstream> // std::ifstream
-  #include <sstream> // std::ostringstream
-  // git clone https://github.com/Tencent/rapidjson.git
-  #include "include/rapidjson/document.h" // rapidjson::Document
+    #include <cassert> // assert
+    #include <algorithm> // std::min
+    #include <fstream> // std::ifstream
+    #include <sstream> // std::ostringstream
+    // git clone https://github.com/Tencent/rapidjson.git
+    #include "include/rapidjson/document.h" // rapidjson::Document
 #endif // HAS_RAPIDJSON
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -228,9 +228,9 @@ namespace json_reading {
 #endif // HAS_RAPIDJSON
   } // load_Hamiltonian
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_json_reader(int const echo=0) {
       uint32_t ng[3];

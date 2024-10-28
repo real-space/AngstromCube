@@ -454,7 +454,7 @@ namespace grid_operators {
               Hamiltonian(&Hmat[dof*stride], psi.data(), kp, echo);
               Overlapping(&Smat[dof*stride], psi.data(), kp, echo);
           } // dof
-          if (echo > 1) std::printf("# %s done\n\n", __func__);
+          if (echo > 2) std::printf("# %s done for 2 matrics of %.3f MByte each\n\n", __func__, ndof*1e-6*ndof*sizeof(complex_t));
       } // construct_dense_operator
 
       int write_to_file( // TODO: could be moved out of the templated class

@@ -47,8 +47,8 @@ public: // TODo: check which members could be private
     memWindow_t matXwin; // solution vector in GPU memory
     memWindow_t vec3win; // random number vector in GPU memory
 
-    uint32_t nRows = 0; // number of block rows in the Green function
-    uint32_t nCols = 0; // number of block columns, max 65,536 columns
+    uint32_t nRows = 0; // number of cube rows in the Green function
+    uint32_t nCols = 0; // number of cube columns, max 65,536 columns
     std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transferred to the GPU
 
     // for memory management:
@@ -92,7 +92,7 @@ public: // TODo: check which members could be private
 
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
-    green_parallel::RequestList_t potential_requests; // request list to exchange potential blocks
+    green_parallel::RequestList_t potential_requests; // request list to exchange potential cubes
     green_parallel::RequestList_t matrices_requests;  // request list to exchange atomic matrices
 
 

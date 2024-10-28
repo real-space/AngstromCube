@@ -320,7 +320,7 @@ namespace real_space {
                               ++modified;
 #endif // DEBUG
 
-#if       0
+#if 0
 //        std::printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
 //        std::printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
 #endif // 0
@@ -360,7 +360,7 @@ namespace real_space {
       for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
           imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
-// #ifdef DEBUG
+// #ifdef    DEBUG
 //           std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
 // #endif // DEBUG
       } // d
@@ -398,9 +398,9 @@ namespace real_space {
 
 
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_create_and_destroy(int const echo=9) {
       int const dims[] = {10, 20, 30};

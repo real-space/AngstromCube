@@ -17,7 +17,7 @@
 #include "linear_algebra.hxx" // ::inverse
 #include "display_units.h" // Ang, _Ang
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "control.hxx" // ::get
   #include "real_space.hxx" // ::grid_t
   #include "sho_projection.hxx" // ::sho_project, ::sho_add
@@ -599,7 +599,7 @@ namespace sho_potential {
               // Vaux(i,k) = sum_p Vcoeff[m] * t(m,i,k)
               int constexpr isotropic = 0;
               stat += sho_potential::potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], numax_k, 1.0, isotropic);
-#ifdef DEVEL
+#ifdef    DEVEL
               if (echo > 17) {
                   std::printf("\n# Vaux for the atom #%i:\n", ia);
                   std::printf("# i-legend   ");

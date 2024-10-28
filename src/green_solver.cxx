@@ -111,9 +111,9 @@ typedef green_action::action_t<double,2,2> Act822;
 
 namespace green_solver {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
     status_t test_construction_and_destruction(int const echo) {
         status_t stat(0);

@@ -54,8 +54,7 @@ namespace inline_math {
 //        std::printf("# %i! = %g\n", n, fac);
           if (!is_integer(fac)) {
               ++stat;
-              if (echo > 0) std::printf("# %i! = %g is non-integer by %g\n",
-                                       n, fac, fac - std::round(fac));
+              if (echo > 0) std::printf("# %i! = %g is non-integer by %g\n", n, fac, fac - std::round(fac));
           } // is not integer
           fac *= (n + 1.); // prepare next
       } // n
@@ -67,8 +66,7 @@ namespace inline_math {
 //        std::printf("# %i!! = %g\n", n, fac2);
           if (!is_integer(fac2)) { 
               ++stat;
-              if (echo > 0) std::printf("# %i! = %g is non-integer by %g\n", 
-                                       n, fac2, fac2 - std::round(fac2));
+              if (echo > 0) std::printf("# %i! = %g is non-integer by %g\n", n, fac2, fac2 - std::round(fac2));
           } // is not integer
           fac2 *= (n + 2); // prepare next
       } // n
@@ -165,11 +163,11 @@ namespace inline_math {
           b[i] = (i + 1/real_t(4))*i;
           c[i] = i*i + 9*i + 99;
       } // i
-      product(yabcf, N, a, b, c, f); // y[:] = a[:]*b[:]*c[:]*f
-      product(yabf, N, a, b, f);     // y[:] = a[:]*b[:]*f
+      product(yabcf, N, a, b, c, f); // y[:] = f*a[:]*b[:]*c[:]
+      product(yabf, N, a, b, f);     // y[:] = f*a[:]*b[:]
       for (size_t i{0}; i < N; ++i) {
-          stat += (a[i]*b[i]*c[i]*f != yabcf[i]);
-          stat += (a[i]*b[i]*f      != yabf[i]);
+          stat += (f*a[i]*b[i]*c[i] != yabcf[i]);
+          stat += (f*a[i]*b[i]      != yabf[i]);
       } // i
       if (stat + echo > 3) std::printf("# %s(N= %ld): %d errors\n", __func__, N, int(stat)); 
       return stat;

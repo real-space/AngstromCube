@@ -10,12 +10,12 @@
 #include "green_input.hxx"
 
 #include "status.hxx" // status_t
-#ifdef  HAS_RAPIDXML
-  // git clone https://github.com/dwd/rapidxml or https://github.com/discord/rapidxml
-  #include "rapidxml.hpp" // ::xml_document<>
-  #include "rapidxml_utils.hpp" // rapidxml::file<>
+#ifdef    HAS_RAPIDXML
+    // git clone https://github.com/dwd/rapidxml or https://github.com/discord/rapidxml
+    #include "rapidxml.hpp" // ::xml_document<>
+    #include "rapidxml_utils.hpp" // rapidxml::file<>
 
-  #include "xml_reading.hxx" // ::find_attribute, ::find_child
+    #include "xml_reading.hxx" // ::find_attribute, ::find_child
 #endif // HAS_RAPIDXML
 
 #include "sho_tools.hxx" // ::nSHO
@@ -220,6 +220,10 @@ namespace green_input {
 #endif // HAS_RAPIDXML
     } // load_Hamiltonian
 
+#ifdef    NO_UNIT_TESTS
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else  // NO_UNIT_TESTS
+
     status_t test_loading(int const echo=0) {
         uint32_t ng[3]; // numbers of grid points
         int8_t bc[3]; // boundary conditions
@@ -232,10 +236,12 @@ namespace green_input {
         return load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, atom_mat, filename, echo);
     } // test_loading
 
-    status_t all_tests(int echo) {
+    status_t all_tests(int const echo) {
         status_t stat(0);
         stat += test_loading(echo);
         return stat;
     } // all_tests
+
+#endif // NO_UNIT_TESTS
 
 } // namespace green_input

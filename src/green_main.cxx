@@ -15,6 +15,7 @@
 
 #ifndef   NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests
+  #include "atom_communication.hxx" // ::all_tests
   #include "boundary_condition.hxx" // ::all_tests
   #include "recorded_warnings.hxx" // ::all_tests
   #include "parallel_poisson.hxx" // ::all_tests
@@ -82,6 +83,7 @@
           add_module_test(unit_system);
           add_module_test(geometry_input);
           add_module_test(chemical_symbol);
+          add_module_test(atom_communication);
           add_module_test(boundary_condition);
           add_module_test(global_coordinates);
           add_module_test(xml_reading);

@@ -25,7 +25,7 @@
 
 #ifndef   NO_UNIT_TESTS
     #include "control.hxx" // ::get
-#endif // NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS undefined
 
 
 namespace radial_eigensolver {
@@ -45,7 +45,7 @@ namespace radial_eigensolver {
       , int const maxiter // [optional] maximum number of iterations
       , float const threshold // [optional] threshold for eigenvalue convergence
   ) {
-#ifdef DEBUG
+#ifdef    DEBUG
       if (enn < 1) exit(__LINE__); // "rINT shooting_method: ENN < 1 unphysical."
       if (ell >= enn) exit(__LINE__); // "rINT shooting_method: ELL must be < ENN"
 #endif // DEBUG
@@ -65,7 +65,7 @@ namespace radial_eigensolver {
           E += (nno - nn) * max_dE;
           max_dE *= 1.0625; // growing exponentially
           kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
           std::printf("# %s: find-correct-node for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nn);
 #endif // FULL_DEBUG
           if (E < lower_energy_stop) {
@@ -74,7 +74,7 @@ namespace radial_eigensolver {
           }
       } // while
 
-#ifdef DEBUG
+#ifdef    DEBUG
       std::printf("\n# %s: needed %d iterations to find the correct number of nodes for n=%d l=%d E= %.9f %s\n", __func__, iit, enn, ell, E*eV, _eV);
 #endif // DEBUG
 
@@ -83,7 +83,7 @@ namespace radial_eigensolver {
       double ene[2], knk[2], mdE[2] = {.01, .01};
       double const inc[2] = {1.125, 1.01};
       int nnn[2];
-#ifdef  DEBUG
+#ifdef    DEBUG
       int itn[2] = {0, 0};
 #endif // DEBUG
       for (auto ib = 0; ib < 2; ++ib) { // ib in {0, 1} == {lower, upper}
@@ -97,10 +97,10 @@ namespace radial_eigensolver {
               ene[ib] += sgn_ib * mdE[ib];
               mdE[ib] *= inc[ib]; // growing exponentially for the next iteration
               knk[ib] = radial_integrator::shoot(sra, g, rV, ell, ene[ib], nnn[ib]);
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
               std::printf("# %s: get-correct-kink-sign for (%s) n=%d l=%d E=%g %s, kink= %g, %d nodes\n", __func__, ib?"upper":"lower", enn, ell, ene[ib]*eV, _eV, knk[ib], nnn[ib]);
 #endif // FULL_DEBUG
-#ifdef  DEBUG
+#ifdef    DEBUG
               if (nno != nnn[ib]) std::printf("# %s: Warning for n=%d l=%d E= %.15f %s, %d nodes expected, %d nodes found\n", 
                                             __func__, enn, ell, ene[ib]*eV, _eV, nno, nnn[ib]);
 #endif // DEBUG
@@ -109,16 +109,16 @@ namespace radial_eigensolver {
                   return -98; // something went wrong
               }
           } // while
-#ifdef  DEBUG
+#ifdef    DEBUG
           itn[ib] = iit;
 #endif // DEBUG
       } // ib
-#ifdef  DEBUG
+#ifdef    DEBUG
       std::printf("# %s: needed %d and %d iterations for the start values n=%d l=%d\n", __func__, itn[0], itn[1], enn, ell);
       std::printf("# %s: start interval [%g, %g] %s, kinks = [%.6f, %.6f] for n=%d l=%d\n", __func__, ene[0]*eV, ene[1]*eV, _eV, knk[0], knk[1], enn, ell);
 #endif // DEBUG
 
-// #ifdef DEBUG
+// #ifdef    DEBUG
 //       std::printf("# %s: set start energy interval for n=%d l=%d to [%.9f, %.9f] %s\n", __func__, enn, ell, ene[0]*eV, ene[1]*eV, _eV);
 // #endif // DEBUG
 
@@ -131,7 +131,7 @@ namespace radial_eigensolver {
           // new energy in the middle of ene[0] and ene[1]
           E = 0.5*(ene[0] + ene[1]);
           
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
           std::printf("# %s: converge-energy for n=%d l=%d, try E= %.9f %s\n", __func__, enn, ell, E*eV, _eV);
 #endif // FULL_DEBUG
           kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
@@ -139,7 +139,7 @@ namespace radial_eigensolver {
           // bisection: reset either the left or the right boundary
           int const ib = (kink < 0)? 1 : 0;
           ene[ib] = E;
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
           std::printf("# %s: found kink = %g, adjust %s limit: [%.9f, %.9f] %s\n", __func__, kink, (ib)? "upper" : "lower", ene[0]*eV, ene[1]*eV, _eV);
 #endif // FULL_DEBUG
           auto const res = std::abs(E - E_prev); // calculate energy change
@@ -149,7 +149,7 @@ namespace radial_eigensolver {
           run = (!converged) && (iit < maxiter);
       } // while(run)
 
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
       std::printf("# %s: needed %d iterations to converge to E= %.9f %s\n", __func__, iit, E*eV, _eV);
 #endif // FULL_DEBUG
 
@@ -172,9 +172,9 @@ namespace radial_eigensolver {
   } // shooting_method
 
   
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_hydrogen_like_potential(
         int const echo=5 // log-level
@@ -183,7 +183,7 @@ namespace radial_eigensolver {
       status_t stat(0);
       auto & g = *radial_grid::create_radial_grid(2616);
       std::vector<double> const rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
-// #define   PLOT_STATE_DIAGRAM
+//#define PLOT_STATE_DIAGRAM
 #ifdef    PLOT_STATE_DIAGRAM
       double const percent = 0.05;
       { // plot state diagramm (as in atom_core.cxx)
@@ -237,7 +237,7 @@ namespace radial_eigensolver {
                       } // scope: plot state diagramm
 #endif // PLOT_STATE_DIAGRAM
                   } // echo
-#ifdef  DEBUG
+#ifdef    DEBUG
                   char filename[32]; std::snprintf(filename, 31, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
                   dump_to_file(filename, g.n, rf.data(), g.r);
 #endif // DEBUG

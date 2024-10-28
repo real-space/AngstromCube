@@ -325,7 +325,7 @@ namespace energy_contour {
         std::vector<double> Veff(nblocks*n4x4x4, 0.);
         double constexpr scale_V = 1.0;
         set(Veff.data(), nblocks*n4x4x4, Vtot, scale_V);
-        stat += green_function::update_potential(plan, pg.grid_blocks(), Veff, AtomMatrices, echo, Noco);
+        stat += green_function::update_potential(plan, pg.grid_cubes(), Veff, AtomMatrices, echo, Noco);
 
         int const verify_pot = control::get("verify.potential", 0.);
         if (verify_pot) {

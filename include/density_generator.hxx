@@ -55,7 +55,7 @@ namespace density_generator {
           // add to the atomic density matrix
           for (int i = 0; i < ncoeff; ++i) {
               auto const c_i = conjugate(atom_coeff[offset + i]);
-#ifdef DEVEL
+#ifdef    DEVEL
               if (echo > 16) std::printf("# k-point #%i band #%i atom #%i coeff[%i]= %.6e %g |c|= %g\n",
                                   ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i), std::abs(c_i));
 #endif // DEVEL
@@ -138,7 +138,7 @@ namespace density_generator {
               for (int ia = 0; ia < natoms; ++ia) {
                   auto const c_ia = &coeff(iband,coeff_starts[ia]);
                   product(c_ia, natom_coeff[ia], atom_coeff[ia], scale_factors[ia].data());
-#ifdef DEVEL
+#ifdef    DEVEL
                   for (int i = 0; i < natom_coeff[ia]; ++i) {
                       auto const c_i = c_ia[i];
                       if (echo > 16) std::printf("# k-point #%i band #%i atom #%i coeff[%i]= %.6e %g new\n",
@@ -218,7 +218,7 @@ namespace density_generator {
                       __func__, ikpoint, iband, occupation[iband], d_occupation[iband]*kT, eigenenergies[iband]*eV, _eV);
 
                   add_to_density(rho, g.all(), psi_nk, weight_nk, echo, iband, ikpoint);
-#if 0 // def DEBUG
+#if 0 //def    DEBUG
                   if (echo > 0) { 
                       std::printf("# valence density ");
                       auto const new_charge = print_stats(rho, g.all(), g.dV());
@@ -279,14 +279,14 @@ namespace density_generator {
               std::printf("\n");
           } // ia
       } // echo
-#endif // DEVEL
+#endif // 1
 
       return stat;
   } // density
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_init(int const echo=3) {
       real_space::grid_t const g(4, 5, 6);

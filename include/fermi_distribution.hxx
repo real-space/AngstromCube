@@ -281,9 +281,9 @@ namespace fermi_distribution {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_integration(int const echo=3, int const n=580, double const de=.0625) {
       if (echo > 6) std::printf("\n## plot Fermi-Dirac distribution (%d points)\n", n);

@@ -8,7 +8,7 @@
 
 #include "status.hxx" // status_t
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include "simple_timer.hxx" // SimpleTimer
   // the following header files contain CUDA code. When CUDA is available, the sources are soft linked to .cu files
   #include "green_action.hxx"       // ::all_tests
@@ -18,7 +18,7 @@
   #include "green_memory.hxx"       // ::all_tests
   #include "green_potential.hxx"    // ::all_tests
   #include "green_solver.hxx"       // ::all_tests
-#endif // not NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS undefined
 
 #include <cstdio> // std::printf
 #include <vector> // std::vector

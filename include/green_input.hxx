@@ -19,6 +19,6 @@ namespace green_input {
       , int const echo=0 // log-level
   ); // declaration only
 
-  status_t all_tests(int echo=0); // declaration only
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_input

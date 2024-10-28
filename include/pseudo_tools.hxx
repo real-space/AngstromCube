@@ -48,7 +48,7 @@ namespace pseudo_tools {
           // b is the inhomogeneus right side of the set of linear equations
           bvec[i4] = fun[ir];
       } // i4
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 7) {
           std::printf("\n");
           for (int i4 = 0; i4 < nm; ++i4) {
@@ -62,7 +62,7 @@ namespace pseudo_tools {
 #endif // DEVEL
       auto const info = linear_algebra::linear_solve(nm, Amat[0], 4, bvec, 4, 1);
       double* x = bvec; // rename memory
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 7) {
           std::printf("# %s xvec     ", __func__);
           printf_vector(" %16.9f", x, nm);
@@ -98,7 +98,7 @@ namespace pseudo_tools {
       auto const stat = pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
 //    alternatively:    pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
       if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 8) { // plot the densities
           std::printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
           for (int ir = 0; ir < nrs; ir += 2) { // plot only every second entry
@@ -225,7 +225,7 @@ namespace pseudo_tools {
                   xi[i] = rg[TRU].r[ir] - x0;
               }
           } // order
-#ifdef DEVEL
+#ifdef    DEVEL
           if (echo > 22) {
               std::printf("\n## Lagrange-N, reference-value, Lagrange(rcut), dLagrange/dr, d^2Lagrange/dr^2, status:\n");
               for (int order = 1; order < 16; ++order) {
@@ -302,7 +302,7 @@ namespace pseudo_tools {
           } // ir
 
       } // method
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 11) {
           std::printf("\n\n## %s: r in %s, r*V_tru(r), r*V_smt(r) in %s*%s:\n", __func__, _Ang, _Ang, _eV);
           auto const factors = df*eV*Ang;
@@ -387,7 +387,7 @@ namespace pseudo_tools {
       double const det_L = simple_math::invert(n, L_inv.data(), L_inv.stride(), L.data(), n);
       if (echo > 91) std::printf("# %s: |U|= %g, |L|= %g\n", __func__, det_U, det_L);
 
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo > 11) { // check that the factorization worked
 
           for (int i = 0; i < n; ++i) {
@@ -425,9 +425,9 @@ namespace pseudo_tools {
   } // perform_Gram_Schmidt
 
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_pseudize_function(int const echo=0, int const nr=96) {
       status_t stat(0);

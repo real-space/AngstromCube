@@ -38,7 +38,7 @@
   // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
   int8_t constexpr Wrap_Boundary = 5;
   // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
-  // Nevertheless, it cannot be treated like Isolated_Boundary since target block coordinates may need to be wrapped.
+  // Nevertheless, it cannot be treated like Isolated_Boundary since target cube coordinates may need to be wrapped.
   // However, it could be viewed as Repeat_Boundary...
 
 

@@ -1,10 +1,11 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-#ifndef NO_UNIT_TESTS
-  #include <cstdio> // std::printf
-  #include <algorithm> // std::max
-#endif
+#ifndef   NO_UNIT_TESTS
+    #include <cstdio> // std::printf
+    #include <algorithm> // std::max
+#endif // NO_UNIT_TESTS undefined
+
 #include <cmath> // std::sqrt
 #include <cassert> // assert
 
@@ -97,9 +98,9 @@ namespace sho_radial {
 
 
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename real_t>
   real_t numerical_norm(real_t const c0[], int const nrn0,

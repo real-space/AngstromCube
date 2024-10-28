@@ -10,7 +10,7 @@
 #include "complex_tools.hxx" // complex_name
 #include "grid_operators.hxx" // ::kpoint_t<>
 
-// #define DEBUG
+// #define   DEBUG
 
 namespace dense_operator {
 
@@ -69,9 +69,9 @@ namespace dense_operator {
       bool use_overlap() const { return (nullptr != Smt); }
   }; // class dense_operator_t
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_construct_and_destroy(int const echo=0) {
       double const matrix[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
@@ -89,6 +89,6 @@ namespace dense_operator {
 
 } // namespace dense_operator
 
-#ifdef DEBUG
-  #undef DEBUG
-#endif
+#ifdef    DEBUG
+  #undef  DEBUG
+#endif // DEBUG

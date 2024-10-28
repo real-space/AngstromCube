@@ -4,7 +4,7 @@
 #include <cstdlib> // size_t
 #include <cmath> // std::round
 
-  template <int nBits> inline
+  template <unsigned nBits> inline
   size_t align(int64_t const in) {
       return ((((in - 1) >> nBits) + 1) << nBits);
   } // align
@@ -20,7 +20,7 @@
 
   template <typename real_t> inline
   real_t intpow(real_t const x, unsigned const nexp) {
-      // power function using recursive doubling, only non-negative powers possible
+      // Order(log n) power function using recursive doubling, only non-negative powers possible, see https://en.wikipedia.org/wiki/Exponentiation_by_squaring
       unsigned n{nexp};
       real_t xbin{x}, xpow{real_t(1)};
       while (n) {
@@ -60,23 +60,23 @@
 
   template <typename real_t, typename real_a_t, typename real_b_t> inline
   void product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_t const f=1) {
-      for (size_t i = 0; i < n; ++i) { y[i] = a[i]*b[i]*f; }
+      for (size_t i = 0; i < n; ++i) { y[i] = f*a[i]*b[i]; }
   } // product
 
   template <typename real_t, typename real_a_t, typename real_b_t, typename real_c_t> inline
   void product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_c_t const c[], real_t const f=1) {
-      for (size_t i = 0; i < n; ++i) { y[i] = a[i]*b[i]*c[i]*f; }
+      for (size_t i = 0; i < n; ++i) { y[i] = f*a[i]*b[i]*c[i]; }
   } // product
 
   template <typename real_t, typename real_a_t> inline
   void add_product(real_t y[], size_t const n, real_a_t const a[], real_t const f) {
       // no default value for f here, otherwise the name add_product is missleading!
-      for (size_t i = 0; i < n; ++i) { y[i] += a[i]*f; }
+      for (size_t i = 0; i < n; ++i) { y[i] += f*a[i]; }
   } // add_product == axpy-type
 
   template <typename real_t, typename real_a_t, typename real_b_t> inline
   void add_product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_t const f=1) {
-      for (size_t i = 0; i < n; ++i) { y[i] += a[i]*b[i]*f; }
+      for (size_t i = 0; i < n; ++i) { y[i] += f*a[i]*b[i]; }
   } // add_product
 
   template <typename real_t, typename real_a_t> inline
@@ -103,7 +103,7 @@
 
 
 
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
 
     #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 

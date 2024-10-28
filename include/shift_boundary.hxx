@@ -4,10 +4,10 @@
 #include <cstdio> // std::printf
 #include <cmath> // std::sqrt, ::round
 #include <algorithm> // std::max
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include <cstdint> // int64_t, uint8_t
   #include <vector> // std::vector<T>
-#endif // NO_UNIT_TESTS
+#endif // NO_UNIT_TESTS undefined
 
 #include "constants.hxx" // ::pi
 #include "display_units.h" // Ang, _Ang
@@ -314,9 +314,9 @@ namespace shift_boundary {
       return stat;
   } // test_plane_wave
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 1) std::printf("\n# %s: %s\n\n", __FILE__, __func__);

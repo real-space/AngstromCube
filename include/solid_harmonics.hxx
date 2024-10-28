@@ -38,7 +38,7 @@ namespace solid_harmonics {
       static int ellmaxd = -1; // -1:not_initalized
 
       if (ellmax > ellmaxd) {
-#ifdef DEBUG
+#ifdef    DEBUG
           std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
 #endif // DEBUG
           xnorm.resize((1 + ellmax)*(1 + ellmax));
@@ -186,9 +186,9 @@ namespace solid_harmonics {
   inline int find_emm(int const lm, int const ell) { return lm - lm_index(ell, 0); }
   inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_indices(int const echo=0) {
       // test interal consistency of find_ell and find_emm

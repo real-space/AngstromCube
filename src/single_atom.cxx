@@ -1697,7 +1697,10 @@ namespace single_atom {
             } // rescale
 
             // generate a mixed density
-            double density_change{0}, Coulomb_change{0}, check_charge{0}; // some stats
+            double density_change{0}, Coulomb_change{0};
+#ifdef    DEVEL
+            double check_charge{0}; // some stats
+#endif // DEVEL
             for (int ir = 0; ir < g.n; ++ir) {
                 auto const new_rho = new_r2density(csv,ir)*pow2(g.rinv[ir]); // *r^{-2}
                 auto const old_rho = spherical_density[TRU](csv,ir);
@@ -1706,7 +1709,9 @@ namespace single_atom {
                 Coulomb_energy[csv] +=      new_rho           *g.rdr[ir]; // Coulomb integral
                 auto const mixed_rho = mix_new*new_rho + mix_old*old_rho;
                 spherical_density[TRU](csv,ir) = mixed_rho;
+#ifdef    DEVEL
                 check_charge    += mixed_rho*g.r2dr[ir];
+#endif // DEVEL
             } // ir
             Coulomb_energy[csv] *= -Z_core;
             Coulomb_change      *= -Z_core; // to get an energy estimate
@@ -3099,7 +3104,7 @@ namespace single_atom {
         } // gnt
 
 #ifdef    DEVEL
-// #ifdef FULL_DEBUG
+// #ifdef    FULL_DEBUG
         if (echo > 0) {
             int const nln = sho_tools::nSHO_radial(numax);
             for (int lm = 0; lm < 1; ++lm) {

@@ -417,7 +417,7 @@ namespace structure_solver {
         , int const echo=9 // log-level
     ) {
         status_t stat(0);
-#ifdef DEVEL
+#ifdef    DEVEL
         if (echo > 0) {
             std::printf("\n\n#\n# Solve Kohn-Sham equation (basis=%s)\n#\n\n", basis_method);
             std::fflush(stdout);
@@ -603,10 +603,10 @@ namespace structure_solver {
 
 } // namespace structure_solver
 
-#ifdef DEBUG
-  #undef DEBUG
+#ifdef    DEBUG
+  #undef  DEBUG
 #endif // DEBUG
 
-#ifdef FULL_DEBUG
-  #undef FULL_DEBUG
+#ifdef    FULL_DEBUG
+  #undef  FULL_DEBUG
 #endif // FULL_DEBUG

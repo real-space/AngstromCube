@@ -38,7 +38,7 @@
         // free_memory(source_coords);
         // free_memory(target_coords);
         free_memory(target_minus_source);
-        for (int mag = 0; mag < 4*(nullptr != Veff); ++mag) {
+        for (int mag{0}; mag < 4*(nullptr != Veff); ++mag) {
             free_memory(Veff[mag]);
         } // mag
         free_memory(Veff);
@@ -56,14 +56,15 @@ namespace action_plan {
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-    status_t test_construction_and_destrunction(int const echo=3) {
+    status_t test_construction_and_destruction(int const echo=3) {
         action_plan_t ap;
+        if (echo > 2) std::printf("# action_plan_t standard constructor\n# please run -t green_function to test the actual constructor\n");
         return 0;
     } // test_init
 
     status_t all_tests(int const echo) {
         status_t stat(0);
-        stat += test_construction_and_destrunction(echo);
+        stat += test_construction_and_destruction(echo);
         return stat;
     } // all_tests
 

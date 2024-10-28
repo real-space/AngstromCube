@@ -79,30 +79,23 @@ namespace sho_basis {
       static std::map<double,SpeciesSet> _map; // map_Key=Z_core
 
       rfset = nullptr;
-  if (0 == _map.count(Z_core)) { // scope: load file into static _map
+      if (0 == _map.count(Z_core)) { // scope: load file into static _map
 
-      // load basis data from file
-      auto const filename = control::get("sho_basis.file", "pseudo_basis.xml");
+          // load basis data from file
+          auto const filename = control::get("sho_basis.file", "pseudo_basis.xml");
 #ifndef   HAS_RAPIDXML
-      warn("Unable load sho_basis from \'%s\' when compiled without -D HAS_RAPIDXML", filename);
-      return STATUS_TEST_NOT_INCLUDED;
+          warn("Unable load sho_basis from \'%s\' when compiled without -D HAS_RAPIDXML", filename);
+          return STATUS_TEST_NOT_INCLUDED;
 #else  // HAS_RAPIDXML
 
-      if (echo > 9) std::printf("# %s file=%s\n", __func__, filename);
-      rapidxml::xml_document<> doc;
-      try {
-          rapidxml::file<> infile(filename);
+          if (echo > 9) std::printf("# %s file=%s\n", __func__, filename);
+          rapidxml::xml_document<> doc;
           try {
-              doc.parse<0>(infile.data());
-          } catch (...) {
-              warn("failed to parse \"%s\"", filename);
-              return 2; // error
-          } // try + catch
-      } catch (...) {
-          warn("failed to open \"%s\"", filename);
-          return 1; // error
-      } // try + catch
+              rapidxml::file<> infile(filename);
+              try {
+                  doc.parse<0>(infile.data());
 
+{{{
       auto const main_node = doc.first_node("basis");
       if (!main_node) return -1; // error
 
@@ -165,9 +158,18 @@ namespace sho_basis {
       //       e.g. for molecules.
       //       The coefficient matrix includes the Cartesian to Radial sho_transform so we can label the 
       //       basis functions with sharp n,l,m-quantum numbers
+}}}
 
+              } catch (...) {
+                  warn("failed to parse \"%s\"", filename);
+                  return 2; // error
+              } // try + catch
+          } catch (...) {
+              warn("failed to open \"%s\"", filename);
+              return 1; // error
+          } // try + catch
 
-  } // scope: load file into static _map
+      } // scope: load file into static _map
 
       auto const found_Z = _map.count(Z_core); // try again
       if (1 == found_Z) {

@@ -41,7 +41,7 @@ namespace radial_grid {
           rdr[ir]  =   r*dr;
           r2dr[ir] = r*r*dr;
           rinv[ir] = (ir)? 1./r : 0;
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
           std::printf("%g %g\n", r, dr);
 #endif // FULL_DEBUG
       } // ir
@@ -55,7 +55,7 @@ namespace radial_grid {
   ) {
 
       auto const mR = 128; // multiplicator for the outer radius of reciprocal grids
-#ifdef  USE_RECIPROCAL_RADIAL_GRID
+#ifdef    USE_RECIPROCAL_RADIAL_GRID
       bool static warn_reciprocal{true}; // NOT thread-safe
       if ('\0' == equation) {
           equation = equation_reciprocal; // modify default behaviour
@@ -185,9 +185,9 @@ namespace radial_grid {
   } // find_grid_index
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);

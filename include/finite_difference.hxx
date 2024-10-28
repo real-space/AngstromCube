@@ -24,7 +24,7 @@ namespace finite_difference {
             char const direction='?') {
 #if 1
       return uniform_laplacian::get(c, nn, grid_spacing, direction);
-#else   
+#else  // 1
     double const h2 = pow2(grid_spacing);
     int constexpr nnMaxImplemented = 13;
     switch (std::min(nn, nnMaxImplemented)) {
@@ -197,7 +197,7 @@ namespace finite_difference {
     } // larger than implemented
 
     return nn;
-#endif
+#endif // 1
   } // set_Laplacian_coefficients
 
 
@@ -401,9 +401,9 @@ namespace finite_difference {
 
 
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   inline status_t test_create_and_destroy(int const echo=9) {
       auto const f = new stencil_t<float>();

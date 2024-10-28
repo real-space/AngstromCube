@@ -17,21 +17,21 @@
 // #define FULL_DEBUG
 // #define DEBUG
 
-#ifdef  DEBUG
+#ifdef    DEBUG
   #include "debug_output.hxx" // dump_to_file
-#endif
+#endif // DEBUG
 
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
   #define full_debug(print) print 
-#else
+#else  // FULL_DEBUG
   #define full_debug(print)
-#endif
+#endif // FULL_DEBUG
 
-#ifdef DEBUG
+#ifdef    DEBUG
   #define debug(print) print 
-#else
+#else  // DEBUG
   #define debug(print)
-#endif
+#endif // DEBUG
 
 namespace radial_integrator {
   // integrates the radial SRA equation inwards and outwards,
@@ -213,9 +213,9 @@ namespace radial_integrator {
         for (int i3 = 0; i3 < 3; ++i3) { // three steps
           ir += Step;
 
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
           std::printf("# %s: loop ir=%d r= %g %s i3=%d\n", __func__, ir, g.r[ir]*Ang, _Ang, i3);
-#endif
+#endif // FULL_DEBUG
           double const dri12 = (3*g.dr[ir + 1] + 6*g.dr[ir] - g.dr[ir - 1])/8.;
           double const  ri12 = (3* g.r[ir + 1] + 6* g.r[ir] -  g.r[ir - 1])/8.;
           double const rVi12 = (3*  rV[ir + 1] + 6*  rV[ir] -   rV[ir - 1])/8.;
@@ -263,10 +263,10 @@ namespace radial_integrator {
       // main loop
       for (ir = ir0 - 4; ir >= ir_stop; ir += Step) {
 
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
           if ((ir < ir_stop + 4) || (ir > ir0 - 7))
           std::printf("# %s: loop ir=%d r= %g %s\n", __func__, ir, g.r[ir]*Ang, _Ang);
-#endif
+#endif // FULL_DEBUG
 
           sra<SRA>(s, llp1, rV[ir], E, g.r[ir], g.dr[ir]);
 
@@ -302,17 +302,17 @@ namespace radial_integrator {
 
           if (sgn(gg[ir]) * sgn(dG[0]) >= 0) {
               if (nullptr != ir_stopped) *ir_stopped = ir;
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
               std::printf("# %s: extremum at ir=%d r= %g %s\n", __func__, ir, g.r[ir]*Ang, _Ang);
-#endif
+#endif // FULL_DEBUG
               ir = -8; // stop the loop
           } // extremum reached
 
       } // ir
 
-#ifdef DEBUG
+#ifdef    DEBUG
       if (ir >= 0) std::printf("# %s: extremum not found %d \n", __func__, ir);
-#endif
+#endif // DEBUG
 
       if (nullptr != dg) *dg = dG[0]; // store derivative at the cut radius to evaluate the eigenvalue
 
@@ -381,9 +381,9 @@ namespace radial_integrator {
               dF[2 - i3] -= 2*rp[ir]*g.dr[ir];  // inhomogeneity comes in here
           } // rp
 
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
           std::printf("# %s: loop ir=%d r= %g %s i3=%d\n", __func__, ir, g.r[ir]*Ang, _Ang, i3);
-#endif
+#endif // FULL_DEBUG
         } // i3
       } // init scope
 
@@ -391,10 +391,10 @@ namespace radial_integrator {
 
       // main loop
       for (ir = 4; ir <= ir_max; ++ir) {
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
           if ((ir < 7) || (ir > ir_max - 3))
           std::printf("# %s: loop ir=%d r= %g %s\n", __func__, ir, g.r[ir]*Ang, _Ang);
-#endif
+#endif // FULL_DEBUG
 
           // b = (24/h*gf(:,ir-h) +19*d(:,1) -5*d(:,2) + d(:,3) ) / 9.
           // Integrator weights for Adams Moulton multistep (3-step)
@@ -422,11 +422,11 @@ namespace radial_integrator {
 
           auto const sign_gg = sgn(gg[ir]);
           nnodes += (sign_gg * sign_gg_prev < 0); // count nodes of the greater component
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
           if (sign_gg * sign_gg_prev < 0) {
               std::printf("# %s: found node #%d at r[%d]= %g %s for E= %.9f %s\n", __func__, nnodes, ir, g.r[ir]*Ang, _Ang, E*eV, _eV);
           } // node found
-#endif
+#endif // FULL_DEBUG
           sign_gg_prev = sign_gg; // for the next iteration
 
           // shift the derivatives of gg and ff to next grid point
@@ -439,9 +439,9 @@ namespace radial_integrator {
 
       } // ir
 
-#ifdef DEBUG
+#ifdef    DEBUG
       std::printf("# %s: up to r[%d]= %g %s for E= %.9f %s, %d nodes\n", __func__, ir, g.r[ir]*Ang, _Ang, E*eV, _eV, nnodes);
-#endif
+#endif // DEBUG
 
       if (dg) *dg = dG[0]; // store derivative at the cut radius to evaluate the eigenvalue
 
@@ -461,9 +461,9 @@ namespace radial_integrator {
       , double* rf=nullptr // radial wave function*r
       , double* r2rho=nullptr // density of that wave function*r^2
   ) {
-#ifdef  DEBUG
+#ifdef    DEBUG
       std::printf("# %s: l=%d E= %.9f %s\n", __func__, ell, E*eV, _eV);
-#endif
+#endif // DEBUG
       int ir_x{0}; // radial grid index of the extremum
       double dg_inw{0};
       int const N_aligned = align<2>(g.n);
@@ -476,9 +476,9 @@ namespace radial_integrator {
       // integrate the Schrodinger equation or SRA equation inwards until
       // the first extremum (maximum/minimum) is reached
       nnodes = integrate_inwards<SRA>(gg_inw, ff_inw, g, rV, ell, E, nullptr, &dg_inw, &ir_x);
-#ifdef  DEBUG
+#ifdef    DEBUG
       std::printf("# %s: extremum at r[%d]= %g %s\n", __func__, ir_x, g.r[ir_x]*Ang, _Ang);
-#endif
+#endif // DEBUG
 
       double dg_out{0};
       auto const gg_out = &gf[2*N_aligned];
@@ -517,9 +517,9 @@ namespace radial_integrator {
       // an additional delta-function in the potential with the area:
       double const kink = (dg_out - dg_inw*s) / (gg_out[ir_x] + (0 == gg_out[ir_x]));
 
-#ifdef  DEBUG
+#ifdef    DEBUG
       std::printf("# %s: kink of %g at r= %g %s for E= %.9f %s, %d nodes\n", __func__, kink, g.r[ir_x]*Ang, _Ang, E*eV, _eV, nnodes);
-#endif
+#endif // DEBUG
 
       return kink;
   } // shoot_sra
@@ -541,9 +541,9 @@ namespace radial_integrator {
   } // shoot
 
     
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   status_t test_hydrogen_atom(int const echo=0, double const Z=1) {
       // this plots the kink and number of nodes as a function of energy, see doc/fig/20190313_kink_of_energy.*

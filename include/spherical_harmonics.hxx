@@ -39,7 +39,7 @@ namespace spherical_harmonics {
       static int ellmaxd = -1; // -1:not_initalized
 
       if (ellmax > ellmaxd) {
-#ifdef DEBUG
+#ifdef    DEBUG
            std::printf("# %s: resize table of normalization constants from %d to %d\n",
               __func__, pow2(1 + ellmaxd), pow2(1 + ellmax));
 #endif // DEBUG
@@ -149,9 +149,9 @@ namespace spherical_harmonics {
 
 
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename real_t>
   inline status_t test_memory_cleanup(int const echo=0, int const ellmax=9) {

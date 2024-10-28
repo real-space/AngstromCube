@@ -1,3 +1,4 @@
+# This file is part of AngstromCube under MIT License
 ### 
 ### CMake file for ./a43 and libliveatom.so and ./green
 ### 
@@ -5,8 +6,10 @@
 set(a43_version 0.0.1)
 
 set(all_targets )
+# add libliveatom.so to targets
 set(all_targets ${all_targets} liveatom)
 
+# header files needed for libliveatom.so
 set(a43_atom_headers
     ../include/angular_grid.hxx
     ../include/atom_core.hxx
@@ -59,6 +62,7 @@ set(a43_atom_headers
     ../include/xml_reading.hxx
 )
 
+# source files needed for libliveatom.so
 set(a43_atom_sources
     angular_grid.cxx
     atom_core.cxx
@@ -78,7 +82,7 @@ set(a43_atom_sources
     single_atom.cxx
 )
    
-# build a shared library for the liveatom
+# build a shared library libliveatom.so
 add_library(liveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 
 
@@ -87,11 +91,13 @@ add_library(liveatom SHARED ${a43_atom_sources} ${a43_atom_headers})
 ################
 
 
-
+# add executable ./a43 to targets
 set(all_targets ${all_targets} a43)
 
+# header files needed for ./a43
 set(a43_headers ${a43_atom_headers}
     ../include/add_module_test.h
+    ../include/atom_communication.hxx
     ../include/bessel_transform.hxx
     ../include/dense_solver.hxx
     ../include/define_version.h
@@ -127,8 +133,10 @@ set(a43_headers ${a43_atom_headers}
     ../include/verify_benchmark.hxx
 )
 
+# source files needed for ./a43
 set(a43_sources ${a43_atom_sources}
     a43_main.cxx
+    atom_communication.cxx
     bessel_transform.cxx
     dense_solver.cxx
     energy_contour.cxx
@@ -176,11 +184,14 @@ add_executable(a43 ${a43_sources} ${a43_headers})
 ################
 ################
 
+# add ./green to targets
 set(all_targets ${all_targets} green)
 
+# header files needed for ./green
 set(green_headers
     ../include/action_plan.hxx
     ../include/add_module_test.h
+    ../include/atom_communication.hxx
     ../include/boundary_condition.hxx
     ../include/brillouin_zone.hxx
     ../include/chemical_symbol.h
@@ -239,8 +250,10 @@ set(green_headers
     ../include/xml_reading.hxx
 )
 
+# source files needed for ./green (independent of CUDA or no-CUDA)
 set(green_sources
     action_plan.cxx
+    atom_communication.cxx
     chemical_symbol.cxx
     control.cxx
     display_units.cxx
@@ -250,6 +263,7 @@ set(green_sources
     geometry_input.cxx
     green_function.cxx
     green_input.cxx
+    green_main.cxx
     green_parallel.cxx
     green_sparse.cxx
     kinetic_plan.cxx
@@ -261,9 +275,9 @@ set(green_sources
     sho_unitary.cxx
 )
 
-
 if(HAS_CUDA)
     enable_language(CUDA)
+    # add CUDA source files needed for ./green
     set(green_sources ${green_sources}
         green_action.cu
         green_dyadic.cu
@@ -275,6 +289,7 @@ if(HAS_CUDA)
         green_tests.cu
     )
 else(HAS_CUDA)
+    # add no-CUDA source files needed for ./green
     set(green_sources ${green_sources}
         green_action.cxx
         green_dyadic.cxx
@@ -284,18 +299,11 @@ else(HAS_CUDA)
         green_potential.cxx
         green_solver.cxx
         green_tests.cxx
-)
+    )
 endif(HAS_CUDA)
-
-set(green_sources ${green_sources}
-    green_main.cxx
-)
 
 # build a parallel GPU application
 add_executable(green ${green_sources} ${green_headers})
-
-
-
 
 
 # version control using git
@@ -349,8 +357,6 @@ else(HAS_MPI)
     target_compile_definitions(green PUBLIC -DHAS_NO_MPI)
 endif(HAS_MPI)
 
-
-
 if(MKL_FOUND)
     # add MKL (Intel Math Kernel Library)
     target_link_libraries(liveatom PUBLIC iomp5 mkl)
@@ -402,7 +408,7 @@ if(HAS_RAPIDJSON)
 endif(HAS_RAPIDJSON)
 
 if(HAS_TFQMRGPU)
-    # tfQMRgpu is a header-only library
+    # we use the header-only part of the tfQMRgpu library
     target_compile_definitions(green PUBLIC -DHAS_TFQMRGPU)
     target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/tfqmrgpu-src/tfQMRgpu/include>)
 endif(HAS_TFQMRGPU)

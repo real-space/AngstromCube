@@ -5,9 +5,9 @@
 #include <complex> // std::complex<real_t>
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#ifndef NO_UNIT_TESTS
+#ifndef   NO_UNIT_TESTS
   #include <cstdio> // std::printf
-#endif  
+#endif // NO_UNIT_TESTS undefined
 
   template <typename T> struct is_complex_t                  : public std::false_type {};
   template <typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
@@ -45,9 +45,9 @@
   
 namespace complex_tools {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   template <typename complex_t>
   inline status_t test_complex(bool const expect_complex, int const echo=0) {

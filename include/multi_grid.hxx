@@ -174,11 +174,11 @@ namespace multi_grid {
       , char const *title="<array>"
       , char const *unit=""
   ) {
-#ifdef DEVEL
+#ifdef    DEVEL
       if (echo < 1) return;
       auto const mm = std::minmax_element(begin, end);
       std::printf("# %24s in range [%g, %g] %s\n", title, *mm.first, *mm.second, unit);
-#endif
+#endif // DEVEL
   } // print_min_max
 
 
