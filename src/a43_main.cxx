@@ -346,10 +346,11 @@
       if (argc < 2) warn("no arguments passed to %s!", (argc < 1) ? __FILE__ : argv[0]);
       status_t stat(0);
       char const *test_unit = ""; // the name of the unit to be tested
-      int run_tests{0};
+      char const *input_file = "";
+      int run_tests{0}, num_plus{0};
       int verbosity{3}; // set default verbosity low
       control::set("executable.name", argv[0]);
-      for (int iarg = 1; iarg < argc; ++iarg) {
+      for (int iarg{1}; iarg < argc; ++iarg) {
           assert(nullptr != argv[iarg]);
           char const ci0 = *argv[iarg]; // char #0 of command line argument #iarg
           if ('-' == ci0) {
@@ -361,17 +362,20 @@
 
                   // long options with "--"
                   std::string option(argv[iarg] + 2); // + 2 to remove "--" in front
-                  if ("help" == option) {
-                      return show_help(argv[0]);
+                  if ("input" == option) {
+                      if (iarg + 1 < argc) input_file = argv[iarg + 1];
                   } else
-                  if ("version" == option) {
-                      return show_version(argv[0]);
+                  if ("test" == option) {
+                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
                   } else
                   if ("verbose" == option) {
                       verbosity = 6; // set verbosity high
                   } else
-                  if ("test" == option) {
-                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
+                  if ("version" == option) {
+                      return show_version(argv[0]);
+                  } else
+                  if ("help" == option) {
+                      return show_help(argv[0]);
                   } else {
                       ++stat; warn("ignored unknown command line option --%s", option.c_str());
                   } // option
@@ -379,16 +383,19 @@
               } else { // ci1
 
                   // short options with "-"
-                  if ('h' == (ci1 | IgnoreCase)) {
-                      return show_help(argv[0]);
+                  if ('i' == (ci1 | IgnoreCase)) {
+                      if (iarg + 1 < argc) input_file = argv[iarg + 1];
+                  } else
+                  if ('t' == (ci1 | IgnoreCase)) {
+                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
                   } else
                   if ('v' == (ci1 | IgnoreCase)) {
                       for (char const *vv = argv[iarg] + 1; *vv; ++vv) {
                           verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
                       } // vv
                   } else
-                  if ('t' == (ci1 | IgnoreCase)) {
-                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
+                  if ('h' == (ci1 | IgnoreCase)) {
+                      return show_help(argv[0]);
                   } else {
                       ++stat; warn("ignored unknown command line option -%c", ci1);
                   } // ci1
@@ -397,13 +404,15 @@
 
           } else // ci0
           if ('+' == ci0) {
-              stat += control::command_line_interface(argv[iarg] + 1, iarg); // start after the '+' char
+              // stat += control::command_line_interface(argv[iarg] + 1, iarg); // start after the '+' char --> Changed: read CLI args later
+              ++num_plus;
           } else
           if (argv[iarg] != test_unit) {
               ++stat; warn("ignored command line argument \'%s\'", argv[iarg]);
           } // ci0
 
       } // iarg
+      auto const num_plus_check = num_plus;
       //
       if (0 == me && verbosity > 0) {
           std::printf("\n#");
@@ -414,7 +423,19 @@
       } // verbosity
       //
       // in addition to command_line_interface, we can modify the control environment by a file
-      stat += control::read_control_file(control::get("control.file", ""), (0 == me)*verbosity);
+      auto const control_file_name = control::get("control.file", input_file);
+      stat += control::read_control_file(control_file_name, (0 == me)*verbosity);
+
+      // read command line arguments added with + after reading the control file 
+      // so we can overwrite content of the control file and get the proper warning
+      num_plus = 0;
+      for (int iarg{1}; iarg < argc; ++iarg) {
+          if ('+' == *argv[iarg]) {
+              stat += control::command_line_interface(argv[iarg] + 1, iarg); // +1 to start after the '+' char
+              ++num_plus;
+          } // ci0
+      } // iarg
+      assert(num_plus_check == num_plus); // 1st and 2nd time counting should give the same result
       //
       int const echo = (0 == me)*control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
       //
