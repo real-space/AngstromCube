@@ -1,8 +1,8 @@
-#ifndef SINGLE_ATOM_HEADER
-#define SINGLE_ATOM_HEADER
+#ifndef   SINGLE_ATOM_HEADER
+#define   SINGLE_ATOM_HEADER
 // This file is part of AngstromCube under MIT License
 
-// C - interface
+// C - interface for libliveatom.so
 
 /*
     What do we need to replace PAWs in any DFT code?
@@ -35,8 +35,8 @@
         - start waves occupation, double[6] (ssppdf), ToDo
         - start wave functions, reduced by r^ell, double[6][4096]
 
-    In order to control soft switches (control::get()) in single_atom,
-    we need a handle to set soft switches using control::set()
+    In order to control soft switches (control::get("variablename", defaultvalue))
+    in single_atom, we need a handle to set soft switches using control::set()
 
 */
 
@@ -51,6 +51,13 @@
 
 // subroutines in Fortran are equivalent to void functions in C
 #define fortran_callable(NAME) void live_atom_##NAME##_
+// Fortran naming convention usually appends an underscore, see line above
+
+// All arguments must be passed by pointer as this is the Fortran convention
+
+// The Fortran-type integer(kind=4) is equivalent to int32_t in C
+// The Fortran-type real(kind=4) is assumed equivalent to float in C
+// The Fortran-type real(kind=8) is assumed equivalent to double in C
 
 /*
     Example for inclusion in Fortran:
@@ -75,7 +82,7 @@
     fortran_callable(init_env)
         ( char const *filename
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
 #ifdef    _GIT_KEY
@@ -93,7 +100,7 @@
         *status += unit_system::set(control::get("output.length.unit", "Bohr"),
                                     control::get("output.energy.unit", "Ha"), echo);
     } // live_atom_set_env_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(initialize)
@@ -112,7 +119,7 @@
         , int32_t lmax_vlm[] // result, ToDo
         , double n_valence_electrons[] // result
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         std::vector<double> sigma_cmp(*na);
@@ -137,14 +144,14 @@
         warn("Initialized %d LiveAtoms, ToDo: need to deal with atom_id, nn, magnetization, xc_key", *na);
         // std::fflush(stdout);
     } // live_atom_initialize_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(set_env)
         ( char const *varname
         , char const *newvalue
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         if (echo > 0) std::printf("\n# set environment variable for LiveAtoms:\t%s=%s\n",
@@ -153,14 +160,14 @@
         *status = (nullptr == newvalue);
         // std::fflush(stdout);
     } // live_atom_set_env_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(get_env)
         ( char const *varname
         , char value[996]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         auto const oldvalue = control::get(varname, "");
@@ -170,21 +177,21 @@
         *status = ('\0' == *oldvalue);
         // std::fflush(stdout);
     } // live_atom_get_env_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(get_core_density)
         ( int32_t const *na
         , double **rhoc // layout [na][4096]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("core densities", *na, 0, 0, 0, rhoc);
         if (echo > 0) std::printf("\n# got_core_density for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_core_density_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(get_start_waves)
@@ -192,21 +199,21 @@
         , double waves[]      // assumed layout [na][6][4096]
         , double occupation[] // assumed layout [na][6][2], can be magnetic
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("?", *na);
         if (echo > 0) std::printf("# got_start_waves for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_start_waves_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(set_density_matrix)
         ( int32_t const *na
         , double **atom_rho // layout [na][4096]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         float mix_rho[3] = {0, 0, 0};
@@ -221,21 +228,21 @@
         ( int32_t const *na
         , double **qlm // layout [na][(1 + maxval(lmax_qlm))^2]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("qlm charges", *na, 0, 0, 0, qlm);
         if (echo > 0) std::printf("# got_compensation_charge %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_compensation_charge_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(set_potential_multipole)
         ( int32_t const *na
         , double **vlm // layout [na][(1 + maxval(lmax_vlm))^2]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         float mix_pot[1] = {0};
@@ -243,21 +250,21 @@
         if (echo > 0) std::printf("# potential_multipoles set for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_set_potential_multipole_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(get_zero_potential)
         ( int32_t const *na
         , double **vbar // layout [na][4096]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("zero potential", *na, 0, 0, 0, vbar);
         if (echo > 0) std::printf("# got_zero_potential for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_zero_potential_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(get_projectors)
@@ -265,7 +272,7 @@
         , double sigma[]
         , int32_t numax[]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("projectors", *na, sigma, numax);
@@ -279,52 +286,52 @@
         ( int32_t const *na
         , double **hmt // logical layout [na][2][stride][stride]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("hamiltonian and overlap", *na, 0, 0, 0, hmt);
         if (echo > 0) std::printf("# got_hamiltonian_matrix for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_hamiltonian_matrix_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(get_energy_contributions)
         ( int32_t const *na
         , double energies[]
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("e", *na, energies);
         if (echo > 0) std::printf("# got_energy_contributions for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
     } // live_atom_get_energy_contributions_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(update)
-        ( char const *what
+        ( char const *what // make sure to pass a zero-terminated string
         , int32_t const *na
         , double  *dp
         , int32_t *ip
         , float   *fp
         , double *const *dpp
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {   // forward to the atom_update function for new features
         int const echo = *status;
         *status = single_atom::atom_update(what, *na, dp, ip, fp, dpp);
         if (echo > 0) std::printf("# update('%s') for %d LiveAtoms\n", what, *na);
         // std::fflush(stdout);
     } // live_atom_update_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     fortran_callable(finalize)
         ( int32_t const *na
         , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
+#ifdef    SINGLE_ATOM_SOURCE
     {
         int const echo = *status;
         *status = single_atom::atom_update("memory cleanup", *na);
@@ -334,7 +341,7 @@
         recorded_warnings::show_warnings(3);
         // std::fflush(stdout);
     } // live_atom_finalize_
-#endif
+#endif // SINGLE_ATOM_SOURCE
     ;
 
     // this function allows to determine at runtime, if the 
@@ -343,4 +350,4 @@
     // the function definition can be found in library_kind_dynamic.cxx or library_kind_static.cxx
 
 
-#endif // SINGLE_ATOM_HEADER (header guard)
+#endif // SINGLE_ATOM_HEADER (traditional header guard)

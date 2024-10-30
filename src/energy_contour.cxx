@@ -271,14 +271,14 @@ namespace energy_contour {
     } // maxval
 
     status_t Integrator::integrate(
-          double rho_888[] // resulting density in [nblocks][8*8*8] data layout
+          double rho_888[] // resulting density in [ncubes][8*8*8] data layout
         , double & Fermi_level // Fermi level
      // , double const band_bottom // lower end of the contour w.r.t Fermi_level, ToDo: pass as argument instead of environment variable
-        , double const Vtot[] // input potential in [nblocks][4*4*4]
+        , double const Vtot[] // input potential in [ncubes][4*4*4]
         , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
         , std::vector<int32_t> const & numax_prj
         , std::vector<double> const & sigma_prj
-        , parallel_poisson::parallel_grid_t const & pg // nblocks == pg.n_local()
+        , parallel_poisson::parallel_grid_t const & pg // ncubes == pg.n_local()
         , double const n_electrons // =1 // required total number of electrons 
         , double const dV // =1 // grid volume element
         , int const echo // =0 // log level
@@ -292,13 +292,13 @@ namespace energy_contour {
         int const max_iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
 
-        auto const nblocks = pg.n_local();
+        auto const ncubes = pg.n_local();
         assert(nullptr != plan_);
         assert(nullptr != solver_);
         auto & plan = *plan_;
         plan.echo = echo >> 2; // lower internal verbosity
 
-        if (plan.nCols != nblocks) warn("model assumes that each local block has one RHS, found n_local= %d and p.nRHS= %d", nblocks, plan.nCols);
+        if (plan.nCols != ncubes) warn("model assumes that each local block has one RHS, found n_local= %d and p.nRHS= %d", ncubes, plan.nCols);
 
         int constexpr Noco = 1;
 
@@ -322,17 +322,17 @@ namespace energy_contour {
             if (Noco > 1) error("not prepared for Noco= %d", Noco);
         } // iAtom
 
-        std::vector<double> Veff(nblocks*n4x4x4, 0.);
+        std::vector<double> Veff(ncubes*n4x4x4, 0.);
         double constexpr scale_V = 1.0;
-        set(Veff.data(), nblocks*n4x4x4, Vtot, scale_V);
+        set(Veff.data(), ncubes*n4x4x4, Vtot, scale_V);
         stat += green_function::update_potential(plan, pg.grid_cubes(), Veff, AtomMatrices, echo, Noco);
 
         int const verify_pot = control::get("verify.potential", 0.);
         if (verify_pot) {
             if (echo > 3) std::printf("\n# +verify.potential=%i\n", verify_pot);
-            assert(plan_->global_source_indices.size() == nblocks);
+            assert(plan_->global_source_indices.size() == ncubes);
             view2D<double> pot_444(Veff.data(), n4x4x4); // wrap
-            auto const stat_verify = verify_benchmark::verify(pot_444, plan_->global_source_indices.data(), nblocks, echo);
+            auto const stat_verify = verify_benchmark::verify(pot_444, plan_->global_source_indices.data(), ncubes, echo);
             if (0 != stat_verify) warn("ran with +verify.potential=%i --> status= %i", verify_pot, int(stat_verify));
             stat += std::abs(stat_verify);
             if (echo > 0) std::fflush(stdout);
@@ -349,9 +349,15 @@ namespace energy_contour {
 
         int const echo_dos = 10*(0 == control::get("energy_contour.matsubara", 0.)); // more verbose in a DoS (density-of-state) calculation
 
+        if (echo + echo_dos > 5 && nEpoints > 0) {
+            auto const emin = energy_mesh.at(0).real(), emax = energy_mesh.at(nEpoints - 1).real();
+            std::printf("# show density of states from %g to %g %s, %d equidistant points spaced %g %s, imaginary part %g %s\n",
+                (emin - Fermi_level)*eV, (emax - Fermi_level)*eV, _eV, nEpoints, std::abs(emax - emin)/std::max(1, nEpoints - 1)*eV, _eV, energy_mesh.at(0).imag()*eV, _eV);
+        } // show DoS
+
         Complex constexpr zero = 0;
-        view2D<Complex> rho_c(nblocks, n4x4x4, zero); // complex density
-        view2D<Complex> res_c(nblocks, n4x4x4, zero); // complex response density
+        view2D<Complex> rho_c(ncubes, n4x4x4, zero); // complex density
+        view2D<Complex> res_c(ncubes, n4x4x4, zero); // complex response density
         Complex res_point{zero};
 
         for (int iEpoint{0}; iEpoint < nEpoints; ++iEpoint) {
@@ -364,7 +370,7 @@ namespace energy_contour {
 
             stat += green_function::update_energy_parameter(plan, energy, dV, echo, Noco);
 
-            view2D<Complex> rho_E(nblocks, n4x4x4, zero);
+            view2D<Complex> rho_E(ncubes, n4x4x4, zero);
 
             for (int ikpoint{0}; ikpoint < nkpoints; ++ikpoint) {
                 double const *const kpoint = kpoint_mesh[ikpoint];
@@ -375,30 +381,30 @@ namespace energy_contour {
                 if (0 == check) {
                     stat += green_function::update_phases(plan, kpoint, echo >> 3, Noco);
 
-                    view2D<Complex> rho_Ek(nblocks, n4x4x4, zero);
+                    view2D<Complex> rho_Ek(ncubes, n4x4x4, zero);
 
-                    stat += solver_->solve(rho_Ek[0], nblocks, max_iterations, echo);
+                    stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
 
-                    add_product(rho_E[0], nblocks*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points
-                    auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], nblocks*n4x4x4).imag(), comm)*dV;
+                    add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points
+                    auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dV;
                     if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons\n",
                                                   energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
                 } // check
 
             } // ikpoint
             if (0 == check) {
-                auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], nblocks*n4x4x4).imag(), comm)*dV;
+                auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dV;
                 if (echo + echo_dos > 5) std::printf("# Green function solution for E=%s has %g electrons\n",
                                                             energy_parameter_label, rho_integral);
                 // accumulate density over E-points
-                add_product(rho_c[0], nblocks*n4x4x4, rho_E[0], energy_weight);
+                add_product(rho_c[0], ncubes*n4x4x4, rho_E[0], energy_weight);
             } else if (echo > 7) std::printf("# solve Green function for E=%s\n", energy_parameter_label);
 
             if (iEpoint < nEpoints - 2) {
                 // ToDo: accumulate a response density to derive the new density w.r.t. the Fermi level 
                 //       in order to correct the density to the right number of electrons
                 Complex const wgt = ((nEpoints - 1 == iEpoint) ? 1. : -1.);
-                add_product(res_c[0], nblocks*n4x4x4, rho_E[0], wgt);
+                add_product(res_c[0], ncubes*n4x4x4, rho_E[0], wgt);
                 res_point += energy*wgt;
             } // last two
         } // iEpoint
@@ -406,10 +412,10 @@ namespace energy_contour {
         if (nEpoints < 2) warn("unable to eval a meaningful response density with less than 2 energy points, found %d", nEpoints);
 
 
-        view2D<double> rho_444(nblocks, n4x4x4, 0.0); // density
-        view2D<double> rho_res(nblocks, n4x4x4, 0.0); // response density
+        view2D<double> rho_444(ncubes, n4x4x4, 0.0); // density
+        view2D<double> rho_res(ncubes, n4x4x4, 0.0); // response density
         res_point = (zero != res_point) ? 1./res_point : 1;
-        for (uint32_t ib{0}; ib < nblocks; ++ib) {
+        for (uint32_t ib{0}; ib < ncubes; ++ib) {
             for (int i444{0}; i444 < 64; ++i444) {
                 rho_444(ib,i444) = rho_c(ib,i444).real();
                 rho_res(ib,i444) = (res_c(ib,i444)*res_point).real();
@@ -417,21 +423,21 @@ namespace energy_contour {
         } // ib
 
         {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], nblocks*n4x4x4), comm)*dV;
+            auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], ncubes*n4x4x4), comm)*dV;
             if (echo + check > 3) std::printf("# solved density has %g electrons\n", rho_integral);
-         // if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_444[0], nblocks*n4x4x4));
+         // if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_444[0], ncubes*n4x4x4));
         }
 
         {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], nblocks*n4x4x4), comm)*dV;
+            auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], ncubes*n4x4x4), comm)*dV;
             if (echo + check > 3) std::printf("# solved response density has %g electrons\n", rho_integral);
             // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
         }
 
         int const verify = control::get("verify.benchmark", 0.);
         if (verify) {
-            assert(plan_->global_source_indices.size() == nblocks);
-            auto const stat_verify = verify_benchmark::verify(rho_444, plan_->global_source_indices.data(), nblocks, echo);
+            assert(plan_->global_source_indices.size() == ncubes);
+            auto const stat_verify = verify_benchmark::verify(rho_444, plan_->global_source_indices.data(), ncubes, echo);
             if (0 != stat_verify) warn("ran with +verify.benchmark=%d --> status= %i", verify, int(stat_verify));
             stat += std::abs(stat_verify);
         } // verify
@@ -443,9 +449,9 @@ namespace energy_contour {
         parallel_poisson::block_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
 
         {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_888, nblocks*size_t(8*8*8)), comm)*dV;
+            auto const rho_integral = mpi_parallel::sum(sum(rho_888, ncubes*size_t(8*8*8)), comm)*dV;
             if (echo + check > 3) std::printf("# interpolated density has %g electrons\n", rho_integral);
-            if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_888, nblocks*512));
+            if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_888, ncubes*512));
         }
 
         if (echo > 3) std::printf("# density integrated over %d energy points\n", nEpoints);

@@ -80,7 +80,6 @@ typedef green_action::action_t<double,2,2> Act822;
           std::complex<double> rho[] // result: density [plan.nCols][4*4*4]
         , uint32_t const nblocks
         , int const max_iterations
-        , int const imag // =1 // index of the exported part 1:imaginary part, 0:real part
         , int const echo // =0 // verbosity
     ) {
         if (echo > 7) std::printf("# green_solver_t::solve with action_key= %i, echo= %d\n", int(action_key_), echo);

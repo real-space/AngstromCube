@@ -961,7 +961,7 @@ namespace parallel_potential {
 #endif // HAS_SINGLE_ATOM
 
             std::vector<float> ionization(na, 0.f);
-            {   SimpleTimer atom_init_timer(strip_path(__FILE__), __LINE__, "atom init", 0);
+            {   SimpleTimer atom_init_timer(strip_path(__FILE__), __LINE__, "atom init", echo);
             stat += live_atom_update("initialize", na, Z_owned_atoms.data(), numax.data(), ionization.data(), (double**)1);
             } // timer
             stat += live_atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
@@ -1145,6 +1145,7 @@ namespace parallel_potential {
         {
             auto const init_time = init_timer.stop();
             if (echo > 2) { std::printf("# SCF initialization took %g seconds\n", init_time); }
+            if (echo > 3) std::printf("# Generate potential in parallel with %d ranks\n", nprocs);
         }
 
         // energy contributions
@@ -1214,7 +1215,7 @@ namespace parallel_potential {
                 if (echo > 2) std::printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", E_xc*eV, _eV, E_dc*eV, _eV);
                 grid_xc_energy = E_xc;
             } // scope
-            print_stats(V_xc[0], n_cubes*size_t(8*8*8), comm, echo > 1, 0, "# smooth exchange-correlation potential", eV, _eV);
+            print_stats(V_xc[0], n_cubes*size_t(8*8*8), comm, echo > 1, 0., "# smooth exchange-correlation potential", eV, _eV);
 
             stat += live_atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
 
@@ -1228,6 +1229,7 @@ namespace parallel_potential {
 
             add_to_grid(augmented_density, cube_coords, n_cubes, atoms_qzyx, lmaxs_qlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
+            // show that the augmented_density is charge neutral in average
             print_stats(augmented_density[0], n_cubes*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth augmented_density");
 
 
@@ -1236,7 +1238,7 @@ namespace parallel_potential {
             // =====                    Poisson equation                    =======================
             // ====================================================================================
             if (0 == check) { // scope: Poisson equation
-                if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively with %d ranks in SCF-iteration#%i\n#\n", nprocs, scf_iteration);
+                if (echo > 3) std::printf("#\n# Solve the Poisson equation iteratively in SCF-iteration#%i\n#\n", scf_iteration);
                 std::snprintf(scf_iteration_label, 64, "Poisson in SCF-iteration#%i", scf_iteration);
                 SimpleTimer poisson_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, echo);
                 double E_es{0};
@@ -1255,10 +1257,10 @@ namespace parallel_potential {
             } else {
                 if (echo > 0) std::printf("\n# skip Poisson equation for the electrostatic potential due to +check=%d\n\n", check);
                 set(V_electrostatic[0], n_cubes*size_t(8*8*8), 0.0);
-            }
+            } // Poisson equation
             // ====================================================================================
 
-            print_stats(V_electrostatic[0], n_cubes*size_t(8*8*8), comm, echo > 0, 0, "# smooth electrostatic potential", eV, _eV);
+            print_stats(V_electrostatic[0], n_cubes*size_t(8*8*8), comm, echo > 0, 0., "# smooth electrostatic potential", eV, _eV);
 
             // project the electrostatic grid onto the localized compensation charges
             project_grid(atoms_vzyx, V_electrostatic, cube_coords, n_cubes, lmaxs_vlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
@@ -1551,11 +1553,7 @@ namespace parallel_potential {
         status_t stat(0);
         stat += test_r2grid_integrator(echo);
         auto const already_initialized = mpi_parallel::init();
-        int64_t const echo_mask = control::get("verbosity.mpi.mask", 1.); // -1:all, 0:no_one, 1:master only, 5:rank#0 and rank#2, ...
-        auto const myrank = mpi_parallel::rank();
-        int const verbose_rank = (-1 == echo_mask) ? 1 : ((myrank < 53)*((echo_mask >> myrank) & 1));
-        auto const echo_rank = verbose_rank*mpi_parallel::max(echo);
-        stat += test_scf(echo_rank);
+        stat += test_scf(echo);
         if (!already_initialized) mpi_parallel::finalize();
         return stat;
     } // all_tests

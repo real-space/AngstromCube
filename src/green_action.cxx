@@ -211,8 +211,8 @@ namespace green_action {
           case 64011: test_action<double,1,1>(p, iterations, echo); break; // real
 #endif // HAS_TFQMRGPU
           case 0: if (echo > 1) std::printf("# green_function.benchmark.action=0 --> test_action is not called!\n"); break;
-          default: warn("green_function.benchmark.action must be in {32011, 32021, 32022, 64011, 64021, 64022} but found %d", action);
-                   ++stat;
+          default: ++stat;
+              warn("green_function.benchmark.action must be in {32011, 32021, 32022, 64011, 64021, 64022} but found %d", action);
       } // switch action
 
       if (!already_initialized) mpi_parallel::finalize();
@@ -220,7 +220,8 @@ namespace green_action {
   } // test_green_action
 
   inline status_t test_construction_and_destruction(int const echo=0) {
-      {   action_plan_t plan;
+      { // scope: construct plan
+          action_plan_t plan; // calls constructor of action_plan_t
           if (echo > 4) std::printf("# %s for action_t\n", __func__);
 #ifndef   HAS_TFQMRGPU
           { action_t<float ,1,1> action(&plan); }
@@ -231,7 +232,8 @@ namespace green_action {
           { action_t<double,2,1> action(&plan); }
           { action_t<double,2,2> action(&plan); }
           if (echo > 5) std::printf("# Hint: to test action_t::multiply, please envoke --test green_function\n");
-      } // destruct plan
+          // ~action_plan_t
+      } // scope
       if (echo > 6) std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
       return 0;
   } // test_construction_and_destruction
