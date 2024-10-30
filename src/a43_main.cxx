@@ -110,126 +110,126 @@
 #include <string> // std::string
 #include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
-  status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
+status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
 #ifdef    NO_UNIT_TESTS
-      error("version was compiled with -D NO_UNIT_TESTS but try to test \'%s\'", module);
-      return STATUS_TEST_NOT_INCLUDED;
+    error("version was compiled with -D NO_UNIT_TESTS but try to test \'%s\'", module);
+    return STATUS_TEST_NOT_INCLUDED;
 #else  // NO_UNIT_TESTS
 
-      SimpleTimer unit_test_timer(__func__, 0, module, 0); // timer over all tests
+    SimpleTimer unit_test_timer(__func__, 0, module, 0); // timer over all tests
 
-      std::string const input_name(module ? module : "");
-      bool const show = ('?' == input_name[0]);
-      bool const all  = ( 0  == input_name[0]) || show;
-      bool const chapters = all && (!show) && (echo > 0); // show chapter separators
-      if (echo > 0) {
-          if (show) { std::printf("\n# show available module tests:\n"); } else
-          if (all)  { std::printf("\n# run all tests!\n\n"); }
-          else      { std::printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
-      } // echo
+    std::string const input_name(module ? module : "");
+    bool const show = ('?' == input_name[0]);
+    bool const all  = ( 0  == input_name[0]) || show;
+    bool const chapters = all && (!show) && (echo > 0); // show chapter separators
+    if (echo > 0) {
+        if (show) { std::printf("\n# show available module tests:\n"); } else
+        if (all)  { std::printf("\n# run all tests!\n\n"); }
+        else      { std::printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
+    } // echo
 
-      double constexpr ChapterMarker = -1.; // passed in the time entry
-      std::vector<std::tuple<char const*, double, status_t>> results;
-      { // testing scope
+    double constexpr ChapterMarker = -1.; // passed in the time entry
+    std::vector<std::tuple<char const*, double, status_t>> results;
+    { // testing scope
 
 #include "add_module_test.h" // macro definition of add_module_test(MODULE_NAME)
 
 #define   start_a_chapter(chapter_name) {                                           \
-              if (chapters) std::printf("\n\n\n\n#\n# %s modules\n#\n\n\n\n", chapter_name); \
-              if (all) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
-          } // start_a_chapter
+            if (chapters) std::printf("\n\n\n\n#\n# %s modules\n#\n\n\n\n", chapter_name); \
+            if (all) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
+        } // start_a_chapter
 
-          start_a_chapter("general"); // *****************************************
-          // these modules are of general utility for programming
-          add_module_test(control);
-          add_module_test(recorded_warnings);
-          add_module_test(simple_stats);
-          add_module_test(simple_timer);
-          add_module_test(progress_report);
-          add_module_test(json_reading);
-          add_module_test(xml_reading);
-          add_module_test(data_view);
+        start_a_chapter("general"); // *****************************************
+        // these modules are of general utility for programming
+        add_module_test(control);
+        add_module_test(recorded_warnings);
+        add_module_test(simple_stats);
+        add_module_test(simple_timer);
+        add_module_test(progress_report);
+        add_module_test(json_reading);
+        add_module_test(xml_reading);
+        add_module_test(data_view);
 
-          start_a_chapter("math"); // *****************************************
-          // these modules are supporting mathematical operations
-          add_module_test(inline_math);
-          add_module_test(simple_math);
-          add_module_test(complex_tools);
-          add_module_test(linear_algebra);
-          add_module_test(bisection_tools);
-          add_module_test(solid_harmonics);
-          add_module_test(uniform_laplacian);
-          add_module_test(finite_difference);
-          add_module_test(hermite_polynomial);
-          add_module_test(spherical_harmonics);
-          add_module_test(dense_operator);
-          add_module_test(angular_grid);
+        start_a_chapter("math"); // *****************************************
+        // these modules are supporting mathematical operations
+        add_module_test(inline_math);
+        add_module_test(simple_math);
+        add_module_test(complex_tools);
+        add_module_test(linear_algebra);
+        add_module_test(bisection_tools);
+        add_module_test(solid_harmonics);
+        add_module_test(uniform_laplacian);
+        add_module_test(finite_difference);
+        add_module_test(hermite_polynomial);
+        add_module_test(spherical_harmonics);
+        add_module_test(dense_operator);
+        add_module_test(angular_grid);
 
-          start_a_chapter("input"); // *****************************************
-          // these modules support input and output
-          add_module_test(real_space);
-          add_module_test(chemical_symbol);
-          add_module_test(boundary_condition);
-          add_module_test(geometry_input);
-          add_module_test(geometry_analysis);
-          add_module_test(shift_boundary);
-          add_module_test(unit_system);
+        start_a_chapter("input"); // *****************************************
+        // these modules support input and output
+        add_module_test(real_space);
+        add_module_test(chemical_symbol);
+        add_module_test(boundary_condition);
+        add_module_test(geometry_input);
+        add_module_test(geometry_analysis);
+        add_module_test(shift_boundary);
+        add_module_test(unit_system);
 
-          start_a_chapter("parallelization"); // *****************************************
-          // these modules support various kinds of parallelization and bookkeeping
-          add_module_test(mpi_parallel);
-          add_module_test(omp_parallel);
-          add_module_test(parallel_domains);
-          add_module_test(atom_communication);
-          add_module_test(global_coordinates);
-          add_module_test(load_balancer);
+        start_a_chapter("parallelization"); // *****************************************
+        // these modules support various kinds of parallelization and bookkeeping
+        add_module_test(mpi_parallel);
+        add_module_test(omp_parallel);
+        add_module_test(parallel_domains);
+        add_module_test(atom_communication);
+        add_module_test(global_coordinates);
+        add_module_test(load_balancer);
 
-          start_a_chapter("electrostatics"); // *****************************************
-          // these modules offer different electrostatic 3D solver
-          add_module_test(multi_grid);
-          add_module_test(fourier_transform);
-          add_module_test(fourier_poisson);
-          add_module_test(iterative_poisson);
-          add_module_test(parallel_poisson);
-          add_module_test(poisson_solver);
+        start_a_chapter("electrostatics"); // *****************************************
+        // these modules offer different electrostatic 3D solver
+        add_module_test(multi_grid);
+        add_module_test(fourier_transform);
+        add_module_test(fourier_poisson);
+        add_module_test(iterative_poisson);
+        add_module_test(parallel_poisson);
+        add_module_test(poisson_solver);
 
-          start_a_chapter("radial"); // *****************************************
-          // these modules act on a radial 1D grid
-          add_module_test(radial_grid);
-          add_module_test(radial_potential);
-          add_module_test(radial_integrator);
-          add_module_test(radial_eigensolver);
-          add_module_test(atom_core);
-          add_module_test(sigma_config);
-          add_module_test(element_config);
-          add_module_test(pseudo_tools);
-          add_module_test(bessel_transform);
-          add_module_test(pawxml_import);
-          add_module_test(scattering_test);
-          add_module_test(single_atom);
+        start_a_chapter("radial"); // *****************************************
+        // these modules act on a radial 1D grid
+        add_module_test(radial_grid);
+        add_module_test(radial_potential);
+        add_module_test(radial_integrator);
+        add_module_test(radial_eigensolver);
+        add_module_test(atom_core);
+        add_module_test(sigma_config);
+        add_module_test(element_config);
+        add_module_test(pseudo_tools);
+        add_module_test(bessel_transform);
+        add_module_test(pawxml_import);
+        add_module_test(scattering_test);
+        add_module_test(single_atom);
 
-          start_a_chapter("SHO-specific"); // *****************************************
-          // these modules are about the Spherical Harmonic Oscillator basis
-          add_module_test(sho_tools);
-          add_module_test(sho_unitary);
-          add_module_test(sho_overlap);
-          add_module_test(sho_projection);
-          add_module_test(sho_potential);
-          add_module_test(sho_radial);
-          add_module_test(sho_basis);
-          add_module_test(sho_hamiltonian);
+        start_a_chapter("SHO-specific"); // *****************************************
+        // these modules are about the Spherical Harmonic Oscillator basis
+        add_module_test(sho_tools);
+        add_module_test(sho_unitary);
+        add_module_test(sho_overlap);
+        add_module_test(sho_projection);
+        add_module_test(sho_potential);
+        add_module_test(sho_radial);
+        add_module_test(sho_basis);
+        add_module_test(sho_hamiltonian);
 
-          start_a_chapter("Hamiltonian"); // *****************************************
-          // these modules are specific for the real-space Green function method
-          add_module_test(atom_image);
-          add_module_test(plane_wave);
-          add_module_test(grid_operators);
-          add_module_test(action_plan);
-          add_module_test(green_input);
-          add_module_test(green_parallel);
-          add_module_test(green_sparse);
-          add_module_test(green_function);
+        start_a_chapter("Hamiltonian"); // *****************************************
+        // these modules are specific for the real-space Green function method
+        add_module_test(atom_image);
+        add_module_test(plane_wave);
+        add_module_test(grid_operators);
+        add_module_test(action_plan);
+        add_module_test(green_input);
+        add_module_test(green_parallel);
+        add_module_test(green_sparse);
+        add_module_test(green_function);
 //  The 7 green_* modules below are grouped for faster development
 //           add_module_test(green_memory);
 //           add_module_test(green_kinetic);
@@ -240,106 +240,94 @@
 //           add_module_test(green_experiments);
 //  The 7 green_* modules above are grouped for faster development
 //  for each of those 7+1 *.cxx files there are soft links with CUDA *.cu suffixes
-          green_tests::add_tests(results, input_name, show, all, echo);
+        green_tests::add_tests(results, input_name, show, all, echo);
 
-          start_a_chapter("eigensolver"); // *****************************************
-          // these modules offer various kinds of Hermitian eigenvalue solvers
-          add_module_test(conjugate_gradients);
-          add_module_test(davidson_solver);
-          add_module_test(dense_solver);
-          add_module_test(structure_solver);
-          add_module_test(energy_contour);
+        start_a_chapter("eigensolver"); // *****************************************
+        // these modules offer various kinds of Hermitian eigenvalue solvers
+        add_module_test(conjugate_gradients);
+        add_module_test(davidson_solver);
+        add_module_test(dense_solver);
+        add_module_test(structure_solver);
+        add_module_test(energy_contour);
 
-          start_a_chapter("DFT-specific"); // *****************************************
-          // these modules are specific to Density Functional Theory
-          add_module_test(symmetry_group);
-          add_module_test(brillouin_zone);
-          add_module_test(fermi_distribution);
-          add_module_test(exchange_correlation);
-          add_module_test(potential_generator);
-          add_module_test(density_generator);
-          add_module_test(self_consistency);
-          add_module_test(parallel_potential);
+        start_a_chapter("DFT-specific"); // *****************************************
+        // these modules are specific to Density Functional Theory
+        add_module_test(symmetry_group);
+        add_module_test(brillouin_zone);
+        add_module_test(fermi_distribution);
+        add_module_test(exchange_correlation);
+        add_module_test(potential_generator);
+        add_module_test(density_generator);
+        add_module_test(self_consistency);
+        add_module_test(parallel_potential);
 
-          add_module_test(verify_benchmark);
+        add_module_test(verify_benchmark);
 
-          start_a_chapter("================"); // last separator
+        start_a_chapter("================"); // last separator
 #undef    start_a_chapter
 #undef    add_module_test
 
-      } // testing scope
+    } // testing scope
 
-      status_t status(0);
-      if (results.size() < 1) { // nothing has been tested
-          error("test for '%s' not found, use -t '?' to see available modules!", module);
-      } else {
-          if (echo > 0) std::printf("\n\n");
-          int const show_timings = control::get("timings.show", 0.);
-          int nonzero_status{0};
-          int nmodules{0}; // count the module without counting chapters
-          for (auto result : results) {
-              auto const name = std::get<0>(result);
-              auto const time = std::get<1>(result);
-              auto const stat = std::get<2>(result);
-              if (ChapterMarker == time) {
-                  if (echo > 1) std::printf("#  ==== %s modules ====\n", name); // this is a chapter marker
-              } else {
-                  if (echo > 1) {
-                      if (show) {
-                          std::printf("#    module= %s\n", name);
-                      } else {
-                          std::printf("#    module= %-24s status= %i", name, int(stat));
-                          if (0 != stat)    std::printf(" FAILED");
-                          if (show_timings) std::printf(" \ttime=%9.3f seconds", time);
-                          std::printf("\n");
-                      }
-                  } // echo
-                  status += std::abs(int(stat)); // we must take |stat| so that positive and negative statuses do not cancel out
-                  nonzero_status += (0 != int(stat));
-                  ++nmodules;
-              } // chapter marker
-          } // result
-          auto const me = mpi_parallel::rank();
-          status = mpi_parallel::max(status);
-          auto const non0status = mpi_parallel::max(nonzero_status);
-          if (show) {
-              if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
-              if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);
-          } else { // show
-              if (nmodules > 1 && echo > 0) {
-                  std::printf("\n#%3d modules have been tested,  total status= %d", nmodules, int(status));
-                  if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop()); // total time
-                  std::printf("\n\n");
-              } // show total status if many modules have been tested
-              if (status > 0 && 0 == me) {
-                  warn("Tests for %d module%s failed!", non0status, (1 == non0status)?"":"s");
-              }
-          } // show
-      } // something has been tested
-      return status;
+    status_t status(0);
+    if (results.size() < 1) { // nothing has been tested
+        error("test for '%s' not found, use -t '?' to see available modules!", module);
+    } else {
+        if (echo > 0) std::printf("\n\n");
+        int const show_timings = control::get("timings.show", 0.);
+        int nonzero_status{0};
+        int nmodules{0}; // count the module without counting chapters
+        for (auto result : results) {
+            auto const name = std::get<0>(result);
+            auto const time = std::get<1>(result);
+            auto const stat = std::get<2>(result);
+            if (ChapterMarker == time) {
+                if (echo > 1) std::printf("#  ==== %s modules ====\n", name); // this is a chapter marker
+            } else {
+                if (echo > 1) {
+                    if (show) {
+                        std::printf("#    module= %s\n", name);
+                    } else {
+                        std::printf("#    module= %-24s status= %i", name, int(stat));
+                        if (0 != stat)    std::printf(" FAILED");
+                        if (show_timings) std::printf(" \ttime=%9.3f seconds", time);
+                        std::printf("\n");
+                    }
+                } // echo
+                status += std::abs(int(stat)); // we must take |stat| so that positive and negative statuses do not cancel out
+                nonzero_status += (0 != int(stat));
+                ++nmodules;
+            } // chapter marker
+        } // result
+        auto const me = mpi_parallel::rank();
+        status = mpi_parallel::max(status);
+        auto const non0status = mpi_parallel::max(nonzero_status);
+        if (show) {
+            if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
+            if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);
+        } else { // show
+            if (nmodules > 1 && echo > 0) {
+                std::printf("\n#%3d modules have been tested,  total status= %d", nmodules, int(status));
+                if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop()); // total time
+                std::printf("\n\n");
+            } // show total status if many modules have been tested
+            if (status > 0 && 0 == me) {
+                warn("Tests for %d module%s failed!", non0status, (1 == non0status)?"":"s");
+            }
+        } // show
+    } // something has been tested
+    return status;
 #endif // NO_UNIT_TESTS
-  } // run_unit_tests
+} // run_unit_tests
 
-  int show_help(char const *executable, int const echo=1) {
-      if (echo > 0) std::printf("Usage %s [-f file] [OPTIONs]\n"
-        "   --help          [-h]\tThis help message\n"
-        "   --file <file>   [-f]\tSpecify control file\n"
-#ifndef   NO_UNIT_TESTS
-        "   --test <module> [-t]\tRun module unit test\n"
-#endif // NO_UNIT_TESTS
-        "   --verbose    [-v/-V]\tIncrement verbosity level by 1 or 4\n"
-        "   --version           \tShow version number\n"
-        "   +<name>=<value>     \tModify variable environment\n"
-        "\n", executable);
-      return 0;
-  } // show_help
 
-  int show_version(char const *executable="#", int const echo=1) {
+int show_version(char const *executable="#", int const echo=1) {
 #include    "define_version.h" // define_version --> version_key
-      control::set("version.main", version_key);
-      if (echo > 0) std::printf("# %s git checkout %s\n", executable, version_key);
-      return 0;
-  } // show_version
+    control::set("version.main", version_key);
+    if (echo > 0) std::printf("# %s git checkout %s\n", executable, version_key);
+    return 0;
+} // show_version
+
 
 int main(int const argc, char *argv[]) {
 
@@ -386,10 +374,23 @@ int main(int const argc, char *argv[]) {
                     if (iarg + 1 < argc) { ++iarg; control_file = argv[iarg]; } // option1: specify control file by --file or -f
                 } else
                 if ("--version" == option) {
-                    return show_version(argv[0]); // show version and quit
+                    show_version(argv[0]); // show version
+                    return mpi_parallel::finalize(); // quit
                 } else
                 if ("-h" == option || "--help" == option) {
-                    return show_help(argv[0]); // show help and quit
+                    if (0 == me) {
+                        std::printf("Usage %s [<file>] [OPTIONs]\n"
+                            "   --help          [-h]\tThis help message\n"
+                            "   --file <file>   [-f]\tSpecify control file\n"
+#ifndef   NO_UNIT_TESTS
+                            "   --test <module> [-t]\tRun module unit test\n"
+#endif // NO_UNIT_TESTS
+                            "   --verbose  [-v] [-V]\tIncrement verbosity level by 1 or 4\n"
+                            "   --version           \tShow version number\n"
+                            "   +<name>=<value>     \tModify variable environment\n"
+                            "\n", argv[0]);
+                    } // MPI rank #0
+                    return mpi_parallel::finalize(); // quit
                 } else
                 if ("--verbose" == option) { // for the short option "-v" see verbosity increments above
                     verbosity = 6; // set verbosity high
@@ -412,7 +413,7 @@ int main(int const argc, char *argv[]) {
 
     } // iarg
 
-    // show command line arguments to the log
+    // show command line arguments in the log
     if (0 == me && verbosity > 0) {
         std::printf("\n#");
         for (int iarg{0}; iarg < argc; ++iarg) {
