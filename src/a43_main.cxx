@@ -321,14 +321,15 @@
   } // run_unit_tests
 
   int show_help(char const *executable, int const echo=1) {
-      if (echo > 0) std::printf("Usage %s [OPTION]\n"
-        "   --help           [-h]\tThis help message\n"
-        "   --version            \tShow version number\n"
+      if (echo > 0) std::printf("Usage %s [-f file] [OPTIONs]\n"
+        "   --help          [-h]\tThis help message\n"
+        "   --file <file>   [-f]\tSpecify control file\n"
 #ifndef   NO_UNIT_TESTS
-        "   --test <module>  [-t]\tRun module unit test\n"
+        "   --test <module> [-t]\tRun module unit test\n"
 #endif // NO_UNIT_TESTS
-        "   --verbose        [-V]\tIncrement verbosity level\n"
-        "   +<name>=<value>      \tModify variable environment\n"
+        "   --verbose    [-v/-V]\tIncrement verbosity level by 1 or 4\n"
+        "   --version           \tShow version number\n"
+        "   +<name>=<value>     \tModify variable environment\n"
         "\n", executable);
       return 0;
   } // show_help
@@ -340,129 +341,122 @@
       return 0;
   } // show_version
 
-  int main(int const argc, char *argv[]) {
-      mpi_parallel::init(argc, argv);
-      auto const me = mpi_parallel::rank();
-      if (argc < 2) warn("no arguments passed to %s!", (argc < 1) ? __FILE__ : argv[0]);
-      status_t stat(0);
-      char const *test_unit = ""; // the name of the unit to be tested
-      char const *input_file = "";
-      int run_tests{0}, num_plus{0};
-      int verbosity{3}; // set default verbosity low
-      control::set("executable.name", argv[0]);
-      for (int iarg{1}; iarg < argc; ++iarg) {
-          assert(nullptr != argv[iarg]);
-          char const ci0 = *argv[iarg]; // char #0 of command line argument #iarg
-          if ('-' == ci0) {
+int main(int const argc, char *argv[]) {
 
-              // options (short or long)
-              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #iarg
-              char const IgnoreCase = 'a' - 'A'; // use with | to convert upper case chars into lower case chars
-              if ('-' == ci1) {
+    // initialize the Message Passing Interface (MPI) for parallel computing
+    mpi_parallel::init(argc, argv);
 
-                  // long options with "--"
-                  std::string option(argv[iarg] + 2); // + 2 to remove "--" in front
-                  if ("input" == option) {
-                      if (iarg + 1 < argc) input_file = argv[iarg + 1];
-                  } else
-                  if ("test" == option) {
-                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
-                  } else
-                  if ("verbose" == option) {
-                      verbosity = 6; // set verbosity high
-                  } else
-                  if ("version" == option) {
-                      return show_version(argv[0]);
-                  } else
-                  if ("help" == option) {
-                      return show_help(argv[0]);
-                  } else {
-                      ++stat; warn("ignored unknown command line option --%s", option.c_str());
-                  } // option
+    // determine the MPI rank
+    auto const me = mpi_parallel::rank();
 
-              } else { // ci1
+    if (argc < 2) warn("no arguments passed to %s!", (argc < 1) ? __FILE__ : argv[0]);
 
-                  // short options with "-"
-                  if ('i' == (ci1 | IgnoreCase)) {
-                      if (iarg + 1 < argc) input_file = argv[iarg + 1];
-                  } else
-                  if ('t' == (ci1 | IgnoreCase)) {
-                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
-                  } else
-                  if ('v' == (ci1 | IgnoreCase)) {
-                      for (char const *vv = argv[iarg] + 1; *vv; ++vv) {
-                          verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
-                      } // vv
-                  } else
-                  if ('h' == (ci1 | IgnoreCase)) {
-                      return show_help(argv[0]);
-                  } else {
-                      ++stat; warn("ignored unknown command line option -%c", ci1);
-                  } // ci1
+    status_t stat(0);
 
-              } // ci1
+    int run_tests{0};
+    char const *test_unit{""}; // the name of the unit to be tested, "" --> all
+    char const *control_file{nullptr}; // the name of the control file (if any)
+    std::vector<int> plus_arguments; // mark additional command line arguments
+    int verbosity{3}; // set default verbosity low
 
-          } else // ci0
-          if ('+' == ci0) {
-              // stat += control::command_line_interface(argv[iarg] + 1, iarg); // start after the '+' char --> Changed: read CLI args later
-              ++num_plus;
-          } else
-          if (argv[iarg] != test_unit) {
-              ++stat; warn("ignored command line argument \'%s\'", argv[iarg]);
-          } // ci0
+    control::set("executable.name", argv[0]);
 
-      } // iarg
-      auto const num_plus_check = num_plus;
-      //
-      if (0 == me && verbosity > 0) {
-          std::printf("\n#");
-          for (int iarg = 0; iarg < argc; ++iarg) {
-              std::printf(" %s", argv[iarg]); // repeat all command line arguments for reproducability
-          } // iarg
-          std::printf("\n");
-      } // verbosity
-      //
-      // in addition to command_line_interface, we can modify the control environment by a file
-      auto const control_file_name = control::get("control.file", input_file);
-      stat += control::read_control_file(control_file_name, (0 == me)*verbosity);
+    // process the command line arguments serially
+    for (int iarg{1}; iarg < argc; ++iarg) {
+        assert(nullptr != argv[iarg] && "command line arguments passed to main() should be valid string pointers");
+        char const ci0 = *argv[iarg]; // char #0 of command line argument #iarg
+        if ('-' == ci0) {
 
-      // read command line arguments added with + after reading the control file 
-      // so we can overwrite content of the control file and get the proper warning
-      num_plus = 0;
-      for (int iarg{1}; iarg < argc; ++iarg) {
-          if ('+' == *argv[iarg]) {
-              stat += control::command_line_interface(argv[iarg] + 1, iarg); // +1 to start after the '+' char
-              ++num_plus;
-          } // ci0
-      } // iarg
-      assert(num_plus_check == num_plus); // 1st and 2nd time counting should give the same result
-      //
-      int const echo = (0 == me)*control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
-      //
-      stat += show_version(argv[0], echo);
-      //
-      if (echo > 0) std::printf("\n# verbosity=%d\n", echo);
-      //
-      stat += unit_system::set(control::get("output.length.unit", "Bohr"),
-                               control::get("output.energy.unit", "Ha"), echo);
-      // run
-      if (run_tests) {
-          stat += run_unit_tests(test_unit, echo);
-      } else {
-          stat += self_consistency::SCF(echo);
-      }
+            // only options start from '-'
 
-      // finalize
-      {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show unused, 4:show defaults
-          if (echo > 3) std::printf("\n# control.show=%d     0:none 1:used 2:unused 4:defaults\n", control_show);
-          if (control_show && echo > 0) {
-              stat += control::show_variables(control_show);
-          }
-      } // show all variable names defined in the control environment
+            char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #iarg
+            char const IgnoreCase = 'v' - 'V'; // use with | to convert upper case chars into lower case chars
+            if ('v' == (ci1 | IgnoreCase)) { // quick options -V or -v to increase the verbosity
+                for (char const *vv{argv[iarg] + 1}; *vv; ++vv) {
+                    verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
+                } // vv
+            } else {
 
-      if (echo > 0) recorded_warnings::show_warnings(3);
-      recorded_warnings::clear_warnings(1);
-      mpi_parallel::finalize();
+                // other options
+                std::string option(argv[iarg]);
+                if ("-t" == option || "--test" == option) {
+                    if (iarg + 1 < argc) { ++iarg; test_unit = argv[iarg]; } ++run_tests;
+                } else
+                if ("-f" == option || "--file" == option) {
+                    if (iarg + 1 < argc) { ++iarg; control_file = argv[iarg]; } // option1: specify control file by --file or -f
+                } else
+                if ("--version" == option) {
+                    return show_version(argv[0]); // show version and quit
+                } else
+                if ("-h" == option || "--help" == option) {
+                    return show_help(argv[0]); // show help and quit
+                } else
+                if ("--verbose" == option) { // for the short option "-v" see verbosity increments above
+                    verbosity = 6; // set verbosity high
+                } else {
+                    ++stat; warn("ignored unknown command line option \'%s\'", argv[iarg]);
+                } // option
 
-      return int(stat);
-  } // main
+            }
+
+        } else // ci0
+        if ('+' == ci0) {
+            plus_arguments.push_back(iarg); // memorize which command line arguments are passed to the command_line_interface
+        } else {
+            if (nullptr == control_file) {
+                control_file = argv[iarg]; // option2: specify control file without option tags
+            } else {
+                ++stat; warn("ignored command line argument #%i \'%s\'", iarg, argv[iarg]);
+            }
+        } // ci0
+
+    } // iarg
+
+    // show command line arguments to the log
+    if (0 == me && verbosity > 0) {
+        std::printf("\n#");
+        for (int iarg{0}; iarg < argc; ++iarg) {
+            std::printf(" %s", argv[iarg]); // repeat all command line arguments for reproducability
+        } // iarg
+        std::printf("\n");
+    } // verbosity
+
+    // read names and values for the control environment from the input file
+    stat += control::read_control_file(control::get("control.file", control_file), (0 == me)*verbosity);
+
+    // read command line arguments added with + after reading the control file 
+    // so we can overwrite content of the control file and get the proper warning
+    for (auto iarg : plus_arguments) {
+        assert('+' == *argv[iarg] && "arguments marked for the command line interface should start from \'+\'");
+        stat += control::command_line_interface(argv[iarg] + 1, iarg); // +1 to start after the '+' char
+    } // iarg
+
+    int const echo = (0 == me)*control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
+
+    stat += show_version(argv[0], echo); // for reproducability
+
+    if (echo > 0) std::printf("\n# verbosity=%d\n", echo);
+
+    stat += unit_system::set(control::get("output.length.unit", "Bohr"),
+                             control::get("output.energy.unit", "Ha"), echo);
+    // run
+    if (run_tests) {
+        stat += run_unit_tests(test_unit, echo);
+    } else {
+        stat += self_consistency::SCF(echo);
+    }
+
+    // finalize
+    {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show unused, 4:show defaults
+        if (echo > 3) std::printf("\n# control.show=%d     0:none 1:used 2:unused 4:defaults\n", control_show);
+        if (control_show && echo > 0) {
+            stat += control::show_variables(control_show);
+        }
+    } // show all variable names defined in the control environment
+
+    if (echo > 0) recorded_warnings::show_warnings(3);
+    recorded_warnings::clear_warnings(1);
+    mpi_parallel::finalize();
+
+    return int(stat);
+} // main
