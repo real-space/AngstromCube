@@ -135,10 +135,9 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
 #include "add_module_test.h" // macro definition of add_module_test(MODULE_NAME)
 
-#define   start_a_chapter(chapter_name) {                                           \
+#define   start_a_chapter(chapter_name) {                                                  \
             if (chapters) std::printf("\n\n\n\n#\n# %s modules\n#\n\n\n\n", chapter_name); \
-            if (all) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0)); \
-        } // start_a_chapter
+            if (all) results.push_back(std::make_tuple(chapter_name, ChapterMarker, 0));   }
 
         start_a_chapter("general"); // *****************************************
         // these modules are of general utility for programming
@@ -231,13 +230,13 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
         add_module_test(green_sparse);
         add_module_test(green_function);
 //  The 7 green_* modules below are grouped for faster development
-//           add_module_test(green_memory);
-//           add_module_test(green_kinetic);
-//           add_module_test(green_dyadic);
-//           add_module_test(green_potential);
-//           add_module_test(green_action);
-//           add_module_test(green_solver);
-//           add_module_test(green_experiments);
+//      add_module_test(green_memory);
+//      add_module_test(green_kinetic);
+//      add_module_test(green_dyadic);
+//      add_module_test(green_potential);
+//      add_module_test(green_action);
+//      add_module_test(green_solver);
+//      add_module_test(green_experiments);
 //  The 7 green_* modules above are grouped for faster development
 //  for each of those 7+1 *.cxx files there are soft links with CUDA *.cu suffixes
         green_tests::add_tests(results, input_name, show, all, echo);
@@ -263,7 +262,7 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
         add_module_test(verify_benchmark);
 
-        start_a_chapter("================"); // last separator
+        start_a_chapter("end of"); // last separator
 #undef    start_a_chapter
 #undef    add_module_test
 
