@@ -280,7 +280,7 @@ namespace energy_contour {
         , std::vector<double> const & sigma_prj
         , parallel_poisson::parallel_grid_t const & pg // ncubes == pg.n_local()
         , double const n_electrons // =1 // required total number of electrons 
-        , double const dV // =1 // grid volume element
+        , double const dV // =1 // grid volume element on dense grid
         , int const echo // =0 // log level
         , int const check // =0
     ) {
@@ -288,6 +288,8 @@ namespace energy_contour {
         size_t constexpr n4x4x4 = 4*4*4;
         auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
+
+        auto const dVc = 8*dV; // volume element on the dense grid
 
         int const max_iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
@@ -368,7 +370,7 @@ namespace energy_contour {
             std::snprintf(energy_parameter_label, 64, "(%g %s, %g %s)", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
             if (echo > 7) std::printf("# energy parameter %s with weight (%g, %g)\n", energy_parameter_label, std::real(energy_weight), std::imag(energy_weight));
 
-            stat += green_function::update_energy_parameter(plan, energy, dV, echo, Noco);
+            stat += green_function::update_energy_parameter(plan, energy, dVc, echo, Noco);
 
             view2D<Complex> rho_E(ncubes, n4x4x4, zero);
 
@@ -386,14 +388,14 @@ namespace energy_contour {
                     stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
 
                     add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points
-                    auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dV;
+                    auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc;
                     if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons\n",
                                                   energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
                 } // check
 
             } // ikpoint
             if (0 == check) {
-                auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dV;
+                auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dVc;
                 if (echo + echo_dos > 5) std::printf("# Green function solution for E=%s has %g electrons\n",
                                                             energy_parameter_label, rho_integral);
                 // accumulate density over E-points
@@ -423,13 +425,13 @@ namespace energy_contour {
         } // ib
 
         {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], ncubes*n4x4x4), comm)*dV;
+            auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], ncubes*n4x4x4), comm)*dVc;
             if (echo + check > 3) std::printf("# solved density has %g electrons\n", rho_integral);
          // if (echo > 3) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_444[0], ncubes*n4x4x4));
         }
 
         {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], ncubes*n4x4x4), comm)*dV;
+            auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], ncubes*n4x4x4), comm)*dVc;
             if (echo + check > 3) std::printf("# solved response density has %g electrons\n", rho_integral);
             // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
         }
