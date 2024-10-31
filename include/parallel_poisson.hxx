@@ -93,7 +93,7 @@ namespace parallel_poisson {
     ); // declaration only
 
     template <typename real_t=double>
-    status_t block_interpolation(
+    status_t cube4x4x4_interpolation(
           real_t       *const v888 // result array, data layout v888[n_local_cubes][8*8*8]
         , real_t const *const v444 // input  array, data layout v444[n_local_cubes][4*4*4]
         , parallel_grid_t const & pg // descriptor, must be prepared with "3x3x3"

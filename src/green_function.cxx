@@ -23,7 +23,7 @@
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "progress_report.hxx" // ProgressReport
-#include "boundary_condition.hxx" // Isolated_Boundary, Periodic_B*, Vacuum_B*, Repeated_B*, Wrap_B*
+#include "boundary_condition.hxx" // Isolated_Boundary, Periodic_B*, Vacuum_B*, Repeated_B*, Wrap_B*, ::bc_char
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm
@@ -397,8 +397,8 @@ namespace green_function {
         if (echo > 1) {
             std::printf("\n# Cell summary:\n");
             for (int d{0}; d < 3; ++d) {
-                std::printf("# %7d %c-points, %6d blocks, spacing= %8.6f, cell.%c= %8.3f %s, boundary= %d\n",
-                    ng[d], 'x' + d, n_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, bc[d]);
+                std::printf("# %7d %c-points, %6d blocks, spacing= %8.6f, cell.%c= %8.3f %s, boundary= %c\n",
+                    ng[d], 'x' + d, n_blocks[d], hg[d]*Ang, 'x'+ d, cell[d]*Ang, _Ang, boundary_condition::bc_char(bc[d]));
             } // d
             std::printf("# ================ ============== ================== ====================== ============\n"
                 "# %7.3f M points, %11.3f k, average= %8.6f, volume= %8.1f %s^3\n\n",

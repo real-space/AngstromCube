@@ -448,7 +448,7 @@ namespace energy_contour {
 
         // interpolation density from 4*4*4 to 8*8*8 block could be done here
         if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
-        parallel_poisson::block_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
+        parallel_poisson::cube4x4x4_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
 
         {
             auto const rho_integral = mpi_parallel::sum(sum(rho_888, ncubes*size_t(8*8*8)), comm)*dV;

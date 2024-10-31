@@ -46,7 +46,9 @@ namespace boundary_condition {
 
   char const bc_names[8][16] = {"isolated", "periodic", "vacuum", "repeat", "unknown", "wrap", "?invalid", "mirror"};
   // internal value                0           1           2         3         4        5         -2          -1
-  
+
+  char constexpr bc_char(int8_t const bc) { return "ipvruw?m"[bc & 0x7]; }
+
   inline int8_t potential_bc(int8_t const bc) {
       // translate a Green function BC (which can be also vacuum or repeat) into a regular BC for the potential
       int constexpr pot_bc[8] = {0, 1, 0, 1, -2, -2, -2, -1};
