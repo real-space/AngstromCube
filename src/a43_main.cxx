@@ -378,15 +378,15 @@ int main(int const argc, char *argv[]) {
                 } else
                 if ("-h" == option || "--help" == option) {
                     if (0 == me) {
-                        std::printf("Usage %s [<file>] [OPTIONs]\n"
-                            "   --help          [-h]\tThis help message\n"
-                            "   --file <file>   [-f]\tSpecify control file\n"
+                        std::printf("Usage %s [OPTIONs] [<file>]\n"
+                            "   -h, --help          \tThis help message\n"
+                            "   -f, --file <file>   \tSpecify control file\n"
 #ifndef   NO_UNIT_TESTS
-                            "   --test <module> [-t]\tRun module unit test\n"
+                            "   -t, --test <module> \tRun module unit test\n"
 #endif // NO_UNIT_TESTS
-                            "   --verbose  [-v] [-V]\tIncrement verbosity level by 1 or 4\n"
+                            "   -v, -V, --verbose   \tIncrement verbosity level by 1 or 4\n"
                             "   --version           \tShow version number\n"
-                            "   +<name>=<value>     \tModify variable environment\n"
+                            "   +<name>=<value>     \tOverwrite variable environment\n"
                             "\n", argv[0]);
                     } // MPI rank #0
                     return mpi_parallel::finalize(); // quit

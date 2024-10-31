@@ -62,5 +62,5 @@ EOF
 (cd ../green/ && make -j) && \
 echo "# start calculation $base" && \
 $exe --test green_experiments \
-      +control.file=green_control.sh \
+      -f green_control.sh \
       "$@" > green_experiments.$base.out

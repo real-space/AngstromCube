@@ -319,7 +319,7 @@ for spacing in `seq 1 1 0`; do
   project=$base.grid$spacing
   echo "# start calculation $project" && \
   $exe -test self_consistency \
-        +control.file=control.sh \
+        -f control.sh \
         +basis=grid \
         +grid.spacing=`echo 0.125001 / $spacing | bc -l` \
         "$@" > $project.out
@@ -332,7 +332,7 @@ for numax in `seq 3 1 0`; do
   project=$base.sho$numax
   echo "# start calculation $project" && \
   $exe -test self_consistency \
-        +control.file=control.sh \
+        -f control.sh \
         +basis=sho \
         +grid.spacing=0.125001 \
         +sho_hamiltonian.test.numax=$numax \
@@ -347,7 +347,7 @@ for ecut in `seq 3 1 0`; do
   project=$base.pw$ecut
   echo "# start calculation $project" && \
   $exe -test self_consistency \
-        +control.file=control.sh \
+        -f control.sh \
         +basis=plane_wave \
         +plane_wave.cutoff.energy=$ecut \
         "$@" > $project.out
