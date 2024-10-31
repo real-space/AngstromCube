@@ -4464,12 +4464,12 @@ namespace single_atom {
           case 'm': // interface usage: atom_update("memory cleanup", natoms);
           {
               if (a.size() != na) warn("what='%s' for %d atoms, but only %ld atoms active!", what, na, a.size());
-              na = a.size(); // set na to fulfill consistency check at the end of this routine
               #pragma omp parallel for
               for (int32_t ia = 0; ia <= kia*(na - 1); ++ia) {
                   a[ia]->~LiveAtom(); // envoke destructor
               } // ia
               a.clear();
+              na = a.size(); // set na to fulfill consistency check at the end of this routine
               angular_grid::cleanup(echo);
               assert(!dp); assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
