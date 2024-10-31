@@ -228,13 +228,13 @@ This helps to keep the code base small and, hence, maintainable.
 offer many functionalities accessible by options. Type \ttt{./a43 --help}
 to get a first-aid function:
 \begin{verbatim}
-Usage ./a43 [OPTION]
-   --help           [-h]	This help message
-   --version            	Show version number
-   --test <module>  [-t]	Run module unit test
-   --verbose        [-V]	Increment verbosity level
-   +<name>=<value>      	Modify variable environment
-\end{verbatim}
+Usage ./a43 [OPTIONs] [<file>]
+   -h, --help          	This help message
+   -f, --file <file>   	Specify control file
+   -t, --test <module> 	Run module unit test
+   -v, -V, --verbose   	Increment verbosity level by 1 or 4
+   --version           	Show version number
+   +<name>=<value>     	Overwrite variable environment\end{verbatim}
 
 \noindent
 An important functionality after building the application (see Section \ref{sec:compiling})
@@ -389,9 +389,9 @@ to see if there are warnings before you continue with the main calculation
 \subsection{Writing an input file} \label{sec:control-file}
 %
 At some point the command line becomes full.
-We can pass more environment variables to \codename{} using a \ttt{+control.file}, e.g.:
+We can pass more environment variables to \codename{}\emph{control file}, e.g.:
 \begin{verbatim}
-./a43 --test potential_generator +control.file=control.sh
+./a43 control.sh --test self_consistency
 \end{verbatim}
 Hint: There is no default name or naming scheme for the control file 
 but it may be helpful to use an \ttt{.sh}-file extension since that
@@ -440,7 +440,7 @@ Variable value origins shown with \ttt{+control.show=-6}
      \verb+def  0+   & Variable has its default value      \\
      \verb+set  0+   & Value was set using \ttt{control::set()} \\
      \ttt{argv \#}   & Command line argument number \\
-     \ttt{line \#}   & Line number in the \ttt{+control.file} \\
+     \ttt{line \#}   & Line number in the control file \\
 \hline
 \end{tabular}
 \end{table}
@@ -969,7 +969,7 @@ At the heart of every \ac{DFT} code are the \ac{SCF} iterations.
 ./a43 --test self_consistency
 \end{verbatim}
 takes several control variables, the most important ones are listed in Table \ref{tab:main-scf-variables}.
-We recommend to store them in a \ttt{+control.file}, see Section \ref{sec:control-file}.
+We recommend to store them in a control file, see Section \ref{sec:control-file}.
 %
 \begin{table}[h]
 \caption[Main Variables]{
@@ -1044,7 +1044,7 @@ The configuration string can be specified as
 \begin{verbatim}
 +element_Sr=4s 2 5s 2 4p* 6 4d | 2.37 sigma .666
 \end{verbatim}
-in the \ttt{+control.file} or via the command line as
+in the control file or via the command line as
 \begin{verbatim}
 ./a43 --test sigma_config +sigma_config.test.Z=38 \
         +element_Sr="4s 2 5s 2 4p* 6 4d | 2.37 sigma .666"
