@@ -728,10 +728,12 @@ namespace green_experiments {
             int it{0}, lastiter{maxiter - 1};
             for (; it <= lastiter && lastiter >= 0; ++it) { // Davidson iterations
 
-            if (echo > 5) std::printf("# start Davidson iteration #%i\n", it);
+            if (echo > 5) { std::printf("# start Davidson iteration #%i\n", it); std::fflush(stdout); }
 
             nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
             nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
+
+            if (echo > 6) { std::printf("# create inner products <psi_i|Hpsi_j> and <psi_i|Spsi_j> in iteration #%i\n", it); std::fflush(stdout); }
 
             // create inner products <psi_i|Hpsi_j> and <psi_i|Spsi_j>
             nops += inner_products<real_t,R1C2,Noco>(Hmat, Smat,
@@ -748,6 +750,8 @@ namespace green_experiments {
                     std::printf("\n");
                 } // i
             } // echo_Smat
+
+            if (echo > 6) { std::printf("# analyze overlap operator stability in iteration #%i\n", it); std::fflush(stdout); }
 
             set(mat[0], pow2(nbands)*R1C2, Smat[0]); // deep copy of the overlap operator
             // we need a deep copy here because the dense eigenvalue solver changes the matrix
