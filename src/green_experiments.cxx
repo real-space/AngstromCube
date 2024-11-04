@@ -119,14 +119,14 @@ namespace green_experiments {
               if (maxiter >= 0) {
                   tfqmrgpu::solve(action, memory_buffer, 1e-9, maxiter, 0, true);
               } else {
-                  if(echo > 6) std::printf("# skip tfqmrgpu::solve due to maxiter=%d\n", maxiter);
+                  if (echo > 6) std::printf("# skip tfqmrgpu::solve due to maxiter=%d\n", maxiter);
               }
 
               // the 1st part of the memory buffer constains the result Green function
               auto const Green = (real_t const(*)[R1C2][Noco*64][Noco*64]) memory_buffer;
               // extract the density as imaginary part of the trace of the Green function
               simple_stats::Stats<> rho_stats;
-              for (unsigned icol = 0; icol < p.nCols; ++icol) {
+              for (uint32_t icol = 0; icol < p.nCols; ++icol) {
                   auto const inzb = p.subset[icol]; // index of a diagonal block
                   for (int i64 = 0; i64 < 64; ++i64) {
                       rho[icol][0][0][i64] = prefactor * Green[inzb][ImaginaryPart][i64][i64];
@@ -153,6 +153,7 @@ namespace green_experiments {
 #ifdef    HAS_BITMAP_EXPORT
           // preview after every k-point (no non-linear function applied for better visibility, but data range in [0, 511] gets truncated to [0, 255])
           bitmap::write_bmp_file("spectral_function", spectral_function.data(), nE, ik+1, nkpoints, 511/max_resonance_k, ".bmp", false, echo, 1, true);
+          // this export has been used to create bandstructure plots of the free electron gas
 #endif // HAS_BITMAP_EXPORT
 #endif // HAS_TFQMRGPU
 
@@ -204,20 +205,27 @@ namespace green_experiments {
 
 
 
+
+
+
+
+
+
   template <typename real_t=double, int R1C2=1, int Noco=1>
-  size_t inner_products(
-        double Hmatrix[][R1C2] // result: Hmatrix[(nb*64)*(nb*64)][1:real/2:complex]
-      , double Smatrix[][R1C2] // result: Overlap[(nb*64)*(nb*64)][1:real/2:complex]
-      , real_t const  psi[][R1C2][Noco*64][Noco*64] // input: Green function[nb*nblocks][][][]
+  size_t inner_products( // with nbands=nb*64
+        double Hmatrix[][R1C2] // result: Hmatrix[nbands*nbands][R1C2]
+      , double Smatrix[][R1C2] // result: Overlap[nbands*nbands][R1C2]
+      , real_t const  psi[][R1C2][Noco*64][Noco*64] // input: Green function[nb*ncubes][R1C2][][]
       , real_t const Hpsi[][R1C2][Noco*64][Noco*64] // input: H*G
       , real_t const Spsi[][R1C2][Noco*64][Noco*64] // input: S*G
-      , int const nblocks
+      , int const nblocks // = ncubes
       , int const nb
-      , view2D<int> const & block_index // [nb][nblocks]
+      , view2D<int> const & block_index // [nb][ncubes]
       , double const dV=1.0 // volume element
       , int const echo=0 // verbosity level
   )
-    // Hmat[i][j] = <psi_i|Hpsi_j> and Smat[i][j] = <psi_i|Spsi_j>
+    // Hmat[i][j] = <psi_i|Hpsi_j> and 
+    // Smat[i][j] = <psi_i|Spsi_j>
   {
       int constexpr Real = 0, Imag = R1C2 - 1;
       int const nbands = nb*64;
@@ -225,13 +233,15 @@ namespace green_experiments {
 
       // integrate over the real space grid
       for (int ib = 0; ib < nb; ++ib) {
+          SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
           for (int jb = 0; jb < nb; ++jb) {
 
-                for (int k = 0; k < nblocks; ++k) { // block contraction index
-                    int const izyxb = block_index(ib,k);
-                    int const jzyxb = block_index(jb,k);
-                    assert((izyxb == jzyxb) == (ib == jb)); // must only be the same indices exactly when ib==jb
-                } // k
+              for (int k = 0; k < nblocks; ++k) { // block contraction index
+                  auto const izyxb = block_index(ib,k);
+                  auto const jzyxb = block_index(jb,k);
+                  assert((izyxb == jzyxb) == (ib == jb)); // must only be the same indices exactly when ib==jb
+              } // k
+              if (echo > 9) std::printf("# %s i= %i, j= %i\n", __func__, ib*64, jb*64);
 
               for (int ib64 = 0; ib64 < 64; ++ib64) {
                   int const iband = ib*64 + ib64;
@@ -240,26 +250,25 @@ namespace green_experiments {
                       int const ij = iband*nbands + jband;
                       double H_re{0}, H_im{0}, S_re{0}, S_im{0};
                       for (int k = 0; k < nblocks; ++k) { // contract over target blocks
-                              int const izyxb = block_index(ib,k);
-                              int const jzyxb = block_index(jb,k);
+                              auto const izyxb = block_index(ib,k);
+                              auto const jzyxb = block_index(jb,k);
                               for (int k64 = 0; k64 < 64; ++k64) { // contract over target grid points inside each block
 
-                                    double const psi_re  =  psi[izyxb][Real][k64][ib64],
-                                                 psi_im  = -psi[izyxb][Imag][k64][ib64];
-
-                                    double const Hpsi_re = Hpsi[jzyxb][Real][k64][jb64],
-                                                 Hpsi_im = Hpsi[jzyxb][Imag][k64][jb64];
-
-                                    double const Spsi_re = Spsi[jzyxb][Real][k64][jb64],
-                                                 Spsi_im = Spsi[jzyxb][Imag][k64][jb64];
+                                    double const  psi_re =  psi[izyxb][Real][k64][ib64];
+                                    double const Hpsi_re = Hpsi[jzyxb][Real][k64][jb64];
+                                    double const Spsi_re = Spsi[jzyxb][Real][k64][jb64];
 
                                     H_re += psi_re * Hpsi_re; // 2 flop
                                     S_re += psi_re * Spsi_re; // 2 flop
                                     if (Imag) {
-                                        H_re -= psi_im * Hpsi_im;                     // 2 flop
-                                        S_re -= psi_im * Spsi_im;                     // 2 flop
-                                        H_im += psi_re * Hpsi_im + psi_im * Hpsi_re;  // 4 flop
-                                        S_im += psi_re * Spsi_im + psi_im * Spsi_re;  // 4 flop
+                                        double const  psi_im =  psi[izyxb][Imag][k64][ib64];
+                                        double const Hpsi_im = Hpsi[jzyxb][Imag][k64][jb64];
+                                        double const Spsi_im = Spsi[jzyxb][Imag][k64][jb64];
+
+                                        H_re += psi_im * Hpsi_im;                     // 2 flop
+                                        S_re += psi_im * Spsi_im;                     // 2 flop
+                                        H_im += psi_re * Hpsi_im - psi_im * Hpsi_re;  // 4 flop
+                                        S_im += psi_re * Spsi_im - psi_im * Spsi_re;  // 4 flop
                                     } // is complex
                               } // k64
                       } // k
@@ -271,6 +280,7 @@ namespace green_experiments {
                       } // complex
                   } // jb64
               } // ib64
+
           } // jb
       } // ib
 
@@ -481,6 +491,7 @@ namespace green_experiments {
 
       int const nbands = nb*64;
       if (echo > 1) std::printf("# number of bands %d = %d * 64\n", nbands, nb);
+      // the number of bands must be a multiple of 64 as we have a data layout that is in blocks of 64 elements
       assert(nb > 0);
 
       if (echo > 2) std::printf("# "
@@ -527,9 +538,9 @@ namespace green_experiments {
       std::vector<double> Eval(nbands, 0.0); // eigenvalues
       std::vector<std::vector<double>> bandstructure(nkpoints, Eval); // result array
 
-      int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)}; // convert #gridpoints to #blocks
+      int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)}; // convert #gridpoints to #cubes
       auto const nblocks = size_t(ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
-      if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld blocks\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
+      if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld cubes\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
       size_t const nnzb = pH.colindx.size();
       if (echo > 1) std::printf("# %s nnzb= %ld\n", __func__, nnzb);
       assert(nnzb == nblocks * nb && "This solver can only run with a dense Green function");
@@ -543,7 +554,10 @@ namespace green_experiments {
       if (echo > 9) { std::printf("# pH.colindx= "); printf_vector(" %d", pH.colindx); }
       if (echo > 8) { std::printf("# pH.subset= " ); printf_vector(" %d", pH.subset ); }
 
-      view2D<int> block_index(nb, nblocks, -1);
+      int * block_index_ptr = get_memory<int>(nb*nblocks, echo, "block_index");
+      set(block_index_ptr, nb*nblocks, -1);
+      // view2D<int> block_index(nb, nblocks, -1); // in CPU memory -- cannot be accessed in a GPU kernel
+      view2D<int> block_index(block_index_ptr, nblocks); // wrap
       { // scope: prepare block_index which helps to admin the dense Green function
           std::vector<int> nbl(nb, 0);
           for (int inzb{0}; inzb < nb*nblocks; ++inzb) {
@@ -562,8 +576,11 @@ namespace green_experiments {
           } // inzb
           for (int ib{0}; ib < nb; ++ib) {
               assert(nblocks == nbl[ib]); // since the Green function is supposed to be dense, all columns must have nblocks
-              if (echo > 15) { std::printf("# inner_product: block_index="); printf_vector(" %d", block_index[ib], nblocks); }
+              if (echo > 15) { std::printf("# inner_product: block_index(%i,:)=", ib); printf_vector(" %d", block_index[ib], nblocks); }
               for (int iblock{0}; iblock < nblocks; ++iblock) { assert(-1 != block_index(ib,iblock)); } // no table element may be unassigned
+              for (int iblock{0}; iblock < nblocks; ++iblock) {
+                  assert(ib + nb*iblock == block_index(ib,iblock)); // simple structure
+              } // iblock
           } // ib
       } // scope
 
@@ -665,7 +682,7 @@ namespace green_experiments {
                               if (Imag) {
                                   psi[izyxb][Imag][jzyx][ib64] = f*std::cos(arg);
                                   psi[izyxb][Real][jzyx][ib64] = f*std::sin(arg); // if we treat real wave functions and isolated BCs,
-                                            // the sine-solution is the eigenstate of the potential-free particle in a box problem
+                                                // the sine-solution is the eigenstate of the potential-free particle in a box problem
                               } else {
                                   psi[izyxb][Real][jzyx][ib64] = f*std::cos(arg);
                               }
@@ -685,9 +702,9 @@ namespace green_experiments {
       simple_stats::Stats<> Gflop_count;
       simple_stats::Stats<> Wtime_count;
 
-      auto Hpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "H * waves");
-      auto Spsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "S * waves");
-      auto tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(nnzb, echo, "temp waves");
+      auto Hpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "H * waves");
+      auto Spsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "S * waves");
+      auto tpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "temp waves");
 
       auto Hmat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Hamiltonian");
       auto Smat = get_memory<double[R1C2]>(pow2(nbands), echo, "subspace Overlap op");
@@ -696,7 +713,7 @@ namespace green_experiments {
 #ifdef    HAS_LAPACK
       int const echo_Hmat = control::get("green_experiments.eigensolver.echo.hmat", 0.);
       int const echo_Smat = control::get("green_experiments.eigensolver.echo.smat", 0.);
-      int const maxiter = control::get("green_experiments.eigen.maxiter", (nb == nblocks) ? 1. : 9.);
+      int const maxiter   = control::get("green_experiments.eigen.maxiter", (nb == nblocks) ? 1. : 9.);
 
       size_t warn_instable_overlap{0};
 
@@ -807,7 +824,7 @@ namespace green_experiments {
                         // ToDo: rotate 1st half of bands and generate the 2nd half from gradients
                         //        gradient: phi_i = (H - E_i*S) psi_i
                         if (echo > 5) std::printf("# rotate_waves in Davidson iteration #%i\n", it);
-                        nops += rotate_waves<real_t,R1C2,Noco>(tpsi, psi, Hmat, nblocks, nb, block_index); // Spsi is a dummy here for a new version of psi
+                        nops += rotate_waves<real_t,R1C2,Noco>(tpsi, psi, Hmat, nblocks, nb, block_index); // tpsi is a dummy here for a new version of psi
                         std::swap(psi, tpsi); // pointer swap
 
                         if (Sval[0] > .01) {
@@ -815,12 +832,14 @@ namespace green_experiments {
                             if (echo > 9) std::printf("# gradient_waves in Davidson iteration #%i\n", it);
                             float min_max_res[2];
 
-                            nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
-                            nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
-                            nops += gradient_waves<real_t,R1C2,Noco>(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, block_index, min_max_res, echo);
-                            if (echo > 5) std::printf("# gradient_waves in iteration #%i has residual norms in [%.1e, %.1e]\n",
-                                                        it, min_max_res[0], min_max_res[1]);
-                            }
+                            if (nb < nblocks) {
+                                nops += action_H.multiply(Hpsi, psi, colIndex, nnzb, nb);
+                                nops += action_S.multiply(Spsi, psi, colIndex, nnzb, nb);
+                                nops += gradient_waves<real_t,R1C2,Noco>(psi, Hpsi, Spsi, Eval.data(), nblocks, nb, block_index, min_max_res, echo);
+                                if (echo > 5) std::printf("# gradient_waves in iteration #%i has residual norms in [%.1e, %.1e]\n",
+                                                            it, min_max_res[0], min_max_res[1]);
+                                }
+                            } //  nb < nblocks
                         } else {
                             if (echo > 5) std::printf("# overlap becomes instable in Davidson iteration #%i\n", it);
                             lastiter = it; // exit
@@ -896,6 +915,7 @@ namespace green_experiments {
       free_memory(Spsi); free_memory(Hpsi);
       free_memory(psi);  free_memory(tpsi);
       free_memory(colIndex);
+      free_memory(block_index_ptr);
       return 0;
   } // eigensolver
 
