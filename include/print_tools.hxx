@@ -23,6 +23,7 @@
           n_chars_written += std::printf(format, vec[i]*scale + add);
       } // i
       if (final) n_chars_written += std::printf("%s", final);
+      std::fflush(stdout);
       return n_chars_written;
   } // printf_vector
 

@@ -540,8 +540,8 @@ namespace green_experiments {
       for (size_t inzb{0}; inzb < nnzb; ++inzb) {
           colIndex[inzb] = pH.colindx.at(inzb); // copy
       } // inzb
-      if (echo > 3) { std::printf("# pH.colindx= "); printf_vector(" %d", pH.colindx); }
-      if (echo > 3) { std::printf("# pH.subset= "); printf_vector(" %d", pH.subset); }
+      if (echo > 9) { std::printf("# pH.colindx= "); printf_vector(" %d", pH.colindx); }
+      if (echo > 8) { std::printf("# pH.subset= " ); printf_vector(" %d", pH.subset ); }
 
       view2D<int> block_index(nb, nblocks, -1);
       { // scope: prepare block_index which helps to admin the dense Green function
@@ -562,7 +562,7 @@ namespace green_experiments {
           } // inzb
           for (int ib{0}; ib < nb; ++ib) {
               assert(nblocks == nbl[ib]); // since the Green function is supposed to be dense, all columns must have nblocks
-              if (echo > 5) { std::printf("# inner_product: block_index="); printf_vector(" %d", block_index[ib], nblocks); }
+              if (echo > 15) { std::printf("# inner_product: block_index="); printf_vector(" %d", block_index[ib], nblocks); }
               for (int iblock{0}; iblock < nblocks; ++iblock) { assert(-1 != block_index(ib,iblock)); } // no table element may be unassigned
           } // ib
       } // scope
@@ -595,7 +595,7 @@ namespace green_experiments {
       green_action::action_t<real_t,R1C2,Noco,64> action_H(&pH); // constructor
       green_action::action_t<real_t,R1C2,Noco,64> action_S(&pS); // constructor
       double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
-      green_function::update_energy_parameter(pH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H - (0)*S)
+      green_function::update_energy_parameter(pH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H -  (0)*S)
       green_function::update_energy_parameter(pS, -1.0, dVol, echo, Noco, 0.0); // prepare for S: A = (0*H - (-1)*S)
 
       auto psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
@@ -678,7 +678,7 @@ namespace green_experiments {
 
       } else {  // start waves
           assert(nb == nblocks); // there are as many bands as real-space grid points
-          if (echo > 0) std::printf("# prepare as many wave functions as real-space grid points\n"); // every time again --> see below
+          if (echo > 0) { std::printf("# prepare as many wave functions as real-space grid points\n"); std::fflush(stdout); } // every time again --> see below
           assert(pH.subset.size() == nb);
       } // start waves
 
