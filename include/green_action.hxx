@@ -45,7 +45,7 @@
 #include "status.hxx"          // status_t, STATUS_TEST_NOT_INCLUDED
 #include "mpi_parallel.hxx"    // ::allreduce, ::rank
 #include "recorded_warnings.hxx" // warn
-#inlcude "inline_math.hxx"     // set
+#include "inline_math.hxx"     // set
 
 #ifdef    DEBUG
   #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
