@@ -200,7 +200,7 @@ namespace energy_contour {
 
                     stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
 
-                    add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate density over k-points
+                    add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate (complex) density over k-points
                     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc;
                     if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons\n",
                                                   energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
@@ -232,8 +232,8 @@ namespace energy_contour {
         res_point = (zero != res_point) ? 1./res_point : 1;
         for (uint32_t ib{0}; ib < ncubes; ++ib) {
             for (int i444{0}; i444 < 64; ++i444) {
-                rho_444(ib,i444) = rho_c(ib,i444).real();
-                rho_res(ib,i444) = (res_c(ib,i444)*res_point).real();
+                rho_444(ib,i444) =  rho_c(ib,i444).imag();
+                rho_res(ib,i444) = (res_c(ib,i444)*res_point).imag();
             } // i444
         } // ib
 

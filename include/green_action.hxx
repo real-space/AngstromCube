@@ -45,6 +45,7 @@
 #include "status.hxx"          // status_t, STATUS_TEST_NOT_INCLUDED
 #include "mpi_parallel.hxx"    // ::allreduce, ::rank
 #include "recorded_warnings.hxx" // warn
+#inlcude "inline_math.hxx"     // set
 
 #ifdef    DEBUG
   #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
@@ -196,6 +197,8 @@ namespace green_action {
         assert(p_); auto const & p = *p_;
         uint32_t const nnzbX = p.colindx.size();
 
+        set(rho, p.nCols*4*4*4, std::complex<double>(0));
+
         if (0 == max_iterations) { 
             if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
             return 0;
@@ -223,7 +226,7 @@ namespace green_action {
             if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
             // export solution
 
-            auto const Green = (real_t const (*)[2][Noco*64][Noco*64])memory_buffer_;
+            auto const Green = (real_t const (*)[R1C2][Noco*64][Noco*64])memory_buffer_;
             if (echo > 5) std::printf("# copy %d diagonal cubes of the Green function\n", p.nCols);
             if (ncubes != p.nCols) warn("Green function solution provides %d 4x4x4 cubes, but requested %d", p.nCols, ncubes);
             double const f_Kramers_Kronig = 1.0/constants::pi;
@@ -239,6 +242,8 @@ namespace green_action {
 
             return 0;
         } // max_iterations > 0
+#else  // HAS_TFQMRGPU
+
 #endif // HAS_TFQMRGPU
 
         int const niterations = std::abs(max_iterations);

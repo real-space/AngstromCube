@@ -31,7 +31,7 @@ public:
 
 private: // members
 
-    void *action_ = nullptr; // pointers to action (will be casted according to key)
+    void *action_ = nullptr; // pointer to templated action_t (will be casted according to key)
     int action_key_ = 0;
 
 }; // class green_solver_t
