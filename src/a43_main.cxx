@@ -67,6 +67,7 @@
   #include "green_input.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
+  #include "energy_mesh.hxx" // ::all_tests
   #include "simple_math.hxx" // ::all_tests
   #include "sho_overlap.hxx" // ::all_tests
   #include "radial_grid.hxx" // ::all_tests
@@ -164,6 +165,7 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
         add_module_test(spherical_harmonics);
         add_module_test(dense_operator);
         add_module_test(angular_grid);
+        add_module_test(energy_mesh);
 
         start_a_chapter("input"); // *****************************************
         // these modules support input and output

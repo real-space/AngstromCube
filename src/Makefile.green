@@ -23,6 +23,7 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	control.o \
 	display_units.o \
 	dyadic_plan.o \
+	energy_mesh.o \
 	energy_contour.o \
 	exchange_correlation.o \
 	geometry_input.o \

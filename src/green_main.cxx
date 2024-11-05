@@ -31,6 +31,7 @@
   #include "json_reading.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
   #include "green_input.hxx" // ::all_tests
+  #include "energy_mesh.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
   #include "sho_tools.hxx" // ::all_tests
   #include "control.hxx" // ::all_tests
@@ -94,6 +95,7 @@ status_t run_unit_tests(char const *unit_name, int const echo=0) {
         add_module_test(green_parallel);
         add_module_test(green_function);
         add_module_test(green_sparse);
+        add_module_test(energy_mesh);
         add_module_test(energy_contour);
         add_module_test(parallel_poisson);
         add_module_test(parallel_potential);

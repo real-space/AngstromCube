@@ -103,6 +103,8 @@ set(a43_headers ${a43_atom_headers}
     ../include/define_version.h
     ../include/energy_contour.hxx
     ../include/energy_contribution.hxx
+    ../include/energy_mesh.hxx
+    ../include/exchange_correlation.hxx
     ../include/gaunt_entry.h
     ../include/geometry_analysis.hxx
     ../include/geometry_input.hxx
@@ -140,6 +142,7 @@ set(a43_sources ${a43_atom_sources}
     bessel_transform.cxx
     dense_solver.cxx
     energy_contour.cxx
+    energy_mesh.cxx
     geometry_analysis.cxx
     geometry_input.cxx
     green_experiments.cxx
@@ -207,6 +210,7 @@ set(green_headers
     ../include/dyadic_plan.hxx
     ../include/energy_contour.hxx
     ../include/energy_contribution.hxx
+    ../include/energy_mesh.hxx
     ../include/exchange_correlation.hxx
     ../include/geometry_input.hxx
     ../include/global_coordinates.hxx
@@ -259,6 +263,7 @@ set(green_sources
     display_units.cxx
     dyadic_plan.cxx
     energy_contour.cxx
+    energy_mesh.cxx
     exchange_correlation.cxx
     geometry_input.cxx
     green_function.cxx

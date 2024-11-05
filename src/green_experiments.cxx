@@ -263,9 +263,6 @@ namespace green_experiments {
 
         reshape<real_t,R1C2,Noco>(Psi, psi, ncubes, nb, echo);
 
-        int const n = nbands;
-        int const k = ncubes*4*4*4;
-
         for (int hs = 0; hs < 2; ++hs) {
             auto const *const opsi   = hs ? Spsi    : Hpsi;
             auto       *const matrix = hs ? Smatrix : Hmatrix;
@@ -273,7 +270,9 @@ namespace green_experiments {
             reshape<real_t,R1C2,Noco>(OPsi, opsi, ncubes, nb, echo);
 
 #ifdef    HAS_LAPACK
-            // contract
+            // contract using the BLAS library
+            int const n = nbands;
+            int const k = ncubes*4*4*4;
             if (2 == R1C2) {
                 auto const a = (std::complex<double> const *)  Psi;
                 auto const b = (std::complex<double> const *) OPsi;
@@ -431,9 +430,6 @@ namespace green_experiments {
         green_function::update_energy_parameter(pH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H -  (0)*S)
         green_function::update_energy_parameter(pS, -1.0, dVol, echo, Noco, 0.0); // prepare for S: A = (0*H - (-1)*S)
 
-        auto psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
-
-        int constexpr Real = 0, Imag = R1C2 - 1;
         assert(nb == nblocks && "Davidson code has been deleted, see d2e840d166d3dfd17bd5bd2d42749e5b856b5d4d");
         assert(nb == nblocks); // there are as many bands as real-space grid points
         if (echo > 0) { std::printf("# prepare as many wave functions as real-space grid points\n"); std::fflush(stdout); } // every time again --> see below
@@ -443,10 +439,12 @@ namespace green_experiments {
         warn("cannot run this test without -DHAS_LAPACK", 0);
         return -1;
 #else  // HAS_LAPACK
+        int constexpr Real = 0, Imag = R1C2 - 1;
 
         simple_stats::Stats<> Gflop_count;
         simple_stats::Stats<> Wtime_count;
 
+        auto  psi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "waves");
         auto Hpsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "H * waves");
         auto Spsi = get_memory<real_t[R1C2][Noco*4*4*4][Noco*64]>(nnzb, echo, "S * waves");
 
