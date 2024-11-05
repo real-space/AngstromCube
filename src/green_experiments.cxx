@@ -35,7 +35,7 @@
 #include "green_function.hxx" // ::construct_Green_function, ::update_energy_parameter, ::update_phases, ::update_potential
 #include "control.hxx" // ::get
 #ifdef    HAS_LAPACK
-    #include "linear_algebra.hxx" // ::eigenvalues
+    #include "linear_algebra.hxx" // ::eigenvalues, ::gemm
 #endif // HAS_LAPACK
 
 #ifdef    HAS_BITMAP_EXPORT
@@ -52,7 +52,7 @@ namespace green_experiments {
 
     template <typename real_t=double, int Noco=1>
     status_t spectralfunction(
-            action_plan_t & p
+          action_plan_t & p
         , uint32_t const ng[3] // grid points
         , double const hg[3] // grid spacings
         , int const echo=0
@@ -75,7 +75,7 @@ namespace green_experiments {
         view2D<double> k_path;
         auto const nkpoints = brillouin_zone::get_kpoint_path(k_path, echo);
         if (echo > 1) std::printf("# %s %d k-points, %d E-points, temperature %g %s = %g %s\n",
-                                __func__, nkpoints, nE, E_imag*Kelvin, _Kelvin, E_imag*eV, _eV);
+                               __func__, nkpoints, nE, E_imag*Kelvin, _Kelvin, E_imag*eV, _eV);
 
         p.gpu_mem = 0;
 #ifdef    HAS_TFQMRGPU
@@ -112,7 +112,7 @@ namespace green_experiments {
                 double const E_real = iE*dE + E0;
                 std::complex<double> E_param(E_real, E_imag);
 
-    //            green_function::update_energy_parameter(p, E_param, AtomMatrices, hg[2]*hg[1]*hg[0], 1.0, Noco, echo);
+  //            green_function::update_energy_parameter(p, E_param, AtomMatrices, hg[2]*hg[1]*hg[0], 1.0, Noco, echo);
                 green_function::update_energy_parameter(p, E_param, hg[2]*hg[1]*hg[0], echo, Noco);
 
 #ifdef    HAS_TFQMRGPU
@@ -272,6 +272,7 @@ namespace green_experiments {
 
             reshape<real_t,R1C2,Noco>(OPsi, opsi, ncubes, nb, echo);
 
+#ifdef    HAS_LAPACK
             // contract
             if (2 == R1C2) {
                 auto const a = (std::complex<double> const *)  Psi;
@@ -281,6 +282,9 @@ namespace green_experiments {
             } else {
                 linear_algebra::gemm(n, n, k, matrix[0], n, OPsi[0], n, Psi[0], n, dV, 0., 't', 'n');
             } // is_complex
+#else  // HAS_LAPACK
+            assert(false && "Needs BLAS to contract, activate -D HAS_LAPACK");
+#endif // HAS_LAPACK
 
         } // hs
 
