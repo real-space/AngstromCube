@@ -1,6 +1,6 @@
 **AngstromCube test cases**
 
-![AngstromCube logo](doc/fig/a43_logo_bold_104x104.png)
+![AngstromCube logo](../../doc/fig/a43_logo_bold_104x104.png)
 
 | File name +`.xyz`           | Atoms | Comment                                                                  |  
 | :-------------------------- | ----: | :----------------------------------------------------------------------- |
@@ -16,3 +16,5 @@
 | `Cu320Zr180`                |   500 | Metallic glas from copper and zirconium                                  |
 | `dna`                       |   637 | Double-helix structure of DNA including the phosphate backbone           |
 |                             |       |                                                                          |
+
+![AngstromCube logo](../../doc/fig/geometry_analysis_of_dna_white.png)

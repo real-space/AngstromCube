@@ -32,11 +32,11 @@ The idea is to have a code that
     - non-magnetic potential generation
     - MPI parallel Poisson solver for the electrostatics (no preconditioner)
     - SHO-projector PAW with all-electron atoms (currently only non-magnetic)
+    - GPU acceleration (CUDA support)
 - These features are planned but have so far not been addressed:
     - different versions of LDA, GGA, meta-GGA (currently only LDA implemented)
     - efficient eigensolver for the grid Hamiltonian (currently inefficient subspace rotation method)
-    - OpenMP parallelization (currently none)
-    - GPU acceleration (currently none)
+    - OpenMP parallelization (currently only in some places)
     - forces (currently none)
     - self-consistency convergence criteria (currently we set the number of iterations)
     - magnetism, collinear and non-collinear (currently only non-magnetic)
@@ -77,6 +77,6 @@ The root folder of this repository contains the following directories:
 | MPI   | Message Passing Interface                                                             |
 | FFT   | Fast Fourier Transform                                                                |
 | OMP   | OpenMP, Open Multi-Processing                                                         |
-| TeX   | typesetting                                                                           |
+| TeX   | LaTeX typesetting                                                                     |
 | Gf    | Green function                                                                        |
 | Wf    | Wave function (eigenstate)                                                            |

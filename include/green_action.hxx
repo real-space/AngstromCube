@@ -119,189 +119,189 @@ namespace green_action {
         ~action_t() {
             green_debug_printf("# destruct %s\n", __func__);
             free_memory(apc_);
-  //        free_memory(aac_); // currently not used
+//          free_memory(aac_); // currently not used
             free_memory(memory_buffer_);
         } // destructor
 
-      void take_memory(char* &buffer) {
-          auto const & dp = p_->dyadic_plan;
-          auto const natomcoeffs = dp.AtomImageStarts ? dp.AtomImageStarts[dp.nAtomImages] : 0;
-          auto const n = size_t(natomcoeffs) * p_->nCols;
-          apc_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "apc");
-//        aac_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "aac"); // currently not used
-      } // take_memory
+        void take_memory(char* &buffer) {
+            auto const & dp = p_->dyadic_plan;
+            auto const natomcoeffs = dp.AtomImageStarts ? dp.AtomImageStarts[dp.nAtomImages] : 0;
+            auto const n = size_t(natomcoeffs) * p_->nCols;
+            apc_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "apc");
+//          aac_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "aac"); // currently not used
+        } // take_memory
 
-      void transfer(char* const buffer, cudaStream_t const streamId=0) {
-          // no transfers needed since we are using managed memory
-      } // transfer
+        void transfer(char* const buffer, cudaStream_t const streamId=0) {
+            // no transfers needed since we are using managed memory
+        } // transfer
 
-      bool has_preconditioner() const { return false; }
-
-
-      double multiply( // returns the number of flops performed
-            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
-          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
-          , uint16_t const (*const __restrict colIndex) // column indices [nnzb], warning: must be in device memory or managed memory
-          , uint32_t const nnzb // number of nonzero blocks, typically colIndex.size()
-          , uint32_t const nCols=1 // should match with p.nCols, number of block columns, assert(colIndex[:] < nCols)
-          , unsigned const l2nX=0  // number of levels needed for binary reductions over nnzb
-          , cudaStream_t const streamId=0 // CUDA stream to run on
-          , bool const precondition=false
-      )
-        // GPU implementation of green_potential, green_kinetic and green_dyadic
-      {
-          assert(p_); auto const & p = *p_;
-          if (2 == Noco) assert(p.noncollinear_spin && "Also the plan needs to be created with Noco=2");
-          double nops{0};
-
-          if (p.echo > 3) std::printf("\n");
-          if (p.echo > 2) std::printf("# green_action::multiply\n");
-
-          // start with the local potential, assign y to initial values
-          nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p.Veff, p.veff_index,
-                      p.target_minus_source, p.grid_spacing_trunc, nnzb, p.E_param,
-                      p.V_confinement, pow2(p.r_confinement), p.echo);
-
-          // add the kinetic energy expressions
-          for (int dd = 0; dd < 3; ++dd) { // loop must run serial
-              nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p.kinetic[dd], p.phase[dd], p.echo);
-          } // dd derivative direction
-
-          // add the non-local potential using the dyadic action of project + add
-          nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc_, x, p.dyadic_plan,
-                      p.rowindx, colIndex, p.rowCubePos, nnzb, p.echo);
-
-          if (p.echo > 4) std::printf("# green_action::multiply %g Gflop\n", nops*1e-9);
-
-          return nops;
-      } // multiply
-
-      action_plan_t * get_plan() { return p_; }
+        bool has_preconditioner() const { return false; }
 
 
-    status_t solve(
-          std::complex<double> rho[] // result: density[ncubes][4*4*4]
-        , uint32_t const ncubes // should match plan.nCols
-        , int const max_iterations=1
-        , int const echo=9
-    ) {
-        if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
+        double multiply( // returns the number of flops performed
+              real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
+            , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
+            , uint16_t const (*const __restrict colIndex) // column indices [nnzb], warning: must be in device memory or managed memory
+            , uint32_t const nnzb // number of nonzero blocks, typically colIndex.size()
+            , uint32_t const nCols=1 // should match with p.nCols, number of block columns, assert(colIndex[:] < nCols)
+            , unsigned const l2nX=0  // number of levels needed for binary reductions over nnzb
+            , cudaStream_t const streamId=0 // CUDA stream to run on
+            , bool const precondition=false
+        )
+            // calls GPU implementations of operators green_potential, green_kinetic and green_dyadic
+        {
+            assert(p_); auto const & p = *p_;
+            if (2 == Noco) assert(p.noncollinear_spin && "Also the plan needs to be created with Noco=2");
+            double nops{0};
+
+            if (p.echo > 3) std::printf("\n");
+            if (p.echo > 2) std::printf("# green_action::multiply\n");
+
+            // start with the local potential, assign y to initial values
+            nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p.Veff, p.veff_index,
+                        p.target_minus_source, p.grid_spacing_trunc, nnzb, p.E_param,
+                        p.V_confinement, pow2(p.r_confinement), p.echo);
+
+            // add the kinetic energy expressions
+            for (int dd = 0; dd < 3; ++dd) { // loop must run serial
+                nops += green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p.kinetic[dd], p.phase[dd], p.echo);
+            } // dd derivative direction
+
+            // add the non-local potential using the dyadic action of project + add
+            nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc_, x, p.dyadic_plan,
+                        p.rowindx, colIndex, p.rowCubePos, nnzb, p.echo);
+
+            if (p.echo > 4) std::printf("# green_action::multiply %g Gflop\n", nops*1e-9);
+
+            return nops;
+        } // multiply
+
+        action_plan_t * get_plan() { return p_; }
+
+
+        status_t solve(
+            std::complex<double> rho[] // result: density[ncubes][4*4*4]
+            , uint32_t const ncubes // should match plan.nCols
+            , int const max_iterations=1
+            , int const echo=9
+        ) {
+            if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
 
 // #ifdef    DEBUGGPU
-        if (echo > 5) {
-            auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD            
-            std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
-        } // echo
+            if (echo > 5) {
+                auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD            
+                std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
+            } // echo
 // #endif // DEBUGGPU
 
-        assert(p_); auto const & p = *p_;
-        uint32_t const nnzbX = p.colindx.size();
+            assert(nullptr != p_);
+            auto const & p = *p_;
+            uint32_t const nnzbX = p.colindx.size();
 
-        set(rho, p.nCols*4*4*4, std::complex<double>(0));
+            set(rho, p.nCols*4*4*4, std::complex<double>(0));
 
-        if (0 == max_iterations) { 
-            if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
-            return 0;
-        } // 0 max_iterations
+            if (0 == max_iterations) { 
+                if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
+                return 0;
+            } // 0 max_iterations
 
 #ifdef    HAS_TFQMRGPU
-        if (max_iterations >= 0) {
-            if (nnzbX < 1) {
-                if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+            if (max_iterations >= 0) {
+                if (nnzbX < 1) {
+                    if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+                    return 0;
+                }
+                if (echo > 4) std::printf("\n# call tfqmrgpu::solve\n\n");
+                assert(nullptr != memory_buffer_);
+                double time_needed{1};
+                { // scope: call the solver
+                    SimpleTimer timer(__FILE__, __LINE__, __func__, echo*0);
+
+                    tfqmrgpu::solve(*this, memory_buffer_, 1e-9, max_iterations, 0, true);
+
+                    time_needed = timer.stop();
+                } // scope
+                if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
+                                                                p.residuum_reached,  p.iterations_needed);
+                if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
+                if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
+
+                // export solution Green function
+                auto const Green = (real_t const (*)[R1C2][Noco*64][Noco*64])memory_buffer_;
+                // under the silent assumption that the solution vector v1 in tfQMRgpu is the first vector in the memory_buffer_
+
+                if (echo > 5) std::printf("# copy %d diagonal cubes of the Green function\n", p.nCols);
+                if (ncubes != p.nCols) warn("Green function solution provides %d 4x4x4 cubes, but requested %d", p.nCols, ncubes);
+                double const f_Kramers_Kronig = 1./constants::pi;
+                for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
+                    auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal
+                    for (unsigned i64{0}; i64 < 64; ++i64) {
+                        int constexpr real_part = 0, imag_part = R1C2 - 1;
+                        auto const rho_Re = Green[inz_diagonal][real_part][i64][i64]*f_Kramers_Kronig;
+                        auto const rho_Im = Green[inz_diagonal][imag_part][i64][i64]*f_Kramers_Kronig;
+                        rho[iCol*64u + i64] = std::complex<double>(rho_Re, rho_Im*(R1C2 > 1));
+                    } // i64
+                } // iCol
+
                 return 0;
-            }
-            if (echo > 4) std::printf("\n# call tfqmrgpu::solve\n\n");
-            assert(nullptr != memory_buffer_);
-            double time_needed{1};
-            { // scope: benchmark the solver
-                SimpleTimer timer(__FILE__, __LINE__, __func__, echo*0);
-
-                tfqmrgpu::solve(*this, memory_buffer_, 1e-9, max_iterations, 0, true);
-
-                time_needed = timer.stop();
-            } // timer
-            if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
-                                                               p.residuum_reached,  p.iterations_needed);
-            if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
-            if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
-            // export solution
-
-            auto const Green = (real_t const (*)[R1C2][Noco*64][Noco*64])memory_buffer_;
-            if (echo > 5) std::printf("# copy %d diagonal cubes of the Green function\n", p.nCols);
-            if (ncubes != p.nCols) warn("Green function solution provides %d 4x4x4 cubes, but requested %d", p.nCols, ncubes);
-            double const f_Kramers_Kronig = 1.0/constants::pi;
-            for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
-                auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal
-                for (unsigned i64{0}; i64 < 64; ++i64) {
-                    int constexpr real_part = 0, imag_part = R1C2 - 1;
-                    auto const rho_Re = Green[inz_diagonal][real_part][i64][i64]*f_Kramers_Kronig;
-                    auto const rho_Im = Green[inz_diagonal][imag_part][i64][i64]*f_Kramers_Kronig;
-                    rho[iCol*64u + i64] = std::complex<double>(rho_Re, rho_Im*(R1C2 > 1));
-                } // i64
-            } // iCol
-
-            return 0;
-        } // max_iterations > 0
+            } // max_iterations >= 0
 #else  // HAS_TFQMRGPU
 
 #endif // HAS_TFQMRGPU
 
-        int const niterations = std::abs(max_iterations);
-        int constexpr LM = Noco*64;
-        auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
-        auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
-        set(x[0][0][0], nnzbX*size_t(R1C2*LM*LM), real_t(0)); // init x
+            int const niterations = std::abs(max_iterations);
+            int constexpr LM = Noco*64;
+            auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
+            auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
+            set(x[0][0][0], nnzbX*size_t(R1C2*LM*LM), real_t(0)); // init x
 
-        auto colIndex = get_memory<uint16_t>(nnzbX, echo, "colIndex");
-        set(colIndex, nnzbX, p.colindx.data()); // copy into GPU memory
+            auto colIndex = get_memory<uint16_t>(nnzbX, echo, "colIndex");
+            set(colIndex, nnzbX, p.colindx.data()); // copy into GPU memory
 
-        { // scope: benchmark the action
-            SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
-            simple_stats::Stats<> timings;
-            double nflops{0};
-            ProgressReport progress(__FILE__, __LINE__, 2.5, echo); // update the line every 2.5 seconds
-            for (int iteration = 0; iteration < niterations; ++iteration) {
-                SimpleTimer timeit(__FILE__, __LINE__, __func__, echo*0);
+            { // scope: benchmark the action
+                SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+                simple_stats::Stats<> timings;
+                double nflops{0};
+                ProgressReport progress(__FILE__, __LINE__, 2.5, echo); // update the line every 2.5 seconds
+                for (int iteration = 0; iteration < niterations; ++iteration) {
+                    SimpleTimer timeit(__FILE__, __LINE__, __func__, echo*0);
 
-                nflops += multiply(y, x, colIndex, nnzbX, p.nCols);
-                cudaDeviceSynchronize();
+                    nflops += multiply(y, x, colIndex, nnzbX, p.nCols);
+                    cudaDeviceSynchronize();
 
-                timings.add(timeit.stop());
-                std::swap(x, y);
-                progress.report(iteration, niterations);
-            } // iteration
-            if (echo > 1) std::printf("#\n# running action.multiply needed [%g, %g +/- %g, %g] seconds per iteration\n",
-                                            timings.min(), timings.mean(), timings.dev(), timings.max());
-            char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
-            if (echo > 1) std::printf("# %d calls of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
-                                            niterations, nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF);
-            if (echo > 1) std::printf("# fastest call of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
-                                            nflops/niterations, fF, timings.min(), nflops/(niterations*timings.min())*1e-9, fF);
-        } // scope
+                    timings.add(timeit.stop());
+                    std::swap(x, y);
+                    progress.report(iteration, niterations);
+                } // iteration
+                if (echo > 1) std::printf("#\n# running action.multiply needed [%g, %g +/- %g, %g] seconds per iteration\n",
+                                                timings.min(), timings.mean(), timings.dev(), timings.max());
+                char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
+                if (echo > 1) std::printf("# %d calls of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
+                                                niterations, nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF);
+                if (echo > 1) std::printf("# fastest call of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
+                                                nflops/niterations, fF, timings.min(), nflops/(niterations*timings.min())*1e-9, fF);
+            } // scope
 
-        free_memory(colIndex);
-        free_memory(y);
-        free_memory(x);
-        return 0;
-    } // solve
-
-
-
+            free_memory(colIndex);
+            free_memory(y);
+            free_memory(x);
+            return 0;
+        } // solve
 
     private: // members
 
-      action_plan_t *p_ = nullptr; // the action_plan is independent of real_t and R1C2 and stores Noco as member (to check the matching)
+        action_plan_t *p_ = nullptr; // the action_plan is independent of real_t and R1C2 and stores Noco as member (to check the matching)
 
-      // temporary device memory needed for dyadic operations
-      real_t (*apc_)[R1C2][Noco][LM] = nullptr; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
-//    real_t (*aac_)[R1C2][Noco][LM] = nullptr; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
-      // (we can live with a single copy as the application of the atom-centered matrices is in-place)
-      // Discuss: would it be worthwile to have the apc always as double?
-      // --> would simplify the kernel complexity
+        // temporary device memory needed for dyadic operations
+        real_t (*apc_)[R1C2][Noco][LM] = nullptr; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
+//      real_t (*aac_)[R1C2][Noco][LM] = nullptr; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
+        // (we can live with a single copy as the application of the atom-centered matrices is in-place)
+        // Discuss: would it be worthwile to have the apc always as double?
+        // --> would simplify the kernel complexity
 
-      char* memory_buffer_ = nullptr;
+        char* memory_buffer_ = nullptr;
 
-  }; // class action_t
+    }; // class action_t
 
 
     status_t all_tests(int const echo=0); // declaration only

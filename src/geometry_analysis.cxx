@@ -25,7 +25,6 @@
 #include "simple_stats.hxx" // ::Stats
 #include "print_tools.hxx" // SparsifyPlot<>
 #include "control.hxx" // ::get
-// #include "print_tools.hxx" // printf_vector
 
 #ifndef   NO_UNIT_TESTS
   #include <fstream> // std::ofstream

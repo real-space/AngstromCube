@@ -192,7 +192,7 @@ namespace energy_contour {
                 Complex const kpoint_weight = kpoint[brillouin_zone::WEIGHT];
 
                 if (echo + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g]\n",
-                                                energy_parameter_label, kpoint[0], kpoint[1], kpoint[2]);
+                                                 energy_parameter_label, kpoint[0], kpoint[1], kpoint[2]);
                 if (0 == check) {
                     stat += green_function::update_phases(plan, kpoint, echo >> 3, Noco);
 
@@ -203,14 +203,15 @@ namespace energy_contour {
                     add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate (complex) density over k-points
                     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc;
                     if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons\n",
-                                                  energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
+                                                    energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
                 } // check
 
             } // ikpoint
+
             if (0 == check) {
                 auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dVc;
                 if (echo + echo_dos > 5) std::printf("# Green function solution for E=%s has %g electrons\n",
-                                                            energy_parameter_label, rho_integral);
+                                                                       energy_parameter_label, rho_integral);
                 // accumulate density over E-points
                 add_product(rho_c[0], ncubes*n4x4x4, rho_E[0], energy_weight);
             } else if (echo > 7) std::printf("# solve Green function for E=%s\n", energy_parameter_label);
@@ -231,7 +232,7 @@ namespace energy_contour {
         view2D<double> rho_res(ncubes, n4x4x4, 0.0); // response density
         res_point = (zero != res_point) ? 1./res_point : 1;
         for (uint32_t ib{0}; ib < ncubes; ++ib) {
-            for (int i444{0}; i444 < 64; ++i444) {
+            for (int i444{0}; i444 < n4x4x4; ++i444) {
                 rho_444(ib,i444) =  rho_c(ib,i444).imag();
                 rho_res(ib,i444) = (res_c(ib,i444)*res_point).imag();
             } // i444
