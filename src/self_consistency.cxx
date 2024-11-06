@@ -195,6 +195,7 @@ namespace self_consistency {
       std::vector<int32_t> lmax_vlm(na, -1);
 
       // initialize and get sigma, lmax for each atom
+      if (echo > 0) std::printf("# initialize %d atoms\n", na);
       stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
       stat += single_atom::atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
@@ -636,8 +637,8 @@ namespace self_consistency {
       KS.store(control::get("store.waves", ""), echo);
 
 #ifdef    DEVEL
-      stat += potential_generator::potential_projections(g, Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(),
-                  na, &center, rcut, echo);
+      stat += potential_generator::potential_projections(g, Ves.data(), Vxc.data(),
+                     Vtot.data(), rho.data(), cmp.data(), na, &center, rcut, echo);
 #endif // DEVEL
 
       stat += single_atom::atom_update("memory cleanup", na);
@@ -646,6 +647,9 @@ namespace self_consistency {
 
       return stat;
   } // SCF
+
+
+
 
 #ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

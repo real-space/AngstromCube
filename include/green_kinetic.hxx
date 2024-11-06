@@ -347,7 +347,7 @@ namespace green_kinetic {
                                             // list must contain at least one element and is finalized with -1
         , double const prefactor
         , uint32_t const num
-        , int const Stride // Stride is determined by the lattice dimension along which we derive: 1, 4 or 4^2
+        , int const Stride // Stride is determined by the lattice dimension along which we derive: 4^0, 4^1 or 4^2
         , double const phase[2][2]=nullptr
         , int const FD_range=4 // 4 or 8 are implemented
     ) {

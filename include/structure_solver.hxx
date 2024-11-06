@@ -184,14 +184,14 @@ namespace structure_solver {
             if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"
                 stat_k += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
                 for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                    if (echo > 6) { std::printf("# SCF cycle #%i, k-point #%i of %d, CG repetition #%i\n", scf_iteration, ikpoint, nkpoints, irepeat); std::fflush(stdout); }
+                    if (echo > 6) { std::printf("# SCF cycle#%i, k-point#%i of %d, CG repetition#%i\n", scf_iteration, ikpoint, nkpoints, irepeat); std::fflush(stdout); }
                     stat_k += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, kp, echo - 5);
                     stat_k += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
                 } // irepeat
             } else
             if ('d' == *grid_eigensolver_method) { // "davidson"
                 for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                    if (echo > 6) { std::printf("# SCF cycle #%i, k-point #%i of %d, DAV repetition #%i\n", scf_iteration, ikpoint, nkpoints, irepeat); std::fflush(stdout); }
+                    if (echo > 6) { std::printf("# SCF cycle#%i, k-point#%i of %d, DAV repetition#%i\n", scf_iteration, ikpoint, nkpoints, irepeat); std::fflush(stdout); }
                     stat_k += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, kp, echo);
                 } // irepeat
             } else
@@ -202,7 +202,7 @@ namespace structure_solver {
                 stat_k += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
                 wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor?
                 for (int iband = 0; iband < nbands; ++iband) {
-                    set(psi_k[iband], gc.all(), HSm(0,iband), factor);
+                    set(psi_k[iband], gc.all(), HSm(0,iband), factor); // copy eigenvectors as eigenstates
                 } // iband
             } // grid_eigensolver_method
 

@@ -34,6 +34,8 @@
 #include "green_action.hxx" // ::action_t
 #include "green_function.hxx" // ::construct_Green_function, ::update_energy_parameter, ::update_phases, ::update_potential
 #include "control.hxx" // ::get
+#include "progress_report.hxx" // 
+
 #ifdef    HAS_LAPACK
     #include "linear_algebra.hxx" // ::eigenvalues, ::gemm
 #endif // HAS_LAPACK
@@ -82,9 +84,7 @@ namespace green_experiments {
         p.echo = echo - 5;
         if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
         tfqmrgpu::solve(action); // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
-        if (echo > 5) std::printf("# tfqmrgpu::solve requires %.6f GByte GPU memory\n", p.gpu_mem*1e-9);
-        double constexpr prefactor = 1./constants::pi;
-        int constexpr ImaginaryPart = 1;
+        if (echo > 2) std::printf("# tfqmrgpu::solve requires %.6f GByte GPU memory\n", p.gpu_mem*1e-9);
         assert(1 == Noco);
         auto rho = get_memory<double[Noco][Noco][64]>(p.nCols, echo, "rho");
         set(rho[0][0][0], p.nCols*Noco*Noco*64, 0.0);
@@ -98,6 +98,7 @@ namespace green_experiments {
 
         std::vector<double> bandstructure(nkpoints, -9e9);
 
+        ProgressReport timer(__FILE__, __LINE__, 1, echo);
         for (int ik = 0; ik < nkpoints; ++ik) {
             double const *const k_point = k_path[ik];
 
@@ -106,7 +107,8 @@ namespace green_experiments {
 
             double E_resonance{-9};
 #ifdef    HAS_TFQMRGPU
-            double max_resonance{-9e9};
+            if (echo > 0) std::printf("# E_real(%s) resonance deviation iterations(k)\n", _eV); // legend
+            double max_resonance{-9e9}, sum_resonances{0};
 #endif // HAS_TFQMRGPU
             for (int iE = 0; iE < nE; ++iE) {
                 double const E_real = iE*dE + E0;
@@ -126,6 +128,8 @@ namespace green_experiments {
                 auto const Green = (real_t const(*)[R1C2][Noco*64][Noco*64]) memory_buffer;
                 // extract the density as imaginary part of the trace of the Green function
                 simple_stats::Stats<> rho_stats;
+                double constexpr prefactor = 1./constants::pi;
+                int constexpr ImaginaryPart = 1;
                 for (uint32_t icol = 0; icol < p.nCols; ++icol) {
                     auto const inzb = p.subset[icol]; // index of a diagonal block
                     for (int i64 = 0; i64 < 64; ++i64) {
@@ -135,12 +139,13 @@ namespace green_experiments {
                 } // icol
                 // ToDo: MPIallreduce rho_stats
                 auto const resonance = rho_stats.mean(), deviation = rho_stats.dev();
-                if (echo > 0) std::printf("%.6f %.9f %.1e\n", E_real*eV, resonance, deviation);
+                if (echo > 0) std::printf("%.6f %.9f %.1e %.3f\n", E_real*eV, resonance, deviation, p.iterations_needed*.001);
+                sum_resonances += resonance*dE;
                 if (resonance > max_resonance) { iE_res = iE; ik_res = ik; max_resonance = resonance; E_resonance = E_real; }
                 if (deviation > max_deviation) { iE_dev = iE; ik_dev = ik; max_deviation = deviation; }
                 spectral_function(iE,ik) = resonance; // store result
 
-            //   auto const pGp = green_dyadic::get_projection_coefficients<real_t,R1C2,Noco>(Green, p.dyadic_plan, p.rowindx, p.rowCubePos, p.colCubePos, echo);
+             // auto const pGp = green_dyadic::get_projection_coefficients<real_t,R1C2,Noco>(Green, p.dyadic_plan, p.rowindx, p.rowCubePos, p.colCubePos, echo);
 #else  // HAS_TFQMRGPU
                 if (echo > 0) std::printf("# solve for k={%9.6f,%9.6f,%9.6f}, E=(%g, %g) %s\n",
                                 k_point[0], k_point[1], k_point[2], E_real*eV, E_imag*eV, _eV);
@@ -155,8 +160,9 @@ namespace green_experiments {
             bitmap::write_bmp_file("spectral_function", spectral_function.data(), nE, ik+1, nkpoints, 511/max_resonance_k, ".bmp", false, echo, 1, true);
             // this export has been used to create bandstructure plots of the free electron gas
 #endif // HAS_BITMAP_EXPORT
+            if (echo > 2) std::printf("# integrated resonances have %g states\n", sum_resonances);
+            timer.report(ik, nkpoints);
 #endif // HAS_TFQMRGPU
-
         } // ik
         free_memory(memory_buffer);
 
@@ -214,7 +220,7 @@ namespace green_experiments {
         , int const echo=0 // verbosity level
     ) {
         assert(1 == Noco && "Not tested for Noco=2");
-        SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+     // SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
         int const nbands = nb*64;
         assert(ncubes >= nb);
@@ -255,7 +261,7 @@ namespace green_experiments {
         // Smat[i][j] = <psi_i|Spsi_j>
     {
         assert(1 == Noco && "Not tested for Noco=2");
-        SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+//      SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
         int const nbands = nb*64;
 
         auto *const  Psi = new double[(ncubes*4*4*4)*nbands][R1C2];
@@ -685,9 +691,9 @@ namespace green_experiments {
         here;
 
         if ('g' == how) {
-            // compute the bandstructure as a density of states using the Green function method
+            // compute the spectral function using the Green function method
             return (1 == Noco) ? spectralfunction<double,1>(p, ng, hg, echo):
-                                spectralfunction<double,2>(p, ng, hg, echo);
+                                 spectralfunction<double,2>(p, ng, hg, echo);
         } else {
             // compute a bandstructure using an eigenstate method
             // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S

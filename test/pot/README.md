@@ -15,7 +15,11 @@ The potential *V(r)* is multiplied by *-r* to remove the singularity.
 Consequently, the values at *r=0* are equal to *Z* as the potential *V(r)= -Z/r* cannot be screened at the origin.
 Without screening, all entries of the right column would read *Z*.
 
-![LDA core level](../../doc/fig/atom_core_LDA_dots.png)
+To regenerate the library run and go for a coffee!
+```C++
+    ./a43 -t atom_core +atom_core.test.Z=1 +atom_core.test.Z.end=121
+```
 
+![LDA core level](../../doc/fig/atom_core_LDA_dots.png)
 Core level positions using an LDA XC functional
 
