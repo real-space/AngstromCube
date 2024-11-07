@@ -79,6 +79,8 @@ namespace green_experiments {
         if (echo > 1) std::printf("# %s %d k-points, %d E-points, temperature %g %s = %g %s\n",
                                __func__, nkpoints, nE, E_imag*Kelvin, _Kelvin, E_imag*eV, _eV);
 
+        auto const dV = hg[2]*hg[1]*hg[0];
+
         p.gpu_mem = 0;
 #ifdef    HAS_TFQMRGPU
         p.echo = echo - 5;
@@ -114,8 +116,8 @@ namespace green_experiments {
                 double const E_real = iE*dE + E0;
                 std::complex<double> E_param(E_real, E_imag);
 
-  //            green_function::update_energy_parameter(p, E_param, AtomMatrices, hg[2]*hg[1]*hg[0], 1.0, Noco, echo);
-                green_function::update_energy_parameter(p, E_param, hg[2]*hg[1]*hg[0], echo, Noco);
+  //            green_function::update_energy_parameter(p, E_param, AtomMatrices, dV, 1.0, Noco, echo);
+                green_function::update_energy_parameter(p, E_param, dV, echo, Noco);
 
 #ifdef    HAS_TFQMRGPU
                 if (maxiter >= 0) {
@@ -138,7 +140,7 @@ namespace green_experiments {
                     } // i64
                 } // icol
                 // ToDo: MPIallreduce rho_stats
-                auto const resonance = rho_stats.mean(), deviation = rho_stats.dev();
+                auto const resonance = rho_stats.sum()*dV, deviation = rho_stats.dev();
                 if (echo > 0) std::printf("%.6f %.9f %.1e %.3f\n", E_real*eV, resonance, deviation, p.iterations_needed*.001);
                 sum_resonances += resonance*dE;
                 if (resonance > max_resonance) { iE_res = iE; ik_res = ik; max_resonance = resonance; E_resonance = E_real; }

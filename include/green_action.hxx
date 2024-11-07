@@ -239,7 +239,7 @@ namespace green_action {
                         int constexpr real_part = 0, imag_part = R1C2 - 1;
                         auto const rho_Re = Green[inz_diagonal][real_part][i64][i64]*f_Kramers_Kronig;
                         auto const rho_Im = Green[inz_diagonal][imag_part][i64][i64]*f_Kramers_Kronig;
-                        rho[iCol*64u + i64] = std::complex<double>(rho_Re, rho_Im*(R1C2 > 1));
+                        rho[iCol*64u + i64] = std::complex<double>(rho_Re, rho_Im*double(R1C2 > 1));
                     } // i64
                 } // iCol
 
