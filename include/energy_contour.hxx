@@ -28,7 +28,7 @@ namespace energy_contour {
         ~Integrator(); // destructor, declaration only
 
         Integrator(Integrator const &) = delete; // copy constructor
-        Integrator(Integrator &&) = delete; // move constructor
+        Integrator(Integrator &&)      = delete; // move constructor
         Integrator & operator=(Integrator const &) = delete; // copy assignment
 
         Integrator & operator=(Integrator && rhs) { // move assignment
@@ -36,10 +36,6 @@ namespace energy_contour {
             std::swap(this->plan_   , rhs.plan_  );
             return *this;
         } // move assignment
-
-    public: // members TODO: go private
-        action_plan_t *plan_ = nullptr;
-        green_solver_t *solver_ = nullptr;
 
     public: // methods
 
@@ -56,6 +52,12 @@ namespace energy_contour {
             , int const echo=0 // log level
             , int const check=0
         ); // declaration only
+
+    // members
+    public:
+        action_plan_t *plan_ = nullptr; // ToDo: make this a private member
+    private:
+        green_solver_t *solver_ = nullptr;
 
     }; // class Integrator
 

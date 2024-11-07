@@ -180,7 +180,7 @@ namespace green_action {
 
 
         status_t solve(
-            std::complex<double> rho[] // result: density[ncubes][4*4*4]
+            std::complex<double> rho[] // result: complex-valued density[ncubes][4*4*4]
             , uint32_t const ncubes // should match plan.nCols
             , int const max_iterations=1
             , int const echo=9
@@ -232,10 +232,11 @@ namespace green_action {
 
                 if (echo > 5) std::printf("# copy %d diagonal cubes of the Green function\n", p.nCols);
                 if (ncubes != p.nCols) warn("Green function solution provides %d 4x4x4 cubes, but requested %d", p.nCols, ncubes);
+                assert(p.subset.size() == p.nCols);
                 double const f_Kramers_Kronig = 1./constants::pi;
                 for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
-                    auto const inz_diagonal = p.subset.at(iCol); // works since we have non-zeros in B only on the diagonal
-                    for (unsigned i64{0}; i64 < 64; ++i64) {
+                    auto const inz_diagonal = p.subset.at(iCol); // p.subset contains the indices of diagonal cubes (source==target)
+                    for (unsigned i64{0}; i64 < 4*4*4; ++i64) {
                         int constexpr real_part = 0, imag_part = R1C2 - 1;
                         auto const rho_Re = Green[inz_diagonal][real_part][i64][i64]*f_Kramers_Kronig;
                         auto const rho_Im = Green[inz_diagonal][imag_part][i64][i64]*f_Kramers_Kronig;
@@ -246,7 +247,7 @@ namespace green_action {
                 return 0;
             } // max_iterations >= 0
 #else  // HAS_TFQMRGPU
-
+            if (echo > 3) std::printf("# has not been compiled with -D HAS_TFQMRGPU, run benchmark %d iterations\n", std::abs(max_iterations));
 #endif // HAS_TFQMRGPU
 
             int const niterations = std::abs(max_iterations);

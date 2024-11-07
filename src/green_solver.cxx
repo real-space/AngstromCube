@@ -22,6 +22,8 @@
   #define green_debug_printf(...)
 #endif // DEBUG
 
+
+    // This module resolves the multi-versioning {float,double} x {Noco=1, Noco=2} of green_action::action_t
 typedef green_action::action_t<float ,2,1> Act421;
 typedef green_action::action_t<float ,2,2> Act422;
 typedef green_action::action_t<double,2,1> Act821;
