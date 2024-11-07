@@ -39,7 +39,7 @@ namespace energy_mesh {
             ex[1][0] = std::min(ex[1][0], float(ep.imag()));
             ex[1][1] = std::max(ex[1][1], float(ep.imag()));
         } // ep
-        std::printf("#\n# energy contour %ld points within [%g, %g %s] and [%g, %g %s]\n",
+        std::printf("#\n# energy contour has %ld points within [%g, %g %s] and [%g, %g %s]\n",
             nE, ex[0][0]*eV, ex[0][1]*eV, _eV, ex[1][0]*Kelvin, ex[1][1]*Kelvin, _Kelvin);
         assert(E_weights.size() == nE);
 

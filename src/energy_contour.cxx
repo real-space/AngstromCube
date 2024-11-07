@@ -86,7 +86,6 @@ namespace energy_contour {
     status_t Integrator::integrate(
           double rho_888[] // resulting density in [ncubes][8*8*8] data layout
         , double & Fermi_level // Fermi level
-     // , double const band_bottom // lower end of the contour w.r.t Fermi_level, ToDo: pass as argument instead of environment variable
         , double const Vtot[] // input potential in [ncubes][4*4*4]
         , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
         , std::vector<int32_t> const & numax_prj
@@ -165,10 +164,10 @@ namespace energy_contour {
 
         int const echo_dos = 10*(0 == control::get("energy_contour.matsubara", 0.)); // more verbose in a DoS (density-of-state) calculation
 
-        if (echo + echo_dos > 5 && nEpoints > 0) {
+        if (echo*echo_dos > 5 && nEpoints > 0) {
             auto const emin = energies.at(0).real(), emax = energies.at(nEpoints - 1).real();
             std::printf("# show density of states from %g to %g %s, %d equidistant points spaced %g %s, imaginary part %g %s\n",
-                (emin - Fermi_level)*eV, (emax - Fermi_level)*eV, _eV, nEpoints, std::abs(emax - emin)/std::max(1, nEpoints - 1)*eV, _eV, energies.at(0).imag()*eV, _eV);
+                (emin + Fermi_level)*eV, (emax + Fermi_level)*eV, _eV, nEpoints, std::abs(emax - emin)/std::max(1, nEpoints - 1)*eV, _eV, energies.at(0).imag()*eV, _eV);
         } // show DoS
 
         Complex constexpr zero = 0;

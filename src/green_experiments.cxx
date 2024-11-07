@@ -324,8 +324,8 @@ namespace green_experiments {
     status_t eigensolver(
           action_plan_t & pH
         , action_plan_t & pS
-        , uint32_t const ng[3] // grid points
-        , double const hg[3] // grid spacings
+        , uint32_t const ng[3] // coarse grid points
+        , double const hg[3] // coarse grid spacings
         , int const nb=1 // number of bands == 64*nb
         , int const echo=0
     ) {

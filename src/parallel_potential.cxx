@@ -1368,7 +1368,7 @@ namespace parallel_potential {
                         }
                         if (extreme[0] > -8e9) {
                             if (echo > 2) std::printf("# energy contour assumes highest core state at %g %s\n", extreme[0]*eV, _eV);
-                            auto const suggest_bottom = 0.25*extreme[0] + 0.75*extreme[2];
+                            auto const suggest_bottom = 0.5*extreme[0] + 0.5*extreme[2];
                             band_bottom = suggest_bottom - E_Fermi;
                             if (echo > 0) std::printf("# suggest band.bottom %g %s below the Fermi level\n", band_bottom*eV, _eV);
                         }

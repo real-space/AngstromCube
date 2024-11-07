@@ -64,7 +64,7 @@ namespace green_function {
     status_t update_energy_parameter(
           action_plan_t & plan
         , std::complex<double> const E_param
-        , double const dVol // volume element of the grid
+        , double const dVol // volume element of the coarse grid
         , int const echo // =0
         , int const Noco // =1
         , double const scale_H // =1
