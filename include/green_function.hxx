@@ -50,7 +50,7 @@ namespace green_function {
 
     status_t update_phases(
           action_plan_t & p // modify
-        , double const k_point[3]
+        , double const k_point[3] // Brillouin zone vector
         , int const echo=0 // verbosity
         , int const Noco=1 // // 1:collinear spins, 2:Non-collinear
     ); // declaration only

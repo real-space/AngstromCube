@@ -1,7 +1,8 @@
+#pragma once
 // This file is part of AngstromCube under MIT License
 
 #include <vector> // std::vector<T>
-#include <utility> // std::pair
+#include <utility> // std::pair<T,T2>
 #include <cstdint> // uint32_t
 
 #include "status.hxx" // status_t
@@ -39,7 +40,7 @@ namespace atom_communication {
 
     private: // members
         std::vector<std::vector<uint32_t>> list_;
-        std::vector<std::pair<uint32_t,uint32_t>> contributing_;
+        std::vector<std::pair<uint32_t,uint32_t>> contributing_; // (owner_rank,local_ia) pairs
         MPI_Comm comm_ = MPI_COMM_NULL;
         uint32_t nprocs_; // == mpi_parallel::size(comm_)
         uint32_t me_;     // == mpi_parallel::rank(comm_)

@@ -5,6 +5,7 @@
  *  and 
  *      conjugate_gradients
  *  as it will envoke eigensolve(...) from them.
+ *  Therefore, this file does not carry a #pragma once.
  *  The following includes are required but need to be outside.
  */
 

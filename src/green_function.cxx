@@ -212,13 +212,10 @@ namespace green_function {
 
 
 
-
-
-
     // ToDo: make it a method of action_plan_t
     status_t update_phases(
           action_plan_t & p
-        , double const k_point[3]
+        , double const k_point[3] // Brillouin zone vector
         , int const echo // =0 // verbosity
         , int const Noco // =1
     ) {
@@ -367,7 +364,7 @@ namespace green_function {
     ) {
         auto const me = mpi_parallel::rank(); // MPI_COMM_WORLD
 
-        if (echo > 1) std::printf("\n#\n# %s(ng=[%s])\n#\n\n", __func__, str(ng, 1, " "));
+        if (echo > 1) std::printf("\n#\n# %s(grid=[%s])\n#\n\n", __func__, str(ng, 1, " "));
 
         p.E_param = 0;
 

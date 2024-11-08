@@ -155,8 +155,8 @@ namespace energy_mesh {
             // assert(0 == nPol); assert(0 == nBot); assert(0 == nFer);
             if (nPol != 0 || nBot != 0 || nFer != 0) warn("contour for DoS but found nFer=%d nBot=%d nPol=%d", nFer, nBot, nPol);
             assert(nPar > 0);
-            double const dE = (nPar < 2) ? 1 : ((E_mu + 60*kBT - eBot)/(nPar - 1.)); // different from juKKR
-            int const mFer = 30*kBT/dE;
+            double const dE = (nPar < 2) ? 1 : ((E_mu + 20*kBT - eBot)/(nPar - 1.)); // different from juKKR
+            int const mFer = 10*kBT/dE;
             for (int iE = mFer - nPar; iE < mFer; ++iE) { // nPar points, one will hit E==0 exactly
                 Ep.push_back(Complex(iE*dE, kBT)); // different from juKKR which uses pi*kBT as imaginary part!
                 w8.push_back(Complex(dE, 0.0)); // real-valued weights

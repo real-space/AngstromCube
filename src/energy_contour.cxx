@@ -27,6 +27,7 @@
 #include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::WEIGHT
 #include "verify_benchmark.hxx" // ::verify
 #include "energy_mesh.hxx" // ::Complex, ::get_energy_mesh
+#include "simple_stats.hxx" // ::Stats<>
 
 #define ENERGY_CONTOUR_SVG_EXPORT
 
@@ -145,9 +146,9 @@ namespace energy_contour {
         int const verify_pot = control::get("verify.potential", 0.);
         if (verify_pot) {
             if (echo > 3) std::printf("\n# +verify.potential=%i\n", verify_pot);
-            assert(plan_->global_source_indices.size() == ncubes);
+            assert(plan.global_source_indices.size() == ncubes);
             view2D<double> pot_444(Veff.data(), n4x4x4); // wrap
-            auto const stat_verify = verify_benchmark::verify(pot_444, plan_->global_source_indices.data(), ncubes, echo);
+            auto const stat_verify = verify_benchmark::verify(pot_444, plan.global_source_indices.data(), ncubes, echo);
             if (0 != stat_verify) warn("ran with +verify.potential=%i --> status= %i", verify_pot, int(stat_verify));
             stat += std::abs(stat_verify);
             if (echo > 0) std::fflush(stdout);
@@ -175,24 +176,26 @@ namespace energy_contour {
         view2D<Complex> res_c(ncubes, n4x4x4, zero); // complex response density
         Complex res_point{zero};
 
+        simple_stats::Stats<> iterations_needed_Ek;
         for (int iEpoint{0}; iEpoint < nEpoints; ++iEpoint) {
             auto const energy_weight = energy_weights[iEpoint];
 
             Complex const energy = energies.at(iEpoint) + Fermi_level;
             char energy_parameter_label[64];
             std::snprintf(energy_parameter_label, 64, "(%g %s, %g %s)", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
-            if (echo > 7) std::printf("# energy parameter %s with weight (%g, %g)\n", energy_parameter_label, std::real(energy_weight), std::imag(energy_weight));
+            if (echo > 7) std::printf("# energy parameter#%i %s with weight (%g, %g)\n", iEpoint, energy_parameter_label, std::real(energy_weight), std::imag(energy_weight));
 
             stat += green_function::update_energy_parameter(plan, energy, dVc, echo, Noco);
 
             view2D<Complex> rho_E(ncubes, n4x4x4, zero);
 
+            simple_stats::Stats<> iterations_needed_k;
             for (int ikpoint{0}; ikpoint < nkpoints; ++ikpoint) {
                 double const *const kpoint = kpoint_mesh[ikpoint];
                 Complex const kpoint_weight = kpoint[brillouin_zone::WEIGHT];
 
-                if (echo + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g]\n",
-                                                 energy_parameter_label, kpoint[0], kpoint[1], kpoint[2]);
+                if (echo + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g] weight= %g\n",
+                                                 energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], kpoint[3]);
                 if (0 == check) {
                     stat += green_function::update_phases(plan, kpoint, echo >> 3, Noco);
 
@@ -200,10 +203,11 @@ namespace energy_contour {
 
                     stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
 
-                    add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate (complex) density over k-points
+                    add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
                     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc;
-                    if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons\n",
-                                                    energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral);
+                    if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
+                                                    energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral, plan.iterations_needed);
+                    iterations_needed_k.add(plan.iterations_needed);
                 } // check
 
             } // ikpoint
@@ -215,7 +219,11 @@ namespace energy_contour {
                                                   energy_parameter_label, rho_integral, rho_realpart); std::fflush(stdout); }
                 // accumulate density over E-points
                 add_product(rho_c[0], ncubes*n4x4x4, rho_E[0], energy_weight);
+                if (echo > 7) { std::printf("# energy parameter#%i iterations neeed %s\n", iEpoint, iterations_needed_k.interval().c_str()); std::fflush(stdout); }
+
             } else if (echo > 7) std::printf("# solve Green function for E=%s\n", energy_parameter_label);
+
+            iterations_needed_Ek.add(iterations_needed_k);
 
             if (iEpoint < nEpoints - 2) {
                 // ToDo: accumulate a response density to derive the new density w.r.t. the Fermi level 
@@ -225,6 +233,10 @@ namespace energy_contour {
                 res_point += energy*wgt;
             } // last two
         } // iEpoint
+
+        if (0 == check && echo > 3) {
+            std::printf("# iterations neeed %s\n", iterations_needed_Ek.interval().c_str()); std::fflush(stdout);
+        } // check echo
 
         if (nEpoints < 2) warn("unable to eval a meaningful response density with less than 2 energy points, found %d", nEpoints);
 

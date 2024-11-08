@@ -3,7 +3,7 @@
 
 #include <cstdio> // std::printf
 #include <algorithm> // std::min, ::max
-#include <cmath> // std::sqrt
+#include <cmath> // std::sqrt, ::abs
 #include <string> // std::string
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -25,6 +25,16 @@ namespace simple_stats {
         maxi = std::max(maxi, x);
         mini = std::min(mini, x);
         ++times;
+    } // add
+
+    void add(Stats const & other, real_t const weight=1) {
+        v[0] += weight*other.v[0];
+        v[1] += weight*other.v[1];
+        v[2] += weight*other.v[2];
+//      v[3] += weight.other.v[3]; // not used so far, beware of overflows
+        maxi = std::max(maxi, other.maxi);
+        mini = std::min(mini, other.mini);
+        times += other.times;
     } // add
 
 //  int allreduce(MPI_Comm const comm=MPI_COMM_WORLD) --> moved to mpi_parallel.hxx

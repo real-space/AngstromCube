@@ -10,6 +10,8 @@
     #include "simple_math.hxx" // random
 #endif // NO_UNIT_TESTS
 
+#include "atom_communication.hxx" // ::AtomCommList_t
+
 #include "status.hxx" // status_t
 #include "control.hxx" // ::get
 #include "mpi_parallel.hxx" // ::init, ::finalize, MPI_COMM_WORLD, ::barrier
@@ -19,7 +21,6 @@
 #include "recorded_warnings.hxx" // warn
 #include "inline_math.hxx" // set, add_product
 #include "data_list.hxx" // data_list<T>
-#include "atom_communication.hxx" // ::AtomCommList_t
 
 namespace atom_communication {
 
@@ -29,74 +30,77 @@ namespace atom_communication {
         , uint32_t const number_of_ranks
     ) { return local_atom_index*number_of_ranks + atom_owner_rank; }
 
+
     AtomCommList_t::AtomCommList_t(
-              size_t const n_all_atoms
-            , std::vector<uint32_t> const & global_atom_ids // [natoms], global ids of contributing atoms on this rank
-            , MPI_Comm const comm // =MPI_COMM_WORLD
-            , int const echo // =0
-        ) {
-            comm_ = comm;
-            auto const nprocs = mpi_parallel::size(comm_); assert(nprocs > 0);
-            auto const me     = mpi_parallel::rank(comm_, nprocs);
+          size_t const n_all_atoms
+        , std::vector<uint32_t> const & global_atom_ids // [natoms], global ids of contributing atoms on this rank
+        , MPI_Comm const comm // =MPI_COMM_WORLD
+        , int const echo // =0
+    ) {
+        comm_ = comm;
+        auto const nprocs = mpi_parallel::size(comm_); assert(nprocs > 0);
+        auto const me     = mpi_parallel::rank(comm_, nprocs);
 
-            int const na     = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner rank = global_atom_id % nprocs
-            int const na_max = (n_all_atoms + nprocs - 1     )/nprocs; // largest  of all numbers of local atoms
-            int const na_min = (n_all_atoms                  )/nprocs; // smallest of all numbers of local atoms
-            if (echo > 9) std::printf("# rank#%i has %d (min %d max %d) owned atoms\n", me, na, na_min, na_max);
+        int const na     = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner rank = global_atom_id % nprocs
+        int const na_max = (n_all_atoms + nprocs - 1     )/nprocs; // largest  of all numbers of local atoms
+        int const na_min = (n_all_atoms                  )/nprocs; // smallest of all numbers of local atoms
+        if (echo > 9) std::printf("# rank#%i has %d (min %d max %d) owned atoms\n", me, na, na_min, na_max);
 
-            int const na_max8 = (na_max + 7) >> 3; // number of Bytes needed to store at least na_max bits
-            if (echo > 5) std::printf("# %s: use MPI_Alltoall with %d--%d bits in %d Byte\n", __func__, na_min, na_max, na_max8);
+        int const na_max8 = (na_max + 7) >> 3; // number of Bytes needed to store at least na_max bits
+        if (echo > 5) std::printf("# %s: use MPI_Alltoall with %d--%d bits in %d Byte\n", __func__, na_min, na_max, na_max8);
 
-            list_.resize(na);
+
+        contributing_.resize(0);
+
+        view3D<uint8_t> bits(2, nprocs, na_max8, uint8_t(0)); // group 8 atom-process pairings into 1 Byte, total size: ~ n_all_atoms/4 Byte
+        auto bits_send = bits[0], bits_recv = bits[1];
+
+        if (echo > 5) std::printf("# %s: rank#%i has %ld contributing atoms\n", __func__, me, global_atom_ids.size()); 
+        for (auto const & global_atom_id : global_atom_ids) {
+            auto const atom_owner = global_atom_id % nprocs; // atom owner rank
+            auto const ia =         global_atom_id / nprocs; // local index in atom owner process
+            assert(global_atom_id == get_global_atom_id(atom_owner, ia, nprocs)); // check consistency of the mapping
+
+            bits_send(atom_owner,ia >> 3) |= (uint8_t(1) << (ia & 7)); // set bit #ia
+            //   bits(0, atom_owner, ia) = 1; (if we used a view3D<bool>(2, nprocs, na_max) array)
+            contributing_.push_back(std::make_pair(uint32_t(atom_owner), uint32_t(ia))); // store (owner_rank,ia) pairs
+
+        } // global_atom_id
+        assert(contributing_.size() == global_atom_ids.size());
+
+        list_.resize(na);
 #ifdef    HAS_NO_MPI
-            for (int ia{0}; ia < na; ++ia) { list_[ia].resize(1, 0); } // only rank zero contributes
+        for (int ia{0}; ia < na; ++ia) { list_[ia].resize(1, 0); } // only rank zero contributes
 #else  // HAS_NO_MPI
-            for (int ia{0}; ia < na; ++ia) { list_[ia].resize(0); } // init
 
-            contributing_.resize(0);
+        auto const stat = MPI_Alltoall(bits_send[0], na_max8, MPI_UINT8_T, bits_recv[0], na_max8, MPI_UINT8_T, comm_);
+        if (stat != 0) warn("MPI_Alltoall failed with status= %i", int(stat));
+        // Alternative: first use Alltoall for the number of atoms, then Alltoallv for the atom_ids or ias
 
-            view3D<uint8_t> bits(2, nprocs, na_max8, uint8_t(0)); // group 8 atom-process pairings into 1 Byte, total size: ~ n_all_atoms/4 Byte
-            auto bits_send = bits[0], bits_recv = bits[1];
- 
-            for (auto const & global_atom_id : global_atom_ids) {
-                auto const atom_owner = global_atom_id % nprocs; // atom owner rank
-                auto const ia =         global_atom_id / nprocs; // local index in atom owner process
-                assert(global_atom_id == get_global_atom_id(atom_owner, ia, nprocs)); // check consistency of the mapping
+        for (int ia{0}; ia < na; ++ia) { list_[ia].resize(0); } // init
+        for (uint32_t rank{0}; rank < nprocs; ++rank) {
+            for (int ia{0}; ia < na; ++ia) {
+                bool const rank_contributes = (bits_recv(rank,ia >> 3) >> (ia & 7)) & 1;
+                if (rank_contributes) {
+                    list_[ia].push_back(rank);
+                }
+            } // ia
+            for (int ia{na}; ia < na_max8*8; ++ia) {
+                bool const rank_contributes = (bits_recv(rank,ia >> 3) >> (ia & 7)) & 1;
+                assert(!rank_contributes && "unused bits must be unset!");
+            } // ia
+        } // rank
 
-                bits_send(atom_owner,ia >> 3) |= (uint8_t(1) << (ia & 7)); // set bit #ia
-                //   bits(0, atom_owner, ia) = 1; (if we used a view3D<bool>(2, nprocs, na_max) array)
-                contributing_.push_back(std::make_pair(uint32_t(atom_owner), uint32_t(ia))); // store (owner_rank,ia) pairs
-
-            } // global_atom_id
-            assert(contributing_.size() == global_atom_ids.size());
-
-            auto const stat = MPI_Alltoall(bits_send[0], na_max8, MPI_UINT8_T, bits_recv[0], na_max8, MPI_UINT8_T, comm_);
-            if (stat != 0) warn("MPI_Alltoall failed with status= %i", int(stat));
-            // Alternative: first use Alltoall for the number of atoms, then Alltoallv for the atom_ids or ias
-
-            for (uint32_t rank{0}; rank < nprocs; ++rank) {
-                for (int ia{0}; ia < na; ++ia) {
-                    bool const rank_contributes = (bits_recv(rank,ia >> 3) >> (ia & 7)) & 1;
-                    if (rank_contributes) {
-                        list_[ia].push_back(rank);
-                    }
-                } // ia
-                for (int ia{na}; ia < na_max8*8; ++ia) {
-                    bool const rank_contributes = (bits_recv(rank,ia >> 3) >> (ia & 7)) & 1;
-                    assert(!rank_contributes && "unused bits must be unset!");
-                } // ia
-            } // rank
-
-            if (echo > 9) {
-                for (int ia{0}; ia < na; ++ia) {
-                    auto const global_atom_id = get_global_atom_id(me, ia, nprocs); // == ia*nprocs + me;
-                    std::printf("# rank#%i communicates with %ld ranks for atom#%i global#%i\n", 
-                                        me, list_[ia].size(), ia, global_atom_id);
-                } // ia
-            } // echo
+        if (echo > 9) {
+            for (int ia{0}; ia < na; ++ia) {
+                auto const global_atom_id = get_global_atom_id(me, ia, nprocs); // == ia*nprocs + me;
+                std::printf("# rank#%i communicates with %ld ranks for atom#%i global#%i\n", 
+                                    me, list_[ia].size(), ia, global_atom_id);
+            } // ia
+        } // echo
 #endif // HAS_NO_MPI
-            me_ = me;
-            nprocs_ = nprocs;
+        me_ = me;
+        nprocs_ = nprocs;
 
     } // AtomCommList_t constructor
 
@@ -133,7 +137,6 @@ namespace atom_communication {
         } // ia
         uint32_t irequest{0};
 #endif // HAS_NO_MPI
-
 
         // contributing atoms receive the data
         uint32_t const natoms = contributing_.size();
@@ -173,6 +176,7 @@ namespace atom_communication {
         if (stat) warn("failed for %s with status= %i", what, int(stat));
         return stat;
     } // AtomCommList_t::broadcast
+
 
     status_t AtomCommList_t::allreduce(
           data_list<double> & owner_data // result [na], only correct in atom owner rank
@@ -244,6 +248,14 @@ namespace atom_communication {
         if (stat) warn("failed with status= %i", int(stat));
         return stat;
     } // AtomCommList_t::allreduce
+
+
+
+
+
+
+
+
 
 
 #ifdef    NO_UNIT_TESTS

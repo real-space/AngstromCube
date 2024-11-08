@@ -728,6 +728,8 @@ namespace parallel_potential {
             if (r2 > pow2(r_cut + n8*.5*r_circum)) return 0;
         } // fast check
 
+        assert(nullptr != r2coeff);
+
         auto const r2cut = pow2(r_cut);
         double added_charge{0};
         size_t grid_points_inside{0}; // DEVEL stats
@@ -773,7 +775,6 @@ namespace parallel_potential {
         , uint32_t const nr2=4096 // r^2-grid size
         , float const ar2=16.f // r^2-grid parameter
     ) {
-        // ToDo: get atom_r2coeff from atom owners
         auto const *const hg = g.grid_spacings();
         auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
 
@@ -795,6 +796,7 @@ namespace parallel_potential {
             if (echo > 12) std::printf("# rank#%i adds to %s for atom#%i at position %g %g %g %s\n", 
                     me, quantity_name, iatom, ai.pos_[0]*Ang, ai.pos_[1]*Ang, ai.pos_[2]*Ang, _Ang);
 #endif // DEVEL
+            assert(nullptr != atom_r2coeff.at(iatom));
             double added_charge{0};
             for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // local cubes
                 added_charge += add_r2grid_to_cube(grid_quantity[ilb], cube_coords[ilb], hg, r_circum,
@@ -916,8 +918,8 @@ namespace parallel_potential {
         // ToDo: use get_neighborhood with r_cut + r_trunc to prefilter the relevant atomic images for the Green function method, so we don't have to pass xyzZ_all to them
 
         auto const global_atom_ids = find_unique_atoms(atom_images_, echo);
-        auto const & atom_images = atom_images_;
-        // from here atom_images.atom_id_ are in [0, global_atom_ids.size())
+        auto const & atom_images = atom_images_; // from here on use the const reference
+        // after find_unique_atoms atom_images.atom_id_ are in [0, global_atom_ids.size())
 
 
 
@@ -950,11 +952,11 @@ namespace parallel_potential {
         data_list<double> atoms_qzyx, atoms_vzyx;                 // for contributing atoms
         {
 #ifdef    HAS_SINGLE_ATOM
-            if (echo > 1) std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", na);
+            if (echo > 1) { std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", na); std::fflush(stdout); }
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
             // use linked library libliveatom
-            if (echo > 1) std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", na);
+            if (echo > 1) { std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", na); std::fflush(stdout); }
 #else  // HAS_LIVE_ATOM
             if (echo > 1) std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n");
 #endif // HAS_LIVE_ATOM
