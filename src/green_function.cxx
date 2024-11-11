@@ -490,10 +490,11 @@ namespace green_function {
             auto const rtrunc = std::max(0., r_trunc);
             double scale_grid_spacing[] = {1, 1, 1};
             {
-                double const def = control::get(scale_grid_spacing, "green_function.scale.grid.spacing", "xyz", 1.);
-                // this feature allows also truncation ellipsoids (e.g. by .x != .y == .z)
-                // and cylinders (e.g. .x=1, .y=1, .z=0) and planes (e.g. .x=0, .y=0, .z=1)
-                if (1. != def) warn("using +green_function.scale.grid.spacing=%g without .x, .y or .z may be confusing", def);
+                // double const def = control::get(scale_grid_spacing, "green_function.scale.grid.spacing", "xyz", 1.);
+                // // this feature allows also truncation ellipsoids (e.g. by .x != .y == .z)
+                // // and cylinders (e.g. .x=1, .y=1, .z=0) and planes (e.g. .x=0, .y=0, .z=1)
+                // if (1. != def) warn("using +green_function.scale.grid.spacing=%g without .x, .y or .z may be confusing", def);
+                control::get(scale_grid_spacing, "green_function.scale.grid.spacing", "xyz", 1.);
             }
 
             double h[] = {hg[X], hg[Y], hg[Z]}; // customize grid spacing for the truncation sphere, also used in green_potential::multiply

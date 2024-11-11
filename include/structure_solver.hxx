@@ -164,7 +164,7 @@ namespace structure_solver {
 //              if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
             break;
             default: {
-                ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
+                ++stat; error("unknown +grid.eigensolver method \'%s\'", grid_eigensolver_method);
             }
         } // *grid_eigensolver_method
 
