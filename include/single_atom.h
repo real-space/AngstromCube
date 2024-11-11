@@ -350,4 +350,6 @@
     // the function definition can be found in library_kind_dynamic.cxx or library_kind_static.cxx
 
 
+#undef    fortran_callable
+
 #endif // SINGLE_ATOM_HEADER (traditional header guard)
