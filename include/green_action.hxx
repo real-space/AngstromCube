@@ -198,7 +198,7 @@ namespace green_action {
             auto const & p = *p_;
             uint32_t const nnzbX = p.colindx.size();
 
-            set(rho, p.nCols*4*4*4, std::complex<double>(0));
+            set(rho, p.nCols*size_t(4*4*4), std::complex<double>(0));
 
             if (0 == max_iterations) { 
                 if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
@@ -236,7 +236,7 @@ namespace green_action {
                 double const f_Kramers_Kronig = 1./constants::pi;
                 for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
                     auto const inz_diagonal = p.subset.at(iCol); // p.subset contains the indices of diagonal cubes (source==target)
-                    for (unsigned i64{0}; i64 < 4*4*4; ++i64) {
+                    for (unsigned i64{0}; i64 < 4u*4u*4u; ++i64) {
                         int constexpr real_part = 0, imag_part = R1C2 - 1;
                         auto const rho_Re = Green[inz_diagonal][real_part][i64][i64]*f_Kramers_Kronig;
                         auto const rho_Im = Green[inz_diagonal][imag_part][i64][i64]*f_Kramers_Kronig;

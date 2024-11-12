@@ -114,7 +114,7 @@
 status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
 #ifdef    NO_UNIT_TESTS
-    error("version was compiled with -D NO_UNIT_TESTS but try to test \'%s\'", module);
+    error("version was compiled with -D NO_UNIT_TESTS but tries to test \'%s\'", module);
     return STATUS_TEST_NOT_INCLUDED;
 #else  // NO_UNIT_TESTS
 

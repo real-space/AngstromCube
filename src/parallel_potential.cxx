@@ -798,6 +798,7 @@ namespace parallel_potential {
 #endif // DEVEL
             assert(nullptr != atom_r2coeff.at(iatom));
             double added_charge{0};
+            #pragma omp parallel for
             for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // local cubes
                 added_charge += add_r2grid_to_cube(grid_quantity[ilb], cube_coords[ilb], hg, r_circum,
                                           ai.pos_, atom_r2coeff[iatom], r_cut, factor, echo, nr2, ar2);
@@ -855,6 +856,8 @@ namespace parallel_potential {
             if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
             stat += stat_init;
         } // scope
+
+        auto constexpr n8x8x8 = size_t(8*8*8);
 
         // create a coarse grid descriptor
         real_space::grid_t gc(g[0] >> 1, g[1] >> 1, g[2] >> 1); // divide +grid.points by 2
@@ -1189,12 +1192,12 @@ namespace parallel_potential {
             if (echo > 0) std::printf("# %g electrons added as smooth core density\n", total_charge_added);
 
             // compose density
-            set(augmented_density[0], n_cubes*size_t(8*8*8), core_density[0]);
+            set(augmented_density[0], n_cubes*n8x8x8, core_density[0]);
             if (take_atomic_valence_densities < 1) { // less than 100% atomic valence densities
-                add_product(augmented_density[0], n_cubes*size_t(8*8*8), valence_density(0,0), 1.);
+                add_product(augmented_density[0], n_cubes*n8x8x8, valence_density(0,0), 1.);
             } // take_atomic_valence_densities < 1
 
-            print_stats(augmented_density[0], n_cubes*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth density");
+            print_stats(augmented_density[0], n_cubes*n8x8x8, comm, echo > 0, g.dV(), "# smooth density");
 
             view2D<double> V_xc(n_cubes, 8*8*8, 0.0);
             { // scope: eval the XC potential and energy on the dense grid
@@ -1202,7 +1205,8 @@ namespace parallel_potential {
                 auto const *const density = augmented_density[0];
                 auto       *const potential = V_xc[0];
                 // double rho_max{0}; int64_t i_max{-1};
-                for (size_t i = 0; i < n_cubes*size_t(8*8*8); ++i) {
+                #pragma omp parallel for
+                for (size_t i{0}; i < n_cubes*n8x8x8; ++i) {
                     auto const rho_i = density[i];
                     // if (rho_i > rho_max) { rho_max = rho_i; i_max = i; }
                     double vxc_i;
@@ -1217,7 +1221,7 @@ namespace parallel_potential {
                 if (echo > 2) std::printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", E_xc*eV, _eV, E_dc*eV, _eV);
                 grid_xc_energy = E_xc;
             } // scope
-            print_stats(V_xc[0], n_cubes*size_t(8*8*8), comm, echo > 1, 0., "# smooth exchange-correlation potential", eV, _eV);
+            print_stats(V_xc[0], n_cubes*n8x8x8, comm, echo > 1, 0., "# smooth exchange-correlation potential", eV, _eV);
 
             stat += live_atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
 
@@ -1232,7 +1236,7 @@ namespace parallel_potential {
             add_to_grid(augmented_density, cube_coords, n_cubes, atoms_qzyx, lmaxs_qlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
             // show that the augmented_density is charge neutral in average
-            print_stats(augmented_density[0], n_cubes*size_t(8*8*8), comm, echo > 0, g.dV(), "# smooth augmented_density");
+            print_stats(augmented_density[0], n_cubes*n8x8x8, comm, echo > 0, g.dV(), "# smooth augmented_density");
 
 
             // ====================================================================================
@@ -1258,11 +1262,11 @@ namespace parallel_potential {
                 if (echo > 3) std::printf("# smooth electrostatic grid energy %.9f %s\n", grid_electrostatic_energy*eV, _eV);
             } else {
                 if (echo > 0) std::printf("\n# skip Poisson equation for the electrostatic potential due to +check=%d\n\n", check);
-                set(V_electrostatic[0], n_cubes*size_t(8*8*8), 0.0);
+                set(V_electrostatic[0], n_cubes*n8x8x8, 0.0);
             } // Poisson equation
             // ====================================================================================
 
-            print_stats(V_electrostatic[0], n_cubes*size_t(8*8*8), comm, echo > 0, 0., "# smooth electrostatic potential", eV, _eV);
+            print_stats(V_electrostatic[0], n_cubes*n8x8x8, comm, echo > 0, 0., "# smooth electrostatic potential", eV, _eV);
 
             // project the electrostatic grid onto the localized compensation charges
             project_grid(atoms_vzyx, V_electrostatic, cube_coords, n_cubes, lmaxs_vlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
@@ -1295,7 +1299,7 @@ namespace parallel_potential {
                 set(        V_effective[0], n_cubes*size_t(512), V_electrostatic[0]);
                 add_product(V_effective[0], n_cubes*size_t(512), V_xc[0], 1.);
             } // scope
-            print_stats(V_effective[0], n_cubes*size_t(8*8*8), comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
+            print_stats(V_effective[0], n_cubes*n8x8x8, comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
 
             float potential_mixing_ratio[] = {.5}; // {potential}
             stat += live_atom_update("update", na, 0, 0, potential_mixing_ratio, atom_vlm.data());
@@ -1307,7 +1311,7 @@ namespace parallel_potential {
             add_r2grid_quantity(V_effective, "smooth effective potential", atoms_vbar,
                                 atom_images, natoms, cube_coords, n_cubes, g, comm, echo*0, Y00);
 
-            print_stats(V_effective[0], n_cubes*size_t(8*8*8), comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
+            print_stats(V_effective[0], n_cubes*n8x8x8, comm, echo > 0, 0, "# smooth effective potential", eV, _eV);
 
 
             view2D<double> new_valence_density(n_cubes, 8*8*8, 0.0);
@@ -1321,7 +1325,7 @@ namespace parallel_potential {
                                 n_cubes*size_t(512), comm, n_valence_electrons, g.dV(), echo);
                 stat += stat_TF;
                 if (stat_TF && 0 == me) warn("# new_density_Thomas_Fermi returned status= %i", int(stat_TF));
-                print_stats(new_valence_density[0], n_cubes*size_t(8*8*8), comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
+                print_stats(new_valence_density[0], n_cubes*n8x8x8, comm, echo > 0, g.dV(), "# new Thomas-Fermi density");
             }
             break;
 
@@ -1406,10 +1410,10 @@ namespace parallel_potential {
             default: error("not implemented +basis=%s", basis_method);
             } // switch basis_method
 
-            print_stats(new_valence_density[0], n_cubes*size_t(8*8*8), comm, echo > 0, g.dV(), "# new valence density");
+            print_stats(new_valence_density[0], n_cubes*n8x8x8, comm, echo > 0, g.dV(), "# new valence density");
 
 
-            auto const E_dcc = dot_product(n_cubes*size_t(8*8*8), new_valence_density[0], V_effective[0]);
+            auto const E_dcc = dot_product(n_cubes*n8x8x8, new_valence_density[0], V_effective[0]);
             double const double_counting_correction = mpi_parallel::sum(E_dcc, comm) * g.dV();
             if (echo > 1) std::printf("\n# grid double counting %.9f %s\n\n", double_counting_correction*eV, _eV);
 
@@ -1421,8 +1425,8 @@ namespace parallel_potential {
             stat += live_atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());
 
             double const mix_new = rho_mixing_ratios[2], mix_old = 1. - mix_new;
-            scale(valence_density(0,0),       n_cubes*size_t(8*8*8), mix_old);
-            add_product(valence_density(0,0), n_cubes*size_t(8*8*8), new_valence_density[0], mix_new);
+            scale(valence_density(0,0),       n_cubes*n8x8x8, mix_old);
+            add_product(valence_density(0,0), n_cubes*n8x8x8, new_valence_density[0], mix_new);
 
 
             // compute the total energy
@@ -1435,7 +1439,7 @@ namespace parallel_potential {
                 data_list<double> atom_contrib(nEa, 0.0);
                 stat += live_atom_update("energies", na, atomic_energy_diff.data(), 0, 0, atom_contrib.data());
                 std::vector<double> Ea(nE, 0.0);
-                for (int32_t ia = 0; ia < na; ++ia) {
+                for (int32_t ia{0}; ia < na; ++ia) {
                     add_product(Ea.data(), nE, atom_contrib[ia], 1.); // all atomic weight factors are 1.0
                 } // ia
                 mpi_parallel::sum(Ea.data(), nE, comm);

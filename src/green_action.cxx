@@ -196,17 +196,17 @@ namespace green_action {
                       // -1: no iterations, 0:run memory initialization only, >0: iterate
       // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
       switch (action) {
-          case 32022: test_action<float ,2,2>(p, iterations, echo); break; // complex non-collinear
           case 64022: test_action<double,2,2>(p, iterations, echo); break; // complex non-collinear
+          case 32022: test_action<float ,2,2>(p, iterations, echo); break; // complex non-collinear
 
-          case 32021: test_action<float ,2,1>(p, iterations, echo); break; // complex
           case 64021: test_action<double,2,1>(p, iterations, echo); break; // complex
+          case 32021: test_action<float ,2,1>(p, iterations, echo); break; // complex
 #ifdef    HAS_TFQMRGPU
-          case 32011:                                                       // real
-          case 64011: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
+          case 64011:                                                      // real
+          case 32011: error("tfQMRgpu needs R1C2 == 2 but found green_function.benchmark.action=%d", action); break;
 #else  // HAS_TFQMRGPU
-          case 32011: test_action<float ,1,1>(p, iterations, echo); break; // real
           case 64011: test_action<double,1,1>(p, iterations, echo); break; // real
+          case 32011: test_action<float ,1,1>(p, iterations, echo); break; // real
 #endif // HAS_TFQMRGPU
           case 0: if (echo > 1) std::printf("# green_function.benchmark.action=0 --> test_action is not called!\n"); break;
           default: ++stat;
@@ -222,19 +222,20 @@ namespace green_action {
           action_plan_t plan; // calls standard constructor of action_plan_t
           if (echo > 4) std::printf("# %s for action_t\n", __func__);
 #ifndef   HAS_TFQMRGPU
-          { action_t<float ,1,1> action(&plan); }
-          { action_t<double,1,1> action(&plan); }
+          { action_t<float ,1,1> action(&plan); } // 2^14 =  16 kiByte/cube-pair
+          { action_t<double,1,1> action(&plan); } // 2^15 =  32 kiByte/cube-pair
 #endif // HAS_TFQMRGPU
-          { action_t<float ,2,1> action(&plan); }
-          { action_t<float ,2,2> action(&plan); }
-          { action_t<double,2,1> action(&plan); }
-          { action_t<double,2,2> action(&plan); }
+          { action_t<float ,2,1> action(&plan); } // 2^15 =  32 kiByte/cube-pair
+          { action_t<double,2,1> action(&plan); } // 2^16 =  64 kiByte/cube-pair
+          { action_t<float ,2,2> action(&plan); } // 2^17 = 128 kiByte/cube-pair
+          { action_t<double,2,2> action(&plan); } // 2^18 = 256 kiByte/cube-pair
           if (echo > 5) std::printf("# Hint: to test action_t::multiply, please envoke --test green_function\n");
           // ~action_plan_t
       } // scope
       if (echo > 6) std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
       return 0;
   } // test_construction_and_destruction
+
 
   status_t all_tests(int const echo) {
       status_t stat(0);

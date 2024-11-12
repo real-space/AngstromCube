@@ -39,7 +39,7 @@ namespace mpi_parallel {
 
 #ifndef   MPI_SIZE_AND_RANK_INLINED
 
-    // this solution is not correct if we work with more than 1 different communicator
+    // this solution is not correct if we work with more than 1 communicator
     unsigned size(MPI_Comm const comm) {
         static int size{0};
         if (0 == size) {
@@ -66,6 +66,16 @@ namespace mpi_parallel {
     } // rank
 
 #endif // MPI_SIZE_AND_RANK_INLINED
+
+
+
+
+
+
+
+
+
+
 
 
 
