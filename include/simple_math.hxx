@@ -183,16 +183,16 @@ namespace simple_math {
 
   template <typename real_t>
   inline void matrix_rotation(int const n, real_t c[], int const cs, real_t const a[], int const as, real_t const u[], int const us) {
-      // compute C = U * A * U^transposed
+      // compute C = U * A * U^transposed, 2*n^4 data accesses (do not use for large n!)
       for (int i = 0; i < n; ++i) {
           for (int j = 0; j < n; ++j) {
-              real_t c_ij = 0;
+              real_t c_ij{0};
               for (int k = 0; k < n; ++k) {
-                  real_t t_kj = 0;
+                  real_t aut_kj{0};
                   for (int l = 0; l < n; ++l) {
-                      t_kj += a[k*as + l] * u[j*us + l];
+                      aut_kj += a[k*as + l] * u[j*us + l];
                   } // l
-                  c_ij += u[i*us + k] * t_kj;
+                  c_ij += u[i*us + k] * aut_kj;
               } // k
               c[i*cs + j] = c_ij;
           } // j

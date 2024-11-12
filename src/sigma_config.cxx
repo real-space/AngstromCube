@@ -521,6 +521,13 @@ namespace sigma_config {
         return e;
     } // get
 
+
+
+
+
+
+
+
 #ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
