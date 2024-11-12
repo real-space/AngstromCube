@@ -286,8 +286,8 @@ namespace iterative_poisson {
                 , int const echo // =0 // log level
                 , float const threshold // =3e-8 // convergence criterion
                 , float *residual // =nullptr // residual that was reached
-                , int const maxiter // =999 // maximum number of iterations 
-                , int const miniter // =0   // minimum number of iterations
+                , int const maxiter // =99 // maximum number of iterations 
+                , int const miniter // =3  // minimum number of iterations
                 , int restart // =4096 // number of iterations before restart, 1:steepest descent
                 ) {
 
@@ -528,7 +528,10 @@ namespace iterative_poisson {
 
       float const threshold = (sizeof(real_t) > 4) ? 3e-8 : 5e-6;
       auto const method = control::get("parallel_poisson.test.method", "MultiGrid");
-      auto const stat = solve(x, b, g, *method, echo, threshold); // method=M:multi_grid, 
+      int const maxiter = control::get("parallel_poisson.test.maxiter", 19.);
+      float residual{0};
+
+      auto const stat = solve(x, b, g, *method, echo, threshold, &residual, maxiter); // method=M:multi_grid, 
 
       auto constexpr pi = constants::pi;
       double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};

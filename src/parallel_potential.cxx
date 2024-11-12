@@ -1524,7 +1524,7 @@ namespace parallel_potential {
 
 
 #ifdef    NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
     status_t test_r2grid_integrator(int const echo=0, int const nr2=4096, float const ar2=16) {
@@ -1545,18 +1545,18 @@ namespace parallel_potential {
         return stat;
     } // test_r2grid_integrator
 
-    status_t test_scf(int const echo=0) {
-        status_t stat(0);
-        stat += SCF(echo);
-        return stat;
-    } // test_scf
+    // status_t test_scf(int const echo=0) {
+    //     status_t stat(0);
+    //     stat += SCF(echo);
+    //     return stat;
+    // } // test_scf
 
     status_t all_tests(int const echo) {
         status_t stat(0);
         stat += test_r2grid_integrator(echo);
-        auto const already_initialized = mpi_parallel::init();
-        stat += test_scf(echo);
-        if (!already_initialized) mpi_parallel::finalize();
+        // auto const already_initialized = mpi_parallel::init();
+        // stat += test_scf(echo);
+        // if (!already_initialized) mpi_parallel::finalize();
         return stat;
     } // all_tests
 

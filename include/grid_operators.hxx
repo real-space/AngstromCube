@@ -351,8 +351,12 @@ namespace grid_operators {
 
 //        int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
+          int const nn_kin[] = {std::min(nn_kinetic, g[0]),
+                                std::min(nn_kinetic, g[1]),  // more neighors than the grid is not implemented
+                                std::min(nn_kinetic, g[2])};
+
           // the kinetic energy operator
-          kinetic = finite_difference::stencil_t<real_fd_t>(g.h, nn_kinetic, -0.5);
+          kinetic = finite_difference::stencil_t<real_fd_t>(g.h, nn_kin, -0.5);
           // -0.5: prefactor of the kinetic energy in Hartree atomic units
 
           // the local effective potential, ToDo: separate this because we might want to call it later

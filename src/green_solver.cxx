@@ -33,7 +33,7 @@ typedef green_action::action_t<double,2,2> Act822;
     green_solver_t::green_solver_t(action_plan_t* p, int const echo, int const check) {
         if (nullptr != p) {
             if (echo > 0) std::printf("# construct %s +check=%d\n", __func__, check);
-            int const fp_input = control::get("green_solver.floating.point.bits", 32.);
+            int const fp_input = control::get("green_solver.floating.point.bits", 64.);
             int const fp = (32 == fp_input) ? 32 : 64;
             if (echo > 0) std::printf("# +green_solver.floating.point.bits=%i --> %i\n", fp_input, fp);
             int constexpr r1c2 = 2; // 1:real, 2:complex (always complex since tfQMRgpu does not support real)

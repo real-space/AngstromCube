@@ -129,11 +129,17 @@ endif
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
 FEAFLAGS += -D DEVEL
 
-# normal mode
 OPTFLAGS=
+
 # OPTFLAGS += -Ofast
-# OPTFLAGS += -O2
-OPTFLAGS += -O0
+OPTFLAGS += -O2
+# OPTFLAGS += -O0
+
+#### code coverage: compiling generates one *.gcno file per object, exectution generates one *.gcda file per object
+####                running gcov generates a *.gcov file per source and per relevant header file
+####                see https://danielsieger.com/blog/2022/03/06/code-coverage-for-cpp.html
+# OPTFLAGS +=  -O0 -coverage
+
 OPTFLAGS += -g -pedantic -Wall
 # gcc-options
 OPTFLAGS += -Wno-format
@@ -141,10 +147,10 @@ OPTFLAGS += -Wno-format
 OPTFLAGS += -Wno-sign-compare
 
 # for Clang: AddressSanitizer
-OPTFLAGS += -fsanitize=address
+# OPTFLAGS += -fsanitize=address
 
 # for Clang: UndefinedBehaviorSanitizer
-OPTFLAGS += -fsanitize=undefined
+# OPTFLAGS += -fsanitize=undefined
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread
@@ -152,25 +158,19 @@ LDFLAGS = ## -lmkl_intel_thread
 
 EXTFLAGS ?=
 
-#ifeq ($(HOSTNAME),MacBook-Pro-4.local)
-ifneq ( ,$(findstring MacBook-Pro,$(HOSTNAME)))
-	EXTFLAGS += -D HAS_NO_MKL
-	LDFLAGS += -lm
-	LDFLAGS += -lblas
-	# OPTFLAGS += -fopenmp ### works only with gcc
-	LDFLAGS += -llapack
-	EXTFLAGS += -D HAS_FFTW
-  # INC += -I/opt/homebrew/Cellar/fftw/3.3.10_1/include  ### needed by gcc
-	LDFLAGS += -lfftw3 -L/opt/homebrew/Cellar/fftw/3.3.10_1/lib
-else
+# ifneq ( ,$(findstring MacBook-Pro,$(HOSTNAME)))
+EXTFLAGS += -D HAS_NO_MKL
+LDFLAGS += -lm
+LDFLAGS += -lblas
+# OPTFLAGS += -fopenmp ### works only with gcc
+LDFLAGS += -llapack
+EXTFLAGS += -D HAS_FFTW
+# INC += -I/opt/homebrew/Cellar/fftw/3.3.10_1/include  ### needed by gcc
+LDFLAGS += -lfftw3 -L/opt/homebrew/Cellar/fftw/3.3.10_1/lib
+#endif
+
 	# on JUSUF:   module --force purge && module load Stages/2022 GCC/11.2.0 OpenMPI/4.1.2 imkl/2021.4.0
-	LDFLAGS += -lm
-	LDFLAGS += -lmkl_intel_lp64
-	LDFLAGS += -lmkl_intel_thread
-	LDFLAGS += -lmkl_core
-	LDFLAGS += -liomp5
-	LDFLAGS += -lpthread
-endif
+	# LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 

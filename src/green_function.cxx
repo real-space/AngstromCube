@@ -306,14 +306,9 @@ namespace green_function {
         } else { // comm_size > 1
             owner_rank.resize(nall, 0); // all potential elements are owned by the MPI master, i.e. rank#0
 
-#ifdef    HAS_NO_MPI
-            auto const default_sources =  1.; // 1: 1x1x1 right-hand-side only (suitable default for ./a43 --test green_function)
-#else  // HAS_NO_MPI
-            auto const default_sources = -1.; // -1: all right-hand-sides (suitable default for ./green --test green_function)
-#endif // HAS_NO_MPI
             // generate a box of source points
             double nsb[3] = {0, 0, 0}; // number of source blocks
-            int32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", default_sources);
+            int32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", -1.);
             int32_t n_source_blocks[] = {int(nsb[X]), int(nsb[Y]), int(nsb[Z])};
             int32_t off[3];
             for (int d = 0; d < 3; ++d) {

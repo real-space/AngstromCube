@@ -28,10 +28,10 @@ namespace simple_timer {
       return stat;
   } // test_strip_path
 
-  int64_t fibonacci(int64_t const n) {
+  int64_t fibonacci_recursive(int64_t const n) {
       if (n < 3) return (n > 0);
-      return fibonacci(n - 1) + fibonacci(n - 2);
-  } // fibonacci (classical)
+      return fibonacci_recursive(n - 1) + fibonacci_recursive(n - 2);
+  } // fibonacci_recursive (classical)
 
   int64_t fibonacci_nonrecursive(int const n) {
       if (n < 3) return (n > 0);
@@ -63,7 +63,7 @@ namespace simple_timer {
       int64_t result;
       { // scope: create a timer, do some work, destroy the timer
           SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
-          result = fibonacci(inp);
+          result = fibonacci_recursive(inp);
           // timer destructor is envoked at the end of this scope, timing printed to log
       } // scope
       if (echo > 0) std::printf("# fibonacci(%d) = %lld\n", inp, result);
@@ -87,16 +87,16 @@ namespace simple_timer {
       status_t stat(0);
       int64_t result;
       simple_stats::Stats<> s;
-      for (int inp = 40; inp < 45; ++inp) {
-          auto const reference = fibonacci_nonrecursive(inp);
+      for (int inp = 40; inp < 42; ++inp) {
+          auto const reference = fibonacci_nonrecursive(inp); // takes almost no time compared to the recursive version
           SimpleTimer timer(__FILE__, __LINE__, "", 0);
-          result = fibonacci(inp);
+          result = fibonacci_recursive(inp);
           stat += (reference != result);
           if (echo > 7) std::printf("# fibonacci(%d) = %lld\n", inp, result);
           s.add(timer.stop());
       } // scope
       auto const average_time = s.mean();
-      if (echo > 2) std::printf("# fibonacci took %g +/- %.1e seconds per iteration, %g seconds in total\n", average_time, s.dev(), s.sum());
+      if (echo > 2) std::printf("# fibonacci took %g +/- %.2g seconds per iteration, %g seconds in total\n", average_time, s.dev(), s.sum());
       return stat + (average_time < 0);
   } // test_stop_function
 

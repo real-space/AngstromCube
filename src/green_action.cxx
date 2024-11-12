@@ -173,7 +173,7 @@ namespace green_action {
       std::vector<double> xyzZinso(0); // atom info
       std::vector<std::vector<double>> AtomMatrices(0); // non-local potential
 
-      auto const *const filename = control::get("hamiltonian.file", "Hmt.xml");
+      auto const *const filename = control::get("hamiltonian.file", "Hmt.empty.4x4x4.xml");
       auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
@@ -183,8 +183,6 @@ namespace green_action {
 
       int const r1c2 = control::get("green_function.benchmark.complex", 1.) + 1;
       int const noco = control::get("green_function.benchmark.noco", 1.);
-
-//    for (int ia = 0; ia < natoms; ++ia) { xyzZinso[ia*8 + 3] = 6; } // set all atoms to carbon
 
       action_plan_t p;
       stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, noco);
@@ -221,7 +219,7 @@ namespace green_action {
 
   inline status_t test_construction_and_destruction(int const echo=0) {
       { // scope: construct plan
-          action_plan_t plan; // calls constructor of action_plan_t
+          action_plan_t plan; // calls standard constructor of action_plan_t
           if (echo > 4) std::printf("# %s for action_t\n", __func__);
 #ifndef   HAS_TFQMRGPU
           { action_t<float ,1,1> action(&plan); }

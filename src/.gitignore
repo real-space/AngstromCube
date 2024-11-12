@@ -31,3 +31,6 @@ logder-plot
 
 ### Visual Studio Code config
 .vscode/*
+
+### Code Coverage Analysis
+coverage/*

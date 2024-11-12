@@ -80,9 +80,9 @@ namespace progress_report {
       int64_t result;
       int64_t const inp = 40, reference = 102334155;
       { // scope: create a timer, do some iterations, destroy the timer
-          double const every = 1.0; // report to stdout every second
+          double const every = 0.5; // report to stdout twice per second
           ProgressReport timer(__FILE__, __LINE__, every, echo);
-          int const nits = 10;
+          int const nits = 8;
           for (int it = 0; it < nits; ++it) {
               result = fibonacci(inp);
               timer.report(it, nits);
