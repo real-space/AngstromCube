@@ -574,13 +574,13 @@ namespace load_balancer {
                                     //     }
                                     // }
 
-                                    if (ji[0] >= ji[1]) warn("no matching pair found ji= %i %i", ji[0], ji[1]);
+                                    if (ji[0] >= ji[1]) warn("no matching pair found for plane#%i", ip);
                                     if (ji[0] < ji[1]) {
                                         for (int k01{0}; k01 < 2; ++k01) { // loop must run forward!
                                             ipoint[k01]       = ipoint[ji[k01]];
                                             set(points[k01], 2, points[ji[k01]]);
                                         } // k01
-                                    else {
+                                    } else {
                                         plot = false;
                                     }
 
