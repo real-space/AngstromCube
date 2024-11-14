@@ -511,6 +511,7 @@ namespace load_balancer {
                             } // jp
 
                             if (npoints > 1) {
+                                bool plot{true};
                                 if (npoints > 2) {
 
                                     double cow0[] = {0, 0, 0, 0};
@@ -573,15 +574,19 @@ namespace load_balancer {
                                     //     }
                                     // }
 
-                                    if (ji[0] >= ji[1]) error("no matching pair found ji= %i %i", ji[0], ji[1]);
-                                    assert(ji[0] < ji[1]);
-                                    for (int k01{0}; k01 < 2; ++k01) { // loop must run forward!
-                                        ipoint[k01]       = ipoint[ji[k01]];
-                                        set(points[k01], 2, points[ji[k01]]);
-                                    } // k01
+                                    if (ji[0] >= ji[1]) warn("no matching pair found ji= %i %i", ji[0], ji[1]);
+                                    if (ji[0] < ji[1]) {
+                                        for (int k01{0}; k01 < 2; ++k01) { // loop must run forward!
+                                            ipoint[k01]       = ipoint[ji[k01]];
+                                            set(points[k01], 2, points[ji[k01]]);
+                                        } // k01
+                                    else {
+                                        plot = false;
+                                    }
 
                                 } // npoints > 2
                                 std::fprintf(svg, "  <!-- line #%i has %d points, take #%i and #%i -->\n", ip, npoints, ipoint[0], ipoint[1]);
+                                if (plot)
                                 std::fprintf(svg, "  <line x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" stroke=\"black\" />\n",
                                                                 points[0][0], points[0][1], points[1][0], points[1][1]);
                             } else { // npoints > 1
