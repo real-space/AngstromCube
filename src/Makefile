@@ -94,42 +94,42 @@ INC += -I../external/rapidjson
 
 ERRFLAGS =
 FEAFLAGS =
-FEAFLAGS += -D _GIT_KEY=$(GITKEY)
-# FEAFLAGS += -D NO_UNIT_TESTS
-# FEAFLAGS += -D _Output_Units_Fixed
+FEAFLAGS += -D_GIT_KEY=$(GITKEY)
+# FEAFLAGS += -DNO_UNIT_TESTS
+# FEAFLAGS += -D_Output_Units_Fixed
 
 # NDEBUG will disable all the assert() checks from <cassert> 
-# FEAFLAGS += -D NDEBUG
+# FEAFLAGS += -DNDEBUG
 
-FEAFLAGS += -D HAS_NO_MPI
-FEAFLAGS += -D HAS_NO_OMP
-FEAFLAGS += -D HAS_NO_CUDA
-FEAFLAGS += -D HAS_BITMAP_EXPORT
-FEAFLAGS += -D HAS_SINGLE_ATOM
-# FEAFLAGS += -D USE_SIMPLE_RANGE_TRUNCATION
-# FEAFLAGS += -D USE_RECIPROCAL_RADIAL_GRID
-# FEAFLAGS += -D LARGE_ANGULAR_GRIDS
-# FEAFLAGS += -D GENERAL_CELL
-FEAFLAGS += -D HAS_TFQMRGPU
+FEAFLAGS += -DHAS_NO_MPI
+FEAFLAGS += -DHAS_NO_OMP
+FEAFLAGS += -DHAS_NO_CUDA
+FEAFLAGS += -DHAS_BITMAP_EXPORT
+FEAFLAGS += -DHAS_SINGLE_ATOM
+# FEAFLAGS += -DUSE_SIMPLE_RANGE_TRUNCATION
+# FEAFLAGS += -DUSE_RECIPROCAL_RADIAL_GRID
+# FEAFLAGS += -DLARGE_ANGULAR_GRIDS
+# FEAFLAGS += -DGENERAL_CELL
+FEAFLAGS += -DHAS_TFQMRGPU
 INC += -I/Users/pbaum/tfQMRgpu/include
 
-FEAFLAGS += -D HAS_RAPIDXML
-FEAFLAGS += -D HAS_RAPIDJSON
-FEAFLAGS += -D HAS_NO_LAPACK
-FEAFLAGS += -D HAS_NO_BLAS
+FEAFLAGS += -DHAS_RAPIDXML
+FEAFLAGS += -DHAS_RAPIDJSON
+FEAFLAGS += -DHAS_NO_LAPACK
+FEAFLAGS += -DHAS_NO_BLAS
 
-# FEAFLAGS += -D DEBUGGPU
+# FEAFLAGS += -DDEBUGGPU
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
 ifdef NO_UNIT_TESTS
 	## for production: eliminate the unit tests
-	FEAFLAGS += -D NO_UNIT_TESTS
+	FEAFLAGS += -DNO_UNIT_TESTS
 endif
 
 ## include also code which is not meant for release,
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
-FEAFLAGS += -D DEVEL
+FEAFLAGS += -DDEVEL
 
 OPTFLAGS=
 
@@ -161,12 +161,12 @@ LDFLAGS = ## -lmkl_intel_thread
 EXTFLAGS ?=
 
 # ifneq ( ,$(findstring MacBook-Pro,$(HOSTNAME)))
-EXTFLAGS += -D HAS_NO_MKL
+EXTFLAGS += -DHAS_NO_MKL
 LDFLAGS += -lm
 LDFLAGS += -lblas
 # OPTFLAGS += -fopenmp ### works only with gcc
 LDFLAGS += -llapack
-EXTFLAGS += -D HAS_FFTW
+EXTFLAGS += -DHAS_FFTW
 # INC += -I/opt/homebrew/Cellar/fftw/3.3.10_1/include  ### needed by gcc
 LDFLAGS += -lfftw3 -L/opt/homebrew/Cellar/fftw/3.3.10_1/lib
 #endif

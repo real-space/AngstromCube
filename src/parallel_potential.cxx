@@ -798,7 +798,7 @@ namespace parallel_potential {
 #endif // DEVEL
             assert(nullptr != atom_r2coeff.at(iatom));
             double added_charge{0};
-            #pragma omp parallel for
+//          #pragma omp parallel for // does not compile with GCC/12.3.0
             for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // local cubes
                 added_charge += add_r2grid_to_cube(grid_quantity[ilb], cube_coords[ilb], hg, r_circum,
                                           ai.pos_, atom_r2coeff[iatom], r_cut, factor, echo, nr2, ar2);
@@ -1205,7 +1205,7 @@ namespace parallel_potential {
                 auto const *const density = augmented_density[0];
                 auto       *const potential = V_xc[0];
                 // double rho_max{0}; int64_t i_max{-1};
-                #pragma omp parallel for
+//              #pragma omp parallel for // does not compile with GCC/12.3.0
                 for (size_t i{0}; i < n_cubes*n8x8x8; ++i) {
                     auto const rho_i = density[i];
                     // if (rho_i > rho_max) { rho_max = rho_i; i_max = i; }

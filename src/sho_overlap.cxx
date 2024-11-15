@@ -17,7 +17,7 @@
 #include "inline_math.hxx" // pow2, set
 #include "data_view.hxx" // view2D<T>
 #include "sho_tools.hxx" // ::nSHO
-#include "linear_algebra.hxx" // ::inverse
+#include "linear_algebra.hxx" // ::inverse, ::eigenvalues
 #include "recorded_warnings.hxx" // warn
 #include "display_units.h" // Ang, _Ang, eV, _eV
 #include "print_tools.hxx" // printf_vector
@@ -702,15 +702,15 @@ namespace sho_overlap {
 
 
   typedef std::complex<double> complex_t;
-  extern "C" {
-      // complex<double> hermitian generalized eigenvalue problem
-      void zhegv_(int const*, char const*, char const*, int const*,
-                  complex_t*, int const*, complex_t*, int const*,
-                  double*, complex_t*, int const*, double*, int*);
-      // complex<double> hermitian eigenvalue problem
-      void zheev_(char const*, char const*, int const*, complex_t*,
-                  int const*, double*, complex_t*, int const*, double*, int*);
-  } // LAPACK
+//   extern "C" {
+//       // complex<double> hermitian generalized eigenvalue problem
+//       void zhegv_(int const*, char const*, char const*, int const*,
+//                   complex_t*, int const*, complex_t*, int const*,
+//                   double*, complex_t*, int const*, double*, int*);
+//       // complex<double> hermitian eigenvalue problem
+//       void zheev_(char const*, char const*, int const*, complex_t*,
+//                   int const*, double*, complex_t*, int const*, double*, int*);
+//   } // LAPACK
 
   status_t test_simple_crystal(int const echo=3) {
       auto const a0 = control::get("sho_overlap.lattice.constant", 8.0);
@@ -882,7 +882,7 @@ namespace sho_overlap {
       view2D<complex_t> ovl_mat(n3D, n3D), kin_mat(n3D, n3D);
       std::vector<complex_t> work(lwork);
       std::vector<double> rwork(lwork), eigvals(n3D);
-      auto const jobz = 'n', uplo = 'u', jobv = 'v';
+//    auto const jobz = 'n', uplo = 'u', jobv = 'v';
 
       std::vector<std::array<double,4>> kps;
       int diagonalization_failed{0};
@@ -1005,10 +1005,10 @@ namespace sho_overlap {
               if (overlap_eigvals) {
 
                   // get the eigenvalues of the overlap operator only
-                  zheev_(&jobv, &uplo, &n3D, ovl_mat.data(), &n3D,
-                        eigvals.data(), work.data(), &lwork, rwork.data(), &info);
-  //                 info = linear_algebra::eigenvalues(n3D,
-  //                               kin_mat.data(), kin_mat.stride(), eigvals.data());
+                //   zheev_(&jobv, &uplo, &n3D, ovl_mat.data(), &n3D,
+                //         eigvals.data(), work.data(), &lwork, rwork.data(), &info);
+                  info = linear_algebra::eigenvalues(eigvals.data(), n3D,
+                                        kin_mat.data(), kin_mat.stride());
 #if 0
                   // DEBUG
                   if (0 == info && eigvals[0] < .00315) {
@@ -1022,12 +1022,12 @@ namespace sho_overlap {
               } else { // overlap_eigvals
 
                   // solve generalized eigenvalue problem kin_mat*X == diag*ovl_mat*X
-  //                 info = linear_algebra::generalized_eigenvalues(n3D,
-  //                               kin_mat.data(), kin_mat.stride(),
-  //                               ovl_mat.data(), ovl_mat.stride(), eigvals.data());
-                  int const itype = 1;
-                  zhegv_(&itype, &jobz, &uplo, &n3D, kin_mat.data(), &n3D, ovl_mat.data(), &n3D,
-                        eigvals.data(), work.data(), &lwork, rwork.data(), &info);
+                  info = linear_algebra::eigenvalues(eigvals.data(), n3D,
+                                          kin_mat.data(), kin_mat.stride(),
+                                          ovl_mat.data(), ovl_mat.stride());
+                //   int const itype = 1;
+                //   zhegv_(&itype, &jobz, &uplo, &n3D, kin_mat.data(), &n3D, ovl_mat.data(), &n3D,
+                //         eigvals.data(), work.data(), &lwork, rwork.data(), &info);
 
               } // overlap_eigvals
           } // Ref
