@@ -1,6 +1,6 @@
 # This file is part of AngstromCube under MIT License
 
-### This makefile should only be used if CMake fails!
+### This makefile for ./a43 should only be used if CMake fails!
 
 HOSTNAME := $(shell hostname)
 
@@ -115,7 +115,9 @@ INC += -I/Users/pbaum/tfQMRgpu/include
 
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
-FEAFLAGS += -D HAS_LAPACK
+FEAFLAGS += -D HAS_NO_LAPACK
+FEAFLAGS += -D HAS_NO_BLAS
+
 # FEAFLAGS += -D DEBUGGPU
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 # FEAFLAGS += -fopenmp -fno-omit-frame-pointer

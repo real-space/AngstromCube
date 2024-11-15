@@ -9,6 +9,8 @@
   #define HAS_MKL
 #endif // HAS_NO_MKL undefined
 
+#include "recorded_warnings.hxx" // error
+
 #ifndef   NO_UNIT_TESTS
     #include "simple_math.hxx" // ::random<T>
     #include "inline_math.hxx" // set
@@ -18,9 +20,11 @@
 
 extern "C" {
 #ifdef    HAS_MKL
-  #include "mkl_lapacke.h" // LAPACK_COL_MAJOR, MKL_INT, ...
+      #include "mkl_lapacke.h" // LAPACK_COL_MAJOR, MKL_INT, ...
 #else  // HAS_MKL
-  #define MKL_INT int
+      #define MKL_INT int
+
+#ifndef   HAS_NO_LAPACK
 
     // float64 linear_solve
     void dgesv_(int const *n, int const *nrhs, double a[], int const *lda, 
@@ -60,8 +64,11 @@ extern "C" {
     void sgetri_(int const *n, float  a[], int const *lda, int ipiv[], float  work[], int const *lwork, int *info);
     void zgetri_(int const *n, std::complex<double> a[], int const *lda, int ipiv[], std::complex<double> work[], int const *lwork, int *info);
     void cgetri_(int const *n, std::complex<float>  a[], int const *lda, int ipiv[], std::complex<float>  work[], int const *lwork, int *info);
+
+#endif // HAS_NO_LAPACK
 #endif // HAS_MKL
 
+#ifndef   HAS_NO_BLAS
     // BLAS interface to matrix matrix multiplication
     void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
                 const double*, const int*, const double*, const int*, const double*, double*, const int*);
@@ -71,6 +78,7 @@ extern "C" {
                 const float*, const int*, const float*, const int*, const float*, float*, const int*);
     void cgemm_(const char*, const char*, const int*, const int*, const int*, const std::complex<float>*,
                 const std::complex<float>*, const int*, const std::complex<float>*, const int*, const std::complex<float>*, std::complex<float>*, const int*);
+#endif // HAS_NO_BLAS
 } // extern "C"
 
 
@@ -84,17 +92,18 @@ namespace linear_algebra {
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef    HAS_MKL
       info = LAPACKE_dgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
-#else  // HAS_MKL
-      dgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
-#endif // HAS_MKL
       if (info) return info; // early return: factorization failed!
-
-#ifdef    HAS_MKL
       info = LAPACKE_dgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
 #else  // HAS_MKL
+#ifndef   HAS_NO_LAPACK
+      dgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+      if (info) return info; // early return: factorization failed!
       int const lwork = n*n;
       std::vector<double> work(lwork);
       dgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call dgetrf and dgetri(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
 #endif // HAS_MKL
       return info;
   } // inverse
@@ -104,17 +113,18 @@ namespace linear_algebra {
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef    HAS_MKL
       info = LAPACKE_sgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
-#else  // HAS_MKL
-      sgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
-#endif // HAS_MKL
       if (info) return info; // early return: factorization failed!
-
-#ifdef    HAS_MKL
       info = LAPACKE_sgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
 #else  // HAS_MKL
+#ifndef   HAS_NO_LAPACK
+      sgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+      if (info) return info; // early return: factorization failed!
       int const lwork = n*n;
       std::vector<float> work(lwork);
       sgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call sgetrf and sgetri(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
 #endif // HAS_MKL
       return info;
   } // inverse
@@ -124,17 +134,18 @@ namespace linear_algebra {
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef    HAS_MKL
       info = LAPACKE_zgetrf( LAPACK_COL_MAJOR, n, n, (MKL_Complex16*)a, lda, ipiv.data() );
-#else  // HAS_MKL
-      zgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
-#endif // HAS_MKL
       if (info) return info; // early return: factorization failed!
-
-#ifdef    HAS_MKL
       info = LAPACKE_zgetri( LAPACK_COL_MAJOR, n, (MKL_Complex16*)a, lda, ipiv.data() );
 #else  // HAS_MKL
+#ifndef   HAS_NO_LAPACK
+      zgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+      if (info) return info; // early return: factorization failed!
       int const lwork = n*n;
       std::vector<std::complex<double>> work(lwork);
       zgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call zgetrf and zgetri(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
 #endif // HAS_MKL
       return info;
   } // inverse
@@ -144,17 +155,18 @@ namespace linear_algebra {
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef    HAS_MKL
       info = LAPACKE_cgetrf( LAPACK_COL_MAJOR, n, n, (MKL_Complex8*)a, lda, ipiv.data() );
-#else  // HAS_MKL
-      cgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
-#endif // HAS_MKL
       if (info) return info; // early return: factorization failed!
-
-#ifdef    HAS_MKL
       info = LAPACKE_cgetri( LAPACK_COL_MAJOR, n, (MKL_Complex8*)a, lda, ipiv.data() );
 #else  // HAS_MKL
+#ifndef   HAS_NO_LAPACK
+      cgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+      if (info) return info; // early return: factorization failed!
       int const lwork = n*n;
       std::vector<std::complex<float>> work(lwork);
       cgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call cgetrf and cgetri(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
 #endif // HAS_MKL
       return info;
   } // inverse
@@ -166,7 +178,11 @@ namespace linear_algebra {
       return LAPACKE_dgesv( LAPACK_COL_MAJOR, n, nrhs, a, lda, ipiv.data(), b, ldb );
 #else  // HAS_MKL
       int info{0};
+#ifndef   HAS_NO_LAPACK
       dgesv_(&n, &nrhs, a, &lda, ipiv.data(), b, &ldb, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call dgesv(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // linear_solve
@@ -176,9 +192,14 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_dsyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<double> work(lwork);
       dsyev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call dsyev(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // (standard_)eigenvalues
@@ -187,10 +208,15 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_zheev( LAPACK_COL_MAJOR, 'V', 'U', n, (MKL_Complex16*)a, lda, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<std::complex<double>> work(lwork);
       std::vector<double> rwork(3*n);
       zheev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call zheev(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // (standard_)eigenvalues
@@ -200,9 +226,14 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_dsygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<double> work(lwork);
       dsygv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call dsygv(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // generalized_eigenvalues
@@ -212,10 +243,15 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, (MKL_Complex16*)a, lda, (MKL_Complex16*)b, ldb, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<std::complex<double>> work(lwork);
       std::vector<double> rwork(3*n);
       zhegv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call zhegv(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // generalized_eigenvalues
@@ -228,9 +264,14 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_ssyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<float> work(lwork);
       ssyev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call ssyev(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // (standard_)eigenvalues
@@ -239,10 +280,15 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_cheev( LAPACK_COL_MAJOR, 'V', 'U', n, (MKL_Complex8*)a, lda, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<std::complex<float>> work(lwork);
       std::vector<float> rwork(3*n);
       cheev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call cheev(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // (standard_)eigenvalues
@@ -252,9 +298,14 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_ssygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<float> work(lwork);
       ssygv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call ssygv(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // generalized_eigenvalues
@@ -264,10 +315,15 @@ namespace linear_algebra {
 #ifdef    HAS_MKL
       return LAPACKE_chegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, (MKL_Complex8*)a, lda, (MKL_Complex8*)b, ldb, w );
 #else  // HAS_MKL
-      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      int info{0};
+#ifndef   HAS_NO_LAPACK
+      char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<std::complex<float>> work(lwork);
       std::vector<float> rwork(3*n);
       chegv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#else  // HAS_NO_LAPACK
+      error("failed to call chegv(n=%d, ...) with -D HAS_NO_LAPACK", n);
+#endif // HAS_NO_LAPACK
       return info;
 #endif // HAS_MKL
   } // generalized_eigenvalues
@@ -286,14 +342,22 @@ namespace linear_algebra {
   inline status_t gemm(int const M, int const N, int const K, double c[], int const ldc
           , double const b[], int const ldb, double const a[], int const lda
           , double const alpha=1, double const beta=0, char const transa='n', char const transb='n') {
-      dgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc); 
+#ifndef   HAS_NO_BLAS
+      dgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+#else  // HAS_NO_BLAS
+      error("failed to call dgemm(%d, %d, %d, ...) with -D HAS_NO_BLAS", M, N, K);
+#endif // HAS_NO_BLAS
       return 0;
   } // gemm
 
   inline status_t gemm(int const M, int const N, int const K, float c[], int const ldc
           , float const b[], int const ldb, float const a[], int const lda
           , float const alpha=1, float const beta=0, char const transa='n', char const transb='n') {
+#ifndef   HAS_NO_BLAS
       sgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+#else  // HAS_NO_BLAS
+      error("failed to call sgemm(%d, %d, %d, ...) with -D HAS_NO_BLAS", M, N, K);
+#endif // HAS_NO_BLAS
       return 0;
   } // gemm
 
@@ -305,7 +369,11 @@ namespace linear_algebra {
                           transa, transb, M, N, K, alpha.real(), alpha.imag(), K,lda, N,ldb, beta.real(), beta.imag(), N,ldc);
           std::fflush(stdout);
       } // echo
+#ifndef   HAS_NO_BLAS
       zgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+#else  // HAS_NO_BLAS
+      error("failed to call zgemm(%d, %d, %d, ...) with -D HAS_NO_BLAS", M, N, K);
+#endif // HAS_NO_BLAS
       return 0;
   } // gemm
 
@@ -341,8 +409,12 @@ namespace linear_algebra {
               } // n
               return 0;
           } // trans and transb 
-      } // 1
+      } // 0
+#ifndef   HAS_NO_BLAS
       cgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+#else  // HAS_NO_BLAS
+      error("failed to call cgemm(%d, %d, %d, ...) with -D HAS_NO_BLAS", M, N, K);
+#endif // HAS_NO_BLAS
       return 0;
   } // gemm
 

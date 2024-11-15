@@ -1,6 +1,6 @@
 # This file is part of AngstromCube under MIT License
 
-### This makefile should only be used if CMake fails!
+### This makefile for ./green should only be used if CMake fails!
 
 ## Check whether CUDA compiler is available
 ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
@@ -95,6 +95,8 @@ FEAFLAGS += -DHAS_RAPIDXML
 FEAFLAGS += -DHAS_RAPIDJSON
 FEAFLAGS += -DHAS_BITMAP_EXPORT
 FEAFLAGS += -DUSE_SIMPLE_RANGE_TRUNCATION
+# FEAFLAGS += -DHAS_NO_LAPACK
+# FEAFLAGS += -DHAS_NO_BLAS
 
 ## use the tfQMRgpu library to invert the shifted Hamiltonian
 FEAFLAGS += -DHAS_TFQMRGPU

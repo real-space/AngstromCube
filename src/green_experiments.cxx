@@ -34,11 +34,8 @@
 #include "green_action.hxx" // ::action_t
 #include "green_function.hxx" // ::construct_Green_function, ::update_energy_parameter, ::update_phases, ::update_potential
 #include "control.hxx" // ::get
-#include "progress_report.hxx" // 
-
-#ifdef    HAS_LAPACK
-    #include "linear_algebra.hxx" // ::eigenvalues, ::gemm
-#endif // HAS_LAPACK
+#include "progress_report.hxx" // ProgressReport
+#include "linear_algebra.hxx" // ::eigenvalues, ::gemm
 
 #ifdef    HAS_BITMAP_EXPORT
     #include "bitmap.hxx" // ::write_bmp_file
@@ -277,7 +274,6 @@ namespace green_experiments {
 
             reshape<real_t,R1C2,Noco>(OPsi, opsi, ncubes, nb, echo);
 
-#ifdef    HAS_LAPACK
             // contract using the BLAS library
             int const n = nbands;
             int const k = ncubes*4*4*4;
@@ -289,9 +285,6 @@ namespace green_experiments {
             } else {
                 linear_algebra::gemm(n, n, k, matrix[0], n, OPsi[0], n, Psi[0], n, dV, 0., 't', 'n');
             } // is_complex
-#else  // HAS_LAPACK
-            assert(false && "Needs BLAS to contract, activate -D HAS_LAPACK");
-#endif // HAS_LAPACK
 
         } // hs
 
@@ -443,10 +436,10 @@ namespace green_experiments {
         if (echo > 0) { std::printf("# prepare as many wave functions as real-space grid points\n"); std::fflush(stdout); } // every time again --> see below
         assert(pH.subset.size() == nb);
 
-#ifndef   HAS_LAPACK
-        warn("cannot run this test without -DHAS_LAPACK", 0);
+#ifdef    HAS_NO_LAPACK
+        warn("cannot run this test with -D HAS_NO_LAPACK", 0);
         return -1;
-#else  // HAS_LAPACK
+#else  // HAS_NO_LAPACK
         int constexpr Real = 0, Imag = R1C2 - 1;
 
         simple_stats::Stats<> Gflop_count;
@@ -624,7 +617,7 @@ namespace green_experiments {
         free_memory(Spsi); free_memory(Hpsi); free_memory(psi);
         free_memory(colIndex);
         return 0;
-#endif // HAS_LAPACK
+#endif // HAS_NO_LAPACK
     } // eigensolver
 
 
