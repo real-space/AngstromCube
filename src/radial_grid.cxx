@@ -174,6 +174,7 @@ namespace radial_grid {
       g->n = 0;
       g->rmax = 0;
       g->anisotropy = 0;
+      // delete g; // leads to errors
   } // destroy_radial_grid
 
   int find_grid_index(radial_grid_t const & g, double const radius) {

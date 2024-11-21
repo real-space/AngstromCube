@@ -62,7 +62,7 @@ namespace recorded_warnings {
                       " at %p for warnings launched at %s:%d reads:\n#\t%s\n",
                       (void*)message_, get_sourcefile(), source_file_line_, message_);
 #endif // DEBUG
-          // delete[] message_; // seems like this happens automagically
+          // if (nullptr != message_) delete[] message_; // leads to errors
       } // destructor
 
       char* get_message(void) { ++times_overwritten_; return message_; }

@@ -18,7 +18,7 @@ namespace sigma_config {
       int8_t  numax; // user specified numax, -1:auto
   } element_t;
 
-  element_t const & get(
+  element_t get(
         double const Zcore // nuclear charge
       , int const echo=0 // log-level
       , char const **configuration=nullptr // export the string that has been parsed

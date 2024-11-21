@@ -525,7 +525,7 @@ namespace parallel_poisson {
     template <typename real_t, typename double_t=double>
     status_t Laplace16th(
           real_t *Av // result array, data layout Av[n_local_cubes][8*8*8]
-        , real_t *v  // input  array, data layout  v[n_local_remote][8*8*8], cannot be const due to call data_exchange onto v
+        , real_t *v  // input  array, data layout v[n_local+remote][8*8*8], cannot be const due to call data_exchange onto v
         , parallel_grid_t const & pg // descriptor
         , int const echo=0 // log level
         , double const prefactor=1

@@ -224,7 +224,7 @@ namespace sigma_config {
     }; // parsed_word_t
 
 
-    element_t const & get(
+    element_t get(
           double const Zcore // nuclear charge
         , int const echo // =0 log-level
         , char const **configuration // =nullptr export the string that has been parsed
@@ -242,7 +242,7 @@ namespace sigma_config {
         if (nullptr == config) error("null string for configuation of +%s", element_Sy);
 
         // now convert config into an element_t
-        auto & e = *(new element_t);
+        element_t e;
 
         e.Z = ((iZ + 1) & 127) - 1.; // preliminary integer number of protons in [-1, 126]
         e.rcut = 2.; // default cutoff radius

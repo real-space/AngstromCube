@@ -4466,7 +4466,7 @@ namespace single_atom {
               if (a.size() != na) warn("what='%s' for %d atoms, but only %ld atoms active!", what, na, a.size());
               #pragma omp parallel for
               for (int32_t ia = 0; ia <= kia*(na - 1); ++ia) {
-                  a[ia]->~LiveAtom(); // envoke destructor
+                  delete a[ia]; // envoke destructor
               } // ia
               a.clear();
               na = a.size(); // set na to fulfill consistency check at the end of this routine
@@ -4730,6 +4730,7 @@ namespace single_atom {
       if (t & (1 << n++)) stat += test_pawxml_constructor(echo);
       if (t & (1 << n++)) stat += test_compensator_normalization(echo);
       if (t & (1 << n++)) stat += test_LiveAtom(echo);
+      if (echo > 0) std::printf("\n# sizeof(LiveAtom) = %ld Byte\n\n", sizeof(LiveAtom));
       return stat;
   } // all_tests
 
