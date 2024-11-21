@@ -44,7 +44,7 @@ namespace parallel_poisson {
         for (size_t i{0}; i < n; ++i) { 
             s += pow2(v[i]);
         } // i 
-        if (MPI_COMM_NULL != comm) mpi_parallel::sum(&s, 1, comm);
+        if (MPI_COMM_NULL != comm) s = mpi_parallel::sum(s, comm);
         return s;
     } // norm2
 
@@ -55,7 +55,7 @@ namespace parallel_poisson {
             s += v[i];
         } // i
         auto const norm1_local = s;
-        if (MPI_COMM_NULL != comm) mpi_parallel::sum(&s, 1, comm);
+        if (MPI_COMM_NULL != comm) s = mpi_parallel::sum(s, comm);
         if (echo > 0) std::printf("# norm1_local= %g, norm1= %g\n", norm1_local, s);
         return s;
     } // norm1
@@ -66,7 +66,7 @@ namespace parallel_poisson {
         for (size_t i = 0; i < n; ++i) {
             dot += double(v[i])*double(w[i]); // conversion to double is different from dot_product define in inline_math.hxx
         } // i
-        if (MPI_COMM_NULL != comm) mpi_parallel::sum(&dot, 1, comm);
+        if (MPI_COMM_NULL != comm) dot = mpi_parallel::sum(dot, comm);
         return dot;
     } // scalar_product
 
