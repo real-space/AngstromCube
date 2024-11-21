@@ -538,7 +538,7 @@ namespace iterative_poisson {
       fourier_poisson::solve(x_fft, b, ng, mat);
 
       if (echo > 8) { // get a radial representation through Bessel transform
-          auto & rg = *radial_grid::create_radial_grid(300, 15.f);
+          auto rg = radial_grid::create_radial_grid(300, 15.f);
 
           int constexpr I_rho_radial = 3, I_hartree = 4, I_q2 = 5;
           view2D<double> fr(6, rg.n, 0.0); // radial functions
@@ -570,7 +570,7 @@ namespace iterative_poisson {
               std::printf("%g %g %g %g %g %g %g\n", rg.r[ir], fr(I_multigrid,ir)*f, fr(I_fft,ir)*f, fr(I_hartree,ir), fr(I_q2,ir), fr(I_rho,ir)*f, fr(I_rho_radial,ir));
           } // ir
           std::printf("\n\n");
-          radial_grid::destroy_radial_grid(&rg);
+          radial_grid::destroy_radial_grid(rg);
 
           std::printf("\n## r, V_mg, V_fft, rho (all in a.u.)\n"); // show all grid values (dots should not be connected by a line)
           for (int iz = 0; iz < ng[2]; ++iz) {

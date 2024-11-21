@@ -325,7 +325,7 @@ namespace atom_core {
                           // add orbital density
                           double const q = dot_product(g.n, r2rho.data(), g.dr);
                           assert(q > 0);
-                          double const f = orb[i].occ/q;
+                          double const f = (q > 0) ? orb[i].occ/q : 0;
                           add_product(r2rho4pi.data(), g.n, r2rho.data(), f);
                           if (echo > 9) {
                               std::printf("# %s  %d%c f= %g q= %g dE= %g %s\n",
@@ -597,17 +597,19 @@ namespace atom_core {
       , radial_grid_t const *const rg // =nullptr
       , double *const export_Zeff // =nullptr
   ) {
-      bool const my_radial_grid = (nullptr == rg);
-      auto const npoints = radial_grid::default_points(Z);
-      radial_grid_t       *const m = my_radial_grid ? radial_grid::create_radial_grid(npoints) : nullptr;
-      radial_grid_t const *const g = my_radial_grid ? m : rg;
+      radial_grid_t m;
+      if (!rg) {
+          auto const npoints = radial_grid::default_points(Z);
+          m = radial_grid::create_radial_grid(npoints);
+      }
+      radial_grid_t const & g = (!rg) ? m : *rg;
       if ('a' == config) { // "auto"
-          return scf_atom(*g, Z, echo, nullptr, export_Zeff);
+          return scf_atom(g, Z, echo, nullptr, export_Zeff);
       } else {
           auto const element = sigma_config::get(Z, echo); // get occupation numbers from PAW configuration strings
-          return scf_atom(*g, Z, echo, element.occ, export_Zeff);
+          return scf_atom(g, Z, echo, element.occ, export_Zeff);
       }
-      if (my_radial_grid) radial_grid::destroy_radial_grid(m);
+      if (!rg) radial_grid::destroy_radial_grid(m);
   } // solve
 
 
@@ -660,131 +662,135 @@ namespace atom_core {
 
 
 #ifdef    NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  status_t test_neutral_atom_total_energy(int const echo=0) {
-      if (echo < 7) return 0;
-      std::printf("\n\n## %s\n", __func__);
-      for (int iZ = -1; iZ <= 120*2; ++iZ) {
-          double const Z = iZ*0.5;
-          std::printf("%g %.9f\n", Z, neutral_atom_total_energy(Z));
-      } // Z
-      std::printf("\n# %s\n\n", __func__);
-      return 0;
-  } // test_neutral_atom_total_energy
+    status_t test_neutral_atom_total_energy(int const echo=0) {
+        if (echo < 7) return 0;
+        std::printf("\n\n## %s\n", __func__);
+        for (int iZ{-1}; iZ <= 120*2; ++iZ) {
+            double const Z = iZ*0.5;
+            std::printf("%g %.9f\n", Z, neutral_atom_total_energy(Z));
+        } // Z
+        std::printf("\n# %s\n\n", __func__);
+        return 0;
+    } // test_neutral_atom_total_energy
 
-  status_t test_initial_density(int const echo=0) {
-      if (echo > 3) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
-      double maxdev{0};
-      for (double Z = 0; Z < 128; Z += 1) {
-          auto & g = *radial_grid::create_radial_grid(radial_grid::default_points(Z));
-          std::vector<double> r2rho(g.n, 0.0);
-          double const q = initial_density(r2rho.data(), g, Z);
-          double const dev = Z - q;
-          if (echo > 5) std::printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n",
-                                  __FILE__, __LINE__, Z, q, dev);
-          maxdev = std::max(maxdev, std::abs(dev));
-          radial_grid::destroy_radial_grid(&g);
-      } // Z
-      if (echo > 1) std::printf("# %s: max. deviation of %g electrons\n", __func__, maxdev);
-      return (maxdev > 2e-5);
-  } // test_initial_density
 
-  status_t test_nl_index(int const echo=2) {
-      int inl{0};
-      for (int enn = 1; enn < 9; ++enn) { // principal quantum number of an atom
-          for (int ell = 0; ell < enn; ++ell) { // angular momentum quantum number
-              int const nl = nl_index(enn, ell);
-              if ((inl != nl) || (echo > 8)) std::printf("# %s: %s n=%d l=%d (%d%c) nl_index %d %d\n", __FILE__, __func__, enn, ell, enn, ellchar(ell), inl, nl);
-              assert(inl == nl);
-              ++inl;
-          } // ell
-      } // enn
-      return 0;
-  } // test_nl_index
+    status_t test_initial_density(int const echo=0) {
+        if (echo > 3) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
+        double maxdev{0};
+        for (double Z{0}; Z < 128; Z += 1) {
+            auto g = radial_grid::create_radial_grid(radial_grid::default_points(Z));
+            std::vector<double> r2rho(g.n, 0.0);
+            double const q = initial_density(r2rho.data(), g, Z);
+            double const dev = Z - q;
+            if (echo > 5) std::printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n",
+                                    __FILE__, __LINE__, Z, q, dev);
+            maxdev = std::max(maxdev, std::abs(dev));
+            radial_grid::destroy_radial_grid(g);
+        } // Z
+        if (echo > 1) std::printf("# %s: max. deviation of %g electrons\n", __func__, maxdev);
+        return (maxdev > 2e-5);
+    } // test_initial_density
 
-  status_t test_core_solver(int const echo=3) {
-      double const Z_begin = control::get("atom_core.test.Z", 29.); // default copper
-      double const Z_inc   = control::get("atom_core.test.Z.inc", 1.); // default: sample only integer values
-      double const Z_end   = control::get("atom_core.test.Z.end", Z_begin + Z_inc); // default: only one core
-      if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d) from %g to %g in steps of %g\n\n",
-                      __FILE__, __LINE__, __func__, echo, Z_begin, Z_end - Z_inc, Z_inc);
-      status_t stat(0);
-      char const custom_config = *control::get("atom_core.occupations", "custom") | 32; // 32: ignore case
-      size_t const i_end = std::round(std::abs(Z_end - Z_begin)/std::max(1e-9, std::abs(Z_inc)));
-      // ToDo: OpenMP loop
-      for (size_t i = 0; i < i_end; ++i) {
-          double const Z = Z_begin + i*Z_inc;
-          if (echo > 1) std::printf("\n# atom_core solver for Z= %g\n", Z);
-          auto const stat_Z = solve(Z, echo, custom_config);
-          if (stat_Z) warn("atom_core.test for Z=%g returned status=%i", Z, int(stat_Z));
-          stat += stat_Z;
-      } // i
-      return stat;
-  } // test_core_solver
 
-  
-  status_t simplify_Zeff_file(
-        double const Z
-      , float const epsilon=1e-6
-      , int const echo=3
-  ) {
-    // Apply Ramer-Douglas-Peucker lossful compression
-    // to the input files full_Zeff.00Z
-    // with  output files      Zeff.00Z
-      status_t stat(0);
-      auto & g = *radial_grid::create_radial_grid(radial_grid::default_points(Z));
-      std::vector<double> y(g.n, 0.0);
-      stat += read_Zeff_from_file(y.data(), g, Z, "full_Zeff", -1., echo);
-      // ToDo: this routine interpolates to a radial_default_grid
-      //        however, we only need the position of the support points g.r
-      //        so we extract that from the Zeff-file avoiding
-      //        discrepancies between the radial_default_grid and the grid used
-      //        to generate the Zeff-file
-      auto const mask = RDP_lossful_compression(g.r, y.data(), g.n, epsilon);
-      int const new_n = std::count(mask.begin(), mask.end(), true);
-      if (echo > 4) std::printf("# Ramer-Douglas-Peucker for Z=%g reduced %d to %d points, ratio= %.3f\n", 
-                                    Z, g.n, new_n, g.n/std::max(1., 1.*new_n));
-      std::vector<double> new_y(new_n, 0.0), new_r(new_n, 0.0);
-      { // scope: compress y(r)
-          int i{0};
-          for (int ir = 0; ir < g.n; ++ir) {
-              if (mask[ir]) {
-                  new_r[i] = g.r[ir];
-                  new_y[i] = y[ir];
-                  ++i;
-              } // active
-          } // ir
-          assert(i == new_n); // after running RDP, there must be exactly new_n true entries left
-      } // scope
-      stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "Zeff", -1., echo));
-      radial_grid::destroy_radial_grid(&g);
-      return stat;
-  } // simplify_Zeff_file
+    status_t test_nl_index(int const echo=2) {
+        int inl{0};
+        for (int enn{1}; enn < 9; ++enn) { // principal quantum number of an atom
+            for (int ell{0}; ell < enn; ++ell) { // angular momentum quantum number
+                int const nl = nl_index(enn, ell);
+                if ((inl != nl) || (echo > 8)) std::printf("# %s: %s n=%d l=%d (%d%c) nl_index %d %d\n", __FILE__, __func__, enn, ell, enn, ellchar(ell), inl, nl);
+                assert(inl == nl);
+                ++inl;
+            } // ell
+        } // enn
+        return 0;
+    } // test_nl_index
 
-  status_t test_Zeff_file_compression(int const echo=0) {
-      float const threshold = control::get("atom_core.compression.threshold", -1.);
-      if (threshold < 0) return 0; // do not do anything, silent return
-      if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
-      status_t stat(0);
-      for (int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
-          stat += simplify_Zeff_file(Z, threshold, echo); // apply Ramer-Douglas-Peucker reduction to Z_eff(r)
-      } // Z
-      return stat;
-  } // test_Zeff_file_compression
 
-  
-  status_t all_tests(int const echo) {
-      status_t stat(0);
-      int n{0}; int const t = control::get("atom_core.select.test", -1.); // -1:all
-      if (t & (1 << n++)) stat += test_neutral_atom_total_energy(echo);
-      if (t & (1 << n++)) stat += test_initial_density(echo);
-      if (t & (1 << n++)) stat += test_nl_index(echo);
-      if (t & (1 << n++)) stat += test_core_solver(echo);
-      if (t & (1 << n++)) stat += test_Zeff_file_compression(echo);
-      return stat;
-  } // all_tests
+    status_t test_core_solver(int const echo=3) {
+        double const Z_begin = control::get("atom_core.test.Z", 29.); // default copper
+        double const Z_inc   = control::get("atom_core.test.Z.inc", 1.); // default: sample only integer values
+        double const Z_end   = control::get("atom_core.test.Z.end", Z_begin + Z_inc); // default: only one core
+        if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d) from %g to %g in steps of %g\n\n",
+                        __FILE__, __LINE__, __func__, echo, Z_begin, Z_end - Z_inc, Z_inc);
+        status_t stat(0);
+        char const custom_config = *control::get("atom_core.occupations", "custom") | 32; // 32: ignore case
+        size_t const i_end = std::round(std::abs(Z_end - Z_begin)/std::max(1e-9, std::abs(Z_inc)));
+        // #pragma omp parallel for schedule(dynamic,1)
+        for (size_t i = 0; i < i_end; ++i) {
+            double const Z = Z_begin + i*Z_inc;
+            if (echo > 1) std::printf("\n# atom_core solver for Z= %g\n", Z);
+            auto const stat_Z = solve(Z, echo, custom_config);
+            if (stat_Z) warn("atom_core.test for Z=%g returned status=%i", Z, int(stat_Z));
+            stat += stat_Z;
+        } // i
+        return stat;
+    } // test_core_solver
+
+
+    status_t simplify_Zeff_file(
+          double const Z
+        , float const epsilon=1e-6
+        , int const echo=3
+    ) {
+        // Apply Ramer-Douglas-Peucker lossful compression
+        // to the input files full_Zeff.00Z
+        // with  output files      Zeff.00Z
+        status_t stat(0);
+        auto g = radial_grid::create_radial_grid(radial_grid::default_points(Z));
+        std::vector<double> y(g.n, 0.0);
+        stat += read_Zeff_from_file(y.data(), g, Z, "full_Zeff", -1., echo);
+        // ToDo: this routine interpolates to a radial_default_grid
+        //        however, we only need the position of the support points g.r
+        //        so we extract that from the Zeff-file avoiding
+        //        discrepancies between the radial_default_grid and the grid used
+        //        to generate the Zeff-file
+        auto const mask = RDP_lossful_compression(g.r, y.data(), g.n, epsilon);
+        int const new_n = std::count(mask.begin(), mask.end(), true);
+        if (echo > 4) std::printf("# Ramer-Douglas-Peucker for Z=%g reduced %d to %d points, ratio= %.3f\n", 
+                                        Z, g.n, new_n, g.n/std::max(1., 1.*new_n));
+        std::vector<double> new_y(new_n, 0.0), new_r(new_n, 0.0);
+        { // scope: compress y(r)
+            int i{0};
+            for (int ir = 0; ir < g.n; ++ir) {
+                if (mask[ir]) {
+                    new_r[i] = g.r[ir];
+                    new_y[i] = y[ir];
+                    ++i;
+                } // active
+            } // ir
+            assert(i == new_n); // after running RDP, there must be exactly new_n true entries left
+        } // scope
+        stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "Zeff", -1., echo));
+        radial_grid::destroy_radial_grid(g);
+        return stat;
+    } // simplify_Zeff_file
+
+
+    status_t test_Zeff_file_compression(int const echo=0) {
+        float const threshold = control::get("atom_core.compression.threshold", -1.);
+        if (threshold < 0) return 0; // do not do anything, silent return
+        if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
+        status_t stat(0);
+        for (int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
+            stat += simplify_Zeff_file(Z, threshold, echo); // apply Ramer-Douglas-Peucker reduction to Z_eff(r)
+        } // Z
+        return stat;
+    } // test_Zeff_file_compression
+
+
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        int n{0}; int const t = control::get("atom_core.select.test", -1.); // -1:all
+        if (t & (1 << n++)) stat += test_neutral_atom_total_energy(echo);
+        if (t & (1 << n++)) stat += test_initial_density(echo);
+        if (t & (1 << n++)) stat += test_nl_index(echo);
+        if (t & (1 << n++)) stat += test_core_solver(echo);
+        if (t & (1 << n++)) stat += test_Zeff_file_compression(echo);
+        return stat;
+    } // all_tests
 
 #endif // NO_UNIT_TESTS
 

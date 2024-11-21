@@ -17,7 +17,7 @@
 #include "recorded_warnings.hxx" // warn
 
 #ifndef   NO_UNIT_TESTS
-  #include "simple_math.hxx" // ::random<real_t>
+    #include "simple_math.hxx" // ::random<real_t>
 #endif // NO_UNIT_TESTS
 
 namespace dense_solver {
@@ -322,64 +322,79 @@ namespace dense_solver {
   template // explicit template instantiation for float
   status_t solve(view3D<float> &, char const*, int, int, double*);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #ifdef    NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  template <typename complex_t>
-  status_t test_inverse(int const echo=0, int const N=9) {
-      // test the inverter with random matrices. Mind that they can fail when singular by accident
-      status_t status(0);
-      double dev{0};
-      view2D<complex_t> mat(N, N, complex_t(0)), inv(N, N);
-      for (int n = 1; n <= N; ++n) { // dimension
-          
-          for (int i = 0; i < n; ++i) {
-              for (int j = 0; j < n; ++j) {
-                  auto const re = simple_math::random<float>(-1, 1),
-                             im = simple_math::random<float>(-1, 1);
-                  mat(i,j) = to_complex_t<complex_t,float>(std::complex<float>(re, im)); // fill with random values
-                  inv(i,j) = mat(i,j); // create a mutable copy
-              } // j
-          } // i
+    template <typename complex_t>
+    status_t test_inverse(int const echo=0, int const N=9) {
+        // test the inverter with random matrices. Mind that they can fail when singular by accident
+        status_t status(0);
+        double dev{0};
+        view2D<complex_t> mat(N, N, complex_t(0)), inv(N, N);
+        for (int n = 1; n <= N; ++n) { // dimension
+            
+            for (int i = 0; i < n; ++i) {
+                for (int j = 0; j < n; ++j) {
+                    auto const re = simple_math::random<float>(-1, 1),
+                                im = simple_math::random<float>(-1, 1);
+                    mat(i,j) = to_complex_t<complex_t,float>(std::complex<float>(re, im)); // fill with random values
+                    inv(i,j) = mat(i,j); // create a mutable copy
+                } // j
+            } // i
 
-          auto const stat = linear_algebra::inverse(n, inv.data(), inv.stride());
-          if (stat) warn("inversion failed with status= %i", stat);
-          status += stat;
+            auto const stat = linear_algebra::inverse(n, inv.data(), inv.stride());
+            if (stat) warn("inversion failed with status= %i", stat);
+            status += stat;
 
-          double devN{0}, devT{0};
-          for (int i = 0; i < n; ++i) {
-              for (int j = 0; j < n; ++j) {
-                  complex_t cN(0), cT(0);
-                  for (int k = 0; k < n; ++k) {
-                      cN += mat(i,k) * inv(k,j);
-                      cT += inv(i,k) * mat(k,j);
-                  } // k
-                  complex_t const diag = (i == j);
-                  devN = std::max(devN, 1.*std::abs(cN - diag));
-                  devT = std::max(devT, 1.*std::abs(cT - diag));
-                  if (echo > 9) std::printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,
-                      std::real(mat(i,j)), std::imag(mat(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
-                      std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
-              } // j
-          } // i
-          if (echo > 3) std::printf("# %s n=%d deviations from unity are %.2e and %.2e transposed\n",
-                                      __func__, n, devN, devT);
-          dev = std::max(dev, std::max(devN, devT));
-      } // n
-      if (echo > 0) std::printf("# %s<%s>(N=%d) max. deviations from unity are %.1e\n\n",
-                                  __func__, complex_name<complex_t>(), N, dev);
-      return status + (dev > 1e-5);
-  } // test_inverse
+            double devN{0}, devT{0};
+            for (int i = 0; i < n; ++i) {
+                for (int j = 0; j < n; ++j) {
+                    complex_t cN(0), cT(0);
+                    for (int k = 0; k < n; ++k) {
+                        cN += mat(i,k) * inv(k,j);
+                        cT += inv(i,k) * mat(k,j);
+                    } // k
+                    complex_t const diag = (i == j);
+                    devN = std::max(devN, 1.*std::abs(cN - diag));
+                    devT = std::max(devT, 1.*std::abs(cT - diag));
+                    if (echo > 9) std::printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,
+                        std::real(mat(i,j)), std::imag(mat(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
+                        std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
+                } // j
+            } // i
+            if (echo > 3) std::printf("# %s n=%d deviations from unity are %.2e and %.2e transposed\n",
+                                        __func__, n, devN, devT);
+            dev = std::max(dev, std::max(devN, devT));
+        } // n
+        if (echo > 0) std::printf("# %s<%s>(N=%d) max. deviations from unity are %.1e\n\n",
+                                    __func__, complex_name<complex_t>(), N, dev);
+        return status + (dev > 1e-5);
+    } // test_inverse
 
-  status_t all_tests(int const echo) {
-      status_t stat(0);
-      stat += test_inverse<float>(echo);
-      stat += test_inverse<double>(echo);
-      stat += test_inverse<std::complex<float>>(echo);
-      stat += test_inverse<std::complex<double>>(echo);
-      return stat;
-  } // all_tests
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        stat += test_inverse<float>(echo);
+        stat += test_inverse<double>(echo);
+        stat += test_inverse<std::complex<float>>(echo);
+        stat += test_inverse<std::complex<double>>(echo);
+        return stat;
+    } // all_tests
 
 #endif // NO_UNIT_TESTS
 

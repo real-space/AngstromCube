@@ -91,7 +91,7 @@ namespace radial_potential {
 
   status_t test_radial_Hartree_potential(int const echo=0) {
       // compare both versions against each other
-      auto & g = *radial_grid::create_radial_grid(512);
+      auto g = radial_grid::create_radial_grid(512);
       std::vector<double> const rho(g.n, 1); // a constant density rho(r) == 1
       std::vector<double> rVH(g.n), vHt(g.n);
       Hartree_potential(rVH.data(), g, rho.data()); // spherical version
@@ -109,7 +109,7 @@ namespace radial_potential {
           if (echo > 6) std::printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
           lastana = r*analytical;
       } // ir
-      radial_grid::destroy_radial_grid(&g);
+      radial_grid::destroy_radial_grid(g);
       if (echo > 3) std::printf("\n# %s deviates %.1e from spherical and %.2f %% from analytical\n", __func__, devsph, devana/lastana*100.);
       return (devsph > 1e-12);
   } // test_radial_Hartree_potential

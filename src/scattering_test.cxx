@@ -428,7 +428,7 @@ namespace scattering_test {
       , float const warning_threshold // =3e-3
   ) {
       status_t stat(0);
-      auto g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
+      auto g = radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) std::printf("\n# %s %s nr=%i dr=%g rmax=%g %s\n", label, __func__, nr, dr*Ang, dr*nr*Ang, _Ang);
 //    if (echo > 1) std::printf("# %s %s rmax=%g --> rmax=%g %s\n", label, __func__, gV.rmax*Ang, g.rmax*Ang, _Ang);
@@ -622,7 +622,7 @@ namespace scattering_test {
       } // deviates from reference
 
       // destroy the equidistant radial grid descriptor
-      radial_grid::destroy_radial_grid(&g);
+      radial_grid::destroy_radial_grid(g);
 
       return stat;
   } // eigenstate_analysis
@@ -688,117 +688,132 @@ namespace scattering_test {
       return 0;
   } // emm_average
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 #ifdef    NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  status_t test_eigenstate_analysis(int const echo=3, int const ellmax=7) {
-      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
-      // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
-      auto const rg = *radial_grid::create_radial_grid(radial_grid::default_points());
-      int const nln = sho_tools::nSHO_radial(ellmax);
-      double const sigma = 1.0; // if the rmax ~= 10, ellmax = 7, sigma <= 1.5, otherwise projectors leak out
-      std::vector<double> const aHm(nln*nln, 0.0); // dummy non-local matrices (constant at zero)
-      std::vector<double> V(rg.n);
-      product(V.data(), rg.n, rg.r, rg.r, 0.5/pow4(sigma)); // harmonic potential V(r)= r^2/(2 sigma^4)
-      if (echo > 0) std::printf("# %s use a harmonic potential with sigma= %g %s\n", __func__, sigma*Ang, _Ang);
-      if (echo > 0) std::printf("# %s expect eigenenergies to be half-integer multiples of %g %s\n", __func__, 1/pow2(sigma)*eV, _eV);
-      return eigenstate_analysis(rg, V.data(), sigma, ellmax, ellmax, aHm.data(), aHm.data(), 384, 0., "", echo);
-      // expected result: eigenstates at (1.5 + 2*nrn + ell)*sigma^-2 Hartree
-      // needs to be checked by human, ToDo: how to export the result?
-  } // test_eigenstate_analysis
+    status_t test_eigenstate_analysis(int const echo=3, int const ellmax=7) {
+        if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
+        // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
+        auto rg = radial_grid::create_radial_grid(radial_grid::default_points());
+        int const nln = sho_tools::nSHO_radial(ellmax);
+        double const sigma = 1.0; // if the rmax ~= 10, ellmax = 7, sigma <= 1.5, otherwise projectors leak out
+        std::vector<double> const aHm(nln*nln, 0.0); // dummy non-local matrices (constant at zero)
+        std::vector<double> V(rg.n);
+        product(V.data(), rg.n, rg.r, rg.r, 0.5/pow4(sigma)); // harmonic potential V(r)= r^2/(2 sigma^4)
+        if (echo > 0) std::printf("# %s use a harmonic potential with sigma= %g %s\n", __func__, sigma*Ang, _Ang);
+        if (echo > 0) std::printf("# %s expect eigenenergies to be half-integer multiples of %g %s\n", __func__, 1/pow2(sigma)*eV, _eV);
+        auto const status = eigenstate_analysis(rg, V.data(), sigma, ellmax, ellmax, aHm.data(), aHm.data(), 384, 0., "", echo);
+        radial_grid::destroy_radial_grid(rg);
+        return status;
+        // expected result: eigenstates at (1.5 + 2*nrn + ell)*sigma^-2 Hartree
+        // needs to be checked by human, ToDo: how to export the result?
+    } // test_eigenstate_analysis
 
-  status_t test_expand_sho_projectors_derivative(int const echo=0
-      , int const numax=9
-      , double const sigma=1.0
-  ) {
-      status_t stat(0);
-      auto const rg = *radial_grid::create_radial_grid(radial_grid::default_points());
-      int const nr = align<2>(rg.n);
-      int const nln = sho_tools::nSHO_radial(numax);
-      if (echo > 4) std::printf("\n# %s: with numax= %d sigma= %g %s\n", __func__, numax, sigma*Ang, _Ang);
-      view3D<double> prj(5, nln, nr, 0.0); // get memory for {sigma, sigma+delta, sigma-delta, ...
-      // the numerical derivative (sigma+delta - sigma-delta)/(2 delta), and the analytical d/dsigma}
+    status_t test_expand_sho_projectors_derivative(
+          int const echo=0
+        , int const numax=9
+        , double const sigma=1.0
+    ) {
+        status_t stat(0);
+        auto rg = radial_grid::create_radial_grid(radial_grid::default_points());
+        int const nr = align<2>(rg.n);
+        int const nln = sho_tools::nSHO_radial(numax);
+        if (echo > 4) std::printf("\n# %s: with numax= %d sigma= %g %s\n", __func__, numax, sigma*Ang, _Ang);
+        view3D<double> prj(5, nln, nr, 0.0); // get memory for {sigma, sigma+delta, sigma-delta, ...
+        // the numerical derivative (sigma+delta - sigma-delta)/(2 delta), and the analytical d/dsigma}
 
-      stat += expand_sho_projectors(prj(0,0), prj.stride(), rg, sigma, numax, 0, echo, prj(4,0)); // derivative into prj[4]
-      double constexpr delta = 1e-9;
-      stat += expand_sho_projectors(prj(1,0), prj.stride(), rg, sigma*(1 - delta), numax, 0, echo);
-      stat += expand_sho_projectors(prj(2,0), prj.stride(), rg, sigma*(1 + delta), numax, 0, echo);
-
-#ifdef    DEVEL
-      // check how much <sho_ell_irn|sho_ell_jrn> deviates from a unit matrix
-      for (int k = 0; k < 3; ++k) { // loop over 3 different sigma-values: sigma, sigma*(1-delta), sigma*(1+delta)
-          double max_dev{0};
-          for (int ell = 0; ell <= numax; ++ell) { // ell-block diagonal
-              for (int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
-                  if (echo > 7) std::printf("# %s %c%d ", __func__, ellchar[ell], irn);
-                  int const iln = sho_tools::ln_index(numax, ell, irn);
-                  for (int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
-                      int const jln = sho_tools::ln_index(numax, ell, jrn);
-                      auto const aij = dot_product(rg.n, prj(k,iln), prj(k,jln), rg.r2dr);
-                      auto const dev = aij - (irn == jrn);
-                      max_dev = std::max(max_dev, std::abs(dev));
-                      if (echo > 7) std::printf(" %8.1e", dev);
-                  } // jrn
-                  if (echo > 7) std::printf("\n");
-              } // irn
-          } // ell
-          if (echo > 4) std::printf("# %s: largest deviation from unit matrix for numax= %d is %.1e\n", __func__, numax, max_dev);
-          stat += (max_dev > 5e-13);
-      } // k
-#endif // DEVEL
-
-      // construct a finite-difference derivative w.r.t. sigma in set#3
-      add_product(prj(3,0), nln*prj.stride(), prj(1,0), -.5/delta);
-      add_product(prj(3,0), nln*prj.stride(), prj(2,0),  .5/delta);
-
-      { // scope: check the difference between the analytically derived projectors (#4) and a finite-difference derived set (#3)
-          double max_dev{0};
-          for (int ell = 0; ell <= numax; ++ell) {
-              for (int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
-                  if (echo > 5) std::printf("# %s: %c%d ", __func__, ellchar[ell], irn);
-                  int const iln = sho_tools::ln_index(numax, ell, irn);
-                  for (int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
-                      int const jln = sho_tools::ln_index(numax, ell, jrn);
-                      auto const ana_ij = dot_product(rg.n, prj(0,iln), prj(4,jln), rg.r2dr);
-                      auto const num_ij = dot_product(rg.n, prj(0,iln), prj(3,jln), rg.r2dr);
-                      if (echo > 5) std::printf(" %11.6f", ana_ij);
-//                       if (echo > 5) std::printf(" %11.6f", num_ij);
-                      auto const dev = ana_ij - num_ij;
-                      max_dev = std::max(max_dev, std::abs(dev));
-                      if (echo > 5) std::printf(" %8.1e", dev);
-                  } // jrn
-                  if (echo > 5) std::printf("\n");
-              } // irn
-          } // ell
-          if (echo > 4) std::printf("# %s: largest deviation |analytical - numerical| is %.1e\n", __func__, max_dev);
-          stat += (max_dev > 2e-6);
-      } // scope
+        stat += expand_sho_projectors(prj(0,0), prj.stride(), rg, sigma, numax, 0, echo, prj(4,0)); // derivative into prj[4]
+        double constexpr delta = 1e-9;
+        stat += expand_sho_projectors(prj(1,0), prj.stride(), rg, sigma*(1 - delta), numax, 0, echo);
+        stat += expand_sho_projectors(prj(2,0), prj.stride(), rg, sigma*(1 + delta), numax, 0, echo);
 
 #ifdef    DEVEL
-      if (echo > 21) {
-          std::printf("\n## %s: plot numerical and analytical derivative:\n", __func__);
-          for (int ir = 0; ir < rg.n; ++ir) {
-              std::printf("%g", rg.r[ir]);
-              for (int irn = 0; irn < nln; ++irn) {
-                  std::printf("  %g %g", prj(3,irn,ir), prj(4,irn,ir));
-              } // irn
-              std::printf("\n");
-          } // ir
-          std::printf("\n\n");
-      } // echo
+        // check how much <sho_ell_irn|sho_ell_jrn> deviates from a unit matrix
+        for (int k = 0; k < 3; ++k) { // loop over 3 different sigma-values: sigma, sigma*(1-delta), sigma*(1+delta)
+            double max_dev{0};
+            for (int ell = 0; ell <= numax; ++ell) { // ell-block diagonal
+                for (int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
+                    if (echo > 7) std::printf("# %s %c%d ", __func__, ellchar[ell], irn);
+                    int const iln = sho_tools::ln_index(numax, ell, irn);
+                    for (int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
+                        int const jln = sho_tools::ln_index(numax, ell, jrn);
+                        auto const aij = dot_product(rg.n, prj(k,iln), prj(k,jln), rg.r2dr);
+                        auto const dev = aij - (irn == jrn);
+                        max_dev = std::max(max_dev, std::abs(dev));
+                        if (echo > 7) std::printf(" %8.1e", dev);
+                    } // jrn
+                    if (echo > 7) std::printf("\n");
+                } // irn
+            } // ell
+            if (echo > 4) std::printf("# %s: largest deviation from unit matrix for numax= %d is %.1e\n", __func__, numax, max_dev);
+            stat += (max_dev > 5e-13);
+        } // k
 #endif // DEVEL
 
-      return stat;
-  } // test_expand_sho_projectors_derivative
+        // construct a finite-difference derivative w.r.t. sigma in set#3
+        add_product(prj(3,0), nln*prj.stride(), prj(1,0), -.5/delta);
+        add_product(prj(3,0), nln*prj.stride(), prj(2,0),  .5/delta);
 
-  status_t all_tests(int const echo) {
-      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
-      status_t stat(0);
-      stat += test_eigenstate_analysis(echo);
-      stat += test_expand_sho_projectors_derivative(echo);
-      return stat;
-  } // all_tests
+        { // scope: check the difference between the analytically derived projectors (#4) and a finite-difference derived set (#3)
+            double max_dev{0};
+            for (int ell = 0; ell <= numax; ++ell) {
+                for (int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
+                    if (echo > 5) std::printf("# %s: %c%d ", __func__, ellchar[ell], irn);
+                    int const iln = sho_tools::ln_index(numax, ell, irn);
+                    for (int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
+                        int const jln = sho_tools::ln_index(numax, ell, jrn);
+                        auto const ana_ij = dot_product(rg.n, prj(0,iln), prj(4,jln), rg.r2dr);
+                        auto const num_ij = dot_product(rg.n, prj(0,iln), prj(3,jln), rg.r2dr);
+                        if (echo > 5) std::printf(" %11.6f", ana_ij);
+                        auto const dev = ana_ij - num_ij;
+                        max_dev = std::max(max_dev, std::abs(dev));
+                        if (echo > 5) std::printf(" %8.1e", dev);
+                    } // jrn
+                    if (echo > 5) std::printf("\n");
+                } // irn
+            } // ell
+            if (echo > 4) std::printf("# %s: largest deviation |analytical - numerical| is %.1e\n", __func__, max_dev);
+            stat += (max_dev > 2e-6);
+        } // scope
+
+#ifdef    DEVEL
+        if (echo > 21) {
+            std::printf("\n## %s: plot numerical and analytical derivative:\n", __func__);
+            for (int ir = 0; ir < rg.n; ++ir) {
+                std::printf("%g", rg.r[ir]);
+                for (int irn = 0; irn < nln; ++irn) {
+                    std::printf("  %g %g", prj(3,irn,ir), prj(4,irn,ir));
+                } // irn
+                std::printf("\n");
+            } // ir
+            std::printf("\n\n");
+        } // echo
+#endif // DEVEL
+        radial_grid::destroy_radial_grid(rg);
+        return stat;
+    } // test_expand_sho_projectors_derivative
+
+    status_t all_tests(int const echo) {
+        if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
+        status_t stat(0);
+        stat += test_eigenstate_analysis(echo);
+        stat += test_expand_sho_projectors_derivative(echo);
+        return stat;
+    } // all_tests
 
 #endif // NO_UNIT_TESTS
 

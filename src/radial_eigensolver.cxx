@@ -171,90 +171,97 @@ namespace radial_eigensolver {
       }
   } // shooting_method
 
-  
+
+
+
+
+
+
+
+
 #ifdef    NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  status_t test_hydrogen_like_potential(
-        int const echo=5 // log-level
-      , double const Z=100 // atomic number, number of protons in the nucleus, may be as large as ~100
-  ) {
-      status_t stat(0);
-      auto & g = *radial_grid::create_radial_grid(2616);
-      std::vector<double> const rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
+    status_t test_hydrogen_like_potential(
+            int const echo=5 // log-level
+        , double const Z=100 // atomic number, number of protons in the nucleus, may be as large as ~100
+    ) {
+        status_t stat(0);
+        auto g = radial_grid::create_radial_grid(2616);
+        std::vector<double> const rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
 //#define PLOT_STATE_DIAGRAM
 #ifdef    PLOT_STATE_DIAGRAM
-      double const percent = 0.05;
-      { // plot state diagramm (as in atom_core.cxx)
-          std::printf("\n## potential for state diagram of Z=%g in sqrt(%s), log10(%s)\n", Z, _Ang, _eV);
-          for (int ir = 1; ir < g.n; ++ir) {
-              double const pot = rV[ir]*g.rinv[ir];
-              if (pot > -1e5 && pot < 0) std::printf("%g %g\n", std::sqrt(g.r[ir]*Ang), -std::log10(-pot*eV));
-          } // ir
-      } // scope: plot state diagramm
-      std::vector<double> r2rho(g.n, 0.0);
+        double const percent = 0.05;
+        { // plot state diagramm (as in atom_core.cxx)
+            std::printf("\n## potential for state diagram of Z=%g in sqrt(%s), log10(%s)\n", Z, _Ang, _eV);
+            for (int ir = 1; ir < g.n; ++ir) {
+                double const pot = rV[ir]*g.rinv[ir];
+                if (pot > -1e5 && pot < 0) std::printf("%g %g\n", std::sqrt(g.r[ir]*Ang), -std::log10(-pot*eV));
+            } // ir
+        } // scope: plot state diagramm
+        std::vector<double> r2rho(g.n, 0.0);
 #endif // PLOT_STATE_DIAGRAM
-      std::vector<double> rf(g.n); // radial wave function
-      char const SRA_name[][21] = {"non-relativistic", "scalar-relativistic", "linearized-sqrt"};
-      double maxdev{0}; // deviation of the non-relativistic final energies from the reference energy
-      for (auto sra = 0; sra <= 2; ++sra) { // 0:, 1:, 2:
-          if (echo > 0) std::printf("\n\n# %s %s (Z=%g) %s\n", __FILE__, __func__, Z, SRA_name[sra]);
-          for (auto enn = 1; enn <= 9; ++enn) {
-              auto const E_ref = -0.5*pow2(Z/double(enn)); // for sra == 0 we can compute a reference energy for a hydrogen-like potential
-              if (echo > 2 && 0 == sra) std::printf("# %2d -energy %.12f %s analytical\n", enn, E_ref*eV, _eV);
-              for (auto ell = 0; ell < enn; ++ell) {
-                  double E{E_ref}; // guess a start energy for hydrogen like atoms
-                  stat += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf.data()
+        std::vector<double> rf(g.n); // radial wave function
+        char const SRA_name[][21] = {"non-relativistic", "scalar-relativistic", "linearized-sqrt"};
+        double maxdev{0}; // deviation of the non-relativistic final energies from the reference energy
+        for (auto sra = 0; sra <= 2; ++sra) { // 0:, 1:, 2:
+            if (echo > 0) std::printf("\n\n# %s %s (Z=%g) %s\n", __FILE__, __func__, Z, SRA_name[sra]);
+            for (auto enn = 1; enn <= 9; ++enn) {
+                auto const E_ref = -0.5*pow2(Z/double(enn)); // for sra == 0 we can compute a reference energy for a hydrogen-like potential
+                if (echo > 2 && 0 == sra) std::printf("# %2d -energy %.12f %s analytical\n", enn, E_ref*eV, _eV);
+                for (auto ell = 0; ell < enn; ++ell) {
+                    double E{E_ref}; // guess a start energy for hydrogen like atoms
+                    stat += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf.data()
 #ifdef    PLOT_STATE_DIAGRAM
-                                      , r2rho.data() // get the wave function's absolute squared
+                                        , r2rho.data() // get the wave function's absolute squared
 #endif // PLOT_STATE_DIAGRAM
-                  )));
-                  if (echo > 1) {
-                      if (0 == sra) {
-                          std::printf("# %2d%c-energy %.12f  dev %.1e %s\n", enn, ellchar[ell], E*eV, (E - E_ref)*eV, _eV);
-                          maxdev = std::max(maxdev, std::abs(E - E_ref));
-                      } else {
-                          std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);
-                      }
-#ifdef    PLOT_STATE_DIAGRAM
-                      { // plot state diagramm (as in atom_core.cxx)
-                          double const norm = dot_product(g.n, r2rho.data(), g.dr);
-                          assert(norm > 0);
-                          scale(r2rho.data(), g.n, 1./norm);
-                          double sd_r05{0}, sd_r95{0}, ene{(E < 0)? E : -1e-5};
-                          {   double q{0}; int ir{1};
-                              while (q < percent) { q += r2rho[ir]*g.dr[ir]; ++ir; }
-                              sd_r05 = g.r[ir];
-                          }
-                          {   double q{0}; int ir{g.n};
-                              while (q < percent) { --ir; q += r2rho[ir]*g.dr[ir]; }
-                              sd_r95 = g.r[ir];
-                          }
-                          std::printf("# %d%c %s\n%g %g\n%g %g\n\n", enn, ellchar[ell], SRA_name[sra], // energy level
-                                  std::sqrt(sd_r05*Ang), -std::log10(-ene*eV),
-                                  std::sqrt(sd_r95*Ang), -std::log10(-ene*eV));
-                      } // scope: plot state diagramm
+                    )));
+                    if (echo > 1) {
+                        if (0 == sra) {
+                            std::printf("# %2d%c-energy %.12f  dev %.1e %s\n", enn, ellchar[ell], E*eV, (E - E_ref)*eV, _eV);
+                            maxdev = std::max(maxdev, std::abs(E - E_ref));
+                        } else {
+                            std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);
+                        }
+    #ifdef    PLOT_STATE_DIAGRAM
+                        { // plot state diagramm (as in atom_core.cxx)
+                            double const norm = dot_product(g.n, r2rho.data(), g.dr);
+                            assert(norm > 0);
+                            scale(r2rho.data(), g.n, 1./norm);
+                            double sd_r05{0}, sd_r95{0}, ene{(E < 0)? E : -1e-5};
+                            {   double q{0}; int ir{1};
+                                while (q < percent) { q += r2rho[ir]*g.dr[ir]; ++ir; }
+                                sd_r05 = g.r[ir];
+                            }
+                            {   double q{0}; int ir{g.n};
+                                while (q < percent) { --ir; q += r2rho[ir]*g.dr[ir]; }
+                                sd_r95 = g.r[ir];
+                            }
+                            std::printf("# %d%c %s\n%g %g\n%g %g\n\n", enn, ellchar[ell], SRA_name[sra], // energy level
+                                    std::sqrt(sd_r05*Ang), -std::log10(-ene*eV),
+                                    std::sqrt(sd_r95*Ang), -std::log10(-ene*eV));
+                        } // scope: plot state diagramm
 #endif // PLOT_STATE_DIAGRAM
-                  } // echo
+                    } // echo
 #ifdef    DEBUG
-                  char filename[32]; std::snprintf(filename, 31, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
-                  dump_to_file(filename, g.n, rf.data(), g.r);
+                    char filename[32]; std::snprintf(filename, 31, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
+                    dump_to_file(filename, g.n, rf.data(), g.r);
 #endif // DEBUG
-              } // ell
-          } // enn
-      } // sra
-      if (echo > 1) std::printf("# %s: largest energy deviation for %s solver is %.1e %s\n", __func__, SRA_name[0], maxdev*eV, _eV);
-      radial_grid::destroy_radial_grid(&g);
-      return stat + (maxdev > 1e-8*pow2(Z));
-  } // test_hydrogen_like_potential
+                } // ell
+            } // enn
+        } // sra
+        if (echo > 1) std::printf("# %s: largest energy deviation for %s solver is %.1e %s\n", __func__, SRA_name[0], maxdev*eV, _eV);
+        radial_grid::destroy_radial_grid(g);
+        return stat + (maxdev > 1e-8*pow2(Z));
+    } // test_hydrogen_like_potential
 
 
-  status_t all_tests(int const echo) {
-      status_t stat(0);
-      stat += test_hydrogen_like_potential(echo, control::get("radial_eigensolver.test.Z", 100.));
-      return stat;
-  } // all_tests
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        stat += test_hydrogen_like_potential(echo, control::get("radial_eigensolver.test.Z", 100.));
+        return stat;
+    } // all_tests
 
 #endif // NO_UNIT_TESTS
 

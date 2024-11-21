@@ -197,7 +197,7 @@ namespace sho_basis {
   
               if (plot) { // scope: plot the basis functions of the requsted species
                   std::printf("# %s plot for Z= %g numax= %d\n", __func__, Z_core, nu);
-                  auto rg = *radial_grid::create_radial_grid(256, 10.f, radial_grid::equation_equidistant); // for display
+                  auto rg = radial_grid::create_radial_grid(256, 10.f, radial_grid::equation_equidistant); // for display
                   int const numax = rfset->numax;
                   int const nln = sho_tools::nSHO_radial(numax);
                   view2D<double> basis_funcs(nln, rg.n, 0.);
@@ -223,7 +223,7 @@ namespace sho_basis {
                       std::printf("\n");
                   } // ir
                   std::printf("\n\n");
-                  radial_grid::destroy_radial_grid(&rg);
+                  radial_grid::destroy_radial_grid(rg);
               } // plot
 
               return 0;

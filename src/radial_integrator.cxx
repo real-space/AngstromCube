@@ -547,7 +547,7 @@ namespace radial_integrator {
 
   status_t test_hydrogen_atom(int const echo=0, double const Z=1) {
       // this plots the kink and number of nodes as a function of energy, see doc/fig/20190313_kink_of_energy.*
-      auto & g = *radial_grid::create_radial_grid(256);
+      auto g = radial_grid::create_radial_grid(256);
       std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn_prev{-1};
       if (echo > 6) std::printf("\n## -Energy(Ha) kink numberOfNodes:\n"); // shows that the kink is a falling function of E 
@@ -562,24 +562,24 @@ namespace radial_integrator {
           // with poles at the energies where the number of nodes changes, we plot -E for log axis
           nnn_prev = nnn; // for the next iteration
       } // iE
-      radial_grid::destroy_radial_grid(&g);
+      radial_grid::destroy_radial_grid(g);
       return 0;
   } // test_hydrogen_atom
 
   status_t test_hydrogen_wave_functions(int const echo=0, double const Z=1) {
-      auto & g = *radial_grid::create_radial_grid(2610);
+      auto g = radial_grid::create_radial_grid(2610);
       std::vector<double> rf(g.n), rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn{0};
       auto const kink = shoot(0, g, rV.data(), 0, -0.5, nnn, rf.data());
       if (echo > 6) debug(dump_to_file("H1s_radial_wave_function.dat", g.n, rf.data(), g.r));
-      radial_grid::destroy_radial_grid(&g);
+      radial_grid::destroy_radial_grid(g);
       if (echo > 3) std::printf("# %s kink= %.2e\n", __func__, kink);
       return (std::abs(kink) > 1e-3); // error if kink is too large
   } // test_hydrogen_wave_functions
   
   status_t test_Bessel_functions(int const echo=0) {
       // unit test for the outwards integration
-      auto & g = *radial_grid::create_radial_grid(512); // radial grid descriptor
+      auto g = radial_grid::create_radial_grid(512); // radial grid descriptor
       std::vector<double> gg(g.n), ff(g.n), rV(g.n, 0.0); // fill all potential values with r*V(r) == 0 everywhere
       // j_0(x) = sin(x)/x, j_1(x) = (sin(x) - x*cos(x))/x^2
       auto const k = 1.; // wave number of the Bessel function
@@ -606,13 +606,13 @@ namespace radial_integrator {
           if (echo > 3) std::printf("# %s: deviation(ell=%i) = %.2e\n", __func__, ell, dev);
           reldev = std::max(reldev, std::abs(dev));
       } // ell
-      radial_grid::destroy_radial_grid(&g);
+      radial_grid::destroy_radial_grid(g);
       return (reldev > 2e-12); // return error if deviations become large, threshold chosen for k==1.
   } // test_Bessel_functions
 
   // unit test for the inhomogeneous outwards integration
   status_t test_inhomogeneous(int const echo=0, double const Z=1) {
-      auto & g = *radial_grid::create_radial_grid(512);
+      auto g = radial_grid::create_radial_grid(512);
       std::vector<double> mem(4*g.n);
       auto const gg = &mem[0], ff = &mem[g.n], rp = &mem[2*g.n], rV = &mem[3*g.n];
       for (int ir = 0; ir < g.n; ++ir) {
@@ -628,7 +628,7 @@ namespace radial_integrator {
               rp[ir] *= g.r[ir]; // update rp for the next ell-iteration
           } // ir
       } // ell
-      radial_grid::destroy_radial_grid(&g);
+      radial_grid::destroy_radial_grid(g);
       return 0; // solutions need to be inspected manually
   } // test_inhomogeneous
 

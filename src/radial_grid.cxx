@@ -8,6 +8,17 @@
 
 #include "inline_math.hxx" // align
 
+    // ToDo: implement radial_grid_t::constructors
+
+    // ToDo: implement radial_grid_t::destructor
+    // radial_grid_t::~radial_grid_t(void) {
+    //     if (memory_owner) {
+    //         std::printf("# ~radial_grid_t(memory_owner)\n");
+    //         if (nullptr != r) delete[] r;
+    //         r = nullptr;
+    //     }
+    // } // destructor
+
 namespace radial_grid {
 
   char const* get_formula(char const equation) {
@@ -36,12 +47,13 @@ namespace radial_grid {
       } // ir
   } // set_derived_grid_quantities
 
-  radial_grid_t* create_radial_grid(
+  radial_grid_t create_radial_grid(
         int const npoints
       , float const rmax // [optional] largest radius
       , char equation // [optional] how to generate the grid
       , double const anisotropy // [optional] anisotropy parameter for exponential
   ) {
+      // std::printf("# %s(n=%d)\n", __func__, npoints);
 
       auto const mR = 128; // multiplicator for the outer radius of reciprocal grids
 #ifdef    USE_RECIPROCAL_RADIAL_GRID
@@ -59,23 +71,22 @@ namespace radial_grid {
       auto const R = std::max(std::abs(rmax)*1., .945);
 
       int const nr_aligned = align<2>(nr); // padded to multiples of 4
-      auto const g = new radial_grid_t;
-      // former get_memory
-      g->r = new double[5*nr_aligned];
-      g->dr    = & g->r[1*nr_aligned];
-      g->rdr   = & g->r[2*nr_aligned];
-      g->r2dr  = & g->r[3*nr_aligned];
-      g->rinv  = & g->r[4*nr_aligned];
-      g->memory_owner = (nullptr != g->r);
+      radial_grid_t g; // default constructor
+      g.r = new double[5*nr_aligned];
+      g.dr   =   & g.r[1*nr_aligned];
+      g.rdr  =   & g.r[2*nr_aligned];
+      g.r2dr =   & g.r[3*nr_aligned];
+      g.rinv =   & g.r[4*nr_aligned];
+      g.memory_owner = (nullptr != g.r);
 
-      double & d = g->anisotropy;
+      double & d = g.anisotropy;
 
-      auto const r = (double*)g->r, drdi = (double*)g->dr; // un-const the pointers
+      auto const r = (double*)g.r, drdi = (double*)g.dr; // un-const the pointers
 
 //    std::printf("# create a mesh with R= %g Bohr, n=%d, formula=%s\n", R, nr, get_formula(equation));
       if (0) { // if (equation_reciprocal == equation) {
           // special reciprocal
-          g->equation = equation_reciprocal;
+          g.equation = equation_reciprocal;
           auto const n = nr + mR/2; // with i=nr-1 the outermost radius is i/(n-i)=(n-1-mR/2)/(mR/2 + 1)
           for (int i = 0; i < nr_aligned; ++i) {
               double const rec = 1./((nr - 1)*(n - i));
@@ -86,7 +97,7 @@ namespace radial_grid {
 
       } else if (equation_reciprocal == equation) {
           // reciprocal grid as in GPAW
-          g->equation = equation_reciprocal;
+          g.equation = equation_reciprocal;
           double const a = double(rmax)/nr;
           for (int i = 0; i < nr; ++i) {
               double const rec = 1./(nr - i);
@@ -94,13 +105,13 @@ namespace radial_grid {
               drdi[i] = a*nr*rec*rec;
           } // i
           for (int i = nr; i < nr_aligned; ++i) {
-              r[i]    = g->r[nr - 1];
+              r[i]    = g.r[nr - 1];
               drdi[i] = 0;
           } // i
           d = nr; // store the real number used for the generation of the reciprocal grid in the anisotropy field
 
       } else if (equation_equidistant == equation) {
-          g->equation = equation_equidistant;
+          g.equation = equation_equidistant;
           double const dr = R/nr;
 //        std::printf("# create an equidistant mesh with dr=%g, R= %g Bohr, n=%d\n", dr, R, nr);
           for (int ir = 0; ir < nr_aligned; ++ir) {
@@ -110,7 +121,7 @@ namespace radial_grid {
           d = 0; // no anisotropy
 
       } else {
-          g->equation = equation_exponential;
+          g.equation = equation_exponential;
           d = std::min(std::max(1e-4, anisotropy*1.), .1);
           double const a = R / (std::exp(d*(nr - 1)) - 1.); // prefactor
           for (int ir = 0; ir < nr_aligned; ++ir) {
@@ -121,9 +132,9 @@ namespace radial_grid {
 
       } // switch equation
 
-      set_derived_grid_quantities(*g, nr_aligned);
-      g->n = nr;
-      g->rmax = g->r[g->n - 1]; // implicit conversion to float
+      set_derived_grid_quantities(g, nr_aligned);
+      g.n = nr;
+      g.rmax = g.r[g.n - 1]; // implicit conversion to float
 
       return g;
   } // create_radial_grid
@@ -139,7 +150,7 @@ namespace radial_grid {
       }
   } // get_prefactor
 
-  radial_grid_t* create_pseudo_radial_grid(
+  radial_grid_t create_pseudo_radial_grid(
         radial_grid_t const & tru
       , double const r_min // =1e-3 Bohr
       , int const echo // log-level
@@ -149,28 +160,31 @@ namespace radial_grid {
       if (echo > 3) std::printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
       int const nr_diff = ir;
 
-      auto g = new radial_grid_t;
+      radial_grid_t g; // default constructor
       // offset pointers
-      g->r      = tru.r    + nr_diff;
-      g->dr     = tru.dr   + nr_diff;
-      g->rdr    = tru.rdr  + nr_diff;
-      g->r2dr   = tru.r2dr + nr_diff;
-      g->rinv   = tru.rinv + nr_diff;
-      g->memory_owner = false; // avoid double free
+      g.r      = tru.r    + nr_diff;
+      g.dr     = tru.dr   + nr_diff;
+      g.rdr    = tru.rdr  + nr_diff;
+      g.r2dr   = tru.r2dr + nr_diff;
+      g.rinv   = tru.rinv + nr_diff;
+      g.memory_owner = false; // avoid double free
 
-      g->n = tru.n - nr_diff; // reduced number of grid points
-      g->rmax = tru.rmax; // both grids have the same tail
-      g->anisotropy = tru.anisotropy;
+      g.n = tru.n - nr_diff; // reduced number of grid points
+      g.rmax = tru.rmax; // both grids have the same tail
+      g.anisotropy = tru.anisotropy;
       return g;
   } // create_pseudo_radial_grid
 
-  void destroy_radial_grid(radial_grid_t* g, char const *name) {
-//    std::printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g->memory_owner);
-      if (g->memory_owner) delete[] g->r;
-      g->n = 0;
-      g->rmax = 0;
-      g->anisotropy = 0;
-      // delete g; // leads to errors
+  void destroy_radial_grid(radial_grid_t & g, char const *const name) {
+    //   std::printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g.memory_owner);
+      if (g.memory_owner) {
+          delete[] g.r;
+          g.r = nullptr;
+          g.memory_owner = false;
+      }
+    //   g.n = 0;
+    //   g.rmax = 0;
+    //   g.anisotropy = 0;
   } // destroy_radial_grid
 
   int find_grid_index(radial_grid_t const & g, double const radius) {
@@ -182,13 +196,16 @@ namespace radial_grid {
   } // find_grid_index
 
 
+
+
+
 #ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
       if (echo > 0) std::printf("\n# %s: sizeof(radial_grid_t) = %ld Byte\n", __func__, sizeof(radial_grid_t));
-      auto const gp = create_radial_grid(1 << 11);
+      auto gp = create_radial_grid(1 << 11);
       destroy_radial_grid(gp);
       return 0;
   } // test_create_and_destroy
@@ -196,7 +213,7 @@ namespace radial_grid {
   status_t test_radial_grid_integral(int const echo=3) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);
       int const n = 1 << 11;
-      auto & g = *create_radial_grid(n);
+      auto g = create_radial_grid(n);
       double integ[] = {0, 0, 0};
       if (echo > 3) std::printf("\n## radial grid (%d grid points, anisotropy= %g, up to %g %s, %s):\n"
               "## r, dr, 1/r, integral {1,r,r^2} dr, reference {r, r^2/2, r^3/3}\n",
@@ -214,7 +231,7 @@ namespace radial_grid {
       double const dev = std::abs(integ[0] - g.rmax);
       if (echo > 3) std::printf("# %s: integral dr from 0 to R deviates %g from R= %g %s\n",
                                    __func__, dev*1.0, g.rmax*1.0, "Bohr");
-      destroy_radial_grid(&g);
+      destroy_radial_grid(g);
       return (dev > .05); // integral dr up to rmax should match rmax
   } // test_radial_grid_integral
 
