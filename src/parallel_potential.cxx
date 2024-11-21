@@ -550,7 +550,7 @@ namespace parallel_potential {
 
 #ifdef    DEVEL
         if (1 == PROJECT0_OR_ADD1) {
-            if (echo > 16) {
+            if (echo > 18) {
                 std::printf("# addition coefficients ");
                 for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
                     std::printf(" %g", std::real(input[iSHO]));
@@ -600,7 +600,7 @@ namespace parallel_potential {
 
 #ifdef    DEVEL
         if (0 == PROJECT0_OR_ADD1) {
-            if (echo > 16) {
+            if (echo > 18) {
                 std::printf("# projection coefficients ");
                 for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
                     std::printf(" %g", std::real(result[iSHO]));
@@ -614,7 +614,7 @@ namespace parallel_potential {
     } // sho_project0_or_add1
 
     status_t add_to_grid(
-          view2D<double> & grid_values // result: add to these grid array values, usually augmented_density
+          view2D<double> & grid_values // modify: add to these grid array values, usually augmented_density
         , view2D<double> const & cube_coords
         , uint32_t const n_cubes
         , data_list<double> const & atom_coeff // [natoms][nSHO]
@@ -627,15 +627,17 @@ namespace parallel_potential {
         auto const natoms = sigma.size();
         assert(natoms == lmax.size());
         assert(natoms == atom_coeff.nrows());
+        assert(grid_values.stride() == 8*8*8);
         auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
         std::vector<size_t> hits_per_atom(sigma.size(), 0);
-        for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // OMP PARALLEL
+        // #pragma omp parallel for
+        for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) {
             size_t hits_per_cube{0}; // DEVEL stats
-            for (auto const & ai : atom_images) {
+            for (auto const & ai : atom_images) { // serial
                 auto const iatom = ai.atom_id_;
                 float const r_cut = 9*sigma[iatom];
-                auto const hits = sho_project0_or_add1<1,8>(grid_values[ilb], atom_coeff[iatom], cube_coords[ilb],
-                                                            hg, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
+                auto const hits = sho_project0_or_add1<1,8>(grid_values[ilb], atom_coeff[iatom],
+                    cube_coords[ilb], hg, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
                 hits_per_atom[iatom] += hits;
                 hits_per_cube        += hits;
             } // ai
@@ -670,6 +672,7 @@ namespace parallel_potential {
         auto const natoms = sigma.size();
         assert(natoms == lmax.size());
         assert(natoms == atom_coeff.nrows());
+        assert(grid_values.stride() == 8*8*8);
         auto const r_circum = std::sqrt(pow2(hg[0]) + pow2(hg[1]) + pow2(hg[2]));
         for (size_t iatom{0}; iatom < natoms; ++iatom) {
             auto const nSHO = sho_tools::nSHO(lmax[iatom]);
@@ -677,14 +680,15 @@ namespace parallel_potential {
         } // iatom
 
         std::vector<size_t> hits_per_cube(n_cubes, 0);
-        for (auto const & ai : atom_images) { // OMP PARALLEL
+        // #pragma omp parallel for // Caution --> race condition possible
+        for (auto const & ai : atom_images) {
             auto const iatom = ai.atom_id_;
             assert(iatom < natoms);
             float const r_cut = 9*sigma[iatom];
             size_t hits_per_atom{0}; // DEVEL stats
-            for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) {
-                auto const hits = sho_project0_or_add1<0,8>(atom_coeff[iatom], grid_values[ilb], cube_coords[ilb],
-                                                            hg, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
+            for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // serial
+                auto const hits = sho_project0_or_add1<0,8>(atom_coeff[iatom], grid_values[ilb],
+                    cube_coords[ilb], hg, r_circum, ai.pos_, lmax[iatom], sigma[iatom], r_cut, echo);
                 hits_per_cube[ilb] += hits;
                 hits_per_atom      += hits;
             } // ilb
@@ -1202,7 +1206,7 @@ namespace parallel_potential {
             view2D<double> V_xc(n_cubes, 8*8*8, 0.0);
             { // scope: eval the XC potential and energy on the dense grid
                 double E_xc{0}, E_dc{0};
-                auto const *const density = augmented_density[0];
+                auto const *const density = augmented_density[0]; // augmented density before adding compensation charges
                 auto       *const potential = V_xc[0];
                 // double rho_max{0}; int64_t i_max{-1};
 //              #pragma omp parallel for // does not compile with GCC/12.3.0
@@ -1235,7 +1239,7 @@ namespace parallel_potential {
 
             add_to_grid(augmented_density, cube_coords, n_cubes, atoms_qzyx, lmaxs_qlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
-            // show that the augmented_density is charge neutral in average
+            // show that the augmented_density is charge neutral in average now
             print_stats(augmented_density[0], n_cubes*n8x8x8, comm, echo > 0, g.dV(), "# smooth augmented_density");
 
 

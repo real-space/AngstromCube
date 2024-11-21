@@ -41,7 +41,6 @@ namespace load_balancer {
 #define   LOAD_BALANCER_DRAW_SVG
 #ifdef    LOAD_BALANCER_DRAW_SVG
     static std::vector<double> draw2D; // global field
-    int constexpr echo_record_planes = 10; // only record planes when echo level is high
 #endif // LOAD_BALANCER_DRAW_SVG
 
     int constexpr X=0, Y=1, Z=2, W=3;
@@ -84,7 +83,7 @@ namespace load_balancer {
 
     template <typename real_t, typename real_w_t=double>
     double plane_balancer(
-            int const nprocs // number of MPI processes to distribute the work items evenly to
+          int const nprocs // number of MPI processes to distribute the work items evenly to
         , int const rank   // my MPI rank
         , size_t const nall // number of all work items
         , real_t const (*const xyzw)[4] // xyzw[nall][4], positions [0/1/2] and weights [3] of the work items
@@ -179,39 +178,39 @@ namespace load_balancer {
                     size_t isrt{0};
                     for (; load0 < target_load0; ++isrt) { // serial
                         auto const iall = v[isrt].second;
-                        load0 += w8s[iall]*np;
+                        load0 += double(w8s[iall])*np;
                         state[iall] = state0;
                     } // while load1 < target_load1
                     auto const isrt_middle = isrt;
                     for(; isrt < nuna; ++isrt) { // parallel reduction(+:load1)
                         auto const iall = v[isrt].second;
-                        load1 += w8s[iall]*np;
+                        load1 += double(w8s[iall])*np;
                         state[iall] = state1;
                     } // isrt
-                    assert(std::abs((load0 + load1) - (w8sum*np)) < epsilon*(w8sum*np) && "Maybe failed due to accuracy issues");
+//                  if (load0 + load1 != w8sum*np) warn("inaccuracy %g != %g\n", (load0 + load1)/np, w8sum);
+                    assert(std::abs((load0 + load1) - w8sum*np) < epsilon*(w8sum*np) && "Maybe failed due to accuracy issues");
+
                     load_now = (i01 ? load1 : load0)/np;
 
                     if (echo > 29) std::printf("# plane level=%d %g %g %g isrt=%lu %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], isrt_middle, nhalf[0],nhalf[1]);
 #ifdef    LOAD_BALANCER_DRAW_SVG
-                    if (echo > echo_record_planes) { // show bisecting plane
-                        // bisecting plane normal is the sorting vector vec, plane distance from the origin is ?
-                        double pd{0}; int den{0};
-                        if (isrt_middle < nuna) { pd += v[isrt_middle    ].first; ++den; } // distance of the point that is closest to the plane and belongs to load1
-                        if (isrt_middle > 0)    { pd += v[isrt_middle - 1].first; ++den; } // distance of the point that is closest to the plane and belongs to load0
-                        if (rank == rank_offset) { // only the "lower" half stores the separating plane
-                            std::printf("# plane level=%d %g %g %g  dist= %g  isrt=%lu %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], pd/den, isrt_middle, nhalf[0],nhalf[1]);
+                    // bisecting plane normal is the sorting vector vec, plane distance from the origin is ?
+                    if (rank == rank_offset) { // only the "lower" half stores the separating plane
+                        auto const s = draw2D.size();
+                        if (s > 0) {
+                            double pd{0}; int den{0};
+                            if (isrt_middle < nuna) { pd += v[isrt_middle    ].first; ++den; } // distance of the point that is closest to the plane and belongs to load1
+                            if (isrt_middle > 0)    { pd += v[isrt_middle - 1].first; ++den; } // distance of the point that is closest to the plane and belongs to load0
+                            if (echo > 19) std::printf("# plane level=%d %g %g %g  dist= %g  isrt=%lu %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], pd/den, isrt_middle, nhalf[0],nhalf[1]);
                             // store the 2D plane in a global variable to be drawn into an SVG later
-                            auto const s = draw2D.size();
-                            if (s > 0) {
-                                assert(den > 0); // if 2==den we take the average between v[isrt_middle].first and v[isrt_middle-1].first
-                                draw2D.resize(s + 4);
-                                draw2D[s + 0] = vec[X];
-                                draw2D[s + 1] = vec[Y];
-                                draw2D[s + 2] = pd/den; // distance to origin
-                                draw2D[s + 3] = tree_level;
-                            } // s > 0
-                        } // rank == rank_offset
-                    } // echo
+                            assert(den > 0); // if 2==den we take the average between v[isrt_middle].first and v[isrt_middle-1].first
+                            draw2D.resize(s + 4);
+                            draw2D[s + 0] = vec[X];
+                            draw2D[s + 1] = vec[Y];
+                            draw2D[s + 2] = pd/den; // distance to origin
+                            draw2D[s + 3] = tree_level;
+                        } // draw2D.size() > 0
+                    } // rank == rank_offset
 #endif // LOAD_BALANCER_DRAW_SVG
                 } // scope
 
@@ -249,8 +248,8 @@ namespace load_balancer {
             } // load_now > 0
         } // rank_center
 
-        if (echo > 9) std::printf("# rank#%i load target %.3f %%, assign %.3f %%\n",
-                                    rank, 100./nprocs, load_now*100/w8sum_all);
+        if (echo > 13) std::printf("# rank#%i load target %.3f %%, assign %.3f %%\n",
+                                      rank, 100./nprocs, load_now*100/w8sum_all);
 
         if (nullptr != owner_rank) {
             for (size_t iall{0}; iall < nall; ++iall) {
@@ -279,7 +278,7 @@ namespace load_balancer {
 
 
     double get(
-            uint32_t const comm_size // number of MPI processes in this communicator
+          uint32_t const comm_size // number of MPI processes in this communicator
         , int32_t  const comm_rank // rank of this MPI process
         , uint32_t const nb[3] // number of blocks in X/Y/Z direction
         , int const echo // =0, log level
@@ -318,8 +317,6 @@ namespace load_balancer {
         delete[] xyzw;
         return load_now;
     } // get
-
-
 
 
 
@@ -384,10 +381,10 @@ namespace load_balancer {
 
         double w8sum_all{0};
         int constexpr W = 3;
-        auto const xyzw = new float[nall][4];
+        auto const xyzw = new double[nall][4];
         std::vector<double> w8s(nall, 0);
 
-        int const holes = control::get("load_balancer.test.holes", 0.);
+        int  const holes = control::get("load_balancer.test.holes", 0.);
         auto const hole_radius_squared = pow2(control::get("load_balancer.test.holes.radius", 8.));
 
         for (int iz{0}; iz < n[Z]; ++iz) {
@@ -395,19 +392,19 @@ namespace load_balancer {
         for (int ix{0}; ix < n[X]; ++ix) {
             auto const iall = size_t(iz*n[Y] + iy)*n[X] + ix;
 //          assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
-            float h{1};
+            double h{1};
             for (int ih{1 - holes}; ih < holes; ih += 2) {
                 auto const x_hole = n[X]*ih/(2.*holes);
                 auto const r2 = pow2(ix - .5*n[X] - x_hole) + pow2(iy - .5*n[Y]) + pow2(iz - .5*n[Z]);
-                h *= (r2 > hole_radius_squared); // radius_squared
+                h *= (r2 > hole_radius_squared);
             } //
-            float const w8 = 1.f*h; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
+            double const w8 = h; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
             w8s[iall]     = w8;
             w8sum_all    += w8;
             xyzw[iall][W] = w8;
-            xyzw[iall][X] = ix;
-            xyzw[iall][Y] = iy;
-            xyzw[iall][Z] = iz;
+            xyzw[iall][X] = ix + .5;
+            xyzw[iall][Y] = iy + .5;
+            xyzw[iall][Z] = iz + .5;
         }}} // ix iy iz
         double const longest_possible_distance = std::sqrt(pow2(n[X]) + pow2(n[Y]) + pow2(n[Z]));
 
@@ -417,9 +414,10 @@ namespace load_balancer {
         std::vector<uint16_t> owner_rank(nall, no_owner);
 
         if (echo > 0) std::printf("# %s: distribute %g blocks to %d processes\n\n", __func__, w8sum_all, nprocs);
+        if (w8sum_all <= 0) warn("weights are zero! weight sum= %g", w8sum_all);
 
 #ifdef    LOAD_BALANCER_DRAW_SVG
-        draw2D.resize(2); draw2D[0] = n[X]; draw2D[1] = n[Y]; // init
+        draw2D.resize(2); draw2D[0] = n[X]; draw2D[1] = n[Y]; // init plane recording
 #endif // LOAD_BALANCER_DRAW_SVG
 
         int const echo_rank0 = control::get("load_balancer.test.echo.rank0", 0.); // increase the verbosity for rank0
@@ -442,15 +440,16 @@ namespace load_balancer {
             auto const nx = int(draw2D[0]), ny = int(draw2D[1]);
             if (echo > 2) std::printf("\n# found %d planes for https://editsvgcode.com/\n", nplanes);
             auto const svg_filename = control::get("load_balancer.test.file", "plane_balancer.svg");
+            auto const stroke_color = " stroke=\"black\"";
             auto const svg = std::fopen(svg_filename, "w");
             if (nullptr != svg) {
                 int const comments = control::get("load_balancer.test.svg.comments", 1.);
-                std::fprintf(svg, "<!-- SVG code generated by %s -->\n", __FILE__);
+                std::fprintf(svg, "<!-- SVG code generated by %s with nx=%d ny=%d nprocs=%d -->\n", __FILE__, nx, ny, nprocs);
                 std::fprintf(svg, "<svg viewBox=\"%d %d %d %d\" xmlns=\"http://www.w3.org/2000/svg\">\n", -10, -10, nx + 20, ny + 20);
-                double const frame[4][4] = {{1,0,0,-1}, {0,1,0,-1}, {1,0,1.*nx,-1}, {0,1,1.*ny,-1}}; // frame has tree_level=-1
+                double const frame[4][4] = {{1,0,0,-1}, {0,1,0,-1}, {1,0,nx*1.,-1}, {0,1,ny*1.,-1}}; // frame has tree_level=-1
                 if (comments > 2) {
                     // plot the frame first (additional to later)
-                    std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%g\" y=\"%g\" fill=\"none\" stroke=\"grey\" />\n", nx, ny, -.5, -.5);
+                    std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%g\" y=\"%g\" fill=\"none\" stroke=\"grey\" />\n", nx, ny, 0., 0.);
                 }
                 assert(0 == draw2D[5] && "the 1st plane must be the origin");
                 std::vector<int> ancestor(32, -1);
@@ -468,7 +467,7 @@ namespace load_balancer {
                         assert(nhalf[0] + nhalf[1] == np);
 
                         if (rank == rank_offset) {
-                            std::printf("# line #%i level=%d      %d|%d\n", ip, tree_level, nhalf[0],nhalf[1]);
+                            if (echo > 15) std::printf("# line #%i level=%d      %d|%d\n", ip, tree_level, nhalf[0],nhalf[1]);
                             assert(ip < nplanes);
 
                             double const *const v1 = & draw2D.at(ip*4 + 2);
@@ -571,8 +570,8 @@ namespace load_balancer {
                                 } // npoints > 2
                                 if (comments > 2) std::fprintf(svg, "  <!-- line #%i has %d points, take #%i and #%i -->\n", ip, npoints, ipoint[0], ipoint[1]);
                                 if (plot) {
-                                    std::fprintf(svg, "  <line x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" stroke=\"black\" />\n",
-                                                               points[0][0], points[0][1], points[1][0], points[1][1]);
+                                    std::fprintf(svg, "  <line x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\"%s />\n",
+                                        points[0][0], points[0][1], points[1][0], points[1][1], stroke_color);
                                 } // plot
                             } else { // npoints > 1
                                 if (echo > 0) std::printf("# strange case in SVG export: only %d points found\n", npoints);
@@ -590,14 +589,15 @@ namespace load_balancer {
 
                 if (nplanes != ip) { warn("number of recorded planes %d but replay gave %d", nplanes, ip); }
 
-                // plot the frame
-                std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%g\" y=\"%g\" fill=\"none\" stroke=\"grey\" />\n", nx, ny, -.5, -.5);
+                
+                std::fprintf(svg, "  <!-- frame for nx=%d ny=%d -->\n", nx, ny);
+                std::fprintf(svg, "  <rect width=\"%d\" height=\"%d\" x=\"%g\" y=\"%g\" fill=\"none\" stroke=\"grey\" />\n", nx, ny, 0., 0.);
 
                 if (comments > 0) {
                     std::fprintf(svg, "  <!-- show %d rank centers due to comments > 0, comments=%i -->\n", nprocs, comments);
                     for (int rank{0}; rank < nprocs; ++rank) {
                         auto const *const v = rank_center[rank];
-                        std::fprintf(svg, "  <circle cx=\"%g\" cy=\"%g\" r=\"1\" fill=\"none\" stroke=\"red\" />\n", v[X], v[Y]);
+                        std::fprintf(svg, "  <circle cx=\"%g\" cy=\"%g\" r=\"1\" fill=\"red\" />\n", v[X], v[Y]); // stroke=\"none\"
                     } // rank
                 } else { // comments > 0
                     std::fprintf(svg, "  <!-- do not show %d rank centers due to comments=%i -->\n", nprocs, comments);
@@ -607,7 +607,7 @@ namespace load_balancer {
                 if (echo > 2) std::printf("# SVG file \'%s\' written\n\n", svg_filename);
             } // fopen successful
         } else { // nplanes > 0
-            if (echo > 0) std::printf("\n# no planes found, increase to at least +verbosity=%d to perform plane recording\n", echo_record_planes + 1);
+            if (echo > 0) std::printf("\n# no planes found!\n");
         } // nplanes > 0
 #endif // LOAD_BALANCER_DRAW_SVG
 
@@ -624,7 +624,7 @@ namespace load_balancer {
             for (int irank{0}; irank < nprocs; ++irank) {
                 if (load[irank] > 0) {
                     ++np;
-                    for (int jrank{0}; jrank < nprocs; ++jrank) { // self-avoiding triangular loop
+                    for (int jrank{0}; jrank < irank; ++jrank) { // self-avoiding triangular loop
                         if (load[jrank] > 0) {
                             auto const dist2 = distance_squared(rank_center[irank], rank_center[jrank]);
                             if (dist2 > 0 && dist2 < mindist2) { mindist2 = dist2; ijmin[0] = irank; ijmin[1] = jrank; }

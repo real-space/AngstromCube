@@ -48,9 +48,10 @@
               auto const eta = total*left/done;
               if (echo > 0) {
                   char tail[16] = "              \n";
+                  auto const performance = (total > 0) ? (iteration + 1.)/total : 0;
                   tail[14] = overwrite ? '\r' : '\n'; // with \r only one line is shown in stdout or when following an outfile with tail -f
-                  std::printf("# timer started at %s:%d took %g sec for %ld of %ld iterations (%.2f %%), expect %3g sec more%s",
-                               file.c_str(), line, total, iteration + 1, n_iterations, done*100, eta, tail);
+                  std::printf("# timer started at %s:%d progress %.2f %% of %ld at %g iterations/sec, expect %3g sec more%s",
+                               file.c_str(), line, done*100, n_iterations, performance, eta, tail);
                   std::fflush(stdout);
               } // echo
               last_time = now;

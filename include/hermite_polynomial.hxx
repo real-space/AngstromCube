@@ -16,6 +16,7 @@
 
   template <typename real_t>
   inline void Gauss_Hermite_polynomials(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
+      if (numax < 0) return;
       // Hermite-polynomials times Gauss function, not normalized!
       real_t const H0 = (x*x < rcut*rcut) ? std::exp(-0.5*x*x) : 0; // Gaussian envelope function
 
