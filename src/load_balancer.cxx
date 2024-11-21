@@ -489,7 +489,7 @@ namespace load_balancer {
                             // A line is not supposed to cross its ancestors
                             // The tree has been traversed depth-first
                             for (int jp{tree_level - 1}; jp >= -4; --jp) { // loops over ancestor lines (jp >= 0) and frame (jp in {-1, -2, -3, -4})
-                                assert(ancestor[jp] >= 0);
+                                if (jp >= 0) assert(ancestor.at(jp) >= 0);
                                 double const *const v2 = (jp < 0) ? frame[jp + 4] : & draw2D.at(ancestor[jp]*4 + 2);
                                 // compute intersection of the lines
                                 auto const intersects = intersect(points[npoints], v1, v2);

@@ -948,6 +948,7 @@ namespace parallel_poisson {
             std::fflush(stdout);
         } // echo
         mpi_parallel::barrier();
+        if (0 != stat) warn("test_solver returned status= %i", int(stat));
         return stat;
     } // test_solver
 
@@ -1011,6 +1012,7 @@ namespace parallel_poisson {
         } // n_local > 0
         // with double_t=float, we find diff=5.5e-7 per grid point,
         // with double_t=double         diff=6.3e-16 
+        if (0 != stat) warn("test_Laplace16th returned status= %i", int(stat));
         return stat;
     } // test_Laplace16th
 
@@ -1024,6 +1026,7 @@ namespace parallel_poisson {
             stat += test_Laplace16th<double>(bc, echo);
             stat += test_Laplace16th<float> (bc, echo);
         }}} // bx by bz
+        if (0 != stat) warn("test_Laplace16th_bc returned status= %i", int(stat));
         return stat;
     } // test_Laplace16th_bc
 

@@ -134,8 +134,8 @@ FEAFLAGS += -DDEVEL
 OPTFLAGS=
 
 # OPTFLAGS += -Ofast
-OPTFLAGS += -O2
-# OPTFLAGS += -O0
+# OPTFLAGS += -O2
+OPTFLAGS += -O0
 
 #### code coverage: compiling generates one *.gcno file per object, exectution generates one *.gcda file per object
 ####                running gcov generates a *.gcov file per source and per relevant header file
@@ -149,10 +149,10 @@ OPTFLAGS += -Wno-format
 OPTFLAGS += -Wno-sign-compare
 
 # for Clang: AddressSanitizer
-# OPTFLAGS += -fsanitize=address
+OPTFLAGS += -fsanitize=address
 
 # for Clang: UndefinedBehaviorSanitizer
-# OPTFLAGS += -fsanitize=undefined
+OPTFLAGS += -fsanitize=undefined
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread

@@ -527,8 +527,8 @@ namespace iterative_poisson {
       if (echo > 1) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
 
       float const threshold = (sizeof(real_t) > 4) ? 3e-8 : 5e-6;
-      auto const method = control::get("parallel_poisson.test.method", "MultiGrid");
-      int const maxiter = control::get("parallel_poisson.test.maxiter", 19.);
+      auto const method = control::get("iterative_poisson.test.method", "MultiGrid");
+      int const maxiter = control::get("iterative_poisson.test.maxiter", 19.);
       float residual{0};
 
       auto const stat = solve(x, b, g, *method, echo, threshold, &residual, maxiter); // method=M:multi_grid, 

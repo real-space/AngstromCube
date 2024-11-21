@@ -5,6 +5,7 @@
 #include <string> // std::string
 #include <cstring> // std::strrchr
 #include <cassert> // assert
+#include <vector> // std::vector<T>
 #include <map> // std::map
 #include <utility> // std::pair<T1, T2>, ::make_pair
 
@@ -30,7 +31,7 @@ namespace recorded_warnings {
 
   class WarningRecord {
   private:
-      char*       message_;
+      std::vector<char> message_;
       uint64_t    hash_;
       std::string source_file_name_;
       std::string function_name_;
@@ -41,7 +42,7 @@ namespace recorded_warnings {
   public:
 
       WarningRecord(char const *file, int const line, char const *func=nullptr)
-        : message_(new char[MaxMessageLength]) // this memory is never released again
+        : message_(MaxMessageLength, '\0')
         , hash_(combined_hash(file, line))
         , source_file_name_(file)
         , function_name_(func)
@@ -52,7 +53,7 @@ namespace recorded_warnings {
 #ifdef    DEBUG
           std::printf("# WarningRecord:constructor allocates a new warning message string with"
               " max. %d chars at %p\n# ... for warnings launched at %s:%d --> hash = %16llx\n",
-                     message_length, (void*)message_,             file,line,  hash_);
+                     message_length, (void*)message_.data(),      file,line,  hash_);
 #endif // DEBUG
       } // constructor
 
@@ -60,13 +61,12 @@ namespace recorded_warnings {
 #ifdef    DEBUG
           std::printf("# WarningRecord:destructor: old warning message"
                       " at %p for warnings launched at %s:%d reads:\n#\t%s\n",
-                      (void*)message_, get_sourcefile(), source_file_line_, message_);
+                      (void*)message_.data(), get_sourcefile(), source_file_line_, message_.data());
 #endif // DEBUG
-          // if (nullptr != message_) delete[] message_; // leads to errors
       } // destructor
 
-      char* get_message(void) { ++times_overwritten_; return message_; }
-      char* get_message_pointer(void) const { return message_; }
+      char* get_message(void) { ++times_overwritten_; return message_.data(); }
+      char const* get_message_pointer(void)  const  { return message_.data(); }
       char const* get_sourcefile(void) const { return source_file_name_.c_str(); }
       char const* get_functionname(void) const { return function_name_.c_str(); }
       int get_sourceline(void) const { return source_file_line_; }
@@ -154,7 +154,7 @@ namespace recorded_warnings {
             flags |= 2; // 2: message to stderr
         }
         if (flags) {
-            w->increment_times_printed(); // will print message to stdout or stderr
+            w->increment_times_printed(); // will print message to stdout or stderr, count that
         } // flags != 0
 
         return std::make_pair(w->get_message(), flags);
@@ -176,46 +176,57 @@ namespace recorded_warnings {
   } // clear_warnings
 
 
+
+
+
+
+
+
+
+
+
+
+
 #ifdef    NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+    status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  status_t test_create_and_destroy(int const echo=9) {
-      if (echo > 1) std::printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
-      WarningRecord wr(__FILE__,__LINE__,__func__);
-      auto const msg = wr.get_message();
-      auto const nchars = std::snprintf(msg, MaxMessageLength,
-            "This is a non-recorded warning from %s:%d", __FILE__, __LINE__);
-      return (nchars >= MaxMessageLength);
-  } // test_create_and_destroy
+    status_t test_create_and_destroy(int const echo=9) {
+        if (echo > 1) std::printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
+        WarningRecord wr(__FILE__,__LINE__,__func__);
+        auto const msg = wr.get_message();
+        auto const nchars = std::snprintf(msg, MaxMessageLength,
+                "This is a non-recorded warning from %s:%d", __FILE__, __LINE__);
+        return (nchars >= MaxMessageLength);
+    } // test_create_and_destroy
 
-  status_t test_preprocessor_macro(int const echo=9) {
-      if (echo > 1) std::printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
-      auto const nchars = warn("This is a test warning from %s:%d", __FILE__, __LINE__);
-      return (nchars < 30); // error if the warning is not printed
-  } // test_preprocessor_macro
+    status_t test_preprocessor_macro(int const echo=9) {
+        if (echo > 1) std::printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
+        auto const nchars = warn("This is a test warning from %s:%d", __FILE__, __LINE__);
+        return (nchars < 30); // error if the warning is not printed
+    } // test_preprocessor_macro
 
-  status_t test_overwriting(int const echo=9) {
-      if (echo > 1) std::printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
-      int nchars{0};
-      for (int i = 0; i < 9; ++i) {
-          nchars = warn("This is a test warning from inside a loop, iteration #%d", i);
-          if (echo > 19) std::printf("# %s: warning message had %d characters\n", __func__, nchars);
-      } // i
-      return nchars; // returns 0 if the warnings were muted before the 9th iteration
-  } // test_overwriting
+    status_t test_overwriting(int const echo=9) {
+        if (echo > 1) std::printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
+        int nchars{0};
+        for (int i = 0; i < 9; ++i) {
+            nchars = warn("This is a test warning from inside a loop, iteration #%d", i);
+            if (echo > 19) std::printf("# %s: warning message had %d characters\n", __func__, nchars);
+        } // i
+        return nchars; // returns 0 if the warnings were muted before the 9th iteration
+    } // test_overwriting
 
-  status_t all_tests(int const echo) {
-      status_t stat(0);
-      stat += test_create_and_destroy(echo);
-      stat += test_preprocessor_macro(echo);
-      stat += test_overwriting(echo);
-      // clean up
-      stat += show_warnings(echo); // display those warnings launched for test purposes
-      stat += clear_warnings(echo); // clear test warnings from record, this is necessary
-                                    // so they do not appear when running all unit tests
-      return stat;
-  } // all_tests
+    status_t all_tests(int const echo) {
+        status_t stat(0);
+        stat += test_create_and_destroy(echo);
+        stat += test_preprocessor_macro(echo);
+        stat += test_overwriting(echo);
+        // clean up
+        stat += show_warnings(echo); // display those warnings launched for test purposes
+        stat += clear_warnings(echo); // clear test warnings from record, this is necessary
+                                        // so they do not appear when running all unit tests
+        return stat;
+    } // all_tests
 
 #endif // NO_UNIT_TESTS
 
