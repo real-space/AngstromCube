@@ -605,6 +605,7 @@ namespace parallel_poisson {
         , int restart // =4096 // number of iterations before restart, 1:steepest descent
         , double *inner_xx_bb // = nullptr
     ) {
+        // Conjugate Gradients solver
 
         auto const comm = pg.comm();
         int const echo_L = echo >> 3; // verbosity of Lapacian16th
@@ -682,7 +683,7 @@ namespace parallel_poisson {
         // res^2 = <r|r>
         double res2 = norm2(r, nall, comm) * pg.dV();
         double const res_start = std::sqrt(res2/cell_volume); // store starting residual
-        if (echo > 8) std::printf("# %s start residual=%.1e\n", strip_path(__FILE__), res_start);
+        if (echo > 8) { std::printf("# %s start residual=%.1e\n", strip_path(__FILE__), res_start); std::fflush(stdout); }
 
         // |z> = |Pr> = P|r>
         if (use_precond) {
@@ -696,6 +697,8 @@ namespace parallel_poisson {
         set(p, nall, z);
 
         int it{0}; // init iteration counter
+
+        if (echo > 10) { std::printf("# %s start CG iterations\n", strip_path(__FILE__)); std::fflush(stdout); }
 
         // number of iterations is less then maxiter?
         bool run = (it < maxiter);
@@ -761,9 +764,9 @@ namespace parallel_poisson {
                 add_product(p, nall, z, real_t(1));
             } // rz_old < tiny
 
-            if (echo > 9) std::printf("# %s it=%i alfa=%g beta=%g\n", strip_path(__FILE__), it, alpha, beta);
+            if (echo > 13) std::printf("# %s it=%i alfa=%g beta=%g\n", strip_path(__FILE__), it, alpha, beta);
             auto const inner = scalar_product(x, b, nall, comm) * pg.dV(); // this synchronization point is for display only
-            if (echo > 7) std::printf("# %s it=%i res=%.2e E=%.15f\n", strip_path(__FILE__), it, std::sqrt(res2/cell_volume), inner);
+            if (echo > 11) std::printf("# %s it=%i res=%.2e E=%.15f\n", strip_path(__FILE__), it, std::sqrt(res2/cell_volume), inner);
 
             // rz_old = rz_new
             rz_old = rz_new;
@@ -781,7 +784,8 @@ namespace parallel_poisson {
         if (residual) *residual = res; // export
 
         // show the result
-        if (echo > 2) std::printf("# %s %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n", strip_path(__FILE__),
+        if (echo > 2) std::printf("# %s<%s> %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n",
+            strip_path(__FILE__), (std::is_same<real_t,double>::value) ? "double" : "float",
             res_start, res, (res < threshold)?" converged":"", it, (it < maxiter)?"":" (maximum)");
 
         auto const inner = scalar_product(x, b, nall, comm) * pg.dV();
