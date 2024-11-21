@@ -13,7 +13,7 @@ struct radial_grid_t {
     double const*  rdr = nullptr; // r*dr[0:n)
     double const* r2dr = nullptr; // r^2*dr[0:n)
     double const* rinv = nullptr; // r^-1
-    double anisotropy = 0.;
+    double anisotropy = 0.; // ToDo: this could be float
     bool  memory_owner = true;
     char  equation = '\0';
 }; // radial_grid_t

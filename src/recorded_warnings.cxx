@@ -24,8 +24,8 @@ namespace recorded_warnings {
   } // simple_string_hash
 
   inline uint64_t combined_hash(char const *file, int const line) {
-      int const LineBits = 14; // host the line number within the first 14 bits
-      return (simple_string_hash(file) << LineBits) | (line & ((1ul << LineBits) - 1));
+      int constexpr LineBits = 14; // host the line number within the first 14 bits, i.e. up to line number 16383
+      return (simple_string_hash(file) << LineBits) | (uint64_t(line) & ((uint64_t(1) << LineBits) - 1));
   } // combinded_hash
 
   class WarningRecord {

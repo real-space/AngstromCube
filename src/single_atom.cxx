@@ -540,9 +540,13 @@ namespace single_atom {
             auto const rmax     = control::get("single_atom.radial.grid.upto", 14.173);
             auto const from     = control::get("single_atom.smooth.radial.grid.from", 1e-3);
             // here use the preliminary Z_core, may be adjusted
-            rg[TRU] = *radial_grid::create_radial_grid(radial_grid::default_points(Z_core), rmax, *equation);
+            auto const rg_tru = radial_grid::create_radial_grid(radial_grid::default_points(Z_core), rmax, *equation);
+            rg[TRU] = *rg_tru;
+            delete rg_tru;
             // create a radial grid descriptor which has less points at the origin
-            rg[SMT] = *radial_grid::create_pseudo_radial_grid(rg[TRU], from);
+            auto const rg_smt = radial_grid::create_pseudo_radial_grid(rg[TRU], from);
+            rg[SMT] = *rg_smt;
+            delete rg_smt;
             // Warning: both *rg[TRU] and *rg[SMT] need an explicit destructor call
         } // scope
 
@@ -1114,7 +1118,11 @@ namespace single_atom {
         if (echo > 3) std::printf("\n\n#\n# %s loading of \'%s\' successful, %g protons\n", label, xmlfilename, Z_core);
         if (Z_protons != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_protons, Z_core);
 
-        rg[TRU] = *radial_grid::create_radial_grid(p.n, p.n*p.radial_grid_a, p.radial_grid_eq);
+        {   
+            auto const rg_tru = radial_grid::create_radial_grid(p.n, p.n*p.radial_grid_a, p.radial_grid_eq);
+            rg[TRU] = *rg_tru;
+            delete rg_tru;
+        }
         rg[SMT] = rg[TRU]; rg[SMT].memory_owner = false; // same grid for true and smooth quantities, shallow copy
 
 
@@ -1555,7 +1563,7 @@ namespace single_atom {
 
 
 
-    ~LiveAtom() { // destructor
+    ~LiveAtom(void) { // destructor
         radial_grid::destroy_radial_grid(&rg[SMT], ts_name[SMT]);
         radial_grid::destroy_radial_grid(&rg[TRU], ts_name[TRU]);
     } // destructor

@@ -23,17 +23,6 @@ namespace radial_grid {
 #endif // USE_RECIPROCAL_RADIAL_GRID
   } // get_formula
 
-  radial_grid_t* get_memory(size_t const nr_aligned) {
-      auto g = new radial_grid_t;
-      g->r = new double[5*nr_aligned];
-      g->dr    = & g->r[1*nr_aligned];
-      g->rdr   = & g->r[2*nr_aligned];
-      g->r2dr  = & g->r[3*nr_aligned];
-      g->rinv  = & g->r[4*nr_aligned];
-      g->memory_owner = (nullptr != g->r);
-      return g;
-  } // get_memory
-
   void set_derived_grid_quantities(radial_grid_t & g, int const nr) {
       auto const rdr = (double*)g.rdr, r2dr = (double*)g.r2dr, rinv = (double*)g.rinv; // un-const the pointers
       for (int ir = 0; ir < nr; ++ir) {
@@ -70,7 +59,14 @@ namespace radial_grid {
       auto const R = std::max(std::abs(rmax)*1., .945);
 
       int const nr_aligned = align<2>(nr); // padded to multiples of 4
-      auto const g = get_memory(nr_aligned);
+      auto const g = new radial_grid_t;
+      // former get_memory
+      g->r = new double[5*nr_aligned];
+      g->dr    = & g->r[1*nr_aligned];
+      g->rdr   = & g->r[2*nr_aligned];
+      g->r2dr  = & g->r[3*nr_aligned];
+      g->rinv  = & g->r[4*nr_aligned];
+      g->memory_owner = (nullptr != g->r);
 
       double & d = g->anisotropy;
 
@@ -191,7 +187,7 @@ namespace radial_grid {
 #else  // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
-      if (echo > 0) std::printf("\n# %s: \n", __func__);
+      if (echo > 0) std::printf("\n# %s: sizeof(radial_grid_t) = %ld Byte\n", __func__, sizeof(radial_grid_t));
       auto const gp = create_radial_grid(1 << 11);
       destroy_radial_grid(gp);
       return 0;
