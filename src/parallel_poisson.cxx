@@ -968,7 +968,7 @@ namespace parallel_poisson {
         } // scope
 
         if (0 == stat && echo > 7) { // get a radial representation from a point cloud plot
-            float const compressed = control::get("parallel_poisson.test.plot.compressed", 1e-9); // 0: do not even sort, <0: plot all points, >0: use RDP compression
+            float const compressed = control::get("parallel_poisson.test.plot.compressed", 1e-5); // 0: do not even sort, <0: plot all points, >0: use RDP compression
             int  const sorted = (0 != compressed);
             auto const ng_all = size_t(g[2])*size_t(g[1])*size_t(g[0]);
             std::vector<std::array<float,4>> vec(sorted*ng_all);
