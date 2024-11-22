@@ -161,16 +161,18 @@ namespace parallel_poisson {
         if (nown != n_local_cubes_) {
             warn("expected match between n_local_cubes= %d and count(owner_rank[]==me)= %ld", n_local_cubes_, nown);
             n_local_cubes_ = nown;
-            assert(n_local_cubes_ == nown); // check that the assignment above worked
         }
-        if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %g items, %d local cubes\n",
-                                            me, __func__, load_, rank_center[3], n_local_cubes_);
-        auto const by_nown = nown ? 1./nown : 0;
-        for (int d = 0; d < 3; ++d) {
-            assert(max_domain_[d] >= min_domain_[d]);
-            dom_center_[d] = dom_center[d] * by_nown;
-        } // d
-        if (echo > 7) std::printf("# rank#%i domain center %g %g %g\n", me, dom_center_[0], dom_center_[1], dom_center_[2]);
+        assert(n_local_cubes_ == nown); // also check that the assignment above worked
+        if (echo > 5) { std::printf("# rank#%i %s: load_balancer::get = %g, %g items, %d local cubes\n",
+                            me, __func__, load_, rank_center[3], n_local_cubes_); std::fflush(stdout); }
+        if (nown > 0) {
+            auto const by_nown = 1./nown;
+            for (int d = 0; d < 3; ++d) {
+                assert(max_domain_[d] >= min_domain_[d]);
+                dom_center_[d] = dom_center[d] * by_nown;
+            } // d
+            if (echo > 7) std::printf("# rank#%i domain center %g %g %g\n", me, dom_center_[0], dom_center_[1], dom_center_[2]);
+        } // nown > 0
         if (echo > 7) std::printf("# rank#%i   rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
 
     } // load_balancing_t constructor
