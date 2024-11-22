@@ -552,39 +552,43 @@ namespace parallel_poisson {
                                     -156800*norm,
                                       15360*norm,
                                        -735*norm};
-        int const nlb = pg.n_local();
+        auto const nlb = pg.n_local();
         assert(6 == pg.star_dim());
-        auto const star = (uint32_t const(*)[6])pg.star();
+        auto const star = pg.star();
+        // #pragma omp parallel for
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             auto const i512 = size_t(ilb) << 9; // block offset
-            auto const *const nn = star[ilb]; // nearest-neighbor cubes of cube ilb, load into GPU shared memory
-            if (echo > 11) std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i, %i %i, %i %i}\n",
-                                                           ilb, nn[0], nn[1],  nn[2], nn[3],  nn[4], nn[5]);
+            auto const *const nn = & star[ilb*6]; // nearest-neighbor cubes of cube ilb, load into GPU shared memory
+            if (echo > 11) { std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i, %i %i, %i %i}\n",
+                                         ilb, nn[0], nn[1],  nn[2], nn[3],  nn[4], nn[5]); std::fflush(stdout); }
+            auto const nn0 = size_t(nn[0]) << 9, nn1 = size_t(nn[1]) << 9;
+            auto const nn2 = size_t(nn[2]) << 9, nn3 = size_t(nn[3]) << 9;
+            auto const nn4 = size_t(nn[4]) << 9, nn5 = size_t(nn[5]) << 9;
             for (int iz = 0; iz < 8; ++iz) {
             for (int iy = 0; iy < 8; ++iy) { // loops over cube elements --> CUDA thread-parallel
             for (int ix = 0; ix < 8; ++ix) {
                 auto const izyx = iz*64 + iy*8 + ix;
                 auto const i0 = i512 + izyx;
-                double_t const av = cFD[0]*double_t(v[i0]);
+                double_t const av = cFD[0]*double_t(v[i0]); // central stencil element
                 double_t ax{av}, ay{av}, az{av}; // accumulators
                 // if (echo > 9) std::printf("# Av[%i][%3.3o] init as %g\n", ilb, izyx, av);
                 for (int ifd = 1; ifd <= 8; ++ifd) {
                     // as long as ifd is small enough, we take from the central cube of v, otherwise from neighbor cubes
-                    auto const ixm = (ix >=    ifd) ? i0 - ifd : (nn[0] << 9) + izyx + 8 - ifd;
-                    auto const ixp = (ix + ifd < 8) ? i0 + ifd : (nn[1] << 9) + izyx - 8 + ifd;
+                    auto const ixm = (ix >=    ifd) ? i0 - ifd : nn0 + izyx + 8 - ifd;
+                    auto const ixp = (ix + ifd < 8) ? i0 + ifd : nn1 + izyx - 8 + ifd;
                     ax += cFD[ifd]*(double_t(v[ixm]) + double_t(v[ixp]));
-                    auto const iym = (iy >=    ifd) ? i0 - 8*ifd : (nn[2] << 9) + izyx + 64 - 8*ifd;
-                    auto const iyp = (iy + ifd < 8) ? i0 + 8*ifd : (nn[3] << 9) + izyx - 64 + 8*ifd;
+                    auto const iym = (iy >=    ifd) ? i0 - 8*ifd : nn2 + izyx + 64 - 8*ifd;
+                    auto const iyp = (iy + ifd < 8) ? i0 + 8*ifd : nn3 + izyx - 64 + 8*ifd;
                     ay += cFD[ifd]*(double_t(v[iym]) + double_t(v[iyp]));
-                    auto const izm = (iz >=    ifd) ? i0 - 64*ifd : (nn[4] << 9) + izyx + 512 - 64*ifd;
-                    auto const izp = (iz + ifd < 8) ? i0 + 64*ifd : (nn[5] << 9) + izyx - 512 + 64*ifd;
+                    auto const izm = (iz >=    ifd) ? i0 - 64*ifd : nn4 + izyx + 512 - 64*ifd;
+                    auto const izp = (iz + ifd < 8) ? i0 + 64*ifd : nn5 + izyx - 512 + 64*ifd;
                     az += cFD[ifd]*(double_t(v[izm]) + double_t(v[izp]));
                     // if (echo > 9) std::printf("# %d += x[%i][%3.3o] + x[%i][%3.3o] + y[%i][%3.3o] + y[%i][%3.3o] + z[%i][%3.3o] + z[%i][%3.3o]\n", ifd,
                     //                  ixm>>9, ixm&511, ixp>>9, ixp&511, iym>>9, iym&511, iyp>>9, iyp&511, izm>>9, izm&511, izp>>9, izp&511);
                 } // ifd
-                Av[i0] = ax*h2[0] + ay*h2[1] + az*h2[2]; // store, possible conversion from double_t to real_t
+                Av[i0] = real_t(ax*h2[0] + ay*h2[1] + az*h2[2]); // store
             }}} // ix iy iz
-        } // ilb
+        } // ilb - omp parallel
 
         if (echo > 9) std::printf("# %s done\n\n", __func__);
         return stat;
@@ -638,9 +642,9 @@ namespace parallel_poisson {
         auto const x=mem[0], r=mem[1], p=mem[2], ax=mem[3], ap=mem[4], b=mem[5], z=use_precond?mem[6]:r; 
         // ToDo: need 3x (nall+nrem) for x, p, r
         //       need 4x (nall)      for b, ax, ap, z
-        
-        set(x, nall, xx);
-        set(b, nall, bb);
+
+        set(x, nall, xx); // copy into an halo-enlarged array
+        set(b, nall, bb); // is this deep copy of bb necessary?
 
         double const cell_volume = n_all_grid_points * pg.dV();
         double const threshold2 = cell_volume * pow2(threshold);
@@ -688,7 +692,7 @@ namespace parallel_poisson {
         // |z> = |Pr> = P|r>
         if (use_precond) {
             error("CG_solve: Preconditioner deactivated in line %i", __LINE__);
-        } else assert(z == r);
+        } else { assert(z == r); }
 
         // rz_old = <r|z>
         double rz_old = scalar_product(r, z, nall, comm) * pg.dV();
@@ -710,7 +714,7 @@ namespace parallel_poisson {
 
             // |ap> = A|p>
             ist = Laplace16th(ap, p, pg, echo_L, m1over4pi);
-            if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
+            if (ist) error("CG_solve: Laplacian failed with status= %i", int(ist));
 
             double const pAp = scalar_product(p, ap, nall, comm) * pg.dV();
 
@@ -733,7 +737,7 @@ namespace parallel_poisson {
             if (0 == (it % restart)) {
                 // |Ax> = A|x> for restart
                 ist = Laplace16th(ax, x, pg, echo_L, m1over4pi);
-                if (ist) error("CG_solve: Laplacian failed with status %i", int(ist))
+                if (ist) error("CG_solve: Laplacian failed with status= %i (restart)", int(ist))
                 // |r> = |b> - A|x> = |b> - |ax>
                 set(r, nall, b);
                 add_product(r, nall, ax, real_t(-1));
@@ -748,7 +752,7 @@ namespace parallel_poisson {
             // |z> = |Pr> = P|r>
             if (use_precond) {
                 error("CG_solve: Preconditioner deactivated in line %i", __LINE__);
-            } else assert(z == r);
+            } else { assert(z == r); }
 
             // rz_new = <r|z>
             double const rz_new = scalar_product(r, z, nall, comm) * pg.dV();
@@ -791,7 +795,7 @@ namespace parallel_poisson {
         auto const inner = scalar_product(x, b, nall, comm) * pg.dV();
         if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", strip_path(__FILE__), inner);
 
-        if (nullptr != inner_xx_bb) *inner_xx_bb = inner;
+        if (nullptr != inner_xx_bb) { *inner_xx_bb = inner; } // export inner product
 
         set(xx, nall, x);
 
@@ -898,7 +902,7 @@ namespace parallel_poisson {
         } // scope
 
         if (0 == stat && echo > 7) { // get a radial representation from a point cloud plot
-            float const compressed = control::get("parallel_poisson.plot.compressed", 1e-9); // 0: do not even sort, <0: plot all points, >0: use RDP compression
+            float const compressed = control::get("parallel_poisson.test.plot.compressed", 1e-9); // 0: do not even sort, <0: plot all points, >0: use RDP compression
             int  const sorted = (0 != compressed);
             auto const ng_all = size_t(g[2])*size_t(g[1])*size_t(g[0]);
             std::vector<std::array<float,4>> vec(sorted*ng_all);
@@ -957,7 +961,7 @@ namespace parallel_poisson {
 
     status_t test_parallel_grid(int const echo=0) {
         // test all combinations of isolated and periodic boundary conditions
-        uint32_t const gm = control::get("parallel_poisson.grid.max", 9.); // and grids up to this number^3
+        uint32_t const gm = control::get("parallel_poisson.test.grid.max", 9.); // and grids up to this number^3
         int8_t constexpr nBCs = 2; // can be used to limit it to one
         int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary};
             if (echo > 7) std::printf("\n#\n");

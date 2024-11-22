@@ -105,7 +105,7 @@
       , real_y_t const y[]
       , int const n
       , float const epsilon=1e-6
-      , FILE* os=stdout
+      , FILE* const os=stdout
   ) {
       auto const mask = RDP_lossful_compression(x, y, n, epsilon);
       size_t printed{0};
