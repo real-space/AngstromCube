@@ -808,6 +808,8 @@ namespace parallel_poisson {
             // res = <r|r>
             res2 = norm2(r, nall, comm) * pg.dV();
 
+            if (echo > 15) { std::printf("# %s res2=%g\n", strip_path(__FILE__), it, res2); std::fflush(stdout); }
+
             // |z> = |Pr> = P|r>
             if (use_precond) {
                 error("CG_solve: Preconditioner deactivated in line %i", __LINE__);
@@ -827,9 +829,9 @@ namespace parallel_poisson {
                 add_product(p, nall, z, real_t(1));
             } // rz_old < tiny
 
-            if (echo > 13) std::printf("# %s it=%i alfa=%g beta=%g\n", strip_path(__FILE__), it, alpha, beta);
+            if (echo > 13) { std::printf("# %s it=%i alfa=%g beta=%g\n", strip_path(__FILE__), it, alpha, beta); std::fflush(stdout); }
             auto const inner = scalar_product(x, b, nall, comm) * pg.dV(); // this synchronization point is for display only
-            if (echo > 11) std::printf("# %s it=%i res=%.2e E=%.15f\n", strip_path(__FILE__), it, std::sqrt(res2/cell_volume), inner);
+            if (echo > 11) { std::printf("# %s it=%i res=%.2e E=%.15f\n", strip_path(__FILE__), it, std::sqrt(res2/cell_volume), inner); std::fflush(stdout); }
 
             // rz_old = rz_new
             rz_old = rz_new;
@@ -847,17 +849,17 @@ namespace parallel_poisson {
         if (residual) *residual = res; // export
 
         // show the result
-        if (echo > 2) std::printf("# %s<%s> %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n",
+        if (echo > 2) { std::printf("# %s<%s> %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n",
             strip_path(__FILE__), (std::is_same<real_t,double>::value) ? "double" : "float",
-            res_start, res, (res < threshold)?" converged":"", it, (it < maxiter)?"":" (maximum)");
+            res_start, res, (res < threshold)?" converged":"", it, (it < maxiter)?"":" (maximum)"); std::fflush(stdout); }
 
         auto const inner = scalar_product(x, b, nall, comm) * pg.dV();
-        if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", strip_path(__FILE__), inner);
 
         if (nullptr != inner_xx_bb) { *inner_xx_bb = inner; } // export inner product
 
         set(xx, nall, x);
 
+        if (echo > 5) { std::printf("# %s inner product <x|b> = %.15f\n", strip_path(__FILE__), inner); std::fflush(stdout); }
         return (res > threshold); // returns 0 when converged
     } // solve
 
