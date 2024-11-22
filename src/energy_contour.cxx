@@ -204,7 +204,7 @@ namespace energy_contour {
                     stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
 
                     add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
-                    auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc;
+                    auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc; // MPI synchronization point
                     if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
                                                     energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral, plan.iterations_needed);
                     iterations_needed_k.add(plan.iterations_needed);
@@ -213,7 +213,7 @@ namespace energy_contour {
             } // ikpoint
 
             if (0 == check) {
-                auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dVc;
+                auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dVc; // MPI synchronization points
                 auto const rho_realpart = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).real(), comm)*dVc;
                 if (echo + echo_dos > 5) { std::printf("# Green function solution for E=%s has %g electrons, real part %g\n",
                                                   energy_parameter_label, rho_integral, rho_realpart); std::fflush(stdout); }

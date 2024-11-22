@@ -830,10 +830,13 @@ namespace parallel_poisson {
     } // parallel_grid_index
 
     template <typename real_t>
-    status_t test_solver(int const echo=9, uint32_t const nb_default=4) {
-        uint32_t const nb[] = {nb_default, nb_default, nb_default}; // number of 8*8*8 cubes
+    status_t test_solver(int const echo=9) {
+        double nb_inp[3]; control::get(nb_inp, "parallel_poisson.test.grid", "xyz", 4.);
+        uint32_t const nb[] = {uint32_t(nb_inp[0]), uint32_t(nb_inp[1]), uint32_t(nb_inp[2])}; // number of 8*8*8 cubes
+        auto const nb_max = std::max(std::max(nb[0], nb[1]), nb[2]);
         real_space::grid_t g(nb[0]*8, nb[1]*8, nb[2]*8); // grid spacing == 1.0
-        if (echo > 2) std::printf("\n# %s<%s> ng=[%d %d %d]\n", __func__, (8 == sizeof(real_t))?"double":"float", g[0], g[1], g[2]);
+        if (echo > 2) std::printf("\n# %s<%s> nb=[%d %d %d] ng=[%d %d %d]\n", __func__,
+                (8 == sizeof(real_t))?"double":"float", nb[0], nb[1], nb[2], g[0], g[1], g[2]);
         g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
         auto const ng_all = size_t(g[2])*size_t(g[1])*size_t(g[0]);
         view2D<real_t> xb(4, ng_all, real_t(0)); // get memory
@@ -937,7 +940,7 @@ namespace parallel_poisson {
             if (echo > 7) {
                 std::printf("\n\n# r, V, rho\n"); // also plot the radial function of V_analytical and rho
                 auto const sa1 = std::sqrt(a1), sa2 = std::sqrt(a2), sc1 = c1/(4*a1*sa1), sc2 = c2/(4*a2*sa2);
-                for (int ir{0}; ir <= 80*nb_default; ++ir) {
+                for (int ir{0}; ir <= 80*nb_max; ++ir) {
                     auto const r = 0.1*ir, r2 = r*r;
                     auto const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
                     auto const V = (r < 1e-6) ? (sc1*2*sa1 + sc2*2*sa2)*4*pi :
