@@ -39,8 +39,9 @@ namespace green_parallel {
       , int const echo // =0 // log-level
       , char const *const what // ="?"
     ) {
-        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
-        auto const me   = mpi_parallel::rank(comm);
+        auto const comm   = mpi_parallel::comm(); // MPI_COMM_WORLD
+        auto const nprocs = mpi_parallel::size(comm);
+        auto const me     = mpi_parallel::rank(comm, nprocs);
 
         if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=%s\n",
                         me, __FILE__, __LINE__, nb[0], nb[1], nb[2], what); std::fflush(stdout); }
@@ -53,6 +54,14 @@ namespace green_parallel {
         auto const nreq = requests.size(); // number of requests
         if (echo > 7) std::printf("# rank#%i \tRequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
                                           me,         nb[X],nb[Y],nb[Z], nall,              nown,           nreq);
+
+
+        // create a debug aid: nloc_rank
+        std::vector<uint32_t> nloc_rank(nprocs, 0); // init all entries as zero
+        nloc_rank.at(me) = nown;
+        mpi_parallel::sum(nloc_rank.data(), nprocs, comm);
+        assert(nown == nloc_rank[me]); // make sure my entry did not change
+
 
 #ifndef   HAS_NO_MPI
         bool const debug = 1;
@@ -69,7 +78,7 @@ namespace green_parallel {
             size_t iall = global_id;
             if (grid) {
                 uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
-                for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d] && "requested coordinates exceed box");
+                for (int d{0}; d < 3; ++d) { assert(xyz[d] < nb[d] && "requested coordinates exceed box"); }
                 iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
             } // grid
             assert(iall < nall);
@@ -172,6 +181,11 @@ namespace green_parallel {
 
 #endif // HAS_NO_MPI
                 ++stats[me != owner[ireq]];
+
+                if (iloc >= nloc_rank[owner[ireq]]) {
+                    error("rank#%i request#%i has owner rank#%i and remote local index %i but maximum is %d",
+                                me, ireq, owner[ireq], int(iloc), nloc_rank[owner[ireq]]);
+                } // index larger than offered by remote process
 
                 index[ireq] = iloc;
             } else { // global_id > -1

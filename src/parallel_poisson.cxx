@@ -190,7 +190,8 @@ namespace parallel_poisson {
     ) { // constructor
 
         comm_ = lb.comm(); // copy the communicator
-        int32_t const me = mpi_parallel::rank(comm_);
+        auto const nprocs = mpi_parallel::size(comm_);
+        int32_t const me  = mpi_parallel::rank(comm_, nprocs);
         auto nb = nb_;
         set(nb, 3, lb.grid_cubes());
 
@@ -239,7 +240,9 @@ namespace parallel_poisson {
 
         simple_stats::Stats<double> inner_cells_stats;
 
+
         uint32_t const n_local_cubes = lb.n_local();
+
         auto const & owner_rank = lb.owner_rank();
         local_global_ids_.resize(0);
 
@@ -455,13 +458,13 @@ namespace parallel_poisson {
 
         if (echo > 8) {
             std::printf("# rank#%i %s: requests={", me, __func__);
-            for (auto rq : remote_global_ids_) {
+            for (auto const rq : remote_global_ids_) {
                 std::printf(" %lli", rq);
             } // rq
             std::printf(" }, %ld items\n", remote_global_ids_.size());
 
             std::printf("# rank#%i %s: offering={", me, __func__);
-            for (auto of : local_global_ids_) {
+            for (auto const of : local_global_ids_) {
                 std::printf(" %lli", of);
             } // of
             std::printf(" }, %ld items\n", local_global_ids_.size());
@@ -474,7 +477,7 @@ namespace parallel_poisson {
 
         if (echo > 8) {
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
-            for (auto ow : requests_.owner) {
+            for (auto const ow : requests_.owner) {
                 std::printf(" %i", ow);
             } // ow
             std::printf(" }, %ld items\n", requests_.owner.size());
