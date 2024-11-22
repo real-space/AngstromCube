@@ -646,6 +646,7 @@ namespace parallel_poisson {
                 } // ifd
                 Av[i0] = real_t(ax*h2[0] + ay*h2[1] + az*h2[2]); // store
             }}} // ix iy iz
+            if (echo > 13) { std::printf("# Laplace16th: for ilb= %i done\n", ilb); std::fflush(stdout); }
         } // ilb - omp parallel
 
         if (echo > 9) { std::printf("# %s done\n\n", __func__); std::fflush(stdout); }
