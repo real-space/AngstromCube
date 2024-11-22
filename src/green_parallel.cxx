@@ -250,14 +250,17 @@ namespace green_parallel {
             if (iloc >= 0) {
                 if (me == owner) {
                     if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
-                    set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy
+                    assert(iloc < nwin);
+                    assert(ireq < nreq);
+                    set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy one package
                     ++stats[0]; // local
                 } else { // me == owner
                     ++stats[1]; // remote
 #ifndef   HAS_NO_MPI
                     if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i element %i\n", me, global_id, owner, iloc);
                     assert(owner >= 0);
-                    if (owner >= np) error("rank#%i tries to MPI_Get %.3f kByte from rank#%i but only %d processes running, global_id=%li", me, count*sizeof(real_t)*.001, owner, np, global_id);
+                    if (owner >= np) { error("rank#%i tries to MPI_Get %.3f kByte from rank#%i but only %d processes running, global_id=%li",
+                                                    me, count*sizeof(real_t)*.001, owner, np, global_id); }
                     status += MPI_Get(&data_out[ireq*count], count, data_type, owner, iloc, count, data_type, window);
 #else  // HAS_NO_MPI
                     error("Without MPI all atom matrices must reside in the same process, me=%i, owner=%i", me, owner);
@@ -267,7 +270,7 @@ namespace green_parallel {
                 ++stats[2]; // clear
                 assert(-1 == iloc);
                 assert(-1 == global_id);
-                set(&data_out[ireq*count], count, real_t(0)); // clear
+                set(&data_out[ireq*count], count, real_t(0)); // clear one package
             }
         } // ireq
 
