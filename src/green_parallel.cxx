@@ -216,8 +216,8 @@ namespace green_parallel {
         auto const me = mpi_parallel::rank(comm);
 
         // The number of local atoms is limited to 2^16 == 65536
-        if (echo > 0) std::printf("# exchange using MPI one-sided communication, packages of %.3f k numbers, %.3f kByte %s\n",
-                                                                                count*.001, count*sizeof(real_t)*.001, what);
+        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
+                                                                                  count, count*sizeof(real_t)*.001, what);
         auto const nreq = requests.size(); // number of requests
         auto const nwin = requests.window(); // number of offerings
         if (nullptr == data_out) assert(0 == nreq && "may not be called with a nullptr for output");
@@ -225,7 +225,7 @@ namespace green_parallel {
 
         status_t status(0);
 
-    #ifndef   HAS_NO_MPI
+#ifndef   HAS_NO_MPI
 
         auto const np = mpi_parallel::size(comm); // number of processes
         // set up a memory window to read from
@@ -239,7 +239,7 @@ namespace green_parallel {
         int const assertions = MPI_MODE_NOPUT; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
         status += MPI_Win_fence(assertions, window);
 
-    #endif // HAS_NO_MPI
+#endif // HAS_NO_MPI
 
         size_t stats[] = {0, 0, 0}; // get element from {0:local, 1:remote, 2:clear}
         for (size_t ireq = 0; ireq < nreq; ++ireq) {

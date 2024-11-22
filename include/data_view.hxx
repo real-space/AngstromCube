@@ -88,7 +88,7 @@ public:
 
   ~view2D() {
       // data_view_debug_printf("# ~view2D() destructor\n");
-      if (_data && (_mem > 0)) {
+      if (nullptr != _data && (_mem > 0)) {
           data_view_debug_printf("# ~view2D() destructor tries to free %g kByte at %p\n", _mem*.001, (void*)_data);
           delete[] _data;
       } // is memory owner

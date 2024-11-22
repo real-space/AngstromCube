@@ -437,7 +437,8 @@ namespace load_balancer {
             // assume that the global array load_balancer::draw2D 
             // is an array of sets of 4 doubles which results from a depth-first traversal of the bisection tree
             assert(2 + 4*nplanes == draw2D.size() && "size of draw2D array must be 2+4*nplanes");
-            auto const nx = int(draw2D[0]), ny = int(draw2D[1]);
+            auto const nx = int(draw2D[0]),
+                       ny = int(draw2D[1]);
             if (echo > 2) std::printf("\n# found %d planes for https://editsvgcode.com/\n", nplanes);
             auto const svg_filename = control::get("load_balancer.test.file", "plane_balancer.svg");
             auto const stroke_color = " stroke=\"black\"";
@@ -456,8 +457,9 @@ namespace load_balancer {
                 int ip{0}; // plane index
                 for (int rank{0}; rank < nprocs; ++rank) { // loop over all ranks serially
 
-                    assert(rank_center[rank][0] < nx); assert(rank_center[rank][1] < ny);
-                    assert(rank_center[rank][0] >= 0); assert(rank_center[rank][1] >= 0);
+                    assert(rank_center[rank][0] < nx); assert(rank_center[rank][0] >= 0);
+                    assert(rank_center[rank][1] < ny); assert(rank_center[rank][1] >= 0);
+
                     // replay the plane_balancer routine branching structure
                     int np{nprocs}, rank_offset{0}, tree_level{0};
                     while (np > 1) {
@@ -496,7 +498,8 @@ namespace load_balancer {
                                 if (intersects > 1e-12) {
                                     assert(npoints < 99);
                                     ipoint[npoints] = (jp < 0) ? jp : ancestor[jp];
-                                    auto const x = points[npoints][0], y = points[npoints][1];
+                                    auto const x = points[npoints][0],
+                                               y = points[npoints][1];
                                     double constexpr eps = 1e-9;
                                     // check if [x, y] are within the border rect [0...nx, 0...ny]
                                     if ((x > -eps) && (x < nx + eps) && (y > -eps) && (y < ny + eps)) {

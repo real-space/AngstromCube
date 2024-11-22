@@ -6,6 +6,10 @@
 #include <algorithm> // std::min, ::max
 #include <cmath> // std::sqrt, ::abs, ::exp, ::erf
 #include <type_traits> // std::is_same
+#ifndef   NO_UNIT_TESTS
+    #include <array> // std::array<T,N>
+    #include <algorithm> // std::stable_sort
+#endif // NO_UNIT_TESTS
 
 #include "parallel_poisson.hxx"
 
@@ -23,13 +27,9 @@
 #include "print_tools.hxx" // printf_vector
 #include "control.hxx" // ::get
 #include "recorded_warnings.hxx" // error
-
 #ifndef   NO_UNIT_TESTS
-  #include <array> // std::array<T,N>
-  #include <algorithm> // std::stable_sort
-
-  #include "fourier_poisson.hxx" // ::solve
-  #include "lossful_compression.hxx" // print_compressed
+    #include "fourier_poisson.hxx" // ::solve
+    #include "lossful_compression.hxx" // print_compressed
 #endif // NO_UNIT_TESTS
 
 namespace parallel_poisson {
@@ -42,7 +42,7 @@ namespace parallel_poisson {
     double norm2(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL) {
         double s{0};
         for (size_t i{0}; i < n; ++i) { 
-            s += pow2(v[i]);
+            s += pow2(double(v[i]));
         } // i 
         if (MPI_COMM_NULL != comm) s = mpi_parallel::sum(s, comm);
         return s;
@@ -52,7 +52,7 @@ namespace parallel_poisson {
     double norm1(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL, int const echo=0) {
         double s{0};
         for (size_t i{0}; i < n; ++i) {
-            s += v[i];
+            s += double(v[i]);
         } // i
         auto const norm1_local = s;
         if (MPI_COMM_NULL != comm) s = mpi_parallel::sum(s, comm);
@@ -102,12 +102,12 @@ namespace parallel_poisson {
         n_local_cubes_ = rank_center[3]; // the 4th component contains the number of items
         if (echo > 7) std::printf("# rank#%i rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
 
-        if (true) {
+        { // scope: show statistics about the load distribution
             simple_stats::Stats<double> load_stats(0);
             load_stats.add(load_);
             mpi_parallel::allreduce(load_stats, comm);
-            if (echo > 2) std::printf("# load_balancer distribution over %d ranks is %s\n", np, load_stats.interval().c_str());
-        } // true
+            if (echo > 3) std::printf("# load_balancer distribution over %d ranks is %s\n", np, load_stats.interval().c_str());
+        } // scope
 
         // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
         auto const nall = size_t(nb[2])*size_t(nb[1])*size_t(nb[0]);
@@ -121,7 +121,7 @@ namespace parallel_poisson {
                 std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
                 printf_vector(" %i", owner_rank_.data(), nall);
             } // echo
-            if (echo > 2) {
+            if (echo > 4) {
                 simple_stats::Stats<> ors;
                 auto const owner_rank_data = owner_rank_.data();
                 for (size_t iall{0}; iall < nall; ++iall) {
@@ -166,8 +166,8 @@ namespace parallel_poisson {
                                             me, __func__, load_, rank_center[3], n_local_cubes_);
         auto const by_nown = nown ? 1./nown : 0;
         for (int d = 0; d < 3; ++d) {
-            dom_center_[d] = dom_center[d] * by_nown;
             assert(max_domain_[d] >= min_domain_[d]);
+            dom_center_[d] = dom_center[d] * by_nown;
         } // d
         if (echo > 7) std::printf("# rank#%i domain center %g %g %g\n", me, dom_center_[0], dom_center_[1], dom_center_[2]);
         if (echo > 7) std::printf("# rank#%i   rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
@@ -191,9 +191,11 @@ namespace parallel_poisson {
         auto nb = nb_;
         set(nb, 3, lb.grid_cubes());
 
+        auto const n_all_cubes = nb[2]*size_t(nb[1])*size_t(nb[0]);
+
         auto const bc = g.boundary_conditions();
         if (echo > 3) std::printf("# %s(nb= [%d %d %d], nall= %ld, bc=[%d %d %d], what=%s)\n", __func__,
-            nb[0], nb[1], nb[2], nb[2]*size_t(nb[1])*size_t(nb[0]), bc[0], bc[1], bc[2], what);
+                                        nb[0], nb[1], nb[2], n_all_cubes, bc[0], bc[1], bc[2], what);
 
         for (int d{0}; d < 3; ++d) {
             bc_[d] = bc[d]; // copy
@@ -214,9 +216,9 @@ namespace parallel_poisson {
         if (*what == 'I') { // 3x3x3 Interpolation stencil
             nstencil_ = 27;
             stencil_ = stencil_333;
-            for (int z = -1; z <= 1; ++z) {
-            for (int y = -1; y <= 1; ++y) {
-            for (int x = -1; x <= 1; ++x) {
+            for (int z{-1}; z <= 1; ++z) {
+            for (int y{-1}; y <= 1; ++y) {
+            for (int x{-1}; x <= 1; ++x) {
                 auto const k = ((z + 1)*3 + (y + 1))*3 + (x + 1);
                 stencil_333[k][0] = x;
                 stencil_333[k][1] = y;
@@ -224,7 +226,7 @@ namespace parallel_poisson {
                 stencil_333[k][3] = x*x + y*y + z*z; // distance^2
             }}} // x y z
         } else {
-            // 3D-Finite Difference Star-shaped stencil
+            // 3D-Finite Difference star-shaped stencil
             stencil_ = stencil_FD1;
             nstencil_ = 6;
         }
@@ -232,6 +234,7 @@ namespace parallel_poisson {
         int const nstencil = nstencil_;
         assert(nstencil > 0);
 
+        simple_stats::Stats<double> inner_cells_stats;
 
         uint32_t const n_local_cubes = lb.n_local();
         auto const & owner_rank = lb.owner_rank();
@@ -241,8 +244,11 @@ namespace parallel_poisson {
 
             auto const *const max_domain = lb.max_domain();
             auto const *const min_domain = lb.min_domain();
+            for (int d{0}; d < 3; ++d) {
+                assert(max_domain[d] >= min_domain[d]);
+            } // d
 
-            int32_t constexpr HALO=1;
+            int32_t constexpr HALO = 1;
             int32_t const ndom[] = {max_domain[0] - min_domain[0] + 1 + 2*HALO,
                                     max_domain[1] - min_domain[1] + 1 + 2*HALO,
                                     max_domain[2] - min_domain[2] + 1 + 2*HALO};
@@ -251,54 +257,63 @@ namespace parallel_poisson {
             assert(ndom[0] > 0); assert(ndom[1] > 0); assert(ndom[2] > 0);
 
             uint8_t constexpr OUTSIDE=0, BORDER=1, INSIDE=2, VACUUM=7;
-            view3D<uint8_t> domain(ndom[2],ndom[1],ndom[0], OUTSIDE);
+            view3D<uint8_t> domain(ndom[2],ndom[1],ndom[0], OUTSIDE); // init domain cells as outside
 
             if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
-            view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], -1); // -1: not assigned, <n_local_cubes: INSIDE
+            int32_t constexpr NOT_ASSIGNED = -1;
+            view3D<int32_t> domain_index(ndom[2],ndom[1],ndom[0], NOT_ASSIGNED);
 
             if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
             if (echo > 7) std::printf("# rank#%i n_local_cubes=%d\n", me, n_local_cubes);
 
-            local_global_ids_.resize(n_local_cubes, int64_t(-1));
+            view2D<int32_t> idom_inside(n_local_cubes, 4, 0);
 
          // if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
             uint32_t ilb{0}; // index of the local cube
-            for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
-            for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) { // 1st domain loop, serial
-            for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
+            // loop 1st time over domain, without halos
+            for (int32_t iz{HALO}; iz < ndom[2] - HALO; ++iz) {
+            for (int32_t iy{HALO}; iy < ndom[1] - HALO; ++iy) { // 1st domain loop, serial
+            for (int32_t ix{HALO}; ix < ndom[0] - HALO; ++ix) {
                 // translate domain indices {ix,iy,iz} into box indices
                 int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
-                for (int d = 0; d < 3; ++d) { assert(ixyz[d] >= 0); assert(ixyz[d] < nb[d]); }
+                // make sure we do not exceed [0,nb)-box limits
+                for (int d{0}; d < 3; ++d) {
+                    assert(ixyz[d] >= 0);
+                    assert(ixyz[d] < nb[d]);
+                } // d
                 if (me == owner_rank(ixyz[2],ixyz[1],ixyz[0])) {
-                    domain(iz,iy,ix) |= INSIDE;
-                    domain_index(iz,iy,ix) = ilb; // domain index for inner elements
+                    domain(iz,iy,ix) |= INSIDE; // mark domain cell as inside
+                    domain_index(iz,iy,ix) = ilb; // domain index for local cubes
+                    idom_inside(ilb,0) = ix;
+                    idom_inside(ilb,1) = iy;
+                    idom_inside(ilb,2) = iz;
 
-                    // mark stencil coverage as border regions
+                    // mark stencil coverage as border cubes
                     for (int k{0}; k < nstencil; ++k) {
                         domain(iz + stencil[k][2], iy + stencil[k][1], ix + stencil[k][0]) |= BORDER;
                     } // k
 
-                    local_global_ids_[ilb] = global_coordinates::get(ixyz);
-
-                    ++ilb; // count inside elements
+                    ++ilb; // count local cubes
                 } // me == owner
             }}} // iz iy ix
-            assert(ilb <= (1ull << 31));
+            assert(ilb <= (1ull << 31) && "at most 2^31 local blocks");
             if (ilb != n_local_cubes) error("expected match between n_local_cubes=%d and count(owner_rank[]==me)=%d\n", n_local_cubes, ilb);
 
             if (echo > 7) { std::printf("# rank#%i here %s:%d\n", me, strip_path(__FILE__), __LINE__); std::fflush(stdout); }
 
+            // criticism: this algorithm leads to deep copies of local cubes at a periodic boundary, even if not parallelized!
 
-            // loop over the domain again, this time including the halos
+            // loop over the domain again, this time including the halo regions
             uint32_t jrb{0}; // index for border-only cubes
-            size_t st[4] = {0, 0, 0}; // statistics for display
-            for (int32_t iz = 0; iz < ndom[2]; ++iz) {
-            for (int32_t iy = 0; iy < ndom[1]; ++iy) { // 2nd domain loop, serial
-            for (int32_t ix = 0; ix < ndom[0]; ++ix) {
+            size_t st[4] = {0, 0, 0, 0}; // statistics for display
+            for (int32_t iz{0}; iz < ndom[2]; ++iz) {
+            for (int32_t iy{0}; iy < ndom[1]; ++iy) { // 2nd domain loop, serial
+            for (int32_t ix{0}; ix < ndom[0]; ++ix) {
                 auto const dom = domain(iz,iy,ix);
-                if (BORDER == dom) { // is border-only
+                if (BORDER == dom) { // is border-only and not inside
+                    assert(NOT_ASSIGNED == domain_index(iz,iy,ix)); // may not have been assigned before
                     domain_index(iz,iy,ix) = n_local_cubes + jrb; // domain index for border elements
                     ++jrb; // count remote elements
                 } // border
@@ -309,49 +324,71 @@ namespace parallel_poisson {
             uint32_t const n_remote_cubes = jrb;
             if (echo > 5) std::printf("# rank#%i has %d local and %d remote cubes, %d in total\n",
                                                 me, n_local_cubes, n_remote_cubes, n_local_cubes + n_remote_cubes);
-            
-            remote_global_ids_.resize(n_remote_cubes, -1); // init remote element request lists
+
+            int64_t constexpr INVALID_GLOBAL_ID = -1;
+            remote_global_ids_.resize(n_remote_cubes, INVALID_GLOBAL_ID); // init remote element request lists
             star_ = view2D<uint32_t>(n_local_cubes, nstencil, uint32_t(-1)); // init finite-difference neighborhood lists
 
-            inner_cell_.resize(n_local_cubes, false);
+            inner_cell_.resize(n_local_cubes, false); // inner cells are local cubes whose 6 face neighbors are all local cubes as well
+            local_global_ids_.resize(n_local_cubes, INVALID_GLOBAL_ID);
 
-            size_t vacuum_assigned{0}, inner_cell_found{0};
-            // loop over domain again (3rd time), with halos
-            for (int32_t iz = HALO; iz < ndom[2] - HALO; ++iz) {
-            for (int32_t iy = HALO; iy < ndom[1] - HALO; ++iy) { // 3rd domain loop, could be parallel
-            for (int32_t ix = HALO; ix < ndom[0] - HALO; ++ix) {
-                // translate domain indices {ix,iy,iz} into box indices
-                int32_t const ixyz[] = {ix + ioff[0], iy + ioff[1], iz + ioff[2]};
-                for (int d = 0; d < 3; ++d) { assert(ixyz[d] >= 0); assert(ixyz[d] < nb[d]); } // should still hold...
-                if (domain(iz,iy,ix) & INSIDE) {
-                    auto const id0 = domain_index(iz,iy,ix);
-                    assert(id0 >= 0); assert(id0 < n_local_cubes);
+            size_t vacuum_assigned{0}, inner_cells_found{0};
+            // loop over domain again (3rd time), without halos (this could be replaced by a 1D loop over INSIDE blocks if we had stored their coordinates)
+
+            // for (int32_t iz{HALO}; iz < ndom[2] - HALO; ++iz) {
+            // for (int32_t iy{HALO}; iy < ndom[1] - HALO; ++iy) { // 3rd domain loop, could be parallel
+            // for (int32_t ix{HALO}; ix < ndom[0] - HALO; ++ix) {
+            //     int32_t const idom[] = {ix, iy, iz};
+
+            for (int32_t ilb_{0}; ilb_ < n_local_cubes; ++ilb_) { // can be parallel
+                auto const * const idom = idom_inside[ilb_];
+                assert(0 == idom[3]);
+                assert(domain(idom[2],idom[1],idom[0]) & INSIDE);
+                assert(ilb_ == domain_index(idom[2],idom[1],idom[0]));
+                {{ // legacy: the old loop head has a triple loop
+
+                // translate domain indices (ix,iy,iz) into box indices
+                int32_t const ixyz[3] = {idom[0] + ioff[0], idom[1] + ioff[1], idom[2] + ioff[2]}; // global source coordinates
+                for (int d{0}; d < 3; ++d) {
+                    assert(ixyz[d] >= 0);    // has been checked above
+                    assert(ixyz[d] < nb[d]); // but should still hold ...
+                } // d
+
+                if (domain(idom[2],idom[1],idom[0]) & INSIDE) {
+                    auto const ilb = domain_index(idom[2],idom[1],idom[0]);
+                    assert(ilb >= 0);
+                    assert(ilb < n_local_cubes);
+                    local_global_ids_[ilb] = global_coordinates::get(ixyz); // global cube id of local cube
 
                     for (int k{0}; k < nstencil; ++k) {
-                        int32_t       jxyz[] = {ixyz[0] + stencil[k][0], ixyz[1] + stencil[k][1], ixyz[2] + stencil[k][2]}; // global coordinates
-                        int32_t const jdom[] = {ix      + stencil[k][0], iy      + stencil[k][1], iz      + stencil[k][2]}; // domain coordinates
-                        for (int d = 0; d < 3; ++d) { assert(jdom[d] >= 0); assert(jdom[d] < ndom[d]); }
+                        int32_t       jxyz[] = {ixyz[0] + stencil[k][0], ixyz[1] + stencil[k][1], ixyz[2] + stencil[k][2]}; // global coordinates, preliminary
+                        int32_t const jdom[] = {idom[0] + stencil[k][0], idom[1] + stencil[k][1], idom[2] + stencil[k][2]}; // domain coordinates
+                        for (int d{0}; d < 3; ++d) {
+                            // target domain coordinates must be inside the halo-enlarged domain
+                            assert(jdom[d] >= 0);
+                            assert(jdom[d] < ndom[d]);
+                        } // d
 
                         assert( BORDER & domain(jdom[2],jdom[1],jdom[0]) ); // consistent with 1st domain loop
-                        auto const klb = domain_index(jdom[2],jdom[1],jdom[0]);
+                        auto const klb = domain_index(jdom[2],jdom[1],jdom[0]); // must be either a local cube or a remote cube
                         assert(klb >= 0);
-                        star_(id0,k) = klb;
+                        assert(klb < n_local_cubes + n_remote_cubes);
+                        star_(ilb,k) = klb;
 
                         int is_vacuum{0};
-                        for (int d = 0; d < 3; ++d) {
+                        for (int d{0}; d < 3; ++d) {
                             auto const bc_shift = int(jxyz[d] < 0) - int(jxyz[d] >= int32_t(nb[d]));
                             jxyz[d] += bc_shift*int32_t(nb[d]); // fold back into [0, nb)
                             is_vacuum += int((0 != bc_shift) && (Isolated_Boundary == bc[d]));
-                        }
+                        } // d
                         if (is_vacuum) {
-                            // id = -1; // not existing
                             auto & dom = domain(jdom[2],jdom[1],jdom[0]);
                             // mark as vacuum
                             assert(dom != INSIDE);
                             if (VACUUM == dom) {
                                 assert(27 == nstencil); // in the case of an interpolation stencil it can already be marked as vacuum before, 
                             } else {                    // in the case of a finite-difference stencil this should not happen
-                                assert(BORDER == dom);  // but the it must be a border-only cell
+                                assert(BORDER == dom);  // but then it must be a border-only cell
                                 dom = VACUUM; // mark in the mask (dom is a reference)
                                 ++vacuum_assigned;
                             }
@@ -360,28 +397,39 @@ namespace parallel_poisson {
                                 assert(BORDER == domain(jdom[2],jdom[1],jdom[0])); // must be a border-only element
                                 auto const irb = klb - n_local_cubes;
                                 assert(irb >= 0);
-                                for (int d = 0; d < 3; ++d) { assert(jxyz[d] >= 0); assert(jxyz[d] < nb[d]); }
+                                for (int d{0}; d < 3; ++d) {
+                                    // global cube coordinates must be inside [0,nb)-box
+                                    assert(jxyz[d] >= 0);
+                                    assert(jxyz[d] < nb[d]);
+                                } // d
                                 auto const gid = global_coordinates::get(jxyz);
-                                assert((gid == remote_global_ids_[irb]) || (-1 == remote_global_ids_[irb])); // either unassigned(-1) or the same value
-                                remote_global_ids_[irb] = gid;
+                                auto & rid = remote_global_ids_[irb];
+                                if (INVALID_GLOBAL_ID == rid) {
+                                    rid = gid; // was unassigned so far, write
+                                } else if (gid == rid) {
+                                    // ok, already set to the right value, no need to invalidate the cache line
+                                } else {
+                                    error("remote_global_ids[%i]=%ld should not get different value %ld", irb, rid, gid);
+                                }
                             } // add to remote list
                         } // is_vacuum
                     } // k
-                    if (6 == nstencil && echo > 19) std::printf("# rank#%i star[%i,:] = {%i %i %i %i %i %i}\n", me, id0,
-                                    star_(id0,0), star_(id0,1), star_(id0,2), star_(id0,3), star_(id0,4), star_(id0,5));
+                    if (6 == nstencil && echo > 19) std::printf("# rank#%i star6[%i,:] = {%i %i %i %i %i %i}\n", me, ilb,
+                                    star_(ilb,0), star_(ilb,1), star_(ilb,2), star_(ilb,3), star_(ilb,4), star_(ilb,5));
                     
                     // to be an inner_cell_ all cubes hit by the stencil must be local cubes
                     int is_inner_cell{0};
                     for (int k{0}; k < nstencil; ++k) {
-                        is_inner_cell += (star_(id0,k) < n_local_cubes);
+                        is_inner_cell += (star_(ilb,k) < n_local_cubes);
                     } // k
-                    inner_cell_[id0]  = (is_inner_cell == nstencil);
-                    inner_cell_found += (is_inner_cell == nstencil);
+                    inner_cell_[ilb]   = (is_inner_cell == nstencil);
+                    inner_cells_found += (is_inner_cell == nstencil);
 
                 } // is INSIDE
             }}} // iz iy ix
 
-            if (echo > 8) std::printf("# rank#%i star list generated, %ld inner cells found\n", me, inner_cell_found); std::fflush(stdout);
+            if (echo > 8) std::printf("# rank#%i star6 list generated, %ld inner cells found\n", me, inner_cells_found); std::fflush(stdout);
+            inner_cells_stats.add(inner_cells_found);
 
             size_t vacuum_requested{0};
             for (auto id : remote_global_ids_) {
@@ -391,8 +439,16 @@ namespace parallel_poisson {
             assert(vacuum_assigned == vacuum_requested);
 
         } else { // n_local_cubes > 0
-            star_ = view2D<uint32_t>(nullptr, 6); // dummy
+            star_ = view2D<uint32_t>(nullptr, 6); // dummy with correct stride but just a wrapper to no data
         } // n_local_cubes > 0
+
+        mpi_parallel::allreduce(inner_cells_stats, comm_);
+        if (echo > 3) {
+            auto const & st = inner_cells_stats;
+            std::printf("# inner cells statistics %s, total %g of %.3f k (%.1f %%)\n",
+                st.interval().c_str(), st.sum(), n_all_cubes*.001, st.sum()*100./n_all_cubes);
+            std::fflush(stdout);
+        } // echo
 
         if (echo > 8) {
             std::printf("# rank#%i %s: requests={", me, __func__);
@@ -458,18 +514,18 @@ namespace parallel_poisson {
         auto const nrb = pg.n_remote();
         if (echo > 9) std::printf("\n# %s start what=%s %d local cubes, %d remote cubes\n", __func__, what, nlb, nrb);
         view2D<real_t> v4(nlb + nrb, 4*4*4, real_t(0));
-        set(v4[0], nlb*64, v444); // copy in
+        set(v4.data(), nlb*64, v444); // copy into halo-enlarged array
         auto const stat = data_exchange(v4.data(), pg, 4*4*4, echo, __func__); // fill remote cubes
 
         if (echo > 9) std::printf("\n# %s %d remote cubes exchanged\n", __func__, nrb);
 
         assert(27 == pg.star_dim());
-        auto const star = (uint32_t const(*)[27])pg.star();
+        auto const star27 = (uint32_t const(*)[27])pg.star();
 
         double const f = factor/(4*4*4); // interpolation weights are [0.25 0.75] expressed as [1 3]/4 --> denominator 4 per dimension
 
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local cubes --> CUDA block-parallel
-            auto const *const nn = star[ilb]; // 27 nearest-neighbor cubes of cube ilb, load into GPU shared memory
+            auto const *const nn = star27[ilb]; // 27 nearest-neighbor cubes of cube ilb, load into GPU shared memory
             if (echo > 39) { std::printf("# star[%i,:] = ", ilb); printf_vector(" %i", nn, 27); }
 
             // copy data into a halo=1-enlarged array v666
@@ -521,6 +577,7 @@ namespace parallel_poisson {
     template // explicit template instantiation for real_t=double
     status_t cube4x4x4_interpolation(double*, double const*, parallel_grid_t const &, int, double, char const*);
 
+
     // ToDo: this part could be executed on the GPU
     template <typename real_t, typename double_t=double>
     status_t Laplace16th(
@@ -554,13 +611,13 @@ namespace parallel_poisson {
                                        -735*norm};
         auto const nlb = pg.n_local();
         assert(6 == pg.star_dim());
-        auto const star = pg.star();
+        auto const star6 = (uint32_t const(*)[6])pg.star(); // data layout [nlb][6]
         // #pragma omp parallel for
         for (uint32_t ilb = 0; ilb < nlb; ++ilb) { // loop over local blocks --> CUDA block-parallel
             auto const i512 = size_t(ilb) << 9; // block offset
-            auto const *const nn = & star[ilb*6]; // nearest-neighbor cubes of cube ilb, load into GPU shared memory
-            if (echo > 11) { std::printf("# Laplace16th: for ilb= %i take from neighbors{%i %i, %i %i, %i %i}\n",
-                                         ilb, nn[0], nn[1],  nn[2], nn[3],  nn[4], nn[5]); std::fflush(stdout); }
+            auto const *const nn = star6[ilb]; // 6 nearest-neighbor cubes of cube ilb, load into GPU shared memory
+            if (echo > 11) { std::printf("# Laplace16th: for ilb= %i take from neighbors {%i %i, %i %i, %i %i}\n",
+                                          ilb, nn[0], nn[1],  nn[2], nn[3],  nn[4], nn[5]); std::fflush(stdout); }
             auto const nn0 = size_t(nn[0]) << 9, nn1 = size_t(nn[1]) << 9;
             auto const nn2 = size_t(nn[2]) << 9, nn3 = size_t(nn[3]) << 9;
             auto const nn4 = size_t(nn[4]) << 9, nn5 = size_t(nn[5]) << 9;

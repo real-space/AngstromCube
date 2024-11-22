@@ -74,7 +74,7 @@ namespace fourier_transform {
         return 0; // success
 #endif // HAS_FFTW
 
-        return -1; // has no FFT library
+        return STATUS_FFT_NOT_INCLUDED; // has no FFT library
 #endif // HAS_NO_MKL
     } // fft
 
