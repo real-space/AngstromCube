@@ -161,6 +161,7 @@ namespace parallel_poisson {
         if (nown != n_local_cubes_) {
             warn("expected match between n_local_cubes= %d and count(owner_rank[]==me)= %ld", n_local_cubes_, nown);
             n_local_cubes_ = nown;
+            assert(n_local_cubes_ == nown); // check that the assignment above worked
         }
         if (echo > 5) std::printf("# rank#%i %s: load_balancer::get = %g, %g items, %d local cubes\n",
                                             me, __func__, load_, rank_center[3], n_local_cubes_);
@@ -647,7 +648,7 @@ namespace parallel_poisson {
             }}} // ix iy iz
         } // ilb - omp parallel
 
-        if (echo > 9) std::printf("# %s done\n\n", __func__);
+        if (echo > 9) { std::printf("# %s done\n\n", __func__); std::fflush(stdout); }
         return stat;
     } // Laplace16th
 
@@ -673,7 +674,7 @@ namespace parallel_poisson {
 
         auto const nb = pg.grid_cubes();
         size_t const n_all_grid_points = size_t(nb[2]*8)*size_t(nb[1]*8)*size_t(nb[0]*8);
-        auto const nall = pg.n_local()* size_t(512),
+        auto const nall = pg.n_local() *size_t(512),
                    nrem = pg.n_remote()*size_t(512);
 
         status_t ist(0);
@@ -681,7 +682,7 @@ namespace parallel_poisson {
         restart = ('s' == method) ? 1 : std::max(1, restart);
 
         if (std::is_same<real_t,double>::value) {
-            view2D<float> xb(2, nall); // get memory
+            view2D<float> xb(2, nall); // get memory, allocates float[2][nall]
             auto const x32=xb[0], b32=xb[1];
             set(b32, nall, bb); // convert to float
             set(x32, nall, xx); // convert to float
