@@ -272,8 +272,9 @@ namespace radial_integrator {
 
           // b = (24/h*gf(:,ir-h) +19*d(:,1) -5*d(:,2) + d(:,3) ) / 9.
           // Integrator weights for Adams Moulton multistep (3-step)
-          bG = ((24*Step)*gg[ir - Step] + 19*dG[0] - 5*dG[1] + dG[2])/9.;
-          bF = ((24*Step)*ff[ir - Step] + 19*dF[0] - 5*dF[1] + dF[2])/9.;
+          double constexpr by9 = 1./9.;
+          bG = ((24*Step)*gg[ir - Step] + 19*dG[0] - 5*dG[1] + dG[2])*by9;
+          bF = ((24*Step)*ff[ir - Step] + 19*dF[0] - 5*dF[1] + dF[2])*by9;
 
           // determinant(8/3h - s)
           double const eight3rds = 8./(3.*Step);
@@ -398,8 +399,9 @@ namespace radial_integrator {
 
           // b = (24/h*gf(:,ir-h) +19*d(:,1) -5*d(:,2) + d(:,3) ) / 9.
           // Integrator weights for Adams Moulton multistep (3-step)
-          bG = ((24*Step)*gg[ir - Step] + 19*dG[0] - 5*dG[1] + dG[2])/9.;
-          bF = ((24*Step)*ff[ir - Step] + 19*dF[0] - 5*dF[1] + dF[2])/9.;
+          double constexpr by9 = 1./9.;
+          bG = ((24*Step)*gg[ir - Step] + 19*dG[0] - 5*dG[1] + dG[2])*by9;
+          bF = ((24*Step)*ff[ir - Step] + 19*dF[0] - 5*dF[1] + dF[2])*by9;
 
           if (nullptr != rp) {
               bF -= (2*8./3.)*g.dr[ir]*rp[ir]; // inhomogeneity comes in here
