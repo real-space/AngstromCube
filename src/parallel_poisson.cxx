@@ -1108,8 +1108,8 @@ namespace parallel_poisson {
         status_t stat(0);
         int n{0}; auto const t = int(control::get("parallel_poisson.select.test", -1.)); // -1:all
         if (t & (1 << n++)) stat += std::abs(test_parallel_grid(echo));
-        if (t & (1 << n++)) stat += std::abs(test_solver<double>(echo)); // instantiation for both, double and float
         if (t & (1 << n++)) stat += std::abs(test_solver<float> (echo)); // compilation and convergence tests
+        if (t & (1 << n++)) stat += std::abs(test_solver<double>(echo)); // instantiation for both, double and float
         if (t & (1 << n++)) stat += std::abs(test_Laplace16th_bc(echo));
         if (!already_initialized) mpi_parallel::finalize();
         return stat;
