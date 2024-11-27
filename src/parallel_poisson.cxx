@@ -919,9 +919,9 @@ namespace parallel_poisson {
         { // scope: prepare the charge density (right-hand-side) rho
             double integral{0};
             #pragma omp parallel for collapse(3) reduction(+:integral)
-            for (int iz{0}; iz < g[2]; ++iz) {
-            for (int iy{0}; iy < g[1]; ++iy) {
-            for (int ix{0}; ix < g[0]; ++ix) {
+            for (int iz = 0; iz < g[2]; ++iz) {
+            for (int iy = 0; iy < g[1]; ++iy) {
+            for (int ix = 0; ix < g[0]; ++ix) {
                 double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
                 double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
                 integral += rho;
