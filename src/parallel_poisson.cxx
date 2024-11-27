@@ -816,7 +816,7 @@ namespace parallel_poisson {
             // res = <r|r>
             res2 = norm2(r, nall, comm) * pg.dV();
 
-            if (echo > 15) { std::printf("# %s res2=%g\n", strip_path(__FILE__), it, res2); std::fflush(stdout); }
+            if (echo > 15) { std::printf("# %s it=%i res2=%g\n", strip_path(__FILE__), it, res2); std::fflush(stdout); }
 
             // |z> = |Pr> = P|r>
             if (use_precond) {

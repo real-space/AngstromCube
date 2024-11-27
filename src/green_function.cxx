@@ -57,8 +57,8 @@ namespace green_function {
         std::snprintf(s, 64, "%g%s%g%s%g", vec[X]*f, sep, vec[Y]*f, sep, vec[Z]*f);
         return std::string(s);
     } // vec2str
-    #define str(...) vec2str(__VA_ARGS__).c_str()
 
+#define   str(...) vec2str(__VA_ARGS__).c_str()
 
     // ToDo: make it a method of action_plan_t
     status_t update_energy_parameter(
@@ -260,7 +260,7 @@ namespace green_function {
         auto const comm = mpi_parallel::comm();
         auto const true_comm_size = mpi_parallel::size(comm);
         auto const true_comm_rank = mpi_parallel::rank(comm, true_comm_size);
-        auto const fake_comm = (true_comm_size > 1) ? 0u : control::get("mpi.fake.size", 0.);
+        unsigned const fake_comm = (true_comm_size > 1) ? 0 : control::get("mpi.fake.size", 0.);
         auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
         owner_rank.resize(0);
         auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
@@ -1064,7 +1064,7 @@ namespace green_function {
         return 0;
     } // construct_Green_function
 
-    #undef str // === vec2str.c_str()
+#undef    str // === vec2str.c_str()
 
 
 
