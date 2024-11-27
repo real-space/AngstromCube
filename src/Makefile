@@ -142,7 +142,7 @@ OPTFLAGS += -O0
 ####                see https://danielsieger.com/blog/2022/03/06/code-coverage-for-cpp.html
 # OPTFLAGS +=  -O0 -coverage
 
-OPTFLAGS += -g -pedantic -Wall
+OPTFLAGS += -g -pedantic -Wall -Wextra -Wno-unused-parameter
 # gcc-options
 OPTFLAGS += -Wno-format
 # OPTFLAGS += -Wno-format-security

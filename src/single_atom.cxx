@@ -4156,8 +4156,8 @@ namespace single_atom {
         }
     } // get_spherical_spectrum
 
-    double const get_sigma() const { return sigma; }
-    int    const get_numax() const { return numax; }
+    double get_sigma() const { return sigma; }
+    int    get_numax() const { return numax; }
 
   private:
 

@@ -688,11 +688,11 @@ namespace parallel_poisson {
         restart = ('s' == method) ? 1 : std::max(1, restart);
 
         if (std::is_same<real_t,double>::value) {
+            if (echo > 5) std::printf("# %s solve in <float> precision first\n", strip_path(__FILE__));
             view2D<float> xb(2, nall); // get memory, allocates float[2][nall]
             auto const x32=xb[0], b32=xb[1];
             set(b32, nall, bb); // convert to float
             set(x32, nall, xx); // convert to float
-            if (echo > 5) std::printf("# %s solve in <float> precision first\n", strip_path(__FILE__));
             ist += solve(x32, b32, pg, method, echo, threshold, residual, maxiter, miniter, restart);
             if (echo > 5) std::printf("# %s switch back to <double> precision\n", strip_path(__FILE__));
             set(xx, nall, x32); // convert to double
@@ -915,6 +915,7 @@ namespace parallel_poisson {
         double const cnt[] = {.5*g[0], .5*g[1], .5*g[2]};
         { // scope: prepare the charge density (right-hand-side) rho
             double integral{0};
+            #pragma omp parallel for collapse(3) reduction(+:integral)
             for (int iz{0}; iz < g[2]; ++iz) {
             for (int iy{0}; iy < g[1]; ++iy) {
             for (int ix{0}; ix < g[0]; ++ix) {
@@ -926,7 +927,7 @@ namespace parallel_poisson {
                 size_t const ifft = (iz*g[1] + iy)*g[0] + ix;
                 b_fft[ifft] = rho;
             }}} // ix iy iz
-            if (echo > 3) std::printf("# %s integrated density %g\n", strip_path(__FILE__), integral*g.dV());
+            if (echo > 3) std::printf("# %s %s integrated density %g\n", strip_path(__FILE__), __func__, integral*g.dV());
         } // scope
 
         load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo);
