@@ -72,7 +72,7 @@ namespace green_parallel {
 
 #ifdef    HAS_ONESIDED_MPI
         // use one-sided MPI communication routines or not?
-        use1sided_ = (control::get("green_parallel.onesided", 0.) > 0);
+        use1sided_ = (1 == control::get("green_parallel.onesided", 0.));
 #endif // HAS_ONESIDED_MPI
         if (echo > 7) { std::printf("# use %s-sided MPI communication\n", get_use1sided() ? "one" : "two"); std::fflush(stdout); }
 
@@ -195,7 +195,7 @@ namespace green_parallel {
 
 #endif // HAS_NO_MPI
 
-                if (iloc >= nloc_rank[rank]) {
+                if (iloc >= nloc_rank.at(rank)) {
                     error("rank#%i request#%i has owner rank#%i and remote local index %i but maximum is %d",
                                 me, ireq, rank, int(iloc), nloc_rank[rank]);
                 } // index larger than offered by remote process
@@ -447,16 +447,15 @@ namespace green_parallel {
     ) const {
         status_t status(0);
         what = what ? what : "?";
-        auto const & requests = *this;
-        auto const comm = requests.comm();
+        auto const comm = this->comm();
         auto const nprocs = mpi_parallel::size(comm); // number of processes
         auto const me = mpi_parallel::rank(comm, nprocs);
 
         // The number of local atoms is limited to 2^16 == 65536
         if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
                                                                                   count, count*sizeof(real_t)*.001, what);
-        auto const nreq = requests.size(); // number of requests
-        auto const nwin = requests.window(); // number of offerings
+        auto const nreq = this->size(); // number of requests
+        auto const nwin = this->window(); // number of offerings
         if (nullptr == data_out) assert(0 == nreq && "may not be called with a nullptr for output");
         if (nullptr == data_inp) assert(0 == nwin && "may not be called with a nullptr for input");
 
@@ -474,13 +473,11 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
-            auto const global_id = requests.requested_id.at(ireq);
-            auto const rank      = requests.owner.at(ireq);
-            auto const iloc      = requests.local_indices.at(ireq);
-            if (iloc < 0) {
-                assert(-1 == iloc);
+            auto const global_id = this->requested_id.at(ireq);
+            auto const rank      = this->owner.at(ireq);
+            auto const iloc      = this->local_indices.at(ireq);
+            if (no_owner == rank) {
                 assert(-1 == global_id);
-                assert(no_owner == rank);
                 set(&data_out[ireq*count], count, real_t(0)); // clear package
             } else if (me == rank) {
                 if (echo > 18) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
@@ -524,8 +521,6 @@ namespace green_parallel {
         auto const nprocs = mpi_parallel::size(comm); // number of processes
         auto const me = mpi_parallel::rank(comm, nprocs);
 
-        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
-                                                                                  count, count*sizeof(real_t)*.001, what);
         auto const nreq = this->size(); // number of requests
         auto const nwin = this->window(); // number of offerings
         if (nullptr == data_out) assert(0 == nreq && "may not be called with a nullptr for output");
@@ -536,7 +531,8 @@ namespace green_parallel {
             return this->exchange_onesided(data_out, data_inp, count, echo, what);
         } // use one-sided MPI communication routines
 #endif // HAS_ONESIDED_MPI
-
+        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte %s\n",
+                                                                                  count, count*sizeof(real_t)*.001, what);
         status_t status(0);
 
 #ifndef   HAS_NO_MPI
@@ -562,8 +558,6 @@ namespace green_parallel {
             MPI_Isend(buffer.data(), buffer.size(), data_type, rank, tag, comm, &mpi_req.at(rj));
         } // rj
 
-        // std::vector<int32_t> rank_index(nprocs, -1);
-
         std::vector<std::vector<real_t>> recv_buff(nr);
         for (uint32_t ri{0}; ri < nr; ++ri) {
             auto & buffer = recv_buff.at(ri);
@@ -572,7 +566,6 @@ namespace green_parallel {
             auto const rank = this->recv_packages_from_ranks.at(ri);
             // int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
             MPI_Irecv(buffer.data(), buffer.size(), data_type, rank, tag, comm, &mpi_req.at(ns + ri));
-            // rank_index.at(rank) = ri;
         } // ri
 
         // wait for all messages to be sent and to have arrived
@@ -597,7 +590,6 @@ namespace green_parallel {
                 if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i buffer[%i]\n", me, this->requested_id.at(ireq), rank, ibuf);
 #ifndef   HAS_NO_MPI
                 assert(0 <= rank); assert(rank < nprocs);
-                // auto const ri = rank_index.at(rank);
                 auto const ri = this->ri_index.at(ireq);
                 assert(ri >= 0 && "did not expect elements from this rank, error in RequestList_t constructor");
                 auto const & buffer = recv_buff.at(ri);
@@ -623,7 +615,7 @@ namespace green_parallel {
         , int const Noco // =1, 1:no spin, 2: (non-collinear) spin
         , int const echo // =0, log-level
     ) const {
-        if (echo > 0) std::printf("# new MPI exchange of potential, MPI one-sided communication, Noco=%d\n", Noco);
+        if (echo > 0) std::printf("# MPI data exchange of potential, Noco=%d\n", Noco);
         assert(1 == Noco || 2 == Noco);
 
         assert(Veff && "may not be called with a nullptr for output");
