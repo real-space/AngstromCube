@@ -27,9 +27,14 @@ namespace green_parallel {
       std::size_t size()   const { return owner.size(); }
       std::size_t window() const { return window_size; }
   public:
+      // for 1-sided or 2-sided communication
       std::vector<int32_t> owner; // owner rank of the requested data item
       std::vector<int32_t> index; // local index in owning process
       std::vector<int64_t> requested_id; // original identifyer (for debug only)
+      // for 2-sided communication only
+      std::vector<uint32_t> n_packages_to_send; // number of packages to send
+      std::vector<int32_t> send_packages_to_ranks; // ranks to send data to
+      std::vector<std::vector<uint32_t>> send_package_index; 
   private:
       uint32_t window_size = 0;
   }; // class RequestList_t

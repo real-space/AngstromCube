@@ -11,11 +11,11 @@
 #include "complex_tools.hxx" // conjugate
 #include "recorded_warnings.hxx" // error
 
-#ifdef    DEBUGGPU
-  #define data_view_debug_printf(...) std::printf(__VA_ARGS__)
-#else  // DEBUGGPU
-  #define data_view_debug_printf(...)
-#endif // DEBUGGPU
+// #ifdef    DEBUGGPU
+    #define data_view_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
+// #else  // DEBUGGPU
+//  #define data_view_debug_printf(...)
+// #endif // DEBUGGPU
 
 #ifdef    DEVEL
   #ifndef   NO_UNIT_TESTS
@@ -76,20 +76,20 @@ public:
   view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown), _mem(0) { } // default constructor
 
   view2D(T* const ptr, size_t const stride)
-    : _data(ptr), _n0(stride), _n1(DimUnknown), _mem(0) { 
-      data_view_debug_printf("# view2D(%p, stride=%i) constructor at %p\n", (void*)ptr, stride, (void*)this);
+    : _data(ptr), _n0(stride), _n1(DimUnknown), _mem(0) {
+      data_view_debug_printf("# view2D(%p, stride=%i) wrapper at %p\n", (void*)ptr, stride, (void*)this);
   } // wrapping constructor
 
-  view2D(size_t const n1, size_t const stride, T const init_value={0}) 
+  view2D(size_t const n1, size_t const stride, T const init_value={0})
     : _data(new T[n1*stride]), _n0(stride), _n1(n1), _mem(n1*stride*sizeof(T)) {
-      data_view_debug_printf("# view2D(n1=%i, stride=%i [, init_value]) constructor at %p allocates %g kByte at %p\n", n1, stride, (void*)this, _mem*.001, (void*)_data);
+      data_view_debug_printf("# view2D(n1=%li, stride=%li, [v0]) at %p allocates %.3f kByte at %p\n", n1, stride, (void*)this, _mem*.001, (void*)_data);
       std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
 
   ~view2D() {
       // data_view_debug_printf("# ~view2D() destructor\n");
       if (nullptr != _data && (_mem > 0)) {
-          data_view_debug_printf("# ~view2D() destructor tries to free %g kByte at %p\n", _mem*.001, (void*)_data);
+          data_view_debug_printf("# ~view2D(%li,%li) at %p tries to free %.3f kByte at %p\n", _n1, _n0, (void*)this, _mem*.001, (void*)_data);
           delete[] _data;
       } // is memory owner
   } // destructor
@@ -227,28 +227,28 @@ public:
 
   view3D(T* const ptr, size_t const n1, size_t const stride)
     : _data(ptr), _n0(stride), _n1(n1), _n2(DimUnknown), _mem(0) {
-      data_view_debug_printf("# view3D(%p, n1=%i, stride=%i [, init_value]) constructor at %p\n", (void*)ptr, n1, stride, (void*)this);
+      data_view_debug_printf("# view3D(%p, n1=%i, stride=%i) wrapper at %p\n", (void*)ptr, n1, stride, (void*)this);
   } // wrapping constructor
 
-  view3D(size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
+  view3D(size_t const n2, size_t const n1, size_t const stride, T const init_value={0})
     : _data(new T[n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2), _mem(n2*n1*stride*sizeof(T)) {
-      data_view_debug_printf("# view3D(n2=%i, n1=%i, stride=%i [, init_value]) constructor at %p allocates %g kByte\n", n2, n1, stride, (void*)this, _mem*.001);
+      data_view_debug_printf("# view3D(n2=%li, n1=%li, stride=%li, [v0]) at %p allocates %.3f kByte at %p\n", n2, n1, stride, (void*)this, _mem*.001, (void*)_data);
       std::fill(_data, _data + n2*n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
 
-  ~view3D() { 
+  ~view3D() {
       if (_data && (_mem > 0)) {
+          data_view_debug_printf("# ~view3D(%li,%li,%li) at %p tries to free %.3f kByte at %p\n", _n2, _n1, _n0, (void*)this, _mem*.001, (void*)_data);
           delete[] _data;
-          data_view_debug_printf("# ~view3D() destructor tries to free %g kByte\n", _mem*.001);
       }
   } // destructor
 
-  view3D(view3D<T>      && rhs) { 
+  view3D(view3D<T>      && rhs) {
       data_view_debug_printf("# view3D(view3D<T> && rhs);\n");
       *this = std::move(rhs);
   } // move constructor
 
-  view3D(view3D<T> const & rhs) = delete; 
+  view3D(view3D<T> const & rhs) = delete;
   // view3D(view3D<T> const & rhs) { 
   //     data_view_debug_printf("# view3D(view3D<T> const & rhs);\n");
   //     *this = rhs;
@@ -338,25 +338,25 @@ public:
 
   view4D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown), _n2(DimUnknown), _n3(DimUnknown), _mem(0) { } // default constructor
 
-  view4D(T* const ptr, size_t const n2, size_t const n1, size_t const stride) 
+  view4D(T* const ptr, size_t const n2, size_t const n1, size_t const stride)
     : _data(ptr), _n0(stride), _n1(n1), _n2(n2), _n3(DimUnknown), _mem(0) {
-      data_view_debug_printf("# view4D(%p, n2=%i, n1=%i, stride=%i [, init_value]) constructor at %p\n", (void*)ptr, n2, n1, stride, (void*)this);
+      data_view_debug_printf("# view4D(%p, n2=%i, n1=%i, stride=%i) wrapper at %p\n", (void*)ptr, n2, n1, stride, (void*)this);
   } // wrapping constructor
 
-  view4D(size_t const n3, size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
+  view4D(size_t const n3, size_t const n2, size_t const n1, size_t const stride, T const init_value={0})
     : _data(new T[n3*n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2), _n3(n3), _mem(n3*n2*n1*stride*sizeof(T)) {
-      data_view_debug_printf("# view4D(n3=%i, n2=%i, n1=%i, stride=%i [, init_value]) constructor at %p allocates %g kByte\n", n3, n2, n1, stride, (void*)this, _mem*.001);
+      data_view_debug_printf("# view4D(n3=%li, n2=%li, n1=%li, stride=%li, [v0]) at %p allocates %.3f kByte at %p\n", n3, n2, n1, stride, (void*)this, _mem*.001, (void*)_data);
       std::fill(_data, _data + n3*n2*n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
 
-  ~view4D() { 
+  ~view4D() {
       if (_data && (_mem > 0)) {
+          data_view_debug_printf("# ~view4D(%li,%li,%li,%li) at %p tries to free %.3f kByte at %p\n", _n3, _n2, _n1, _n0, (void*)this, _mem*.001, (void*)_data);
           delete[] _data;
-          data_view_debug_printf("# ~view4D() destructor tries to free %g kByte\n", _mem*.001);
       }
   } // destructor
 
-  view4D(view4D<T> && rhs) { 
+  view4D(view4D<T> && rhs) {
       data_view_debug_printf("# view4D(view4D<T> && rhs);\n");
       *this = std::move(rhs);
   } // move constructor

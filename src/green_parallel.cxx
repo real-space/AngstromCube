@@ -35,7 +35,7 @@ namespace green_parallel {
         std::vector<int64_t> const & requests
       , std::vector<int64_t> const & offerings // do we need this at all? the offerings should match owner_rank[]==me anyway
       , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
-      , uint32_t const nb[3] // global bounding box or {natoms,0,0}
+      , uint32_t const nb[3] // global bounding box{nb[X],nb[Y],nb[Z]} or {natoms,0,0}
       , int const echo // =0 // log-level
       , char const *const what // ="?"
     ) {
@@ -52,9 +52,8 @@ namespace green_parallel {
         auto const nall = grid ? grid : nb[X] + nb[Y] + nb[Z];
         auto const nown = offerings.size(); // number of offerings
         auto const nreq = requests.size(); // number of requests
-        if (echo > 7) std::printf("# rank#%i \tRequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
-                                          me,         nb[X],nb[Y],nb[Z], nall,              nown,           nreq);
-
+        if (echo > 7) { std::printf("# rank#%i \tRequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
+                                                      me, nb[X],nb[Y],nb[Z], nall, nown, nreq); std::fflush(stdout); }
 
         // create a debug aid: nloc_rank
         std::vector<uint32_t> nloc_rank(nprocs, 0); // init all entries as zero
@@ -78,7 +77,7 @@ namespace green_parallel {
             size_t iall = global_id;
             if (grid) {
                 uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
-                for (int d{0}; d < 3; ++d) { assert(xyz[d] < nb[d] && "requested coordinates exceed box"); }
+                for (int d{0}; d < 3; ++d) { assert(xyz[d] < nb[d] && "requested coordinates exceed grid box"); }
                 iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
             } // grid
             assert(iall < nall);
@@ -91,15 +90,15 @@ namespace green_parallel {
         } // iown
 
         if (debug) {
-            if (echo > 7) { std::printf("# rank#%i local_check before ", me); printf_vector(" %i", local_check); }
+            if (echo > 7) { std::printf("# rank#%i local_check before ", me); printf_vector("%i", local_check); }
             for (size_t iall = 0; iall < nall; ++iall) {
                 assert(local_check[iall] <= 1 && "duplicates found");
             } // iall
 
             auto const stat = mpi_parallel::sum(local_check.data(), nall, comm);
-            if (stat) warn("MPI_Allreduce(local_check) failed with status= %d", int(stat));
+            if (stat) warn("MPI_Allreduce(local_check) failed with status= %i", int(stat));
 
-            if (echo > 7) { std::printf("# rank#%i local_check after  ", me); printf_vector(" %i", local_check); }
+            if (echo > 7) { std::printf("# rank#%i local_check after  ", me); printf_vector("%i", local_check); }
             for (size_t iall = 0; iall < nall; ++iall) {
                 assert(1 == local_check[iall] && "not all covered");
             } // iall
@@ -107,7 +106,7 @@ namespace green_parallel {
 
             std::vector<rank_int_t> owner_check(nall, 0);
             mpi_parallel::allreduce(owner_check.data(), MPI_MAX, comm, nall, owner_rank);
-            if (stat) warn("MPI_Allmax(owner_rank) failed with status= %d", int(stat));
+            if (stat) warn("MPI_Allmax(owner_rank) failed with status= %i", int(stat));
             for (size_t iall = 0; iall < nall; ++iall) {
                 if (owner_check[iall] != owner_rank[iall]) {
                     error("rank#%i owner_rank[%li] differs: MPI-maximum is %d but expected %d",
@@ -127,7 +126,7 @@ namespace green_parallel {
 
         // get a global list of which local index is where
         auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_index.data(), nall, MPI_UINT16_T, MPI_MAX, comm);
-        if (stat) warn("MPI_Allreduce(local_index) failed with status= %d", int(stat));
+        if (stat) warn("MPI_Allreduce(local_index) failed with status= %i", int(stat));
         // if this is too expensive see ALTERNATIVE
         //
         // ALTERNATIVE:
@@ -208,11 +207,98 @@ namespace green_parallel {
             }
         } // not_found
 
-        if (echo > 6) std::printf("# rank#%i \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
-                                          me, stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3);
+        if (echo > 6) { std::printf("# rank#%i \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
+                                          me, stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3); std::fflush(stdout); }
         mpi_parallel::sum(stats, 3, comm);
-        if (echo > 5) std::printf( "# total  \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
-                                              stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3);
+        if (echo > 5) { std::printf( "# total  \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
+                                              stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3); std::fflush(stdout); }
+
+        // prepare 2-sided communication members
+
+        if (echo > 5) { std::printf( "# prepare two-sided communication pattern\n"); std::fflush(stdout); }
+        mpi_parallel::barrier(comm);        
+
+        std::vector<uint32_t> n_packages_to_recv; // number of packages to recv
+        std::vector<int32_t> recv_packages_from_ranks; // ranks to receive data from
+        std::vector<std::vector<uint32_t>> recv_package_index; 
+
+
+        std::vector<uint32_t> n_packages_from_rank(nprocs, 0);
+        for (size_t ireq{0}; ireq < nreq; ++ireq) {
+            if (index.at(ireq) > -1) {
+                auto const rank = owner.at(ireq);
+                if (me != rank) {
+                    ++n_packages_from_rank.at(rank);
+                }
+            }
+        } // ireq
+
+        std::vector<int32_t> rank_index(nprocs, -1);
+        recv_packages_from_ranks.resize(0);
+        uint32_t ri{0};
+        for (int rank{0}; rank < nprocs; ++rank) {
+            auto const n_packages = n_packages_from_rank.at(rank);
+            if (n_packages > 0) {
+                n_packages_to_recv.push_back(n_packages);
+                recv_packages_from_ranks.push_back(rank);
+                assert(-1 == rank_index.at(rank));
+                rank_index.at(rank) = ri;
+                ++ri;
+            }
+        } // rank
+        auto const npartners = ri;
+        assert(npartners == recv_packages_from_ranks.size());
+        assert(npartners == n_packages_to_recv.size());
+
+        recv_package_index.resize(npartners);
+        for (int ri{0}; ri < npartners; ++ri) {
+            recv_package_index.at(ri).resize(0);
+        } // ri
+
+        for (size_t ireq{0}; ireq < nreq; ++ireq) {
+            auto const global_id = requests.at(ireq);
+            auto const iloc = index.at(ireq);
+            if (iloc > -1) {
+                auto const rank = owner.at(ireq);
+                if (me != rank) {
+                    auto const ri = rank_index.at(rank);
+                    assert(0 <= ri); assert(ri < npartners);
+                    recv_package_index.at(ri).push_back(iloc);
+                }
+            }
+        } // ireq
+
+        if (echo > 3) { std::printf( "# rank#%i receives from %d other ranks in 2-sided MPI communication\n", me, npartners); }
+        if (echo > 7) { std::printf( "# rank#%i receives from these %d ranks: ", me, npartners); printf_vector(" %i", recv_packages_from_ranks); }
+        for (int ri{0}; ri < npartners; ++ri) {
+            if (echo > 3) { std::printf( "# rank#%i receives these %d local elements from rank#%i : ", me, n_packages_to_recv.at(ri),
+                recv_packages_from_ranks.at(ri)); printf_vector(" %i", recv_package_index.at(ri)); std::fflush(stdout); }
+            // consistency check
+            assert(recv_package_index.at(ri).size() == n_packages_to_recv.at(ri));
+        } // ri
+
+        mpi_parallel::barrier(comm);
+        // now set up the sender side
+
+    //   std::vector<uint32_t> n_packages_to_send; // number of packages to send
+    //   std::vector<int32_t> send_packages_to_ranks; // ranks to send data to
+    //   std::vector<std::vector<uint32_t>> send_package_index; 
+
+        std::vector<uint32_t> n_packages_to_rank(nprocs, 0);
+#ifndef   HAS_NO_MPI
+        // int MPI_Alltoall(const void* buffer_send,
+        //          int count_send,
+        //          MPI_Datatype datatype_send,
+        //          void* buffer_recv,
+        //          int count_recv,
+        //          MPI_Datatype datatype_recv,
+        //          MPI_Comm communicator)
+        MPI_Alltoall(n_packages_from_rank.data(), nprocs, MPI_UINT32_T,
+                     n_packages_to_rank.data(),   nprocs, MPI_UINT32_T, comm);
+
+#endif // HAS_NO_MPI
+
+
     } // constructor implementation
 
 
@@ -263,7 +349,7 @@ namespace green_parallel {
 
             if (iloc >= 0) {
                 if (me == owner) {
-                    if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
+                    if (echo > 18) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
                     assert(iloc < nwin);
                     assert(ireq < nreq);
                     set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy one package
@@ -277,7 +363,7 @@ namespace green_parallel {
                                                     me, count*sizeof(real_t)*.001, owner, np, global_id); }
                     status += MPI_Get(&data_out[ireq*count], count, data_type, owner, iloc, count, data_type, window);
 #else  // HAS_NO_MPI
-                    error("Without MPI all atom matrices must reside in the same process, me=%i, owner=%i", me, owner);
+                    error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, owner);
 #endif // HAS_NO_MPI
                 } // me == owner
             } else {
@@ -294,14 +380,12 @@ namespace green_parallel {
         status += MPI_Win_fence(assertions, window);
         status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
-
         if (echo > 6) std::printf("# rank#%i \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
                                             me, stats[0]*.001, stats[1]*.001, stats[2]*.001);
         assert(stats[0] + stats[1] + stats[2] == nreq);
         mpi_parallel::sum(stats, 3, comm);
         if (echo > 5) std::printf("# total  \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
                                                 stats[0]*.001, stats[1]*.001, stats[2]*.001);
-
         return status;
     } // exchange
 
@@ -312,8 +396,8 @@ namespace green_parallel {
     status_t exchange(float* , float  const*, RequestList_t const &, uint32_t, int, char const*);
 
     status_t potential_exchange(
-            double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nreq][64]
-        , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2][64]
+          double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco*Noco][nreq][64]
+        , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco*Noco][64]
         , RequestList_t const & requests
         , int const Noco // =1, 1:no spin, 2: (non-collinear) spin
         , int const echo // =0, log-level
@@ -328,14 +412,14 @@ namespace green_parallel {
         assert(Vinp && "may not be called with a nullptr for input");
 
         auto const nreq = requests.size();
-        view3D<double> Vout(nreq,Noco*Noco,64, 0.0); // get temporary CPU memory in [Noco^2][64] layout
+        view3D<double> Vout(nreq,Noco*Noco,64, 0.0); // get temporary CPU memory in [nreq][Noco*Noco][64] layout
 
-        auto const status = exchange(Vout(0,0), Vinp[0], requests, Noco*Noco*64, echo, "potential");
+        auto const status = exchange(Vout.data(), Vinp[0], requests, Noco*Noco*64, echo, "potential");
 
         // convert Vout into special data layout of Veff (GPU memory) 
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
             for (int spin = 0; spin < Noco*Noco; ++spin) {
-                set(Veff[spin][ireq], 64, Vout(ireq,spin));
+                set(Veff[spin][ireq], 64, Vout(ireq,spin)); // copy blocks of 4*4*4 grid points
             } // spin
         } // ireq
 
@@ -366,46 +450,56 @@ namespace green_parallel {
     status_t test_exchanges(int echo=0, int const nSHO=20) {
         status_t stat(0);
         uint32_t const nb[] = {2, 2, 2}; // grid box is 2x2x2 or 8 atoms
-        std::vector<int64_t> requests = {0,7,6,1,5,2,4,3}; // every process requests all of these ids
+        std::vector<int64_t> requests = {0,7,6,1,5,2,4,3}; // every process requests all 8 of these ids
 
         auto const nrows = requests.size();
-        int const me = mpi_parallel::rank(),
-                  np = mpi_parallel::size(); assert(np > 0);
+        auto const comm = mpi_parallel::comm();
+        auto const nprocs = mpi_parallel::size(comm);       assert(nprocs > 0);
+        auto const me = mpi_parallel::rank(comm, nprocs);
 
         std::vector<int64_t> offerings(0);
-        uint32_t const nall[] = {nb[2]*nb[1]*nb[0], 0, 0};
-        std::vector<uint16_t> owner_rank(nall[0], 0);
-        for(int id{0}; id < nall[0]; ++id) {
-            int const rank = id % np; // block-cyclic distribution
+        uint32_t const nall = nb[2]*nb[1]*nb[0];
+        std::vector<uint16_t> owner_rank(nall, 0);
+        for(int id{0}; id < nall; ++id) {
+            int const rank = id % nprocs; // block-cyclic distribution
             owner_rank[id] = rank;
             if (me == rank) offerings.push_back(id);
         } // id
+        uint32_t const na[] = {nall, 0, 0};
+        RequestList_t rlV(requests, offerings, owner_rank.data(), nb, echo, "test_V");
+        RequestList_t rlD(requests, offerings, owner_rank.data(), na, echo, "test_D");
+
+        view3D<double> pot_out_memory(2*2,nrows,64, 0.0);
+        double (*pot_out[2*2])[64];
+        for (int spin{0}; spin < 2*2; ++spin) {
+            pot_out[spin] = (double(*)[64]) pot_out_memory(spin,0); // prepare for the Noco=2 test case
+        } // spin
+
         int const ncols = offerings.size();
-        RequestList_t rlV(requests, offerings, owner_rank.data(), nb,   echo, "test_V");
-        RequestList_t rlD(requests, offerings, owner_rank.data(), nall, echo, "test_D");
-
-        double (*pot_out[2*2])[64]; view3D<double> ptr(4,nrows,64);
-        for (int spin = 0; spin < 2*2; ++spin) { pot_out[spin] = (double(*)[64]) ptr(spin,0); }
-
         int nerr{0};
         for (int Noco = 1; Noco <= 2; ++Noco) {
+            mpi_parallel::barrier(comm);
             {
-                auto const pot_inp = new double[nrows*Noco*Noco][64];
-                for (int col = 0; col < ncols; ++col) pot_inp[col*Noco*Noco][0] = 0.5 + me; // ear-mark with owner rank
+                auto const pot_inp = new double[ncols*Noco*Noco][64];
+                for (int col{0}; col < ncols; ++col) { pot_inp[col*Noco*Noco][0] = 0.5 + me; } // ear-mark with owner rank
                 stat += green_parallel::potential_exchange(pot_out, pot_inp, rlV, Noco, echo);
-                for (int row = 0; row < nrows; ++row) nerr += (pot_out[0][row][0] != (0.5 + owner_rank[requests[row]]));
-                if (echo > 0) std::printf("# potential_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr);
+                for (int row{0}; row < nrows; ++row) { nerr += (pot_out[0][row][0] != (0.5 + owner_rank[requests[row]])); }
+                if (echo > 0) { std::printf("# potential_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr); std::fflush(stdout); }
                 delete[] pot_inp;
             }
+            mpi_parallel::barrier(comm);
             {
+                char const *const what = (Noco > 1) ? "testMatNoco=2" : "testMatNoco=1";
                 int const count = Noco*Noco*2*nSHO*nSHO; // number of doubles per package
                 std::vector<double> mat_out(nrows*count), mat_inp(ncols*count);
-                for (int col = 0; col < ncols; ++col) mat_inp[col*count] = 0.5 + me; // ear-mark with owner rank
-                stat += green_parallel::exchange(mat_out.data(), mat_inp.data(), rlD, count, echo);
-                for (int row = 0; row < nrows; ++row) { nerr += (mat_out[row*count] != (0.5 + owner_rank[requests[row]])); }
-                if (echo > 0) std::printf("# rank#%i exchange Noco= %d status= %d errors= %d\n\n", me, Noco, int(stat), nerr);
+                for (int col{0}; col < ncols; ++col) { mat_inp[col*count] = 0.5 + me; } // ear-mark with owner rank
+                stat += green_parallel::exchange(mat_out.data(), mat_inp.data(), rlD, count, echo, what);
+                for (int row{0}; row < nrows; ++row) { nerr += (mat_out[row*count] != (0.5 + owner_rank[requests[row]])); }
+                if (echo > 0) { std::printf("# rank#%i exchange Noco= %d status= %d errors= %d\n\n", me, Noco, int(stat), nerr); std::fflush(stdout); }
             }
+            mpi_parallel::barrier(comm);
         } // Noco
+
         return stat;
     } // test_exchanges
 

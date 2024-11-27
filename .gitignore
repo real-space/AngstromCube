@@ -15,7 +15,7 @@ not/*
 release/*
 
 ### a build directory as used e.g. by CMake
-build/*
+*build*/*
 
 ### work in progress
 example/*
@@ -25,3 +25,7 @@ example/*
 
 ### any folder name that start from test*
 [tT][eE][sS][tT]*
+
+### hidden folders from jupyterlab
+.ipynb_checkpoints/*
+*/.ipynb_checkpoints/*
