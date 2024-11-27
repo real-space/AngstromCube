@@ -477,10 +477,10 @@ namespace parallel_poisson {
 
         if (echo > 8) {
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
-            for (auto const ow : requests_.owner) {
+            for (auto const ow : requests_.owners()) {
                 std::printf(" %i", ow);
             } // ow
-            std::printf(" }, %ld items\n", requests_.owner.size());
+            std::printf(" }, %ld items\n", requests_.owners().size());
         } // echo
 
     } // parallel_grid_t constructor

@@ -383,18 +383,19 @@ namespace green_parallel {
 
     } // constructor implementation
 
+
 #ifdef    HAS_ONESIDED_MPI
 
     template <typename real_t>
-    status_t exchange_onesided(
+    status_t RequestList_t::exchange_onesided(
           real_t       *const data_out // output data, data layout data_out[nrequests*count]
         , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
-        , RequestList_t const & requests
         , uint32_t const count // number of real_t per package
         , int const echo // =0, log-level
         , char const *what // =nullptr // quantity
-    ) {
+    ) const {
         what = what ? what : "?";
+        auto const & requests = *this;
         auto const comm = requests.comm();
         auto const nprocs = mpi_parallel::size(comm); // number of processes
         auto const me = mpi_parallel::rank(comm, nprocs);
@@ -469,7 +470,7 @@ namespace green_parallel {
         if (echo > 5) std::printf("# total  \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
                                                 stats[0]*.001, stats[1]*.001, stats[2]*.001);
         return status;
-    } // exchange_onesided
+    } // RequestList_t::exchange_onesided
 
 #endif // HAS_ONESIDED_MPI
 
@@ -498,7 +499,7 @@ namespace green_parallel {
 
 #ifdef    HAS_ONESIDED_MPI
         if (control::get("green_parallel.onesided", 0.) > 0) {
-            return exchange_onesided(data_out, data_inp, requests, count, echo, what);
+            return this->exchange_onesided(data_out, data_inp, count, echo, what);
         } // use one-sided MPI communication routines
 #endif // HAS_ONESIDED_MPI
 

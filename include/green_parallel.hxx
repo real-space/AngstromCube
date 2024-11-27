@@ -40,6 +40,17 @@ namespace green_parallel {
         , char const *what=nullptr // quantity
     ) const ; // declaration only
 
+#ifdef    HAS_ONESIDED_MPI
+    template <typename real_t=double>
+    status_t exchange_onesided(
+          real_t       *const data_out // output data, data layout data_out[nrequests*count]
+        , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
+        , uint32_t const count=1 // how many real_t per package
+        , int const echo=0 // log-level
+        , char const *what=nullptr // quantity
+    ) const ; // declaration only
+#endif // HAS_ONESIDED_MPI
+
     status_t potential_exchange(
           double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nrows][64]
         , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2 ][64]
@@ -49,14 +60,14 @@ namespace green_parallel {
 
     status_t self_test(int const echo=0) const ; // declaration only
 
-    public:
+    std::vector<int32_t> const & owners() const { return owner; }
+
+    private:
         // for 1-sided or 2-sided communication (could be private if we only used 2-sided)
         std::vector<int32_t> owner; // owner rank of the requested data item
         std::vector<int32_t> index; // local index in owning process
         std::vector<int64_t> requested_id; // original identifyer (for debug only)
         std::vector<int64_t> offered_id;   // original identifyer (for debug only)
-    private:
-
         uint32_t window_size = 0;
         MPI_Comm comm_;
         // for 2-sided communication only
