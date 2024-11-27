@@ -430,14 +430,15 @@ namespace green_parallel {
 
 
     template <typename real_t>
-    status_t exchange(
+    status_t RequestList_t::exchange(
           real_t       *const data_out // output data, data layout data_out[nrequests*count]
         , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
-        , RequestList_t const & requests
         , uint32_t const count // number of real_t per package
         , int const echo // =0, log-level
         , char const *what // =nullptr // quantity
-    ) {
+    ) const {
+        RequestList_t const & requests = *this;
+
         what = what ? what : "?";
         auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const nprocs = mpi_parallel::size(comm); // number of processes
@@ -516,9 +517,7 @@ namespace green_parallel {
                 } else { // me == owner
                     ++stats[1]; // remote
                     if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i element %i\n", me, global_id, owner, iloc);
-#ifdef    HAS_NO_MPI
-                    error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, owner);
-#endif // HAS_NO_MPI
+#ifndef   HAS_NO_MPI
                     assert(0 <= owner); assert(owner < nprocs);
                     auto const ri = rank_index.at(owner);
                     assert(ri >= 0 && "did not expect elements from this rank, error in RequestList_t constructor");
@@ -534,6 +533,9 @@ namespace green_parallel {
                                                     me, iloc, owner, nprocs, global_id);
                     } // not found
                     set(&data_out[ireq*count], count, &buffer[ibuf*count]); // copy one package from receive buffer
+#else  // HAS_NO_MPI
+                    error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, owner);
+#endif // HAS_NO_MPI
                 } // me == owner
             } else {
                 ++stats[2]; // clear
@@ -553,21 +555,20 @@ namespace green_parallel {
         if (echo > 5) std::printf("# total  \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
                                                 stats[0]*.001, stats[1]*.001, stats[2]*.001);
         return status;
-    } // exchange
+    } // RequestList_t::exchange
 
     template // explicit template instantiation for real_t=double
-    status_t exchange(double*, double const*, RequestList_t const &, uint32_t, int, char const*);
+    status_t RequestList_t::exchange(double*, double const*, uint32_t, int, char const*) const;
 
     template // explicit template instantiation for real_t=float
-    status_t exchange(float* , float  const*, RequestList_t const &, uint32_t, int, char const*);
+    status_t RequestList_t::exchange(float* , float  const*, uint32_t, int, char const*) const;
 
-    status_t potential_exchange(
+    status_t RequestList_t::potential_exchange(
           double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco*Noco][nreq][64]
         , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco*Noco][64]
-        , RequestList_t const & requests
         , int const Noco // =1, 1:no spin, 2: (non-collinear) spin
         , int const echo // =0, log-level
-    ) {
+    ) const {
         if (echo > 0) std::printf("# new MPI exchange of potential, MPI one-sided communication, Noco=%d\n", Noco);
         assert(1 == Noco || 2 == Noco);
 
@@ -577,10 +578,10 @@ namespace green_parallel {
         } // spin
         assert(Vinp && "may not be called with a nullptr for input");
 
-        auto const nreq = requests.size();
+        auto const nreq = this->size();
         view3D<double> Vout(nreq,Noco*Noco,64, 0.0); // get temporary CPU memory in [nreq][Noco*Noco][64] layout
 
-        auto const status = exchange(Vout.data(), Vinp[0], requests, Noco*Noco*64, echo, "potential");
+        auto const status = this->exchange(Vout.data(), Vinp[0], Noco*Noco*64, echo, "potential");
 
         // convert Vout into special data layout of Veff (GPU memory) 
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
@@ -590,9 +591,29 @@ namespace green_parallel {
         } // ireq
 
         return status;
-    } // potential_exchange with RequestList_t
+    } // RequestList_t::potential_exchange 
 
 
+
+    // template <typename real_t> //=double>
+    // status_t RequestList_t::exchange(
+    //       real_t       *const data_out // output data, data layout data_out[nrequests*count]
+    //     , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
+    //     , uint32_t const count // =1 // how many real_t per package
+    //     , int const echo // =0 // log-level
+    //     , char const *what // =nullptr // quantity
+    // ) const {
+    //     return green_parallel::exchange(data_out, data_inp, *this, count, echo, what);
+    // } // RequestList_t::exchange
+
+    // status_t RequestList_t::potential_exchange(
+    //       double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nrows][64]
+    //     , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2 ][64]
+    //     , int const Noco // =1 // 1:no spin, 2: non-collinear spin
+    //     , int const echo // =0 // log-level
+    // ) const {
+    //     return green_parallel::potential_exchange(Veff, Vinp, *this, Noco, echo);
+    // } // RequestList_t::potential_exchange
 
 
 
@@ -648,7 +669,7 @@ namespace green_parallel {
             {
                 auto const pot_inp = new double[ncols*Noco*Noco][64];
                 for (int col{0}; col < ncols; ++col) { pot_inp[col*Noco*Noco][0] = 0.5 + me; } // ear-mark with owner rank
-                stat += green_parallel::potential_exchange(pot_out, pot_inp, rlV, Noco, echo);
+                stat += rlV.potential_exchange(pot_out, pot_inp, Noco, echo);
                 for (int row{0}; row < nrows; ++row) { nerr += (pot_out[0][row][0] != (0.5 + owner_rank[requests[row]])); }
                 if (echo > 0) { std::printf("# potential_exchange Noco= %d status= %d errors= %d\n\n", Noco, int(stat), nerr); std::fflush(stdout); }
                 delete[] pot_inp;
@@ -659,7 +680,7 @@ namespace green_parallel {
                 int const count = Noco*Noco*2*nSHO*nSHO; // number of doubles per package
                 std::vector<double> mat_out(nrows*count), mat_inp(ncols*count);
                 for (int col{0}; col < ncols; ++col) { mat_inp[col*count] = 0.5 + me; } // ear-mark with owner rank
-                stat += green_parallel::exchange(mat_out.data(), mat_inp.data(), rlD, count, echo, what);
+                stat += rlD.exchange(mat_out.data(), mat_inp.data(), count, echo, what);
                 for (int row{0}; row < nrows; ++row) { nerr += (mat_out[row*count] != (0.5 + owner_rank[requests[row]])); }
                 if (echo > 0) { std::printf("# rank#%i exchange Noco= %d status= %d errors= %d\n\n", me, Noco, int(stat), nerr); std::fflush(stdout); }
             }

@@ -500,7 +500,7 @@ namespace parallel_poisson {
         , char const *const what="??"
     ) {
         auto const n_local = pg.n_local();
-        auto const stat = green_parallel::exchange(v + count*n_local, v, pg.requests(), count, echo, what); // ToDo: insert communicator
+        auto const stat = pg.requests().exchange(v + count*n_local, v, count, echo, what);
         return stat;
     } // data_exchange
 

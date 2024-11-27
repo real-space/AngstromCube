@@ -170,7 +170,7 @@ namespace green_function {
 
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
-            green_parallel::potential_exchange(p.Veff, Vinp, p.potential_requests, Noco, echo);
+            p.potential_requests.potential_exchange(p.Veff, Vinp, Noco, echo);
         } else {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         } // needs exchange
@@ -201,7 +201,7 @@ namespace green_function {
                 assert(nc2 <= count);
                 set(input[iam], nc2, am.data()); // copy
             } // iam
-            green_parallel::exchange(p.dyadic_plan.AtomMatrices_.data(), input.data(), p.matrices_requests, count, echo, "atom_mat");
+            p.matrices_requests.exchange(p.dyadic_plan.AtomMatrices_.data(), input.data(), count, echo, "atom_mat");
             // now atom matrices are stored in p.dyadic_plan.AtomMatrices_, call update_energy_parameter to transfer them into GPU memory
         } else {
             warn("# +green_function.matrices.exchange=%d --> skip", mat_exchange);
