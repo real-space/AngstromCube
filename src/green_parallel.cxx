@@ -331,6 +331,7 @@ namespace green_parallel {
 
     } // constructor implementation
 
+#ifdef    HAS_ONESIDED_MPI
 
     template <typename real_t>
     status_t exchange_onesided(
@@ -418,7 +419,7 @@ namespace green_parallel {
         return status;
     } // exchange_onesided
 
-
+#endif // HAS_ONESIDED_MPI
 
 
     template <typename real_t>
@@ -444,9 +445,11 @@ namespace green_parallel {
         if (nullptr == data_out) assert(0 == nreq && "may not be called with a nullptr for output");
         if (nullptr == data_inp) assert(0 == nwin && "may not be called with a nullptr for input");
 
+#ifdef    HAS_ONESIDED_MPI
         if (control::get("green_parallel.onesided", 0.) > 0) {
             return exchange_onesided(data_out, data_inp, requests, count, echo, what);
         } // use one-sided MPI communication routines
+#endif // HAS_ONESIDED_MPI
 
         status_t status(0);
 
