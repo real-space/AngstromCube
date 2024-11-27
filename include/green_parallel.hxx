@@ -81,6 +81,8 @@ namespace green_parallel {
         std::vector<std::vector<uint32_t>> send_package_index;
         std::vector<int32_t> recv_packages_from_ranks; // ranks to recveive data from
         std::vector<std::vector<uint32_t>> recv_package_index;
+        std::vector<rank_int_t> ri_index; // if the request is remote, in which recv-buffer is it?
+        std::vector<uint32_t> ibuf_index; // if the request is remote, where in the recv-buffer is it?
 #ifdef    HAS_ONESIDED_MPI
         bool use1sided_ = false;
 #endif // HAS_ONESIDED_MPI
