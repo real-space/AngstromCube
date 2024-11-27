@@ -11,6 +11,7 @@
 namespace green_parallel {
 
     typedef load_balancer::rank_int_t rank_int_t;
+    auto constexpr no_owner = load_balancer::no_owner;
 
     class RequestList_t {
     public:
@@ -71,7 +72,7 @@ namespace green_parallel {
     private:
         // for 1-sided or 2-sided communication (could be private if we only used 2-sided)
         std::vector<int32_t> owner; // owner rank of the requested data item
-        std::vector<int32_t> index; // local index in owning process
+        std::vector<int32_t> local_indices; // local index in owning process
         std::vector<int64_t> requested_id; // original identifyer (for debug only)
         std::vector<int64_t> offered_id;   // original identifyer (for debug only)
         uint32_t window_size = 0;
