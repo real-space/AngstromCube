@@ -62,6 +62,12 @@ namespace green_parallel {
 
     std::vector<int32_t> const & owners() const { return owner; }
 
+#ifdef    HAS_ONESIDED_MPI
+    bool get_use1sided() const { return use1sided_; }
+#else  // HAS_ONESIDED_MPI
+    bool constexpr get_use1sided() const { return false; }
+#endif // HAS_ONESIDED_MPI
+
     private:
         // for 1-sided or 2-sided communication (could be private if we only used 2-sided)
         std::vector<int32_t> owner; // owner rank of the requested data item
@@ -75,6 +81,9 @@ namespace green_parallel {
         std::vector<std::vector<uint32_t>> send_package_index;
         std::vector<int32_t> recv_packages_from_ranks; // ranks to recveive data from
         std::vector<std::vector<uint32_t>> recv_package_index;
+#ifdef    HAS_ONESIDED_MPI
+        bool use1sided_ = false;
+#endif // HAS_ONESIDED_MPI
     }; // class RequestList_t
 
     status_t all_tests(int const echo=0); // declaration only

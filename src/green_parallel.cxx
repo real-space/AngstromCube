@@ -43,9 +43,9 @@ namespace green_parallel {
       , int const echo // =0 // log-level
       , char const *const what // ="?"
     ) {
+        comm_ = comm; // copy the MPI communicator used in this context
         auto const nprocs = mpi_parallel::size(comm);
         auto const me     = mpi_parallel::rank(comm, nprocs);
-        comm_ = comm; // copy the MPI communicator used here
 
         if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=%s\n",
                         me, __FILE__, __LINE__, nb[0], nb[1], nb[2], what); std::fflush(stdout); }
@@ -58,6 +58,12 @@ namespace green_parallel {
         auto const nreq = requests.size(); // number of requests
         if (echo > 7) { std::printf("# rank#%i \tRequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
                                                       me, nb[X],nb[Y],nb[Z], nall, nown, nreq); std::fflush(stdout); }
+
+#ifdef    HAS_ONESIDED_MPI
+        // use one-sided MPI communication routines or not?
+        use1sided_ = (control::get("green_parallel.onesided", 0.) > 0);
+#endif // HAS_ONESIDED_MPI
+        if (echo > 7) { std::printf("# use %s-sided MPI communication\n", get_use1sided() ? "one" : "two"); std::fflush(stdout); }
 
         // create a debug aid: nloc_rank
         std::vector<uint32_t> nloc_rank(nprocs, 0); // init all entries as zero
@@ -137,6 +143,7 @@ namespace green_parallel {
         //
         // ALTERNATIVE:
         // use MPI_Send and MPI_Recv to distribute the necessary info about local_index 
+        // see below
         //
 
 #endif // HAS_NO_MPI
@@ -498,7 +505,7 @@ namespace green_parallel {
         if (nullptr == data_inp) assert(0 == nwin && "may not be called with a nullptr for input");
 
 #ifdef    HAS_ONESIDED_MPI
-        if (control::get("green_parallel.onesided", 0.) > 0) {
+        if (get_use1sided()) {
             return this->exchange_onesided(data_out, data_inp, count, echo, what);
         } // use one-sided MPI communication routines
 #endif // HAS_ONESIDED_MPI
