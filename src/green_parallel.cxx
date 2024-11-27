@@ -15,6 +15,10 @@
 #include "data_view.hxx" // view3D
 #include "control.hxx" // ::get
 
+#define DEBUG
+
+#include "debug_output.hxx" // here
+
 namespace green_parallel {
 
     inline char const * spin_name(int const Noco, int const spin) {
@@ -219,9 +223,6 @@ namespace green_parallel {
         mpi_parallel::barrier(comm);        
 
         std::vector<uint32_t> n_packages_to_recv; // number of packages to recv
-        std::vector<int32_t> recv_packages_from_ranks; // ranks to receive data from
-        std::vector<std::vector<uint32_t>> recv_package_index; 
-
 
         std::vector<uint32_t> n_packages_from_rank(nprocs, 0);
         for (size_t ireq{0}; ireq < nreq; ++ireq) {
@@ -233,7 +234,7 @@ namespace green_parallel {
             }
         } // ireq
 
-        std::vector<int32_t> rank_index(nprocs, -1);
+        std::vector<int32_t> rank_index(nprocs, -1); // translation
         recv_packages_from_ranks.resize(0);
         uint32_t ri{0};
         for (int rank{0}; rank < nprocs; ++rank) {
@@ -246,31 +247,30 @@ namespace green_parallel {
                 ++ri;
             }
         } // rank
-        auto const npartners = ri;
-        assert(npartners == recv_packages_from_ranks.size());
-        assert(npartners == n_packages_to_recv.size());
+        auto const n_recv_partners = ri;
+        assert(n_recv_partners == recv_packages_from_ranks.size());
+        assert(n_recv_partners == n_packages_to_recv.size());
 
-        recv_package_index.resize(npartners);
-        for (int ri{0}; ri < npartners; ++ri) {
+        recv_package_index.resize(n_recv_partners);
+        for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
             recv_package_index.at(ri).resize(0);
         } // ri
 
         for (size_t ireq{0}; ireq < nreq; ++ireq) {
-            auto const global_id = requests.at(ireq);
             auto const iloc = index.at(ireq);
             if (iloc > -1) {
                 auto const rank = owner.at(ireq);
                 if (me != rank) {
                     auto const ri = rank_index.at(rank);
-                    assert(0 <= ri); assert(ri < npartners);
+                    assert(0 <= ri); assert(ri < n_recv_partners);
                     recv_package_index.at(ri).push_back(iloc);
                 }
             }
         } // ireq
 
-        if (echo > 3) { std::printf( "# rank#%i receives from %d other ranks in 2-sided MPI communication\n", me, npartners); }
-        if (echo > 7) { std::printf( "# rank#%i receives from these %d ranks: ", me, npartners); printf_vector(" %i", recv_packages_from_ranks); }
-        for (int ri{0}; ri < npartners; ++ri) {
+        if (echo > 3) { std::printf( "# rank#%i receives from %d other ranks in 2-sided MPI communication\n", me, n_recv_partners); }
+        if (echo > 7) { std::printf( "# rank#%i receives from these %d ranks: ", me, n_recv_partners); printf_vector(" %i", recv_packages_from_ranks); }
+        for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
             if (echo > 3) { std::printf( "# rank#%i receives these %d local elements from rank#%i : ", me, n_packages_to_recv.at(ri),
                 recv_packages_from_ranks.at(ri)); printf_vector(" %i", recv_package_index.at(ri)); std::fflush(stdout); }
             // consistency check
@@ -279,10 +279,6 @@ namespace green_parallel {
 
         mpi_parallel::barrier(comm);
         // now set up the sender side
-
-    //   std::vector<uint32_t> n_packages_to_send; // number of packages to send
-    //   std::vector<int32_t> send_packages_to_ranks; // ranks to send data to
-    //   std::vector<std::vector<uint32_t>> send_package_index; 
 
         std::vector<uint32_t> n_packages_to_rank(nprocs, 0);
 #ifndef   HAS_NO_MPI
@@ -293,17 +289,59 @@ namespace green_parallel {
         //          int count_recv,
         //          MPI_Datatype datatype_recv,
         //          MPI_Comm communicator)
-        MPI_Alltoall(n_packages_from_rank.data(), nprocs, MPI_UINT32_T,
-                     n_packages_to_rank.data(),   nprocs, MPI_UINT32_T, comm);
-
+        MPI_Alltoall(n_packages_from_rank.data(), 1, MPI_UINT32_T,
+                     n_packages_to_rank.data(),   1, MPI_UINT32_T, comm);
 #endif // HAS_NO_MPI
 
+        std::vector<uint32_t> n_packages_to_send(0);
+        send_packages_to_ranks.resize(0);
+
+        for (int rank{0}; rank < nprocs; ++rank) {
+            auto const n_packages = n_packages_to_rank.at(rank);
+            if (n_packages > 0) {
+                n_packages_to_send.push_back(n_packages);
+                send_packages_to_ranks.push_back(rank);
+            }
+        } // rank
+        uint32_t const n_send_partners = send_packages_to_ranks.size();
+
+        send_package_index.resize(n_send_partners);
+        for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
+            auto const n_packages = n_packages_to_send.at(rj);
+            send_package_index.at(rj).resize(n_packages);
+        } // rj
+
+        // now send the request indices to the sender ranks
+#ifndef   HAS_NO_MPI
+        { // scope: exchange indices
+            int const tag = __LINE__;
+            auto const nr = n_recv_partners + n_send_partners;
+            std::vector<MPI_Request> mpi_req(nr);
+
+            for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
+                auto const rank = recv_packages_from_ranks.at(ri);
+                // int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+                MPI_Isend(recv_package_index.at(ri).data(), recv_package_index.at(ri).size(), MPI_UINT32_T, rank, tag, comm, &mpi_req.at(ri));
+            } // ri
+
+            for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
+                auto const rank = send_packages_to_ranks.at(rj);
+                // int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
+                MPI_Irecv(send_package_index.at(rj).data(), send_package_index.at(rj).size(), MPI_UINT32_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
+            } // rj
+
+            // int MPI_Waitall(int count, MPI_Request array_of_requests[], MPI_Status array_of_statuses[])
+            MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
+        } // scope
+#endif // HAS_NO_MPI
+
+        mpi_parallel::barrier(comm);
 
     } // constructor implementation
 
 
     template <typename real_t>
-    status_t exchange(
+    status_t exchange_onesided(
           real_t       *const data_out // output data, data layout data_out[nrequests*count]
         , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
         , RequestList_t const & requests
@@ -313,7 +351,8 @@ namespace green_parallel {
     ) {
         what = what ? what : "?";
         auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
-        auto const me = mpi_parallel::rank(comm);
+        auto const nprocs = mpi_parallel::size(comm); // number of processes
+        auto const me = mpi_parallel::rank(comm, nprocs);
 
         // The number of local atoms is limited to 2^16 == 65536
         if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
@@ -326,17 +365,15 @@ namespace green_parallel {
         status_t status(0);
 
 #ifndef   HAS_NO_MPI
-
-        auto const np = mpi_parallel::size(comm); // number of processes
         // set up a memory window to read from
         MPI_Win window;
         uint const disp_unit = count*sizeof(real_t); // in Bytes
         size_t const win_size = nwin*disp_unit; // in Bytes
-        status += MPI_Win_create((void*)data_inp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
-        auto const data_type = (8 == sizeof(real_t)) ? MPI_DOUBLE : MPI_FLOAT;
-
-        // synchronize processes
         int const assertions = MPI_MODE_NOPUT; // use bitwise or, e.g. MPI_MODE_NOSTORE | MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE | MPI_MODE_NOSUCCEED;
+        auto const data_type = mpi_parallel::get(real_t(0));
+
+        status += MPI_Win_create((void*)data_inp, win_size, disp_unit, MPI_INFO_NULL, comm, &window);
+        // synchronize processes
         status += MPI_Win_fence(assertions, window);
 
 #endif // HAS_NO_MPI
@@ -359,8 +396,8 @@ namespace green_parallel {
 #ifndef   HAS_NO_MPI
                     if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i element %i\n", me, global_id, owner, iloc);
                     assert(owner >= 0);
-                    if (owner >= np) { error("rank#%i tries to MPI_Get %.3f kByte from rank#%i but only %d processes running, global_id=%li",
-                                                    me, count*sizeof(real_t)*.001, owner, np, global_id); }
+                    if (owner >= nprocs) { error("rank#%i tries to MPI_Get %.3f kByte from rank#%i but only %d processes running, global_id=%li",
+                                                    me, count*sizeof(real_t)*.001, owner, nprocs, global_id); }
                     status += MPI_Get(&data_out[ireq*count], count, data_type, owner, iloc, count, data_type, window);
 #else  // HAS_NO_MPI
                     error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, owner);
@@ -380,6 +417,135 @@ namespace green_parallel {
         status += MPI_Win_fence(assertions, window);
         status += MPI_Win_free(&window);
 #endif // HAS_NO_MPI
+        if (echo > 6) std::printf("# rank#%i \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
+                                            me, stats[0]*.001, stats[1]*.001, stats[2]*.001);
+        assert(stats[0] + stats[1] + stats[2] == nreq);
+        mpi_parallel::sum(stats, 3, comm);
+        if (echo > 5) std::printf("# total  \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
+                                                stats[0]*.001, stats[1]*.001, stats[2]*.001);
+        return status;
+    } // exchange_onesided
+
+
+
+
+    template <typename real_t>
+    status_t exchange(
+          real_t       *const data_out // output data, data layout data_out[nrequests*count]
+        , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
+        , RequestList_t const & requests
+        , uint32_t const count // number of real_t per package
+        , int const echo // =0, log-level
+        , char const *what // =nullptr // quantity
+    ) {
+        what = what ? what : "?";
+        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
+        auto const nprocs = mpi_parallel::size(comm); // number of processes
+        auto const me = mpi_parallel::rank(comm, nprocs);
+
+        // The number of local atoms is limited to 2^16 == 65536
+        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
+                                                                                  count, count*sizeof(real_t)*.001, what);
+        auto const nreq = requests.size(); // number of requests
+        auto const nwin = requests.window(); // number of offerings
+        if (nullptr == data_out) assert(0 == nreq && "may not be called with a nullptr for output");
+        if (nullptr == data_inp) assert(0 == nwin && "may not be called with a nullptr for input");
+
+        if (control::get("green_parallel.onesided", 0.) > 0) {
+            return exchange_onesided(data_out, data_inp, requests, count, echo, what);
+        } // use one-sided MPI communication routines
+
+        status_t status(0);
+
+#ifndef   HAS_NO_MPI
+        auto const data_type = mpi_parallel::get(real_t(0));
+
+        auto const ns = requests.send_packages_to_ranks.size();
+        auto const nr = requests.recv_packages_from_ranks.size();
+        std::vector<MPI_Request> mpi_req(ns + nr);
+
+        int const tag = sizeof(real_t);
+
+        std::vector<std::vector<real_t>> send_buff(ns);
+        for (uint32_t rj{0}; rj < ns; ++rj) {
+            auto & buffer = send_buff.at(rj);
+            auto const n_packages = requests.send_package_index.at(rj).size();
+            buffer.resize(n_packages*count, real_t(0));
+            for (uint32_t ip{0}; ip < n_packages; ++ip) {
+                auto const iloc = requests.send_package_index.at(rj).at(ip);
+                set(&buffer[ip*count], count, &data_inp[iloc*count]);
+            } // ip
+            auto const rank = requests.send_packages_to_ranks.at(rj);
+            // int MPI_Isend(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, MPI_Request *request)
+            MPI_Isend(buffer.data(), buffer.size(), data_type, rank, tag, comm, &mpi_req.at(rj));
+        } // rj
+
+        std::vector<int32_t> rank_index(nprocs, -1);
+
+        std::vector<std::vector<real_t>> recv_buff(nr);
+        for (uint32_t ri{0}; ri < nr; ++ri) {
+            auto & buffer = recv_buff.at(ri);
+            auto const n_packages = requests.recv_package_index.at(ri).size();
+            buffer.resize(n_packages*count, real_t(0));
+            auto const rank = requests.recv_packages_from_ranks.at(ri);
+            // int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
+            MPI_Irecv(buffer.data(), buffer.size(), data_type, rank, tag, comm, &mpi_req.at(ns + ri));
+            rank_index.at(rank) = ri;
+        } // ri
+
+        // wait for all messages to be sent and to have arrived
+        MPI_Waitall(mpi_req.size(), mpi_req.data(), MPI_STATUSES_IGNORE);
+
+        send_buff.resize(0); // release memory of senders
+
+#endif // HAS_NO_MPI
+
+        size_t stats[] = {0, 0, 0}; // get element from {0:local, 1:remote, 2:clear}
+        for (size_t ireq = 0; ireq < nreq; ++ireq) {
+            auto const global_id = requests.requested_id[ireq];
+            auto const owner     = requests.owner[ireq];
+            auto const iloc      = requests.index[ireq];
+
+            if (iloc >= 0) {
+                if (me == owner) {
+                    if (echo > 18) std::printf("# exchange: rank#%i get data of item#%lli  copy local element %i\n", me, global_id, iloc);
+                    assert(iloc < nwin);
+                    assert(ireq < nreq);
+                    set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy one package locally
+                    ++stats[0]; // local
+                } else { // me == owner
+                    ++stats[1]; // remote
+                    if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i element %i\n", me, global_id, owner, iloc);
+#ifdef    HAS_NO_MPI
+                    error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, owner);
+#endif // HAS_NO_MPI
+                    assert(0 <= owner); assert(owner < nprocs);
+                    auto const ri = rank_index.at(owner);
+                    assert(ri >= 0 && "did not expect elements from this rank, error in RequestList_t constructor");
+                    auto const & buffer = recv_buff.at(ri);
+                    // now which package in the buffer belongs to iloc?
+                    int ibuf{-1};
+                    auto const n_packages = requests.recv_package_index.at(ri).size();
+                    for (uint32_t ip{0}; ip < n_packages; ++ip) {
+                        if (iloc == requests.recv_package_index.at(ri).at(ip)) { ibuf = ip; }
+                    } // ip
+                    if (-1 == ibuf) {
+                        error("rank#%i failed to find local index %i in buffer received from rank#%i of %d, global_id=%li",
+                                                    me, iloc, owner, nprocs, global_id);
+                    } // not found
+                    set(&data_out[ireq*count], count, &buffer[ibuf*count]); // copy one package from receive buffer
+                } // me == owner
+            } else {
+                ++stats[2]; // clear
+                assert(-1 == iloc);
+                assert(-1 == global_id);
+                set(&data_out[ireq*count], count, real_t(0)); // clear one package
+            }
+        } // ireq
+
+        // synchronize processes
+        mpi_parallel::barrier(comm);
+
         if (echo > 6) std::printf("# rank#%i \tcopied %.3f k, pulled %.3f k and cleared %.3f k elements\n",
                                             me, stats[0]*.001, stats[1]*.001, stats[2]*.001);
         assert(stats[0] + stats[1] + stats[2] == nreq);

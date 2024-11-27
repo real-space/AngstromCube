@@ -11,11 +11,11 @@
 #include "complex_tools.hxx" // conjugate
 #include "recorded_warnings.hxx" // error
 
-// #ifdef    DEBUGGPU
+#ifdef    DEBUGGPU
     #define data_view_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
-// #else  // DEBUGGPU
-//  #define data_view_debug_printf(...)
-// #endif // DEBUGGPU
+#else  // DEBUGGPU
+ #define data_view_debug_printf(...)
+#endif // DEBUGGPU
 
 #ifdef    DEVEL
   #ifndef   NO_UNIT_TESTS
