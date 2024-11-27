@@ -102,7 +102,8 @@ namespace mpi_parallel {
       static bool already{false};
       if (already) return 1; // has already been initialized
       already = true;
-      return MPI_Check(MPI_Init(&argc, &argv));
+      auto const stat = MPI_Check(MPI_Init(&argc, &argv));
+      return stat;
   } // init
 
   inline MPI_Comm comm() { return MPI_COMM_WORLD; }

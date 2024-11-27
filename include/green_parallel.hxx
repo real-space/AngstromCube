@@ -6,10 +6,11 @@
 #include "status.hxx" // status_t
 #include "simple_stats.hxx" // ::Stats<>
 #include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
+#include "load_balancer.hxx" // rank_int_t
 
 namespace green_parallel {
 
-    typedef uint16_t rank_int_t;
+    typedef load_balancer::rank_int_t rank_int_t;
 
     class RequestList_t {
     public:
@@ -28,6 +29,7 @@ namespace green_parallel {
     public:
         std::size_t size()   const { return owner.size(); }
         std::size_t window() const { return window_size; }
+        MPI_Comm comm() const { return comm_; }
 
     template <typename real_t=double>
     status_t exchange(
@@ -45,13 +47,18 @@ namespace green_parallel {
         , int const echo=0 // log-level
     ) const ; // declaration only
 
+    status_t self_test(int const echo=0) const ; // declaration only
+
     public:
         // for 1-sided or 2-sided communication (could be private if we only used 2-sided)
         std::vector<int32_t> owner; // owner rank of the requested data item
         std::vector<int32_t> index; // local index in owning process
         std::vector<int64_t> requested_id; // original identifyer (for debug only)
+        std::vector<int64_t> offered_id;   // original identifyer (for debug only)
     private:
+
         uint32_t window_size = 0;
+        MPI_Comm comm_;
         // for 2-sided communication only
         std::vector<int32_t> send_packages_to_ranks; // ranks to send data to
         std::vector<std::vector<uint32_t>> send_package_index;

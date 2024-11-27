@@ -91,7 +91,7 @@ namespace load_balancer {
         , double const w8sum_all=1. // denominator of all weights
         , int const echo=0 // verbosity
         , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
-        , uint16_t *const owner_rank=nullptr // export the rank of each task, [nall]
+        , rank_int_t *const owner_rank=nullptr // export the rank of each task, [nall]
     ) {
         // complexity is order(N^2) as each processes loops over all tasks in the first iteration
 
@@ -256,7 +256,7 @@ namespace load_balancer {
                 if (UNASSIGNED == state[iall]) {
                     assert(no_owner == owner_rank[iall]);
                     owner_rank[iall] = rank;
-                    assert(owner_rank[iall] == rank && "uint16_t too short for owner_ranks");
+                    assert(owner_rank[iall] == rank && "rank_int_t too short");
                 } // unassigned
             } // iall
             // Beware: only the owned entries of owner_rank have been modified, so

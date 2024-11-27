@@ -186,7 +186,11 @@ int show_version(char const *executable="#", int const echo=1) {
 int main(int const argc, char *argv[]) {
 
     mpi_parallel::init(argc, argv);
-    auto const me = mpi_parallel::rank();
+    auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
+    auto const nprocs = mpi_parallel::size(comm);
+    auto const me = mpi_parallel::rank(comm, nprocs);
+
+    if (0 == me && nprocs >= 65535) error("too many MPI processes will break, found nprocs= %d > 65535", nprocs);
 
     status_t stat(0);
     char const *test_unit = ""; // the name of the unit to be tested
