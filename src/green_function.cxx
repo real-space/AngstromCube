@@ -258,8 +258,9 @@ namespace green_function {
         std::vector<int64_t> global_source_indices; // result array
 
         auto const comm = mpi_parallel::comm();
-        int const true_comm_size = mpi_parallel::size(comm);
-        int const fake_comm = (true_comm_size > 1) ? 0 : control::get("mpi.fake.size", 0.);
+        auto const true_comm_size = mpi_parallel::size(comm);
+        auto const true_comm_rank = mpi_parallel::rank(comm, true_comm_size);
+        auto const fake_comm = (true_comm_size > 1) ? 0u : control::get("mpi.fake.size", 0.);
         auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
         owner_rank.resize(0);
         auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
@@ -267,7 +268,7 @@ namespace green_function {
 
             if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
             assert(nall > 0);
-            int const comm_rank = (fake_comm > 0) ? control::get("mpi.fake.rank", fake_comm - 1.) : mpi_parallel::rank(comm);
+            int const comm_rank = (fake_comm > 0) ? control::get("mpi.fake.rank", fake_comm - 1.) : true_comm_rank;
             double rank_center[4]; // rank_center[0/1/2] are the coordinates of the center of weight of the RHSs assigned to this rank
                                     // rank_center[3] is the number of tasks with nonzero weight
             owner_rank.resize(nall, load_balancer::no_owner);
@@ -1004,9 +1005,10 @@ namespace green_function {
         // prepare for the MPI exchange of potential blocks
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
+            auto const comm = mpi_parallel::comm();
             p.potential_requests = green_parallel::RequestList_t(p.global_target_indices,  // requests
                                                                  p.global_source_indices, // offerings
-                                                                 owner_rank.data(), n_blocks, echo, "potential");
+                                                                 owner_rank.data(), n_blocks, comm, echo, "potential");
         } else {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         }

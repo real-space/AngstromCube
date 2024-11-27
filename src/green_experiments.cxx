@@ -676,7 +676,7 @@ namespace green_experiments {
             uint32_t const nb[] = {uint32_t(na), 0, 0};
             std::vector<uint16_t> atom_owner_rank(na, uint16_t(0)); // all atoms owned by the MPI master
             p.matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
-                owned_global_atom_ids, atom_owner_rank.data(), nb, echo, "atom matrices");
+                owned_global_atom_ids, atom_owner_rank.data(), nb, mpi_parallel::comm(), echo, "atom matrices");
         } // scope
 
         uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};

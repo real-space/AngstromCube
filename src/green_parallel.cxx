@@ -8,7 +8,7 @@
 
 #include "status.hxx" // status_t
 #include "inline_math.hxx" // set
-#include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::min, ::max, ::sum, ::allreduce, ::comm, ::barrier
+#include "mpi_parallel.hxx" // ::init, ::size, ::rank, ::finalize, ::min, ::max, ::sum, ::allreduce, ::barrier, MPI_Comm
 #include "global_coordinates.hxx" // ::get
 #include "print_tools.hxx" // printf_vector
 #include "recorded_warnings.hxx" // warn, error
@@ -34,16 +34,15 @@ namespace green_parallel {
         return " ???";
     } // spin_name
 
-
     RequestList_t::RequestList_t( // constructor implementation
         std::vector<int64_t> const & requests
       , std::vector<int64_t> const & offerings // do we need this at all? the offerings should match owner_rank[]==me anyway
       , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
       , uint32_t const nb[3] // global bounding box{nb[X],nb[Y],nb[Z]} or {natoms,0,0}
+      , MPI_Comm const comm // =MPI_COMM_WORLD
       , int const echo // =0 // log-level
       , char const *const what // ="?"
     ) {
-        auto const comm   = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const nprocs = mpi_parallel::size(comm);
         auto const me     = mpi_parallel::rank(comm, nprocs);
 
@@ -282,13 +281,6 @@ namespace green_parallel {
 
         std::vector<uint32_t> n_packages_to_rank(nprocs, 0);
 #ifndef   HAS_NO_MPI
-        // int MPI_Alltoall(const void* buffer_send,
-        //          int count_send,
-        //          MPI_Datatype datatype_send,
-        //          void* buffer_recv,
-        //          int count_recv,
-        //          MPI_Datatype datatype_recv,
-        //          MPI_Comm communicator)
         MPI_Alltoall(n_packages_from_rank.data(), 1, MPI_UINT32_T,
                      n_packages_to_rank.data(),   1, MPI_UINT32_T, comm);
 #endif // HAS_NO_MPI
@@ -595,35 +587,6 @@ namespace green_parallel {
 
 
 
-    // template <typename real_t> //=double>
-    // status_t RequestList_t::exchange(
-    //       real_t       *const data_out // output data, data layout data_out[nrequests*count]
-    //     , real_t const *const data_inp //  input data, data layout data_inp[nowned   *count]
-    //     , uint32_t const count // =1 // how many real_t per package
-    //     , int const echo // =0 // log-level
-    //     , char const *what // =nullptr // quantity
-    // ) const {
-    //     return green_parallel::exchange(data_out, data_inp, *this, count, echo, what);
-    // } // RequestList_t::exchange
-
-    // status_t RequestList_t::potential_exchange(
-    //       double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco^2][nrows][64]
-    //     , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco^2 ][64]
-    //     , int const Noco // =1 // 1:no spin, 2: non-collinear spin
-    //     , int const echo // =0 // log-level
-    // ) const {
-    //     return green_parallel::potential_exchange(Veff, Vinp, *this, Noco, echo);
-    // } // RequestList_t::potential_exchange
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -653,8 +616,8 @@ namespace green_parallel {
             if (me == rank) offerings.push_back(id);
         } // id
         uint32_t const na[] = {nall, 0, 0};
-        RequestList_t rlV(requests, offerings, owner_rank.data(), nb, echo, "test_V");
-        RequestList_t rlD(requests, offerings, owner_rank.data(), na, echo, "test_D");
+        RequestList_t rlV(requests, offerings, owner_rank.data(), nb, comm, echo, "test_V");
+        RequestList_t rlD(requests, offerings, owner_rank.data(), na, comm, echo, "test_D");
 
         view3D<double> pot_out_memory(2*2,nrows,64, 0.0);
         double (*pot_out[2*2])[64];

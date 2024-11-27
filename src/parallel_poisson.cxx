@@ -473,7 +473,7 @@ namespace parallel_poisson {
         if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
         mpi_parallel::barrier(comm_);
 
-        requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, echo, what);
+        requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, comm_, echo, what);
 
         if (echo > 8) {
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
