@@ -603,8 +603,6 @@ namespace parallel_poisson {
         auto const stat = data_exchange(v, pg, 8*8*8, echo, __func__);
         double const *const h2 = pg.get_prefactors();
 
-        if (echo > 9) { std::printf("\n# %s EARLY RETURN for debug\n\n", __func__); std::fflush(stdout); } return 0;
-
         // prepare finite-difference coefficients (isotropic)
         //            c_0        c_1         c_2       c_3        c_4      c_5       c_6     c_7     c_8
         // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
