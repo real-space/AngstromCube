@@ -34,6 +34,17 @@ namespace green_parallel {
         return " ???";
     } // spin_name
 
+
+    size_t translate(int64_t const global_id, uint32_t const nb[3]) {
+        uint32_t xyz[3];
+        global_coordinates::get(xyz, global_id);
+        for (int d{0}; d < 3; ++d) {
+            assert(xyz[d] < nb[d] && "requested coordinates exceed grid box");
+        } // d
+        return (xyz[2]*size_t(nb[1]) + xyz[1])*size_t(nb[0]) + xyz[0];
+    } // translate
+
+
     RequestList_t::RequestList_t( // constructor implementation
         std::vector<int64_t> const & requests
       , std::vector<int64_t> const & offerings // do we need this at all? the offerings should match owner_rank[]==me anyway
@@ -79,25 +90,20 @@ namespace green_parallel {
         std::vector<uint16_t> local_check(nall*unsigned(debug), 0);
 
         assert(nown <= (1ul << 16) && "each process can hold max 2^16 locally owned items");
-        for (size_t iown = 0; iown < nown; ++iown) {
-            auto const global_id = offerings[iown];
+        for (size_t iloc = 0; iloc < nown; ++iloc) {
+            auto const global_id = offerings[iloc];
+            assert(global_id > -1);
 
             // translate global_id into an index iall
-            assert(global_id > -1);
-            size_t iall = global_id;
-            if (grid) {
-                uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
-                for (int d{0}; d < 3; ++d) { assert(xyz[d] < nb[d] && "requested coordinates exceed grid box"); }
-                iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
-            } // grid
+            size_t const iall = grid ? translate(global_id, nb) : global_id;
             assert(iall < nall);
 
             if (me != owner_rank[iall]) { error("rank#%i offers %s id %li but owned by rank#%i", me, what, global_id, owner_rank[iall]); }
             assert(me == owner_rank[iall] && "all offerings must be owned");
 
-            local_index[iall] = iown;
+            local_index[iall] = iloc;
             if (debug) { ++local_check[iall]; }
-        } // iown
+        } // iloc
 
         if (debug) {
             if (echo > 7) { std::printf("# rank#%i local_check before ", me); printf_vector("%i", local_check); }
@@ -167,12 +173,7 @@ namespace green_parallel {
 #ifndef   HAS_NO_MPI
 
                 // translate global_id into an index iall
-                size_t iall = global_id;
-                if (grid) {
-                    uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
-                    for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d] && "requested coordinates exceed box");
-                    iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
-                } // grid
+                size_t const iall = grid ? translate(global_id, nb) : global_id;
                 assert(iall < nall && "internal index exceeded");
 
                 owner[ireq]     =  owner_rank[iall];
@@ -227,7 +228,10 @@ namespace green_parallel {
         if (echo > 5) { std::printf( "# total  \tRequestList_t expect %.3f k copies, %.3f k exchanges, %.3f k initializations\n",
                                               stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3); std::fflush(stdout); }
 
-        // prepare 2-sided communication members
+
+
+
+
 
         if (echo > 5) { std::printf( "# prepare two-sided communication pattern\n"); std::fflush(stdout); }
         mpi_parallel::barrier(comm);        
@@ -367,12 +371,7 @@ namespace green_parallel {
                 for (uint32_t ip{0}; ip < n_packages; ++ip) {
                     auto const global_id = send_package_global_id.at(rj).at(ip);
                     assert(global_id > -1); // vacuum cells do not to be communicated
-                    size_t iall = global_id;
-                    if (grid) {
-                        uint32_t xyz[3]; global_coordinates::get(xyz, global_id);
-                        for (int d = 0; d < 3; ++d) assert(xyz[d] < nb[d] && "requested coordinates exceed box");
-                        iall = (xyz[Z]*size_t(nb[Y]) + xyz[Y])*nb[X] + xyz[X];
-                    } // grid
+                    size_t const iall = grid ? translate(global_id, nb) : global_id;
                     assert(iall < nall && "internal index exceeded");
                     assert(me == owner_rank[iall]);
                 } // ip
