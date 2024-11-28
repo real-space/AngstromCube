@@ -649,8 +649,9 @@ namespace green_parallel {
         }
         // now check if the requested ids have been transmitted
         for (uint32_t ir{0}; ir < nr; ++ir) {
-            auto const reference_id = real_t(this->requested_id.at(ir));
-            stat += (out.at(ir) != reference_id);
+            auto const reference_id = this->requested_id.at(ir);
+            stat += (out.at(ir) != real_t(reference_id)) * (reference_id >= 0);
+            // reference_id == -1 will be mapped to 0.0f;
         } // ir
         return stat;
     } // RequestList_t::self_test

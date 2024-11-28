@@ -458,16 +458,12 @@ namespace parallel_poisson {
 
         if (echo > 8) {
             std::printf("# rank#%i %s: requests={", me, __func__);
-            for (auto const rq : remote_global_ids_) {
-                std::printf(" %lli", rq);
-            } // rq
-            std::printf(" }, %ld items\n", remote_global_ids_.size());
+            printf_vector(" %lli", remote_global_ids_, "}");
+            std::printf(", %ld items\n", remote_global_ids_.size());
 
             std::printf("# rank#%i %s: offering={", me, __func__);
-            for (auto const of : local_global_ids_) {
-                std::printf(" %lli", of);
-            } // of
-            std::printf(" }, %ld items\n", local_global_ids_.size());
+            printf_vector(" %lli", local_global_ids_, "}");
+            std::printf(", %ld items\n", local_global_ids_.size());
         } // echo
 
         if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
@@ -476,11 +472,10 @@ namespace parallel_poisson {
         requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, comm_, echo, what);
 
         if (echo > 8) {
+            std::vector<int32_t> owners; for (auto ow : requests_.owners()) { owners.emplace_back((green_parallel::no_owner == ow) ? -1 : ow); }
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
-            for (auto const ow : requests_.owners()) {
-                std::printf(" %i", ow);
-            } // ow
-            std::printf(" }, %ld items\n", requests_.owners().size());
+            printf_vector(" %i", owners, "}");
+            std::printf(", %ld items\n", requests_.owners().size());
         } // echo
 
     } // parallel_grid_t constructor
