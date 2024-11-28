@@ -9,7 +9,7 @@
 
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // conjugate
-#include "recorded_warnings.hxx" // error
+#include "recorded_warnings.hxx" // error, ::show_warnings
 
 #ifdef    DEBUGGPU
     #define data_view_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
@@ -61,7 +61,15 @@
 
 namespace data_view {
     inline void _check_index(int const srcline, size_t const n, size_t const i, char const d, int const D) {
-        if (i >= n) error("# data_view.hxx:%d view%dD i%c=%ld >= n%c=%ld\n", srcline, D, '0'+d, i, '0'+d, n);
+        if (i >= n) {
+#ifndef   HEADER_ONLY
+            error("# data_view.hxx:%d view%dD i%c=%ld >= n%c=%ld\n", srcline, D, '0'+d, i, '0'+d, n);
+#else  // HEADER_ONLY
+            std::fprintf(stdout, "# data_view.hxx:%d view%dD i%c=%ld >= n%c=%ld\n", srcline, D, '0'+d, i, '0'+d, n);
+            std::fprintf(stderr, "# data_view.hxx:%d view%dD i%c=%ld >= n%c=%ld\n", srcline, D, '0'+d, i, '0'+d, n);
+            std::exit(__LINE__);
+#endif // HEADER_ONLY
+        }
         assert(i < n);
     } // _check_index
 } // namespace data_view

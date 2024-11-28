@@ -70,9 +70,12 @@ namespace green_parallel {
         if (echo > 7) { std::printf("# rank#%i \tRequestList_t [%d %d %d], nall= %ld, offered= %ld, requested= %ld\n",
                                                       me, nb[X],nb[Y],nb[Z], nall, nown, nreq); std::fflush(stdout); }
 
+        int const user_wants_onesided_mpi = control::get("green_parallel.onesided", 0.);
 #ifdef    HAS_ONESIDED_MPI
         // use one-sided MPI communication routines or not?
-        use1sided_ = (1 == control::get("green_parallel.onesided", 0.));
+        use1sided_ = (1 == user_wants_onesided_mpi);
+#else  // HAS_ONESIDED_MPI
+        if (1 == user_wants_onesided_mpi) { warn("found +green_parallel.onesided=%i not compiled with -DHAS_ONESIDED_MPI", user_wants_onesided_mpi); }
 #endif // HAS_ONESIDED_MPI
         if (echo > 7) { std::printf("# use %s-sided MPI communication\n", get_use1sided() ? "one" : "two"); std::fflush(stdout); }
 

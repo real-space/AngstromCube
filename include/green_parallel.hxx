@@ -3,10 +3,14 @@
 
 #include <vector> // std::vector<T>
 
+#define HAS_ONESIDED_MPI
+
 #include "status.hxx" // status_t
 #include "simple_stats.hxx" // ::Stats<>
 #include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
 #include "load_balancer.hxx" // rank_int_t
+
+
 
 namespace green_parallel {
 
