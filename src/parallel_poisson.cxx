@@ -1029,22 +1029,22 @@ namespace parallel_poisson {
 
     status_t test_parallel_grid(int const echo=0) {
         // test all combinations of isolated and periodic boundary conditions
-        uint32_t const gm = control::get("parallel_poisson.test.grid.max", 9.); // and grids up to this number^3
+        uint32_t const gm = control::get("parallel_poisson.test.grid.max", 0.); // and grids up to this number^3
         int8_t constexpr nBCs = 2; // can be used to limit it to one
         int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary};
             if (echo > 7) std::printf("\n#\n");
             // test various combinations of grid sizes
         char what[] = "???";
         for (char w{'F'}; w <= 'I'; w += 'I' - 'F') { what[0] = w;
-        for (uint32_t gz{1}; gz <= 1+0*gm; ++gz) {
-        for (uint32_t gy{3}; gy <= 3+0*gm; ++gy) {
-        for (uint32_t gx{1}; gx <= 1+0*gm; ++gx) {
+        for (uint32_t gz{1}; gz <= 1 + gm; ++gz) {
+        for (uint32_t gy{3}; gy <= 3 + gm; ++gy) { // loops over grid sizes
+        for (uint32_t gx{1}; gx <= 1 + gm; ++gx) {
             if (echo > 9) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n\n");
             real_space::grid_t g(8*gx, 8*gy, 8*gz);
             if (echo > 7) std::printf("\n#\n# %s with grid [%d %d %d]\n", __func__, g[0], g[1], g[2]);
             load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo); // reacts to +parallel_poisson.nprocs (fake MPI processes)
         for (int8_t bz{0}; bz < nBCs; ++bz) {
-        for (int8_t by{0}; by < nBCs; ++by) {
+        for (int8_t by{0}; by < nBCs; ++by) { // loops over boundary conditions
         for (int8_t bx{0}; bx < nBCs; ++bx) {
             int8_t const bc[] = {BCs[bx], BCs[by], BCs[bz]};
             if (echo > 3) { std::printf("# %s with boundary conditions [%d %d %d]\n", __func__, bc[0], bc[1], bc[2]); std::fflush(stdout); }
