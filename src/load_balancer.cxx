@@ -192,7 +192,7 @@ namespace load_balancer {
 
                     load_now = (i01 ? load1 : load0)/np;
 
-                    if (echo > 29) std::printf("# plane level=%d %g %g %g isrt=%lu %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], isrt_middle, nhalf[0],nhalf[1]);
+                    if (echo > 29) std::printf("# plane level=%d  %g %g %g isrt=%lu %d|%d\n", tree_level, vec[X], vec[Y], vec[Z], isrt_middle, nhalf[0],nhalf[1]);
 #ifdef    LOAD_BALANCER_DRAW_SVG
                     // bisecting plane normal is the sorting vector vec, plane distance from the origin is ?
                     if (rank == rank_offset) { // only the "lower" half stores the separating plane

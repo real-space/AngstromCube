@@ -428,9 +428,7 @@ namespace green_parallel {
                                               stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3); std::fflush(stdout); }
 
         auto const stat = this->self_test(echo);
-        if (0 != stat) {
-            warn("RequestList_t constructor failed in self_check with status= %i", int(stat));
-        }
+        if (0 != stat) { warn("RequestList_t constructor failed in self_check with status= %i", int(stat)); }
 
     } // constructor implementation
 
@@ -603,12 +601,6 @@ namespace green_parallel {
         return status;
     } // RequestList_t::exchange
 
-    template // explicit template instantiation for real_t=double
-    status_t RequestList_t::exchange(double*, double const*, uint32_t, int, char const*) const;
-
-    template // explicit template instantiation for real_t=float
-    status_t RequestList_t::exchange(float* , float  const*, uint32_t, int, char const*) const;
-
     status_t RequestList_t::potential_exchange(
           double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco*Noco][nreq][64]
         , double const (*const Vinp)[64]  //  input effective potentials,  data layout Vinp[ncols*Noco*Noco][64]
@@ -642,24 +634,32 @@ namespace green_parallel {
 
     status_t RequestList_t::self_test(int const echo) const {
         // sanity check routine testing exchange with 1 global_id per package
-        status_t stat(0);
         uint32_t const nr = this->size();   // number of requested elements
         uint32_t const ns = this->window(); // number of offered elements
         typedef float real_t; // if real_t == float, this makes the explicit template instantiation above redundant
         std::vector<real_t> inp(ns, real_t(0));
         for (uint32_t is{0}; is < ns; ++is) {
-            inp.at(is) = this->offered_id.at(is); // input are the global ids offered, converted to float
+            inp.at(is) = real_t(this->offered_id.at(is)); // input are the global ids offered, converted to real_t
         } // is
         std::vector<real_t> out(nr, real_t(0));
-        stat += this->exchange(out.data(), inp.data(), 1, echo, "global_ids in self_test");
-        if (0 != stat) return stat;
+        auto stat = this->exchange(out.data(), inp.data(), 1, echo, "global_ids in self_test");
+        if (0 != stat) {
+            warn("exchange of global_ids as self_test failed with status= %i", int(stat));
+            stat = 0;
+        }
         // now check if the requested ids have been transmitted
         for (uint32_t ir{0}; ir < nr; ++ir) {
-            real_t const reference_id = this->requested_id.at(ir);
+            auto const reference_id = real_t(this->requested_id.at(ir));
             stat += (out.at(ir) != reference_id);
         } // ir
         return stat;
     } // RequestList_t::self_test
+
+    // template // explicit template instantiation for real_t=double
+    // status_t RequestList_t::exchange(double*, double const*, uint32_t, int, char const*) const;
+
+    // template // explicit template instantiation for real_t=float
+    // status_t RequestList_t::exchange(float* , float  const*, uint32_t, int, char const*) const;
 
 
 

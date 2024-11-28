@@ -1029,7 +1029,7 @@ namespace parallel_poisson {
 
     status_t test_parallel_grid(int const echo=0) {
         // test all combinations of isolated and periodic boundary conditions
-        uint32_t const gm = control::get("parallel_poisson.test.grid.max", 9.); // and grids up to this number^3
+        uint32_t const gm = control::get("parallel_poisson.test.grid.max", 0.); // and grids up to this number^3
         int8_t constexpr nBCs = 2; // can be used to limit it to one
         int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary};
             if (echo > 7) std::printf("\n#\n");
