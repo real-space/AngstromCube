@@ -190,8 +190,6 @@ namespace green_kinetic {
 #undef  INDICES
         }} // thread and block loops
 
-//      std::printf("# %s(Stride=%d)\n", __func__, Stride);
-
     } // Laplace8th
 
 

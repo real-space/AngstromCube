@@ -163,7 +163,6 @@ namespace green_action {
 
 
   status_t test_green_action(int const echo=0) {
-      bool const already_initialized = mpi_parallel::init();
 
       uint32_t ng[3] = {0, 0, 0}; // grid sizes
       int8_t   bc[3] = {0, 0, 0}; // boundary conditions
@@ -173,11 +172,10 @@ namespace green_action {
       std::vector<double> xyzZinso(0); // atom info
       std::vector<std::vector<double>> AtomMatrices(0); // non-local potential
 
-      auto const *const filename = control::get("hamiltonian.file", "Hmt.empty.4x4x4.xml");
+      auto const *const filename = control::get("hamiltonian.file", "Hmt.xml");
       auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
-          if (!already_initialized) mpi_parallel::finalize();
           return stat;
       } // stat
 
@@ -213,7 +211,6 @@ namespace green_action {
               warn("green_function.benchmark.action must be in {32011, 32021, 32022, 64011, 64021, 64022} but found %d", action);
       } // switch action
 
-      if (!already_initialized) mpi_parallel::finalize();
       return stat;
   } // test_green_action
 
@@ -240,7 +237,9 @@ namespace green_action {
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_construction_and_destruction(echo);
+      bool const already_initialized = mpi_parallel::init();
       stat += test_green_action(echo);
+      if (!already_initialized) mpi_parallel::finalize();
       return stat;
   } // all_tests
 

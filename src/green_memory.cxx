@@ -91,7 +91,7 @@ namespace green_memory {
 
     status_t test_green_memory(int const echo=0) {
         status_t stat(0);
-        auto const nrand = (std::rand()*365)/RAND_MAX;
+        auto const nrand = (std::rand()*365ull)/RAND_MAX;
         auto const mem0 = green_memory::malloc(nrand, "mem0");
         green_memory::free(mem0, "mem0");
         return stat;

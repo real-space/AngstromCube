@@ -964,7 +964,7 @@ namespace green_function {
                 if (1 != scale_T) warn("kinetic energy is scaled by factor +hamiltonian.scale.kinetic=%g", scale_T);
 
                 auto const keyword = "green_kinetic.range";
-                int16_t const kinetic_nFD_default = control::get(keyword, 8.); // if possible use 16th order Laplace operator
+                int16_t const kinetic_nFD_default = control::get(keyword, 8.); // if possible use 16th order Laplace operator, range==8
                 for (int dd{0}; dd < 3; ++dd) { // derivate direction
                     int16_t kinetic_nFD_dd{kinetic_nFD_default}; // suggestion for this direction
                     char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
@@ -978,7 +978,8 @@ namespace green_function {
                         , iRow_of_coords
                         , sparsity_pattern
                         , echo);
-                    p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
+                    int16_t const max_range = (Periodic_Boundary == bc[dd]) ? 4 : 8;
+                    p.kinetic[dd].FD_range_ = std::min(max_range, int16_t(control::get(keyword_dd, double(kinetic_nFD_dd))));
                     p.kinetic[dd].set(dd, hg[dd], nnzb, echo, scale_T);
 
                 } // dd derivate direction

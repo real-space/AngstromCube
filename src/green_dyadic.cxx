@@ -218,16 +218,16 @@ namespace green_dyadic {
           cudaDeviceSynchronize();
           std::vector<int8_t> nu_of_sho(nsho, -1);
           {
-              int sho{0};
+              int isho{0};
               for (int iz = 0; iz <= lmax; ++iz) {
                   for (int iy = 0; iy <= lmax - iz; ++iy) {
                       for (int ix = 0; ix <= lmax - iz - iy; ++ix) {
-                          nu_of_sho[sho] = ix + iy + iz;
-                          ++sho;
+                          nu_of_sho[isho] = ix + iy + iz;
+                          ++isho;
                       } // ix
                   } // iy
               } // iz
-              assert(nu_of_sho.size() == sho);
+              assert(nsho == isho);
           }
           auto const msho = std::min(nsho, 64);
           if (echo > 5) std::printf("# %d of %d projection coefficients ", msho, nsho);

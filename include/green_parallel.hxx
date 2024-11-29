@@ -20,7 +20,7 @@ namespace green_parallel {
     class RequestList_t {
     public:
 
-        RequestList_t() {} // default constructor
+        RequestList_t() : comm_{MPI_COMM_WORLD} {} // default constructor
         RequestList_t( // constructor
               std::vector<int64_t> const & requests
             , std::vector<int64_t> const & offerings

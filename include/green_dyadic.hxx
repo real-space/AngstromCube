@@ -317,7 +317,7 @@ namespace green_dyadic {
             for (uint32_t iatom{0}; iatom < natoms; ++iatom) {
                 maxLmax = std::max(maxLmax, int(AtomLmax[iatom])); // works with ManagedMemory
             } // iatom
-            if (echo > 1) std::printf("# %s maxLmax= %d\n", __func__, maxLmax);
+            if (echo > 3) std::printf("# %s maxLmax= %d\n", __func__, maxLmax);
         }
         if (maxLmax < 4) {
             SHOprj<real_t,R1C2,Noco,3> CUDA_ARGS(gridDim, blockDim, 0, 0, Cpr, Psi, sparse, AtomPos, AtomLmax, AtomStarts, RowIndexCube, CubePos, hGrid);
