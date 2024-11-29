@@ -31,8 +31,30 @@
 #endif // HAS_RAPIDXML
 
 
+//
+// Idea:    For SHO-as-a-Basis (SHaaB) we could
+//          define an lmax + sigma per atom center and then analytically minimize
+//          the basis set inhomogeneity, whereas the basis set density of a
+//          single SHO center is defined by the absolute square of all SHO functions
+//          up to lmax. This function can be computed in radial symmetry including
+//          its analytical derivative w.r.t. sigma.
+//          Then, its Fourier space representation is found via Bessel transform.
+//          Finally, the Fourier space representation of the basis set density
+//          depends on the complex factors exp(imath*tau) where tau are lattice
+//          positions. Minimize the absolute square of all Fourier space components
+//          except for the (0,0,0) component (which represents the average basis set density).
+//          Can also be minimized in real-space by minimizing the variance
+//              /
+//              | dV (rho(r) - <rho>)^2
+//              /
+//          ToDo:   Check with radial_radial.hxx if we can find an analytical
+//                  representation of the basis density function!
+//          
+//          After minimizing, check the magnitude of overlap matrix eigenvalues.
+//
+
 namespace sho_basis {
-  // loads radial basis function that are expanded into a SHO basis
+  // loads radial basis function that are expanded into a SHO basis from an .xml-file
 
   struct RadialFunction {
      std::vector<double> vec;

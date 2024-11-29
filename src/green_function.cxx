@@ -1041,7 +1041,7 @@ namespace green_function {
                 std::fprintf(svg, "  <rect x=\"%g\" y=\"%g\" width=\"%d\" height=\"%d\" fill=\"none\" stroke=\"grey\" />\n", v[X]*4, v[Y]*4, 4, 4);
             } // iCol
             auto const h = p.grid_spacing_trunc; // show a 4 truncation spheres around each source block
-            if (h[X] > 0 && h[Y] > 0) {                         auto const rx = p.r_truncation/h[X], ry = p.r_truncation/h[Y];
+            if (h[X] > 0 && h[Y] > 0) {                            auto const rx = p.r_truncation/h[X], ry = p.r_truncation/h[Y];
                 for (uint32_t iCol = 0; iCol < p.nCols; ++iCol) {  auto const *const v = p.colCubePos[iCol];
                     std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+0.5, rx, ry);
                     std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+0.5, rx, ry);
