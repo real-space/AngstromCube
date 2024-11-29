@@ -979,7 +979,10 @@ namespace green_function {
                         , sparsity_pattern
                         , echo);
                     int16_t const max_range = (Periodic_Boundary == bc[dd]) ? 4 : 8;
-                    p.kinetic[dd].FD_range_ = std::min(max_range, int16_t(control::get(keyword_dd, double(kinetic_nFD_dd))));
+                    double  const env_range = control::get(keyword_dd, kinetic_nFD_dd*1.);
+                    int16_t const use_range = std::min(max_range, int16_t(env_range));
+                    if (env_range != use_range) { control::set(keyword_dd, use_range*1.); }
+                    p.kinetic[dd].FD_range_ = use_range;
                     p.kinetic[dd].set(dd, hg[dd], nnzb, echo, scale_T);
 
                 } // dd derivate direction
