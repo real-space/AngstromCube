@@ -32,6 +32,7 @@
 #include "control.hxx" // ::get
 #include "load_balancer.hxx" // ::get
 
+//#define HAS_BITMAP_EXPORT
 #ifdef    HAS_BITMAP_EXPORT
   #include "bitmap.hxx" // ::write_bmp_file
 #endif // HAS_BITMAP_EXPORT
@@ -779,8 +780,7 @@ namespace green_function {
                     for (int ix{0}; ix < nx; ++ix) {
                         for (int rgba{0}; rgba < 4; ++rgba) {
                             auto & f = image(iy,ix,rgba);
-                            // apply non-linear transforms here, e.g. sqrt to pronounce the smaller values
-                            f = std::sqrt(f);
+                            f = std::sqrt(f); // apply non-linear transforms here, e.g. sqrt to pronounce the smaller values
                             maxval = std::max(maxval, f);
                         } // rgba
                     } // ix

@@ -375,7 +375,8 @@ namespace green_kinetic {
         , int      const echo=0
     ) {
         int  const stride = 1 << (2*plan.derivative_direction_); // 4^dd: X:1, Y:4, Z:16
-        auto const nFD = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, plan.lists_, plan.prefactor_, plan.sparse_.nRows(), stride, phase, plan.FD_range_);
+        auto const nFD = Laplace_driver<real_t,R1C2,Noco>(Tpsi, psi, plan.lists_, plan.prefactor_, 
+                                            plan.sparse_.nRows(), stride, phase, plan.FD_range_);
         size_t const nops = plan.nnzb_*(2*nFD + 1ul)*R1C2*pow2(Noco*64ul)*2ul;
         if (echo > 7) {
             char const fF = (8 == sizeof(real_t)) ? 'F' : 'f'; // Mflop:float, MFlop:double
