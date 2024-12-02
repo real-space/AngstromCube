@@ -108,7 +108,10 @@ namespace mpi_parallel {
 
   inline MPI_Comm comm() { return MPI_COMM_WORLD; }
 
-#define   MPI_SIZE_AND_RANK_INLINED
+#ifndef   HAS_NO_MPI
+    #define   MPI_SIZE_AND_RANK_INLINED
+#endif // HAS_NO_MPI
+
 #ifdef    MPI_SIZE_AND_RANK_INLINED
   inline unsigned size(MPI_Comm const comm=MPI_COMM_WORLD) {
       int size{0};

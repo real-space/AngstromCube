@@ -155,7 +155,7 @@ namespace atom_communication {
                 set(atom_data[iatom], count, owner_data[ia]); // local copy
             } else {
 #ifdef    HAS_NO_MPI
-                if (remote_atom_is_error) error("cannot operate remote atoms without MPI, iatom= %i", iatom);
+                if (remote_atom_is_error) error("cannot operate remote atoms without MPI, iatom= %i, id= %i", iatom, global_atom_id);
 #else  // HAS_NO_MPI
                 if (echo > 11) std::printf("# rank#%i %s: recv %s, %d doubles for owned atom#%i from owner rank#%i to contributing atom#%i, global#%i\n",
                                                    me_, __func__, what, count, ia, atom_owner, iatom, global_atom_id);

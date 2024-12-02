@@ -80,7 +80,7 @@ namespace parallel_poisson {
 
         comm_ = comm; // copy the communicator
         int32_t const me = mpi_parallel::rank(comm);
-        uint32_t const np = control::get("parallel_poisson.nprocs", double(mpi_parallel::size(comm))); // listens to fake MPI setups
+        uint32_t const np = control::get("parallel_poisson.nprocs", mpi_parallel::size(comm)*1.);
 
         auto nb = nb_;
         auto const ng = g.grid_points();
@@ -1037,7 +1037,7 @@ namespace parallel_poisson {
             if (echo > 9) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n\n");
             real_space::grid_t g(8*gx, 8*gy, 8*gz);
             if (echo > 7) std::printf("\n#\n# %s with grid [%d %d %d]\n", __func__, g[0], g[1], g[2]);
-            load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo); // reacts to +parallel_poisson.nprocs (fake MPI processes)
+            load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo);
         for (int8_t bz{0}; bz < nBCs; ++bz) {
         for (int8_t by{0}; by < nBCs; ++by) { // loops over boundary conditions
         for (int8_t bx{0}; bx < nBCs; ++bx) {

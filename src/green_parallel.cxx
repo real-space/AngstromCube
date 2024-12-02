@@ -214,7 +214,11 @@ namespace green_parallel {
         } // ireq
 
         if (not_found > 0) {
+#ifndef   HAS_NO_MPI
             bool const not_found_is_error = (0 == control::get("mpi.fake.size", 0.));
+#else  // HAS_NO_MPI
+            auto constexpr not_found_is_error = true;
+#endif // HAS_NO_MPI
             if (not_found_is_error) {
                 error("rank #%i failed to find %ld global_ids in offerings of \'%s\', 1st id= %li, last id= %li",
                              me, not_found, what, id_not_found_1st, id_not_found_last);

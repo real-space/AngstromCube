@@ -253,22 +253,23 @@ namespace green_function {
     std::vector<int64_t> get_right_hand_sides(
           uint32_t const nb[3] // number of blocks
         , std::vector<green_parallel::rank_int_t> & owner_rank // result: who owns which RHS block
+        , MPI_Comm const comm=MPI_COMM_WORLD
         , int const echo=0
     ) {
         std::vector<int64_t> global_source_indices; // result array
-
-        auto const comm = mpi_parallel::comm();
-        auto const true_comm_size = mpi_parallel::size(comm);
-        auto const true_comm_rank = mpi_parallel::rank(comm, true_comm_size);
-        unsigned const fake_comm = (true_comm_size > 1) ? 0 : control::get("mpi.fake.size", 0.);
-        auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
+#ifndef   HAS_NO_MPI
+        auto const comm_size = mpi_parallel::size(comm);
+        auto const comm_rank = mpi_parallel::rank(comm, comm_size);
+#else  // HAS_NO_MPI
+        unsigned const comm_size =          std::max(1.,    control::get("mpi.fake.size", 1.));
+        int      const comm_rank = std::min(std::max(0, int(control::get("mpi.fake.rank", comm_size - 1.))), int(comm_size - 1));
+#endif // HAS_NO_MPI
         owner_rank.resize(0);
         auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         if (comm_size > 1) {
 
             if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
             assert(nall > 0);
-            int const comm_rank = (fake_comm > 0) ? control::get("mpi.fake.rank", fake_comm - 1.) : true_comm_rank;
             double rank_center[4]; // rank_center[0/1/2] are the coordinates of the center of weight of the RHSs assigned to this rank
                                     // rank_center[3] is the number of tasks with nonzero weight
             owner_rank.resize(nall, load_balancer::no_owner);
@@ -358,7 +359,9 @@ namespace green_function {
         , int const echo // =0 // log-level
         , int const Noco // =1
     ) {
-        auto const me = mpi_parallel::rank(); // MPI_COMM_WORLD
+        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
+        auto const nprocs = mpi_parallel::size(comm);
+        auto const me = mpi_parallel::rank(comm, nprocs);
 
         if (echo > 1) std::printf("\n#\n# %s(grid=[%s])\n#\n\n", __func__, str(ng, 1, " "));
 
@@ -400,7 +403,7 @@ namespace green_function {
 
         // we assume that the source blocks lie compact in space and preferably close to each other
         std::vector<green_parallel::rank_int_t> owner_rank(0);
-        p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, echo);
+        p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, comm, echo);
         // now owner_rank[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
         if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
@@ -1097,7 +1100,7 @@ namespace green_function {
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 1.);
         uint32_t const nb[] = {unsigned(bb[X]), unsigned(bb[Y]), unsigned(bb[Z])};
         std::vector<green_parallel::rank_int_t> owner_rank;
-        auto const rhs = get_right_hand_sides(nb, owner_rank, echo);
+        auto const rhs = get_right_hand_sides(nb, owner_rank, MPI_COMM_WORLD, echo);
         auto const nrhs = rhs.size();
         if (echo > 5) std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",
                                         __func__, nrhs, owner_rank.size(), nb[X]*nb[Y]*nb[Z]);

@@ -32,6 +32,7 @@
 
 #include "mpi_parallel.hxx"
 
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "recorded_warnings.hxx" // warn, error
 #include "control.hxx" // ::get
 
