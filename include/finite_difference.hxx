@@ -274,6 +274,7 @@ namespace finite_difference {
       status_t stat(0);
       double const h[3] = {1, 1, 1}; // unit grid spacings
       std::complex<real_t> boundary_phase[3][2] = {{-1,-1}, {-1,-1}, {-1,-1}};
+      double maxdev{0};
       for (int dir = 0; dir < 3; ++dir) {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
           stencil_t<real_t> Laplacian(h, nn);
@@ -296,9 +297,11 @@ namespace finite_difference {
                   // compare in the middle range result and ref values
                   dev += std::abs(result[i] - ref);
               } // i
-              if (echo > 2) std::printf("# %s %c-direction: dev = %g\n", __func__, 'x'+dir, dev);
+              if (echo > 3) std::printf("# %s %c-direction: dev = %g\n", __func__, 'x'+dir, dev);
+              maxdev = std::max(maxdev, std::abs(dev));
           } // iphase
       } // direction
+      if (echo > 1) std::printf("\n# %s largest deviation is %.1e\n", __func__, maxdev);
       return stat;
   } // test_Bloch_wave
 
