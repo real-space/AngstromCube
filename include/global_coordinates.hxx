@@ -72,9 +72,9 @@ namespace global_coordinates {
 
 
 
-    #ifdef    NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
     inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-    #else  // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
     inline status_t test_global_coordinates(int const echo=0) {
         status_t stat(0);
@@ -105,8 +105,8 @@ namespace global_coordinates {
                                 __func__, n_tested*.001, int(stat));
         {
             int64_t const i63 = -1; // show how invalid i63 indices are displayed
-            int32_t oxyz[3]; // output coordinates
-            stat += get(oxyz, i63);
+            int32_t oxyz[3]; // output coordinates, signed
+            stat += (0 == get(oxyz, i63)); // this coordinate retrieval must signal, so it is an error if it returns zero
             if (echo > 9)  std::printf("# global_coordinates(impossible coordinates)\t--> %22.22llo == %lld --> (%i, %i, %i)\n",
                                                                             i63, i63, oxyz[0], oxyz[1], oxyz[2]);
         }
