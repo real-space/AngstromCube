@@ -27,11 +27,10 @@ namespace energy_mesh {
     int Gauss_Fermi_Dirac_quadrature(double x[], double w[],
         unsigned const number, int const echo=0); // declaration only
 
-    status_t show_contour(std::vector<Complex> const & E_points, std::vector<Complex> const & E_weights, int const echo=0) {
+    void show_contour(std::vector<Complex> const & E_points, std::vector<Complex> const & E_weights, int const echo=0) {
         // an overview where the energy points are located
-        if (echo < 1) return 0;
         auto const nE = E_points.size();
-        if (nE < 1) return 0;
+        if (nE < 1) { return; }
         float ex[2][2] = {{9e9f, -9e9f}, {9e9f, -9e9f}};
         for (auto const ep : E_points) {
             ex[0][0] = std::min(ex[0][0], float(ep.real()));
@@ -39,8 +38,8 @@ namespace energy_mesh {
             ex[1][0] = std::min(ex[1][0], float(ep.imag()));
             ex[1][1] = std::max(ex[1][1], float(ep.imag()));
         } // ep
-        std::printf("#\n# energy contour has %ld points within [%g, %g %s] and [%g, %g %s]\n",
-            nE, ex[0][0]*eV, ex[0][1]*eV, _eV, ex[1][0]*Kelvin, ex[1][1]*Kelvin, _Kelvin);
+        if (echo > 2) std::printf("# energy contour has %ld points within [%g, %g %s] and [%g, %g %s]\n",
+                          nE, ex[0][0]*eV, ex[0][1]*eV, _eV, ex[1][0]*Kelvin, ex[1][1]*Kelvin, _Kelvin);
         assert(E_weights.size() == nE);
 
 #ifdef    ENERGY_MESH_SVG_EXPORT
@@ -90,8 +89,6 @@ namespace energy_mesh {
             } // nullptr != svg
         } // scope
 #endif // ENERGY_MESH_SVG_EXPORT
-
-        return 0;
     } // show_contour
 
     void show_energy_point(Complex const E, Complex const w, int const index, char const *const path, int const echo=0) {
@@ -152,8 +149,8 @@ namespace energy_mesh {
             } // iE
         } else {
             // Density of States contour
-            // assert(0 == nPol); assert(0 == nBot); assert(0 == nFer);
-            if (nPol != 0 || nBot != 0 || nFer != 0) warn("contour for DoS but found nFer=%d nBot=%d nPol=%d", nFer, nBot, nPol);
+            assert(0 == nPol);
+            if (nBot != 0 || nFer != 0) warn("contour for DoS but found nFer=%d nBot=%d", nFer, nBot);
             assert(nPar > 0);
             double const dE = (nPar < 2) ? 1 : ((E_mu + 20*kBT - eBot)/(nPar - 1.)); // different from juKKR
             int const mFer = 10*kBT/dE;
@@ -2309,9 +2306,9 @@ namespace energy_mesh {
         double const eBot = -1, kBT = 1.0080339e-2; // == 2e4 Kelvin per Matsubara pole
         for (int nm{0}; nm <= std::abs(nPol); ++nm) {
             int const mPol = (nPol < 0) ? -nm : nm;
-        for (unsigned nb{1}; nb <= nBot; ++nb) {
+        for (unsigned nb = (0 != mPol); nb <= nBot*(0 != mPol); ++nb) {
         for (unsigned np{1}; np <= nPar; ++np) {
-        for (unsigned nf{1}; nf <= nFer; ++nf) {
+        for (unsigned nf = (0 != mPol); nf <= nFer*(0 != mPol); ++nf) {
             std::vector<Complex> energy_weights;
             auto const energy_mesh = get_energy_mesh(energy_weights, kBT, eBot, nb, np, nf, mPol, echo/4);
             if (echo > 9) std::printf("# energy mesh with %ld points generated\n", energy_mesh.size());
@@ -2351,7 +2348,7 @@ namespace energy_mesh {
                     int const odd = k & 0x1; // == k % 2
                     dev[odd] = std::max(dev[odd], std::abs(s[k] - (1. - odd)/(.5*k + .5)));
                 } // k 
-                std::printf("# n= %d deviation for even %.1e and odd %.1e\n", n, dev[0], dev[1]);
+                std::printf("# %s: n= %d deviation for even %.1e and odd %.1e\n", __func__, n, dev[0], dev[1]);
             } // success
         } // n
         return stat;
