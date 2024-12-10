@@ -29,3 +29,6 @@ example/*
 ### hidden folders from jupyterlab
 .ipynb_checkpoints/*
 */.ipynb_checkpoints/*
+
+### Visual Studio Code
+*.code-workspace
