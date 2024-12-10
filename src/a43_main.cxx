@@ -69,6 +69,7 @@
   #include "unit_system.hxx" // ::all_tests
   #include "energy_mesh.hxx" // ::all_tests
   #include "simple_math.hxx" // ::all_tests
+  #include "unit_system.hxx" // ::all_tests
   #include "sho_overlap.hxx" // ::all_tests
   #include "radial_grid.hxx" // ::all_tests
   #include "single_atom.hxx" // ::all_tests
