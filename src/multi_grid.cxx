@@ -115,7 +115,7 @@ namespace multi_grid {
           stat += grid_point_xyz(abc[0], abc[1], abc[2], id);
           for (int d = 0; d < 3; ++d) stat += (abc[d] != xyz[d]);
           if (echo > 9) std::printf("# %s %5d %5d %5d --> %lld --> %5d %5d %5d\n",
-              __func__, xyz[0], xyz[1], xyz[2], id, abc[0], abc[1], abc[2]);
+                    __func__, xyz[0], xyz[1], xyz[2], id, abc[0], abc[1], abc[2]);
       } // n
       int32_t abc[3];
       stat += (grid_point_xyz(abc[0], abc[1], abc[2], -9) != -1);
@@ -186,32 +186,32 @@ namespace multi_grid {
       std::vector<int> dense_grids{ng, (5*ng)/3, 2*ng}; // numbers of dense grid points
       for (auto mg : dense_grids) {
           std::vector<double> result_d(mg), input_d(mg);
-          std::printf("\n## ik T (%s: interpolate from grid=%d to grid=%d)\n", __func__, ng, mg); // legend
+          if (echo > 6) std::printf("\n## ik T (%s: interpolate from grid=%d to grid=%d)\n", __func__, ng, mg); // legend
           for (int ik = 1; ik < 3; ++ik) {
               double const k = (2*constants::pi*ik);
               for (int ig = 0; ig < ng; ++ig) {
                   double const x = (ig + 0.5)/ng;
                   input_c[ig] = std::cos(k*x);
               } // ig
-              
+
               stat += linear_interpolation(result_d.data(), mg, input_c.data(), ng, 1, 1);
-              
-              std::printf("\n## x interpolate(cos(x)) cos(x) [n=%d m=%d k=%i]\n", ng, mg, ik);
+
+              if (echo > 7) std::printf("\n## x interpolate(cos(x)) cos(x) [n=%d m=%d k=%i]\n", ng, mg, ik);
               for (int jg = 0; jg < mg; ++jg) {
                   double const x = (jg + 0.5)/mg;
                   input_d[jg] = std::cos(k*x);
-                  std::printf("%g %g %g\n", x, result_d[jg], input_d[jg]);
+                  if (echo > 7) std::printf("%g %g %g\n", x, result_d[jg], input_d[jg]);
               } // jg
-              
+
               stat += restrict_to_any_grid(result_c.data(), ng, input_d.data(), mg, 1, 1);
               stat += restrict_to_any_grid(result_cdc.data(), ng, result_d.data(), mg, 1, 1);
 
-              std::printf("\n## x cos(x) restrict(interpolate(cos(x))) [n=%d m=%d k=%i]\n", ng, mg, ik);
+              if (echo > 6) std::printf("\n## x cos(x) restrict(interpolate(cos(x))) [n=%d m=%d k=%i]\n", ng, mg, ik);
               for (int ig = 0; ig < ng; ++ig) {
                   double const x = (ig + 0.5)/ng;
-                  std::printf("%g %g %g %g\n", x, result_c[ig], result_cdc[ig], input_c[ig]);
+                  if (echo > 7) std::printf("%g %g %g %g\n", x, result_c[ig], result_cdc[ig], input_c[ig]);
               } // ig
-              
+
           } // ik
       } // mg
       return stat;
@@ -463,7 +463,7 @@ namespace multi_grid {
       } // it
 
       double norm2{0}; double const hm2 = 1./(h*h);
-      auto f = (echo > 5) ? ( (echo > 9) ? stdout : std::fopen("multi_grid.out.mg_cycle.dat", "w") ) : nullptr;
+      auto f = (echo > 7) ? ( (echo > 9) ? stdout : std::fopen("multi_grid.out.mg_cycle.dat", "w") ) : nullptr;
       if (f) std::fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
       int const modulo_g = g - 1; // works since g is always a pure power of 2
       for (int i = 0; i < g; ++i) {

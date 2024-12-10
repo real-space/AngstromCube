@@ -33,12 +33,13 @@ namespace bessel_transform {
         } // echo
         transform_s_function(out.data(), bt.data(), g, nq, dq, true); // transform back to real-space again
         double dev[] = {0, 0, 0};
-        if (echo > 5) std::printf("## %s real-space functions (in and out)\n", __func__);
+        int const mask = (1 << std::max(0, 11 - echo)) - 1; // echo==7 --> plot every 16th, echo==11 --> every number
+        if (echo > 5) std::printf("## %s real-space functions (in and out, show every %ith number)\n", __func__, mask + 1);
         for (int ir = 0; ir < g.n; ++ir) {
             dev[0] += g.r2dr[ir];
             dev[1] += g.r2dr[ir] * std::abs(out[ir] - in[ir]);
             dev[2] += g.r2dr[ir] *     pow2(out[ir] - in[ir]);
-            if (echo > 5) std::printf("%g %g %g\n", g.r[ir], out[ir], in[ir]); // show the output and input vs r
+            if ((0 == (ir & mask)) && echo > 5) std::printf("%g %g %g\n", g.r[ir], out[ir], in[ir]); // show the output and input vs r
         } // ir
         if (echo > 5) std::printf("\n\n");
         if (echo > 2) std::printf("# %s after filtering with cutoff %g sqRyd deviation is %.1e (abs) or %.1e (L2)\n",
@@ -53,22 +54,23 @@ namespace bessel_transform {
         float const ar2 = (1 << 3); // ir2 = ar2*r^2
         int   const nr2 = std::ceil(ar2*pow2(g.rmax));
         std::vector<double> in(g.n), out(nr2);
-        if (echo > 4) std::printf("\n## %s input (as function of r^2):\n", __func__);
+        int const mask = (1 << std::max(0, 11 - echo)) - 1; // echo==7 --> plot every 16th, echo==11 --> every number
+        if (echo > 4) std::printf("\n## %s input (as function of r^2, show every %ith number):\n", __func__, mask + 1);
         for (int ir = 0; ir < g.n; ++ir) {
             double const r = g.r[ir];
             in[ir] = std::exp(-.5*pow2(r)); // this function is its own Bessel-transform
             in[ir] *= std::cos(r*r); // modify it somehow
-            if (echo > 4) std::printf("%g %g\n", r*r, in[ir]); // show the input function with r^2 abscissa
+            if (echo > 4 && (0 == (ir & mask))) std::printf("%g %g\n", r*r, in[ir]); // show the input function with r^2 abscissa
         } // ir
         if (echo > 4) std::printf("\n\n");
 
         auto const stat = transform_to_r2grid(out.data(), ar2, nr2, in.data(), g);
 
         if (echo > 4) {
-            std::printf("\n## %s output (as function of r^2):\n", __func__);
+            std::printf("\n## %s output (as function of r^2, show every %ith number):\n", __func__, mask + 1);
             double const ar2inv = 1./ar2;
             for (int ir2 = 0; ir2 < nr2; ++ir2) {
-                std::printf("%g %g\n", ir2*ar2inv, out[ir2]); // show the output function with r^2 abscissa
+                if (0 == (ir2 & mask)) std::printf("%g %g\n", ir2*ar2inv, out[ir2]); // show the output function with r^2 abscissa
             } // ir2
             std::printf("\n\n");
         } // echo

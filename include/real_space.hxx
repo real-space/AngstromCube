@@ -365,21 +365,21 @@ namespace real_space {
 // #endif // DEBUG
       } // d
       set(q_coeff, nq, 0.0); // clear
-      for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
-          for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
+      for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  auto const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
+          for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  auto const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
-                  for (int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
-                      double const r2 = vz2 + vy2 + vx2;
+                  for (int ix = imn[0]; ix <= imx[0]; ++ix) {  auto const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
+                      auto const r2 = vz2 + vy2 + vx2;
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g('y') + iy)*g('x') + ix;
-                          double const r = std::sqrt(r2);
-                          double const val = double(values[ixyz]);
+                          auto const r = std::sqrt(r2);
+                          auto const val = double(values[ixyz]);
 //                        std::printf("%g %g\n", r, val); // DEBUG
                           for (int iq = 0; iq < nq; ++iq) {
-                              double const q = iq*dq;
-                              double const x = q*r;
-                         //   double const j0 = bessel_transform::Bessel_j0(x);
-                              double const j0 = (x*x < 1e-16) ? (1. - x*x*(1/6.)) : (std::sin(x)/x);
+                              auto const q = iq*dq;
+                              auto const x = q*r;
+                         //   auto const j0 = bessel_transform::Bessel_j0(x);
+                              auto const j0 = (x*x < 1e-16) ? (1. - x*x*(1/6.)) : (std::sin(x)/x);
                               q_coeff[iq] += val * j0;
                           } // iq
                       } // inside rcut
@@ -388,7 +388,7 @@ namespace real_space {
               } // rcut for (y,z)
           } // iy
       } // iz
-      double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
+      auto const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
       scale(q_coeff, nq, g.dV()*factor*sqrt2pi); // volume element, external factor, Bessel transform factor
       return 0; // success
   } // Bessel_projection
@@ -419,36 +419,37 @@ namespace real_space {
                             g[2]*.60*g.h[2]}; // center is slightly shifted from exact grid point positions
       int const nr2 = 1 << 11;
       float const rcut = 4, inv_hr2 = nr2/(rcut*rcut);
-      double const hr2 = 1./inv_hr2;
+      auto const hr2 = 1./inv_hr2;
       double r2c[nr2], rad_integral{0};
-      if (echo > 4) std::printf("\n# values on the radial grid\n");
+      if (echo > 7) std::printf("\n# values on the radial grid\n");
       for (int ir2 = 0; ir2 < nr2; ++ir2) { // sample r^2
-          double const r2 = ir2*hr2, r = std::sqrt(r2);
+          auto const r2 = ir2*hr2, r = std::sqrt(r2);
           r2c[ir2] = std::exp(-r2); // function evaluation here
-          if (echo > 4) std::printf("%g %g\n", r, r2c[ir2]); // plot function value vs radius r
+          if ((0 == (ir2 & 0x7)) && echo > 7) std::printf("%g %g\n", r, r2c[ir2]); // plot function value versus radius r
           rad_integral += r2c[ir2] * r;
       } // ir2
       rad_integral *= 2*constants::pi/inv_hr2;
 
-      if (echo > 2) std::printf("\n# add_function()\n\n");
+      if (echo > 5) std::printf("\n# add_function()\n\n");
       double added{0};
       std::vector<double> values(g.all(), 0.0);
       add_function(values.data(), g, r2c, nr2, inv_hr2, &added, cnt);
-      if (echo > 6) std::printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
+      if (echo > 8) std::printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
       double xyz_integral{0};
-      for (        int iz = 0; iz < g('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
-          for (    int iy = 0; iy < g('y'); ++iy) {  double const vy = iy*g.h[1] - cnt[1];
-              for (int ix = 0; ix < g('x'); ++ix) {  double const vx = ix*g.h[0] - cnt[0];
+      for (        int iz = 0; iz < g('z'); ++iz) {  auto const vz = iz*g.h[2] - cnt[2];
+          for (    int iy = 0; iy < g('y'); ++iy) {  auto const vy = iy*g.h[1] - cnt[1];
+              for (int ix = 0; ix < g('x'); ++ix) {  auto const vx = ix*g.h[0] - cnt[0];
                   auto const ixyz = (iz*g('y') + iy)*g('x') + ix;
                   auto const val = values[ixyz];
-                  if (0 != val) {
-                      if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs radius r
+                  if (0.0 != val) {
+                      if (echo > 8) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value versus radius r
                       xyz_integral += val;
                   } // non-zero
               } // ix
           } // iy
       } // iz
       xyz_integral *= g.dV(); // volume element
+      if (echo > 8) std::printf("\n# grid integral is %g\n", xyz_integral);
       auto const diff = xyz_integral - rad_integral;
       if (echo > 1) std::printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.3f %%)\n",
                                   xyz_integral, rad_integral, diff, 100*diff/rad_integral);

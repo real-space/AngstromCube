@@ -2329,6 +2329,7 @@ namespace energy_mesh {
     status_t test_Gauss_Legendre_quadrature(int const echo=5) {
         status_t stat(0);
         double x[120], w[120];
+        double maxdev[] = {0, 0};
         for (int n{0}; n <= 20; ++n) {
             auto const nn = Gauss_Legendre_quadrature(x, w, n, echo*(n < 33));
             if (nn == n) {
@@ -2348,9 +2349,12 @@ namespace energy_mesh {
                     int const odd = k & 0x1; // == k % 2
                     dev[odd] = std::max(dev[odd], std::abs(s[k] - (1. - odd)/(.5*k + .5)));
                 } // k 
-                std::printf("# %s: n= %d deviation for even %.1e and odd %.1e\n", __func__, n, dev[0], dev[1]);
+                if (echo > 3) std::printf("# %s: n= %d deviation for even %.1e and odd %.1e\n", __func__, n, dev[0], dev[1]);
+                maxdev[0] = std::max(maxdev[0], std::abs(dev[0]));
+                maxdev[1] = std::max(maxdev[1], std::abs(dev[1]));
             } // success
         } // n
+        if (echo > 1) std::printf("# %s: n < 21 deviation for even %.1e and odd %.1e\n", __func__, maxdev[0], maxdev[1]);
         return stat;
     } // test_Gauss_Legendre_quadrature
 

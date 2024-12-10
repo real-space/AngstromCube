@@ -1098,7 +1098,7 @@ namespace green_function {
     status_t test_get_right_hand_sides(int const echo=0) {
         status_t stat(0);
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 1.);
-        uint32_t const nb[] = {unsigned(bb[X]), unsigned(bb[Y]), unsigned(bb[Z])};
+        uint32_t const nb[] = {uint32_t(bb[X]), uint32_t(bb[Y]), uint32_t(bb[Z])};
         std::vector<green_parallel::rank_int_t> owner_rank;
         auto const rhs = get_right_hand_sides(nb, owner_rank, MPI_COMM_WORLD, echo);
         auto const nrhs = rhs.size();
@@ -1117,7 +1117,7 @@ namespace green_function {
     status_t test_construct_Green_function(int const echo=0) {
         status_t stat(0);
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 6.);
-        uint32_t const ng[] = {4*unsigned(bb[X]), 4*unsigned(bb[Y]), 4*unsigned(bb[Z])};
+        uint32_t const ng[] = {4*uint32_t(bb[X]), 4*uint32_t(bb[Y]), 4*uint32_t(bb[Z])};
         double const grid_spacing[] = {1, 1, 1};
         std::vector<double> xyzZinso(0); // 0: no atoms
         int8_t const bc_test[4] = {Isolated_Boundary, Periodic_Boundary, Vacuum_Boundary, Repeat_Boundary};
@@ -1126,9 +1126,9 @@ namespace green_function {
         for (int bcy{0}; bcy < 4; ++bcy) {
         for (int bcx{0}; bcx < 4; ++bcx) {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
-            if (echo > 3) std::printf("\n# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
+            if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
             action_plan_t p;
-            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, echo, Noco);
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
         return stat;

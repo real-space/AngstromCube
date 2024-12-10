@@ -330,8 +330,8 @@ namespace sho_overlap {
           } // m
       } // n
       if (nullptr == tensor) return -1; // function had no effect
-      if (echo > 1) {
-          std::printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
+      if (echo > 4) {
+          std::printf("\n# %s ncut=%d\n", __func__, ncut);
           for (int p{0}; p < 2*ncut - 1; ++p) {
               std::printf("\n# p = %d\n", p);
               for (int n{0}; n < ncut; ++n) {
@@ -575,7 +575,7 @@ namespace sho_overlap {
               if (echo > 9) std::printf("%9.1e", norm - (m == n));
               ndev += (std::abs(norm - (m == n)) > 1e-10);
           } // m
-          if (echo > 1) std::printf("\n");
+          if (echo > 3) std::printf("\n");
       } // n
       if (echo > 0) std::printf("# %s: up to %d the largest deviation from Kroecker is %.1e \n", __func__, ncut - 1, mdev);
       return ndev;
@@ -591,15 +591,15 @@ namespace sho_overlap {
       prepare_centered_Hermite_polynomials(H0.data(), ncut, 1/sigma0);
       prepare_centered_Hermite_polynomials(H1.data(), ncut, 1/sigma1);
       double maxdevall{0};
-      if (echo > 3) std::printf("\n# %s sigma0=%g sigma1=%g %s\n", __func__, sigma0*Ang, sigma1*Ang, _Ang);
+      if (echo > 7) std::printf("\n# %s sigma0=%g sigma1=%g %s\n", __func__, sigma0*Ang, sigma1*Ang, _Ang);
       for (auto dist{0.0}; dist < 11; dist += .1) {
-          if (echo > 4) std::printf("# %s distance=%.3f  ", __func__, dist*Ang);
+          if (echo > 8) std::printf("# %s distance=%.3f  ", __func__, dist*Ang);
           double maxdev{0};
           for (int n{0}; n < ncut; ++n) {
               for (int m{0}; m < ncut; ++m) {
                   double const ovl = overlap_of_two_Hermite_Gauss_functions(H0[n], 1+n, sigma0,
                                                                             H1[m], 1+m, sigma1, dist);
-                  if (echo > 4) std::printf(" %.6f", ovl);
+                  if (echo > 8) std::printf(" %.6f", ovl);
                   if (numerical > 0) {
                       double const dx = 7.0/numerical;
                       double ovl_numerical = 0;
@@ -610,13 +610,13 @@ namespace sho_overlap {
                                          * eval_poly(H1[m], 1+m, x1) * std::exp(-0.5*pow2(x1/sigma1));
                       } // ix
                       ovl_numerical *= dx;
-                      if (echo > 5) std::printf(" %.6f", ovl_numerical);
+                      if (echo > 9) std::printf(" %.6f", ovl_numerical);
                       maxdev = std::max(maxdev, std::abs(ovl - ovl_numerical));
                   } // numerical
               } // m
           } // n
-          if (echo > 4) std::printf("\n");
-          if (numerical > 0 && echo > 3) std::printf("# %s max deviation for distance=%.3f %s is %.1e\n", __func__, dist*Ang, _Ang, maxdev);
+          if (echo > 8) std::printf("\n");
+          if (numerical > 0 && echo > 5) std::printf("# %s max deviation for distance=%.3f %s is %.1e\n", __func__, dist*Ang, _Ang, maxdev);
           maxdevall = std::max(maxdevall, maxdev);
       } // dist
       if (numerical > 0 && echo > 2) std::printf("# %s max deviation is %.1e\n", __func__, maxdevall);
@@ -646,9 +646,12 @@ namespace sho_overlap {
           derive_Hermite_Gauss_polynomial(d2H1[n], dH1[n], ncut, 1./sigma1);
       } // n
       double maxdev1{0}, maxdev2{0}, maxdev3{0};
-      if (echo > 4) std::printf("# %s  distance overlaps\n", __func__);
-      for (auto dist{0.0}; dist < 11; dist += .01) {
-          if (echo > 4) std::printf("%.3f", dist);
+      int const mask = (1 << std::max(0, 11 - echo)) - 1; // echo==7 --> plot every 16th, echo==9 --> every 4th, echo==11 --> every number
+      if (echo > 6) std::printf("# %s  distance overlaps (plot every %ith number)\n", __func__, mask + 1);
+      for (int idist{0}; idist < 1111; ++idist) {
+          auto const dist = idist*0.01;
+          bool const plot = (0 == (idist & mask)) && (echo > 6);
+          if (plot) std::printf("%.3f", dist);
           for (int n{0}; n < mcut; ++n) {
               for (int m{0}; m < mcut; ++m) {
                   auto const d2d0 = overlap_of_two_Hermite_Gauss_functions(d2H0[n], ncut, sigma0, H1[m], ncut, sigma1, dist);
@@ -658,17 +661,17 @@ namespace sho_overlap {
   //                 if (echo > 1) std::printf(" %.9f", ovl); // show overlap
   //              if (echo > 1) std::printf("  %.9f %.9f %.9f", d2d0, d0d2, -d1d1); // show 3 values
   //              if (echo > 1) std::printf("  %.1e %.1e %.1e", d2d0 + d1d1, d0d2 + d1d1, d2d0 - d0d2); // show deviations
-                  if (echo > 6) std::printf(" %.9f", -d1d1); // show 1 value
                   auto const d2avg = .5*d2d0 + .5*d0d2;
-                  if (echo > 8) std::printf("  %.9f %.9f", d2avg, -d1d1); // show 2 values
+                  if (plot) std::printf(" %.9f", -d1d1); // show 1 value
+             //   if (echo > 8) std::printf("  %.9f %.9f", d2avg, -d1d1); // show 2 values
                   maxdev3 = std::max(maxdev3, std::abs(d2avg + d1d1)); // one order better than dev1 and dev2
                   maxdev2 = std::max(maxdev2, std::abs(d2d0 - d0d2));
                   maxdev1 = std::max(maxdev1, std::abs(d2d0 + d1d1));
                   maxdev1 = std::max(maxdev1, std::abs(d0d2 + d1d1));
               } // m
           } // n
-          if (echo > 4) std::printf("\n");
-      } // dist
+          if (plot) std::printf("\n");
+      } // idist
       if (echo > 0) std::printf("\n# %s deviations %g, %g and %g\n", __func__, maxdev1, maxdev2, maxdev3);
       return (maxdev3 > 2e-14);
   } // test_kinetic_overlap
@@ -790,7 +793,8 @@ namespace sho_overlap {
               std::printf("# H[%x]: ", n);
               for (int m{0}; m <= n; ++m) {
                   std::printf("%8.4f", H0[n][m]);
-              }   std::printf("\n");
+              } // m
+              std::printf("\n");
           } // echo
 
           // construct first derivatives
@@ -799,9 +803,10 @@ namespace sho_overlap {
       } // n
 
       int const n3D = sho_tools::nSHO(numax);
-      if (echo > 5) {
+      if (echo > 7) {
           std::printf("# %d SHO functions up to numax=%d\n", n3D, numax);
-          {   std::printf("# list %d SHO functions: ", n3D);
+          { // scope
+              std::printf("# list %d SHO functions: ", n3D);
               for (int n0{0}; n0 <= numax; ++n0) {
                   for (int n1{0}; n1 <= numax - n0; ++n1) {
                       for (int n2{0}; n2 <= numax - n0 - n1; ++n2) {
@@ -831,7 +836,7 @@ namespace sho_overlap {
           vec3 const pos = cv[0]*i1 + cv[1]*i2 + cv[2]*i3;
 
           if (!Ref && norm(pos) < dmax*dmax) {
-              if (echo > 9) std::printf("%f %f %f\n", pos[0],pos[1],pos[2]);
+              if (echo > 11) std::printf("%f %f %f\n", pos[0],pos[1],pos[2]);
               int in{0};
               for (int n2{0}; n2 <= numax; ++n2) {
               for (int n1{0}; n1 <= numax - n2; ++n1) {
@@ -917,7 +922,7 @@ namespace sho_overlap {
           double const w8scale = 1./w8sum; for (size_t ikp{0}; ikp < kps.size(); ++ikp) kps[ikp][3] *= w8scale; // rescale
       } else {
           int const nedges = 6;
-          auto const sampling_density = control::get("sho_overlap.kpath.sampling", 1./32);
+          auto const sampling_density = control::get("sho_overlap.kpath.sampling", (echo > 7) ? 1./32 : 1./8);
           double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
           double path_progress{0};
           for (int edge{0}; edge < nedges; ++edge) {
@@ -1074,7 +1079,7 @@ namespace sho_overlap {
           } // info
 
           if (progress_percent*kps.size() < ik) {
-              if (echo > 3) {
+              if (echo > 7) {
                   std::printf("# progress = %.1f %%\n", ik/(.01*kps.size()));
                   fflush(stdout); // if we do not flush the output, it will be buffered an the progress report makes no sense
               }
@@ -1175,7 +1180,7 @@ namespace sho_overlap {
                       } // numerical
                   } // even odd
               } // moment
-              if (echo > 1) std::printf("\n");
+              if (echo > 3) std::printf("\n");
           } // n
           maxreldevall = std::max(maxreldevall, maxreldev);
           if (numerical > 0 && echo > 2) std::printf("# %s max relative deviation for sigma= %g is %.1e\n", __func__, sigma, maxreldev);
