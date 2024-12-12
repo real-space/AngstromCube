@@ -24,6 +24,7 @@
 
 namespace atom_communication {
 
+    // a simple atom parallelization strategy
     uint32_t get_global_atom_id(
           uint32_t const atom_owner_rank
         , uint32_t const local_atom_index
@@ -178,7 +179,7 @@ namespace atom_communication {
     } // AtomCommList_t::broadcast
 
 
-    status_t AtomCommList_t::allreduce(
+    status_t AtomCommList_t::reduce(
           data_list<double> & owner_data // result [na], only correct in atom owner rank
         , data_list<double> const & atom_data // input [natoms]
         , char const *const what
@@ -222,8 +223,8 @@ namespace atom_communication {
             }
         } // iatom
 
-        // atom owners receive and collect the data
 #ifndef   HAS_NO_MPI
+        // atom owners receive and collect the data
         assert(na == list_.size());
         for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
             auto const & list_ia = list_.at(ia);
@@ -246,7 +247,7 @@ namespace atom_communication {
 
         if (stat) warn("failed with status= %i", int(stat));
         return stat;
-    } // AtomCommList_t::allreduce
+    } // AtomCommList_t::reduce
 
 
 
@@ -261,7 +262,7 @@ namespace atom_communication {
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-    status_t test_creation_broadcast_allreduce(int const echo) {
+    status_t test_creation_broadcast_reduce(int const echo) {
         status_t stat(0);
 
         // prepare
@@ -288,7 +289,7 @@ namespace atom_communication {
                 owner_data[ia][1] = 1;
             } // ia
             stat += acomm.broadcast(atom_data, owner_data, "TEST broadcast", echo);
-            stat += acomm.allreduce(owner_data, atom_data, "TEST allreduce", 1., echo);
+            stat += acomm.reduce(owner_data, atom_data, "TEST reduce", 1., echo);
             mpi_parallel::barrier(comm);
             for (int ia{0}; ia < na; ++ia) {
                 auto const expected = owner_data[ia][1]*(ia + .25);
@@ -302,12 +303,12 @@ namespace atom_communication {
         // destruction happens about here
 
         return stat;
-    } // test_creation_broadcast_allreduce
+    } // test_creation_broadcast_reduce
 
     status_t all_tests(int const echo) {
         status_t stat(0);
         auto const already_initialized = mpi_parallel::init();
-        stat += test_creation_broadcast_allreduce(echo);
+        stat += test_creation_broadcast_reduce(echo);
         if (!already_initialized) mpi_parallel::finalize();
         return stat;
     } // all_tests

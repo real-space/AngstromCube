@@ -30,7 +30,7 @@ namespace atom_communication {
             , int const echo=0 // log level
         ) const; // declaration only
 
-        status_t allreduce(
+        status_t reduce(
               data_list<double> & atom_owner_data // result [na], only correct in atom owner rank
             , data_list<double> const & atom_contribution_data // input [natoms]
             , char const *const what // descriptive string for debugging

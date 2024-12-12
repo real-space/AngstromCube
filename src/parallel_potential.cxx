@@ -1275,7 +1275,7 @@ namespace parallel_potential {
             // project the electrostatic grid onto the localized compensation charges
             project_grid(atoms_vzyx, V_electrostatic, cube_coords, n_cubes, lmaxs_vlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
-            stat += atom_comm_list.allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", g.dV(), echo);
+            stat += atom_comm_list.reduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", g.dV(), echo);
             for (int32_t ia{0}; ia < na; ++ia) {
                 auto const global_atom_id = ia*nprocs + me;
                 auto const stat_ren = sho_projection::renormalize_electrostatics(atom_vlm[ia], atom_vzyx[ia], lmax_vlm[ia], sigma_cmp[ia], unitary, echo);
