@@ -224,7 +224,6 @@ namespace atom_communication {
 
         // atom owners receive and collect the data
 #ifndef   HAS_NO_MPI
-        std::vector<MPI_Request> recv_requests(1);
         assert(na == list_.size());
         for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
             auto const & list_ia = list_.at(ia);
