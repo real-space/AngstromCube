@@ -381,7 +381,7 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
         assert(me == rank_int_t(me));
-        this->ri_index = std::vector<rank_int_t>(nreq, rank_int_t(me)); // if the request is remote, in which recv-buffer is it?
+        this->recv_buffer_index = std::vector<rank_int_t>(nreq, rank_int_t(me)); // if the request is remote, in which recv-buffer is it?
         this->index_in_recv_buffer.resize(nreq, 0) ; // if the request is remote, where in the recv-buffer is it?
 
         size_t new_stats[] = {0, 0, 0}; // get element from {0:clear, 1:local 2:remote, 2:clear}
@@ -421,7 +421,7 @@ namespace green_parallel {
                 if (echo > 27) { std::printf("# rank#%i found item#%lli in buffer[%i] from rank#%i\n",
                                                 me, global_id, ibuf, rank); std::fflush(stdout); }
                 index_in_recv_buffer.at(ireq) = ibuf;
-                ri_index.at(ireq) = ri;
+                recv_buffer_index.at(ireq) = ri;
 #else  // HAS_NO_MPI
                 error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, rank);
 #endif // HAS_NO_MPI
@@ -595,7 +595,7 @@ namespace green_parallel {
                 if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i buffer[%i]\n", me, this->requested_id.at(ireq), rank, ibuf);
 #ifndef   HAS_NO_MPI
                 assert(0 <= rank); assert(rank < nprocs);
-                auto const ri = this->ri_index.at(ireq);
+                auto const ri = this->recv_buffer_index.at(ireq);
                 assert(ri >= 0 && "did not expect elements from this rank, error in RequestList_t constructor");
                 auto const & buffer = recv_buff.at(ri);
                 set(&data_out[ireq*count], count, &buffer[ibuf*count]); // copy package from receive buffer
