@@ -77,8 +77,8 @@ namespace green_parallel {
         // for 1-sided or 2-sided communication (could be private if we only used 2-sided)
         std::vector<int32_t> owner; // owner rank of the requested data item
         std::vector<int32_t> local_indices; // local index in owning process
-        std::vector<int64_t> requested_id; // original identifyer (for debug only)
-        std::vector<int64_t> offered_id;   // original identifyer (for debug only)
+        std::vector<int64_t> requested_id; // original identifyer
+        std::vector<int64_t> offered_id;   // original identifyer (for self-test)
         uint32_t window_size = 0;
         MPI_Comm comm_;
         // for 2-sided communication only
@@ -87,7 +87,7 @@ namespace green_parallel {
         std::vector<int32_t> recv_packages_from_ranks; // ranks to recveive data from
         std::vector<std::vector<uint32_t>> recv_package_index;
         std::vector<rank_int_t> ri_index; // if the request is remote, in which recv-buffer is it?
-        std::vector<uint32_t> ibuf_index; // if the request is remote, where in the recv-buffer is it?
+        std::vector<uint32_t> index_in_recv_buffer; // if the request is remote, where in the recv-buffer is it?
 #ifdef    HAS_ONESIDED_MPI
         bool use1sided_ = false;
 #endif // HAS_ONESIDED_MPI

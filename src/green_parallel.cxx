@@ -288,7 +288,7 @@ namespace green_parallel {
         if (echo > 3) { std::printf( "# rank#%i receives from %d other ranks in 2-sided MPI communication\n", me, n_recv_partners); }
         if (echo > 7) { std::printf( "# rank#%i receives from these %d ranks: ", me, n_recv_partners); printf_vector(" %i", this->recv_packages_from_ranks); }
         for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
-            if (echo > 3) { std::printf( "# rank#%i receives these %d local elements from rank#%i : ", me, n_packages_to_recv.at(ri),
+            if (echo > 8) { std::printf( "# rank#%i receives these %d local elements from rank#%i : ", me, n_packages_to_recv.at(ri),
                 this->recv_packages_from_ranks.at(ri)); printf_vector(" %i", this->recv_package_index.at(ri)); std::fflush(stdout); }
             // consistency check
             assert(this->recv_package_index.at(ri).size() == n_packages_to_recv.at(ri));
@@ -381,8 +381,8 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
         assert(me == rank_int_t(me));
-        ri_index = std::vector<rank_int_t>(nreq, rank_int_t(me)); // if the request is remote, in which recv-buffer is it?
-        ibuf_index.resize(nreq, 0) ; // if the request is remote, where in the recv-buffer is it?
+        this->ri_index = std::vector<rank_int_t>(nreq, rank_int_t(me)); // if the request is remote, in which recv-buffer is it?
+        this->index_in_recv_buffer.resize(nreq, 0) ; // if the request is remote, where in the recv-buffer is it?
 
         size_t new_stats[] = {0, 0, 0}; // get element from {0:clear, 1:local 2:remote, 2:clear}
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
@@ -420,7 +420,7 @@ namespace green_parallel {
                 } // not found
                 if (echo > 27) { std::printf("# rank#%i found item#%lli in buffer[%i] from rank#%i\n",
                                                 me, global_id, ibuf, rank); std::fflush(stdout); }
-                ibuf_index.at(ireq) = ibuf;
+                index_in_recv_buffer.at(ireq) = ibuf;
                 ri_index.at(ireq) = ri;
 #else  // HAS_NO_MPI
                 error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, rank);
@@ -591,7 +591,7 @@ namespace green_parallel {
                 assert(iloc < nwin);
                 set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy package
             } else { // me == rank
-                auto const ibuf = this->ibuf_index.at(ireq);
+                auto const ibuf = this->index_in_recv_buffer.at(ireq);
                 if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i buffer[%i]\n", me, this->requested_id.at(ireq), rank, ibuf);
 #ifndef   HAS_NO_MPI
                 assert(0 <= rank); assert(rank < nprocs);

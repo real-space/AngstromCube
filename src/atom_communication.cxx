@@ -278,10 +278,10 @@ namespace atom_communication {
         std::vector<uint32_t> gids(natoms); // global ids of atoms this rank contributes to
         for (uint32_t iatom{0}; iatom < natoms; ++iatom) { gids[iatom] = (me + iatom) % n_all_atoms; } // some pattern
 
-        // construct
-        AtomCommList_t acomm(n_all_atoms, gids, comm, echo);
+        // constructor
+        AtomCommList_t const acomm(n_all_atoms, gids, comm, echo);
 
-        { // scope: test broadcast and allreduce
+        { // scope: test broadcast and reduce
             std::vector<uint8_t> mo(na, 2), mc(natoms, 2); // all entries in both vectors are 2
             data_list<double> owner_data(mo), atom_data(mc);
             for (int ia{0}; ia < na; ++ia) {
@@ -304,6 +304,7 @@ namespace atom_communication {
 
         return stat;
     } // test_creation_broadcast_reduce
+
 
     status_t all_tests(int const echo) {
         status_t stat(0);
