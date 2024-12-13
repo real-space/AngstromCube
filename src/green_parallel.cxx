@@ -365,7 +365,7 @@ namespace green_parallel {
 
             MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
 
-            // check that all requested global_ids are owned locally
+            // check that all global_ids requested from this rank are owned locally
             for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
                 auto const n_packages = send_package_global_id.at(rj).size();
                 for (uint32_t ip{0}; ip < n_packages; ++ip) {
@@ -604,9 +604,11 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
             } // me == rank
         } // ireq
+
         mpi_parallel::barrier(comm); // synchronize processes
         return status;
     } // RequestList_t::exchange
+
 
     status_t RequestList_t::potential_exchange(
           double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco*Noco][nreq][64]
@@ -628,7 +630,7 @@ namespace green_parallel {
 
         auto const status = this->exchange(Vout.data(), Vinp[0], Noco*Noco*64, echo, "potential");
 
-        // convert Vout into special data layout of Veff (GPU memory) 
+        // convert Vout[nreq][Noco*Noco][64] into special data layout of Veff[Noco*Noco][nreq][64] (in GPU memory) 
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
             for (int spin = 0; spin < Noco*Noco; ++spin) {
                 set(Veff[spin][ireq], 64, Vout(ireq,spin)); // copy blocks of 4*4*4 grid points
@@ -643,7 +645,7 @@ namespace green_parallel {
         // sanity check routine testing exchange with 1 global_id per package
         uint32_t const nr = this->size();   // number of requested elements
         uint32_t const ns = this->window(); // number of offered elements
-        typedef float real_t; // if real_t == float, this makes the explicit template instantiation above redundant
+        typedef float real_t; // if real_t == float, this makes the explicit template instantiation below redundant
         std::vector<real_t> inp(ns, real_t(0));
         for (uint32_t is{0}; is < ns; ++is) {
             inp.at(is) = real_t(this->offered_id.at(is)); // input are the global ids offered, converted to real_t
@@ -668,6 +670,19 @@ namespace green_parallel {
 
     // template // explicit template instantiation for real_t=float
     // status_t RequestList_t::exchange(float* , float  const*, uint32_t, int, char const*) const;
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
