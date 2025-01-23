@@ -330,7 +330,7 @@ namespace green_parallel {
         { // scope: exchange indices, slightly confusing in terms of naming ....
             //  ... but yes, we send the list of indices that we want to receive ...
             //  ... and we receive the list of indices we need to send.
-            int const tag = __LINE__;
+            int tag = __LINE__;
             auto const nr = n_recv_partners + n_send_partners;
             std::vector<MPI_Request> mpi_req(nr);
 
@@ -350,7 +350,7 @@ namespace green_parallel {
 
 
             // now also communicate the global indices
-
+            tag = __LINE__;
             for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
                 auto const rank = recv_packages_from_ranks.at(ri);
                 MPI_Isend(recv_package_global_id.at(ri).data(), recv_package_global_id.at(ri).size(), 

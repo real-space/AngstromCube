@@ -879,10 +879,17 @@ namespace parallel_potential {
             auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
             if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
                       gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-            // modify dense grid BCs: map {vacuum --> isolated, repeat --> periodic, isolated --> isolated, periodic --> periodic}
+            // modify dense grid BCs: map | from         to
+            //                            | vacuum   --> isolated
+            //                            | repeat   --> periodic
+            //                            | isolated --> isolated 
+            //                            | periodic --> periodic
             g.set_boundary_conditions(boundary_condition::potential_bc(gbc[0]),
                                       boundary_condition::potential_bc(gbc[1]),
                                       boundary_condition::potential_bc(gbc[2]));
+            // vacuum boundary conditions allow the Green function to extend beyond the isolated boundaries
+            //                            while the potential is zero by definition outside the boundaries
+            // repeat boundary conditions assume a periodic potential but a range-truncated Green function
         }
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 
