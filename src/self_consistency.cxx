@@ -662,6 +662,7 @@ namespace self_consistency {
     status_t all_tests(int const echo) {
         status_t stat(0);
 //      stat += test_scf(echo);
+        warn("test_scf deactivated, envoke ./a43 without -t to run the self_consistency::SCF", 0);
         return stat;
     } // all_tests
 

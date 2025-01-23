@@ -1140,7 +1140,8 @@ namespace single_atom {
 
         int ncmx[4]; // largest enn of the core electrons
         sigma_config::set_default_core_shells(ncmx, Z_core);
-        if (echo > 6) std::printf("# %s preliminary core states up to %ds %dp %dd %df\n", label, ncmx[0], ncmx[1], ncmx[2], ncmx[3]);
+        if (echo > 6) std::printf("# %s preliminary core states up to %ds %dp %dd %df\n", label,
+            (ncmx[0] > 0)*ncmx[0], (ncmx[1] > 1)*ncmx[1], (ncmx[2] > 2)*ncmx[2], (ncmx[3] > 3)*ncmx[3]);
 
         r_cut = rg[SMT].rmax; // init at maximum
         std::vector<int8_t> enn_ell(1 + ELLMAX, 0);
@@ -1170,7 +1171,8 @@ namespace single_atom {
             ++ist;
         } // valence states
         assert(p.states.size() == ist && "fatal counting error");
-        if (echo > 3) std::printf("# %s core states up to %ds %dp %dd %df\n", label, ncmx[0], ncmx[1], ncmx[2], ncmx[3]);
+        if (echo > 3) std::printf("# %s core states up to %ds %dp %dd %df\n", label,
+            (ncmx[0] > 0)*ncmx[0], (ncmx[1] > 1)*ncmx[1], (ncmx[2] > 2)*ncmx[2], (ncmx[3] > 3)*ncmx[3]);
         if (echo > 3) std::printf("# %s smallest cutoff radius is %g %s\n", label, r_cut*Ang, _Ang);
 
         { // scope: determine numax

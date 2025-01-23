@@ -209,11 +209,38 @@ namespace sigma_config {
     } // nl_index
 
     void set_default_core_shells(int ncmx[4], double const Z) {
+        // The default core state configuration (for spdf) will sometimes put valence states
+        // into the core. This happens on purpose for atom numbers Z large enough so we do not
+        // miss any states that are not explicitly marked as valence states.
+        //
+// #  nl    j   occ    index                                                    Z_closed_shell
+//    1s   0.0   2        0      H  He                                          2
+//    2s   0.0   2        1      Li Be                                          4
+//    2p   1.0   6        2      B  C  N  O  F  Ne                              10
+//    3s   0.0   2        3      Na Mg                                          12
+//    3p   1.0   6        4      Al Si P  S  Cl Ar                              18
+//    4s   0.0   2        5      K  Ca                                          20
+//    3d   2.0  10        6      Sc Ti V  Cr Mn Fe Co Ni Cu Zn                  30
+//    4p   1.0   6        7      Ga Ge As Se Br Kr                              36
+//    5s   0.0   2        8      Rb Sr                                          38
+//    4d   2.0  10        9      Y  Zr Nb Mo Tc Ru Rh Pd Ag Cd                  48
+//    5p   1.0   6       10      In Sn Sb Te I  Xe                              54
+//    6s   0.0   2       11      Cs Ba                                          56
+//    4f   3.0  14       12      La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb      70
+//    5d   2.0  10       13      Lu Hf Ta W  Re Os Ir Pt Au Hg                  80
+//    6p   1.0   6       14      Tl Pb Bi Po At Rn                              86
+//    7s   0.0   2       15      Fr Ra                                          88
+//    5f   3.0  14       16      Ac Th Pa U  Np Pu Am Cm Bk Cf Es Fm Md No      102
+//    6d   2.0  10       17      Lr Rf Db Sg Bh Hs Mt Ds Rg Cn                  112
+//    7p   1.0   6       18      Nh Fl Mc Lv Ts Og                              118
+//    8s   0.0   2       19      ue u0                                          120
+//
         ncmx[0] = 0 + (Z >= 120) + (Z >= 88) + (Z >= 56) + (Z >= 38) + (Z >= 20) + (Z >= 12) + (Z >= 4) + (Z >= 2);
         ncmx[1] = 1 + (Z >= 118) + (Z >= 86) + (Z >= 54) + (Z >= 36) + (Z >= 18) + (Z >= 10);
         ncmx[2] = 2 + (Z >= 112) + (Z >= 80) + (Z >= 48) + (Z >= 30);
         ncmx[3] = 3 + (Z >= 102) + (Z >= 70);
     } // set_default_core_shells
+
 
     struct parsed_word_t {
         double value; // numeric value
