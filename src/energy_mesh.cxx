@@ -38,7 +38,7 @@ namespace energy_mesh {
             ex[1][0] = std::min(ex[1][0], float(ep.imag()));
             ex[1][1] = std::max(ex[1][1], float(ep.imag()));
         } // ep
-        if (echo > 2) std::printf("# energy contour has %ld points within [%g, %g %s] and [%g, %g %s]\n",
+        if (echo > 2) std::printf("# energy contour has %ld points within [%g, %g] %s and [%g, %g] %s\n",
                           nE, ex[0][0]*eV, ex[0][1]*eV, _eV, ex[1][0]*Kelvin, ex[1][1]*Kelvin, _Kelvin);
         assert(E_weights.size() == nE);
 
@@ -2292,37 +2292,41 @@ namespace energy_mesh {
 
     status_t test_energy_mesh(int const echo=5) {
         double c_ref{0};
-        { // scope: compute reference value by integrating over real axis [-1, 0]
-            int constexpr m = 1000;
+        if (0) { // scope: compute reference value by integrating over real axis [-1, 0] 
+            int constexpr m = 1e7;
             auto const dx = 1.0/m;
-            for (int i{0}; i < 1000; ++i) {
+            for (int i{0}; i < m; ++i) {
                 c_ref += std::cos(-(i + .5)*dx)*dx;
             } // i
-        } // scope
+        } else { // scope
+            c_ref = -std::sin(-1.); // analytical
+        }
+
         auto const nBot = std::min(unsigned(control::get("energy_contour.bottom",    9.)), 112u);
         auto const nPar = std::min(unsigned(control::get("energy_contour.parallel", 33.)), 112u);
-        auto const nFer = std::min(unsigned(control::get("energy_contour.fermidirac", 9.)), 16u);
+        auto const nFer = std::min(unsigned(control::get("energy_contour.fermidirac", 8.)), 16u);
         auto const nPol =               int(control::get("energy_contour.matsubara", 1.));
-        double const eBot = -1, kBT = 1.0080339e-2; // == 2e4 Kelvin per Matsubara pole
+        double const eBot = -1, kBT = 1.0080339e-2; // == 20k Kelvin per Matsubara pole
         for (int nm{0}; nm <= std::abs(nPol); ++nm) {
             int const mPol = (nPol < 0) ? -nm : nm;
         for (unsigned nb = (0 != mPol); nb <= nBot*(0 != mPol); ++nb) {
-        for (unsigned np{1}; np <= nPar; ++np) {
         for (unsigned nf = (0 != mPol); nf <= nFer*(0 != mPol); ++nf) {
+        for (unsigned np{1}; np <= nPar; ++np) {
             std::vector<Complex> energy_weights;
             auto const energy_mesh = get_energy_mesh(energy_weights, kBT, eBot, nb, np, nf, mPol, echo/4);
             if (echo > 9) std::printf("# energy mesh with %ld points generated\n", energy_mesh.size());
-            // integrate a simple but holomorphic function of which the integral over the real axis [-1, 0] is known
+            // integrate a simple but holomorphic function of which the integral over the real axis [-1, 0] is known (c_ref)
             auto const nE = energy_mesh.size();
             assert(nE == energy_weights.size());
             Complex c(0);
             for (size_t iE{0}; iE < nE; ++iE) {
-                auto const x = energy_mesh.at(iE), wgt = energy_weights.at(iE);
+                auto const x = energy_mesh.at(iE);
+                auto const wgt = energy_weights.at(iE);
                 c += std::cos(x)*wgt;
             } // iE
-            if (echo > 8) std::printf("# %s(+energy_contour.bottom=%d .parallel=%d .fermidirac=%d .matsubara=%d) Integral[cos]= (%g, %.1e), reference= %g\n",
-                                         __func__, nb, np, nf, mPol, c.real(), c.imag(), c_ref);
-        }}}} // nm nb np nf
+            if (echo > 8) std::printf("# %s(+energy_contour.bottom=%d .parallel=%d .fermidirac=%d .matsubara=%d) Integral[cos]= (%g, %.1e), reference= %g, delta= %.1e\n",
+                                         __func__, nb, np, nf, mPol, c.real(), c.imag(), c_ref, c.real() - c_ref);
+        }}}} // nm nb nf np
         return 0;
     } // test_energy_mesh
  

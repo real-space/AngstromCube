@@ -11,8 +11,7 @@
 #include <string> // std::string
 #include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
-#include "parallel_potential.hxx" // ::SCF
-
+  #include "parallel_potential.hxx" // ::SCF
 #ifndef   NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests
   #include "atom_communication.hxx" // ::all_tests
