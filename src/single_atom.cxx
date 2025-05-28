@@ -39,7 +39,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // ::transform_to_r2grid
 #include "scattering_test.hxx" // ::eigenstate_analysis, ::logarithmic_derivative, ::emm_average, ::expand_sho_projectors
-#include "linear_algebra.hxx" // ::eigenvalues
+#include "linear_algebra.hxx" // ::eigenvalues, ::inverse
 #include "data_view.hxx" // view4D<T>, view3D<T>, view2D<T>, transpose, gemm
 #include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
@@ -990,13 +990,6 @@ namespace single_atom {
             update_potential(potential_mixing, nullptr, echo); // compute the zero_potential and total energy contributions
             if (echo > 0) std::printf("\n\n# %s export configuration to PAW-XML file\n", label);
 
-        // for (int ell = 0; ell <= numax; ++ell) {
-        //     projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
-        //     for (int nrn = 0; nrn < nn[ell]; ++nrn) {
-        //         projector_coeff[ell](nrn,nrn) = 1.0; // Kronecker
-        //     } // nrn
-        // } // ell
-
             view2D<double> projector_coefficients(nln, sho_tools::nn_max(numax, 0), 0.0);
             for (int ell = 0; ell <= numax; ++ell) {
                 int const nmx = sho_tools::nn_max(numax, ell);
@@ -1044,9 +1037,7 @@ namespace single_atom {
 //                         , -full_potential[TRU](00,irt)*Y00*r // for comparison, should be the same as Z_eff(r)
                         , -potential[TRU][irt] // Z_eff(r)
                         , -potential[SMT][irs] // \tilde Z_eff(r)
-                        , ct + vt, cs + vs
-                        , ct, cs
-                        , vt, vs
+                        , ct + vt, cs + vs, ct, cs, vt, vs
                         , zero_potential[irs]*Y00
                       );
             } // ir
@@ -1263,13 +1254,7 @@ namespace single_atom {
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
 
-        projectors = view2D<double>(nln, nr[SMT], 0.0); // get memory, radial representation
-        for (int ell = 0; ell <= numax; ++ell) {
-            projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
-            for (int nrn = 0; nrn < nn[ell]; ++nrn) {
-                projector_coeff[ell](nrn,nrn) = 1.0; // Kronecker
-            } // nrn
-        } // ell
+        projectors = view2D<double>(nln, nr[SMT], 0.0); // get memory, numerical radial representation on SMT radial grid
 
         std::vector<int> ist_index(nln, -1); // translation table from iln indices to ist indices in p.states
         partial_wave_char = std::vector<char>(nln, '\0'); // init partial wave characteristics
@@ -1465,7 +1450,7 @@ namespace single_atom {
             } // iln
         } // scope
 
-        sigma = 0.5*r_cut; // estimate, ToDo: sigma from optimizing the projector representation in SHO basis
+        sigma = 0.5*r_cut; // rough estimate, ToDo: sigma from optimizing the projector representation in SHO basis
 
         { // scope: optimize sigma_out to best fit the 
             std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive projectors
@@ -1478,7 +1463,7 @@ namespace single_atom {
                 } // nrn
             } // ell
 
-            view2D<double> prj_coeff_optimized(nln, 8, 0.0);
+            view2D<double> prj_coeff_optimized(nln, 8, 0.0); // dummy array which is discarded at the end of this scope
             double const sigma_out = fit_function_set( // returns optimized sigma
                 prj_coeff_optimized // result prj_coeff_optimized(nln, 8)
                 , numax
@@ -1496,11 +1481,54 @@ namespace single_atom {
             sigma = sigma_out; // take
         } // scope
 
-        // ToDo: regenerate projectors with sigma and
-        // ToDo: Gram-Schmidt orthogonalize projectors against lower partial waves and higher partial waves against projectors
-        //  OR   construct only the projector coefficients orthogonal to the existing partial waves
-        warn("when loading from %s partial waves are not orthogonalized", xmlfilename);
-        // ToDo: update the kinetic_energy deficit matrix acccordingly
+        // regenerate projectors with optimized sigma and orthogonalize projectors against partial waves
+        view2D<double> sho_basis(nln, rg[SMT].n, 0.0);
+        scattering_test::expand_sho_projectors(sho_basis[0], sho_basis.stride(), rg[SMT], sigma, numax, 0);
+
+        for (int ell = 0; ell <= numax; ++ell) {
+            projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
+
+            int nactive{0}; // number of active partial waves in this ell-channel
+            std::vector<int8_t> active_iln(nn[ell], int8_t(-1));
+            std::vector<int8_t> active_irn(nn[ell], int8_t(-1));
+            for (int irn = 0; irn < nn[ell]; ++irn) {
+                int const iln = sho_tools::ln_index(numax, ell, irn);
+                if (partial_wave_active[iln]) {
+                    active_iln[nactive] = iln;
+                    active_irn[nactive] = irn;
+                    ++nactive;
+                } // is_active
+            } // irn
+
+            if (nactive > 0) {
+                view2D<double> ovl(nactive, nactive, 0.0);
+                for (int iact = 0; iact < nactive; ++iact) {
+                    int const iln = active_iln[iact];
+                    auto const & vs = partial_wave[iln]; // abbreviate "valence state"
+                    for (int jact = 0; jact < nactive; ++jact) {
+                        int const jln = active_iln[jact];
+                        ovl(iact,jact) = dot_product(rg[SMT].n, vs.wave[SMT], sho_basis[jln], rg[SMT].r2dr);
+                    } // jact
+                } // iact
+
+                // now invert ovl to restore the duality
+                auto const inversion_stat = linear_algebra::inverse(nactive, ovl.data(), ovl.stride());
+                if (0 != inversion_stat) {
+                    warn("%s failed to invert preliminary duality for ell=%d (%d active partial waves), status= %i",
+                    label, ell, nactive, int(inversion_stat));
+                } else {
+                    // copy into projector coefficients
+                    for (int iact = 0; iact < nactive; ++iact) {
+                        int const irn = active_irn[iact];
+                        for (int jact = 0; jact < nactive; ++jact) {
+                            int const jrn = active_irn[jact];
+                            projector_coeff[ell](irn,jrn) = ovl(jact,iact);
+                        } // jact
+                    } // iact
+                } // failed
+            } // nactive > 0
+
+        } // ell
 
 
         update_charge_deficit(echo);
@@ -1518,7 +1546,11 @@ namespace single_atom {
         float const density_mixing[] = {0, 0, 0};
         bool const synthetic_density_matrix = true;
         update_density(density_mixing, echo, synthetic_density_matrix);
-        update_full_potential(1.f, nullptr, 0*echo); // 1.f --> construct full_potential and transfer 100% into the spherical potential
+        update_full_potential(1.f, nullptr, 0*echo); // mixing=1.f --> construct full_potential and transfer 100% into the spherical potential
+
+
+        check_spherical_matrix_elements(echo);
+
 
         { // scope: we can reconstruct the kinetic energy of spherical states
             // kinetic energy of core electrons
@@ -2793,32 +2825,32 @@ namespace single_atom {
         int const nln = sho_tools::nSHO_radial(numax);
 
         for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-            int const nr = rg[ts].n; // integrate over the full radial grid
-            std::vector<double> rl(nr, 1.0); // init as r^0
-            std::vector<double> wave_r2rl_dr(nr);
-            if (echo > 4) std::printf("\n# %s charges for %s partial waves\n", label, ts_name[ts]);
+            int const nr = rg[ts].n; // number of radial grid points, integrate over the full radial grid
+            std::vector<double> rl(nr, 1.0); // init r^ell as r^0
+            std::vector<double> wave_r2rl_dr(nr); // temporary product
+            if (echo > 4) { std::printf("\n# %s charges for %s partial waves\n", label, ts_name[ts]); }
             for (int ell = 0; ell <= ellmax_cmp; ++ell) { // loop-carried dependency on rl, run forward, run serial!
                 bool const echo_l = (echo > 4 + 4*(ell > 0));
-                if (echo_l) std::printf("# %s charges for ell=%i\n", label, ell);
-                if (ell > 0) scale(rl.data(), nr, rg[ts].r); // create r^{\ell}
+                if (echo_l) { std::printf("# %s charges for ell=%i\n", label, ell); }
+                if (ell > 0) { scale(rl.data(), nr, rg[ts].r); } // create r^{\ell}
                 for (int iln = 0; iln < nln; ++iln) {
                     if (partial_wave_active[iln]) {
                         auto const *const wave_i = partial_wave[iln].wave[ts]; assert(wave_i);
-                        if (echo_l) std::printf("# %s %s %-4s", label, ts?"smt":"tru", partial_wave[iln].tag);
+                        if (echo_l) { std::printf("# %s %s %-4s", label, ts?"smt":"tru", partial_wave[iln].tag); }
                         product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts].r2dr); // product of three arrays
                         for (int jln = 0; jln < nln; ++jln) {
                             if (partial_wave_active[jln]) {
                                 auto const *const wave_j = partial_wave[jln].wave[ts]; assert(wave_j);
                                 auto const cd = dot_product(nr, wave_r2rl_dr.data(), wave_j);
                                 charge_deficit(ell,ts,iln,jln) = cd;
-                                if (echo_l) std::printf("\t%10.6f", cd);
-//                              if (SMT == ts && echo > 1) std::printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
+                                if (echo_l) { std::printf("\t%10.6f", cd); }
+//                              if (SMT == ts && echo > 1) { std::printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd); }
                             } // active j
                         } // jln
-                        if (echo_l) std::printf("\n");
+                        if (echo_l) { std::printf("\n"); }
                     } // active i
                 } // iln
-                if (echo_l) std::printf("\n");
+                if (echo_l) { std::printf("\n"); }
             } // ell
         } // ts
     } // update_charge_deficit
@@ -2883,6 +2915,7 @@ namespace single_atom {
             view2D<double> u_proj(nln, nln, 0.0);
             for (int iln = 0; iln < nln; ++iln) {
                 int const ell = ell_list[iln];
+                assert(ell >= 0);
                 int const nrn = iln - ln_offset[iln];
                 if (nrn < nn[ell]) {
                     assert(nrn >= 0);
@@ -2901,7 +2934,7 @@ namespace single_atom {
         int const nlmn = sho_tools::nSHO(numax);
         view2D<double> u_proj(nlmn, nlmn, 0.0);
         for (int ilmn = 0; ilmn < nlmn; ++ilmn) {
-            int const iln = ln_index_list[ilmn];
+            int const iln = ln_index_list[ilmn]; assert(iln >= 0); assert(iln < nln);
             int const ilm = lm_index_list[ilmn];
             int const ell = ell_list[iln];
             int const nrn = iln - ln_offset[iln];
@@ -3610,16 +3643,16 @@ namespace single_atom {
             } // limits
         } // gnt
 
-        // add the kinetic_energy deficit to the hamiltonian
+        // add the kinetic_energy deficit to the hamiltonian, set the overlap elements to the monopole charge deficit
         if (echo > 7) std::printf("\n# %s Hamiltonian elements %s-ordered in %s:\n",
                         label, sho_tools::SHO_order2string(sho_tools::order_lmn).c_str(), _eV);
         for (int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             int const ilm = lm_index_list[ilmn];
             for (int jlmn = 0; jlmn < nlmn; ++jlmn) {
-                int const jln = ln_index_list[jlmn];
                 int const jlm = lm_index_list[jlmn];
                 if (ilm == jlm) {
+                    int const jln = ln_index_list[jlmn];
                     hamiltonian_lmn(ilmn,jlmn) += ( kinetic_energy(TRU,iln,jln)
                                                   - kinetic_energy(SMT,iln,jln) );
                     overlap_lmn(ilmn,jlmn) = ( charge_deficit(0,TRU,iln,jln)
@@ -4130,26 +4163,27 @@ namespace single_atom {
         return csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
     } // get_number_of_electrons
 
-    double get_spherical_spectrum(double energies[40], char const csv_char='v') const {
+    double get_spherical_spectrum(double energies[40], char const csv_char='v', int echo=0) const {
         int const csv = ('v' == csv_char) ? valence : (('c' == csv_char) ? core : (('s' == csv_char) ? semicore : csv_undefined));
         double const def = (valence == csv) ? 9e9 : ((core == csv) ? -9e9 : 0.0);
         set(energies, 40, def); // the max number of states: 40 > 32 (spin-orbit) and 40 >= 2*20 (spin) and 40 > 20 (no spin)
-        double e_min{9e9}, e_max{-9e9}, e_min_all{9e9}; //, e_max_all{-9e9};
-     // int n_states{0};
+        double e_min{9e9}, e_max{-9e9}, e_min_all{9e9}, e_max_all{-9e9};
+        int n_states{0};
         for (auto const & cs : spherical_state) {
             assert(core <= cs.csv && cs.csv <= valence); // {core, semicore, valence}
             if (csv == cs.csv) {
                 e_min = std::min(e_min, cs.energy);
                 e_max = std::max(e_max, cs.energy);
-             // ++n_states;
+                ++n_states;
             }
             e_min_all = std::min(e_min_all, cs.energy);
-         // e_max_all = std::max(e_max_all, cs.energy);
+            e_max_all = std::max(e_max_all, cs.energy);
             int const iln = atom_core::nl_index(cs.enn, cs.ell);
             energies[iln] = cs.energy; // export energies
         } // cs
-     // std::printf("# get_spherical_spectrum(spectrum[40], csv=\'%c\') has %ld states, energies in [%g, %g] %s (%d states), global minimum is %g %s\n",
-     //                                                csv_char, spherical_state.size(), e_min*eV, e_max*eV, _eV, n_states,  e_min_all*eV, _eV);
+        if (echo > 0) std::printf("# get_spherical_spectrum(spectrum[40], csv=\'%c\') has %ld states, "
+                                  "energies in [%g, %g] %s (%d states), global minimum is %g %s\n",
+                                  csv_char, spherical_state.size(), e_min*eV, e_max*eV, _eV, n_states,  e_min_all*eV, _eV);
         switch (csv) {
             case valence  : return e_min; // lowest valence state energy (spherical conterpart)
             case semicore : return (e_max + e_min)*.5; // expected semicore band window center
@@ -4172,12 +4206,12 @@ namespace single_atom {
     status_t perturbation_theory(int const echo=0) const {
         SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
-        auto const lambda = control::get("single_atom.perturbation.strength", 1.);
-        int        ellmax = control::get("single_atom.perturbation.ellmax", -1.);
+        int ellmax = control::get("single_atom.perturbation.ellmax", -1.);
         ellmax = std::min(ellmax, int(ellmax_pot));
 
         status_t status(0);
         if (ellmax < 0) return status; // no perturbation theory
+        auto const lambda = control::get("single_atom.perturbation.strength", 1.);
         auto const & g = rg[TRU];
 
         std::vector<double> rV(g.n); // r*V(r)

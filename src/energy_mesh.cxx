@@ -93,10 +93,12 @@ namespace energy_mesh {
 #endif // ENERGY_MESH_SVG_EXPORT
     } // show_contour
 
+
     void show_energy_point(Complex const E, Complex const w, int const index, char const *const path, int const echo=0) {
         if (echo > 8) std::printf("# energy_mesh[%2i]=(%11.6f %s, %6.1f %s) %s, weight=(%g, %g)\n",
                     index, E.real()*eV, _eV, E.imag()*Kelvin, _Kelvin, path, w.real(), w.imag());
     } // show_energy_point
+
 
     std::vector<Complex> get_energy_mesh(
           std::vector<Complex> & w8 // side result: vector of weights
@@ -201,6 +203,7 @@ namespace energy_mesh {
         show_contour(Ep, w8, echo);
         return Ep;
     } // get_energy_mesh
+
 
     std::vector<Complex> get(std::vector<Complex> & w8, int const echo) {
         // initialize an energy mesh with parameters from the control environment
@@ -2274,8 +2277,8 @@ namespace energy_mesh {
         }
 #endif // 1
 
-#undef xi
-#undef wi
+#undef xi // Fortran indices
+#undef wi // Fortran indices
        return n;
     } // Gauss_Fermi_Dirac_quadrature 
 
@@ -2373,7 +2376,7 @@ namespace energy_mesh {
                     if (echo > 18) std::printf("# %s energy parameter (%g, %g) weight (%g, %g) contribution (%g, %g) new value (%g, %g)\n",
                                         __func__, x.real(), x.imag(), wgt.real(), wgt.imag(), con.real(), con.imag(), c.real(), c.imag());
                 } else {
-                    c += std::cos(x)*wgt;
+                    c += std::cos(x)*wgt; // numerically integrate cosine on contour
                 }
             } // iE
 
