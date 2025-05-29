@@ -84,11 +84,13 @@ namespace single_atom {
   double constexpr Y00    = solid_harmonics::Y00; // == 1./sqrt(4*pi)
   double constexpr Y004pi = solid_harmonics::Y00inv; // == sqrt(4*pi)
 
+
   template <typename real_t>
   inline void symmetrize(real_t &left, real_t &right) {
       // given two elements, set both of them to their common arithmetic average
       left = (left + right)/2; right = left;
   } // symmetrize
+
 
 #ifdef    DEVEL
   status_t minimize_curvature(
@@ -105,6 +107,7 @@ namespace single_atom {
       return info;
   } // minimize_curvature
 #endif // DEVEL
+
 
   int display_delimiter( // returns mln (or mlmn if resolve=='m')
         int const numax // size of the SHO basis
@@ -180,8 +183,6 @@ namespace single_atom {
   } // add_or_project_compensators
 
 
-
-
   template <typename int_t>
   void get_valence_mapping(
         int_t ln_index_list[] // ln-index of ilmn (retrieves the emm_Degenerate index)
@@ -235,7 +236,6 @@ namespace single_atom {
       , int const echo=0 // log-level
       , view2D<double> *func_coeff=nullptr // optional result
   ) {
-
       int const nln = sho_tools::nSHO_radial(numax_basis);
       view3D<double> sho_basis(2, nln, align<2>(rg.n), 0.0); // get memory for projector(r) and the derivative w.r.t. sigma
 
@@ -353,7 +353,7 @@ namespace single_atom {
             double sigma_now, weighted_quality{0}, gradient{0}; // sigma_now does not need initialization
             double const original_quality = expand_numerical_functions_in_SHO_basis(gradient,
                     sigma_old, numax_basis, numax, rg, rfunc, weight_ln, label, 0);
-            while (bisection.root(sigma_now, gradient, echo/2))
+            while (bisection.root(sigma_now, gradient, echo/4))
             {
                 weighted_quality = expand_numerical_functions_in_SHO_basis(gradient,
                     sigma_now, numax_basis, numax, rg, rfunc, weight_ln, label, echo);
@@ -683,7 +683,7 @@ namespace single_atom {
         //    - enable automatic analysis
         //
 
-        std::vector<int8_t> as_valence(36, -1);
+        std::vector<int8_t> as_valence(36, -1); // -1: uninitialized
         enn_QN_t enn_core_ell[16]; // energy quantum number of the highest occupied core level
         set(enn_core_ell, 16, enn_QN_t(0));
 
@@ -756,11 +756,6 @@ namespace single_atom {
 
 
 
-
-
-
-
-
         //
         // Partial Waves
         //
@@ -772,7 +767,7 @@ namespace single_atom {
             nlnn += nn[ell]; // count active partial waves
         } // ell
         for (int ts = TRU; ts <= SMT; ++ts) {
-            partial_wave_radial_part[ts] = view3D<double>(2, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function and kinetic wave
+            partial_wave_radial_part[ts] = view3D<double>(2, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function (0) and kinetic wave (1)
         } // ts
 
         double constexpr energy_derivative = -8.0;
@@ -1095,28 +1090,28 @@ namespace single_atom {
         set_label(chemical_symbol);
 
         auto const pawpath = control::get("single_atom.pawxml.path", "gpaws");
-        auto const paw_ext = control::get("single_atom.pawxml.ext", "xml"); // or LDA
-        char xmlfilename[512]; std::snprintf(xmlfilename, 511, "%s/%s.%s", pawpath, chemical_symbol, paw_ext);
+        auto const paw_ext = control::get("single_atom.pawxml.ext", ".xml"); // or .LDA or .GGA
+        char xmlfilename[512]; std::snprintf(xmlfilename, 512, "%s/%s%s", pawpath, chemical_symbol, paw_ext);
         if (echo > 0) std::printf("\n\n#\n# %s LiveAtom loads \'%s\'\n", label, xmlfilename);
+        // ToDo: think of a way how to share the file IO for all MPI ranks that need this exact file loaded
         auto const p = pawxml_import::parse_pawxml(xmlfilename, echo);
         if (0 != p.parse_status) error("%s parsing \'%s\' returned status=%d", label, xmlfilename, int(p.parse_status));
 
-        Z_core = p.Z;
+        Z_core = p.Z; // number of protons in the core
         if (echo > 3) std::printf("\n\n#\n# %s loading of \'%s\' successful, %g protons\n", label, xmlfilename, Z_core);
         if (Z_protons != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_protons, Z_core);
 
         rg[TRU] = radial_grid::create_radial_grid(p.n, p.n*p.radial_grid_a, p.radial_grid_eq);
         rg[SMT] = rg[TRU]; rg[SMT].memory_owner = false; // same grid for true and smooth quantities, shallow copy
 
-
-        take_spherical_density[core]     = 1; // must always be 1 since we can represent the true core density only on the radial grid
-        take_spherical_density[semicore] = 1;
-        take_spherical_density[valence]  = 1; // or use a synthetic density matrix instead
-
         int const nr[] = {int(align<2>(rg[TRU].n)), int(align<2>(rg[SMT].n))}; // optional memory access alignment
         if (echo > 0) std::printf("# %s radial grid up to %g %s\n", label, rg[TRU].rmax*Ang, _Ang);
         if (echo > 0) std::printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU].n, rg[SMT].n);
         if (echo > 0) std::printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nr[TRU], nr[SMT]);
+
+        take_spherical_density[core]     = 1; // must always be 1 since we can represent the true core density only on the radial grid
+        take_spherical_density[semicore] = 1;
+        take_spherical_density[valence]  = 1; // take spherical valence density or use a synthetic density matrix instead
 
         // allocate spherically symmetric quantities
         for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1124,13 +1119,13 @@ namespace single_atom {
             potential[ts]       = std::vector<double>(nr[ts], 0.0); // get memory for r*V(r)
         } // true and smooth
 
-        std::vector<double> occ_custom(36, 0.); // customized occupation numbers for the radial states
-        std::vector<int8_t> csv_custom(36, csv_undefined);
-        std::vector<int8_t> ist_custom(36, -1); // state indices
-        set(nn, 1 + ELLMAX, uint8_t(0)); // clear
+        std::vector<double> occ_custom(36, 0.); // customized occupation numbers for radial states
+        std::vector<int8_t> csv_custom(36, csv_undefined); // core, semicore, valence selector
+        std::vector<int8_t> ist_custom(36, -1); // state indices, -1:undefined
+        set(nn, 1 + ELLMAX, uint8_t(0)); // clear numbers of partial waves per ell
 
-        int ncmx[4]; // largest enn of the core electrons
-        sigma_config::set_default_core_shells(ncmx, Z_core);
+        int ncmx[4]; // largest enn quantum number of the core electrons {s,p,d,f}
+        sigma_config::set_default_core_shells(ncmx, Z_core); // determine preliminary core shells
         if (echo > 6) std::printf("# %s preliminary core states up to %ds %dp %dd %df\n", label,
             (ncmx[0] > 0)*ncmx[0], (ncmx[1] > 1)*ncmx[1], (ncmx[2] > 2)*ncmx[2], (ncmx[3] > 3)*ncmx[3]);
 
