@@ -167,8 +167,8 @@ namespace sigma_config {
 //
 
     int8_t constexpr KeyIgnore = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
-                     KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyUndef = -8;
-    char const Key2String[][8] = {"", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "?"};
+                     KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyComment = -8, KeyUndef = -9;
+    char const Key2String[][8] = {"", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "#", "?"};
 
     int8_t char2ell(char const c) {
         switch (c) {
@@ -195,6 +195,7 @@ namespace sigma_config {
             case 'N': case 'n': return KeyNumax;
             case 'V': case 'v': return KeyMethod;
             case 'W': case 'w': return KeyWarn;
+            case '#':           return KeyComment;
             case '0': case '.': case '+': case '-': return KeyNumeric; // numeric reading
             case '1': case '2': case '3': case '4': case '5':
             case '6': case '7': case '8': case '9': return c - '0'; // enn quantum number of an orbital
@@ -284,7 +285,7 @@ namespace sigma_config {
         int iword{0};
         char local_potential_method[32];
 
-        char const * string{config + ('"' == config[0])}; // drop first char if it is a quotation mark '"'
+        char const *string{config + ('"' == config[0])}; // drop first char if it is a quotation mark '"'
                                  // quotation marks are needed to pass config strings by the command line
         char c0{*string};
         while(c0) {
@@ -329,12 +330,18 @@ namespace sigma_config {
                 // leading character is not in {'1', ..., '9'}, i.e. a valid principal quantum number
                 if (KeyNumeric == w.key) {
                     try_numeric = true;
-                } else if (KeyMethod == w.key) {
+                } else
+                if (KeyMethod == w.key) {
                     std::strncpy(local_potential_method, string, 31);
                     if (echo > 7) std::printf("# found local potential method '%s'\n", local_potential_method);
-                } else if (KeyUndef == w.key) {
+                } else
+                if (KeyUndef == w.key) {
                     if (echo > 8) std::printf("# found undefined word in '%s'\n", string);
                     w.mrn = *string; // store the leading character
+                } else
+                if (KeyComment == w.key) {
+                    if (echo > 2) std::printf("# found a comment for Z=%g '%s'\n", Zcore, string);
+                    // stop parsing words after the comment indicator '#'
                 } else {
                     if (echo > 8) std::printf("# found special expression '%s'\n", string);
                 }
@@ -346,14 +353,19 @@ namespace sigma_config {
                 w.key = KeyNumeric; // -9:numeric
             } // try_numeric
 
-            auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
-            if (next_blank) {
-                string = next_blank;
-                while(*string == ' ') { ++string; } // forward to the next non-blank
-                c0 = *string;
+            if (KeyComment == w.key) {
+                c0 = '\0'; // stop the while loop due to a comment
+                if (echo > 9) std::printf("# stop parsing due to comment for Z=%g '%s'\n", Zcore, string);
             } else {
-                c0 = '\0'; // stop the while loop
-            }
+                auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
+                if (next_blank) {
+                    string = next_blank;
+                    while(*string == ' ') { ++string; } // forward to the next non-blank
+                    c0 = *string;
+                } else {
+                    c0 = '\0'; // stop the while loop
+                }
+            } // comment
         } // while;
         int const nwords = iword; // how many words were in the string
         assert(nwords == words.size());
@@ -471,6 +483,8 @@ namespace sigma_config {
                     set_default_core_shells(ncmx, e.Z); // adjust default core shells
                     if (echo > 9) std::printf("# found core charge Z= %g for %s\n", e.Z, symbol);
                     if (e.Z >= 120) warn("some routine may not be prepared for Z= %g >= 120", e.Z);
+                } else if (KeyComment == w.key) {
+                    // ok, there is a comment
                 } else if (KeyUndef == w.key) {
                     warn("%s undefined expression staring from \'%c\' in word #%i", symbol, char(w.mrn), iword);
                 } else {
