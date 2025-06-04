@@ -16,7 +16,7 @@
 
 namespace shift_boundary {
 #ifdef    GENERAL_CELL
-  // shift boundary is realized for a lower triangular cell matrix
+  // shift boundary is realized for an upper triangular cell matrix
   // in real_space.hxx and finite_difference.hxx
   // however, non-trivial k-points still represent a problem
 #endif // GENERAL_CELL
@@ -145,187 +145,224 @@ namespace shift_boundary {
 
   // ToDo: how to treat k-points?
 
-  inline status_t test_plane_wave(int const echo=9, int const structure=4) {
-      status_t stat(0);
-      char const structure_name[][4] = {"sc\0","bcc","hcp","fcc"};
-      double const alat = 4.1741; // Angstrom e.g. Gold in hcp or fcc
-      double const ahalf = 0.5 * alat;
-      if (echo > 3) std::printf("\n# structure = %s  lattice constant = %g %s\n", structure_name[structure - 1], alat*Ang, _Ang);
-      double amat[3][4]; set(amat[0], 3*4, 0.0);
-      if (1 == structure) { // sc
-          for (int d = 0; d < 3; ++d) amat[d][d] = 2*ahalf;
-      } else
-      if (2 == structure) { // bcc
-          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;
-          amat[1][1] = 2*ahalf; amat[1][2] = ahalf;
-          amat[2][2] = ahalf;
-      } else
-      if (4 == structure) { // fcc
-          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;
-          amat[1][1] = ahalf;   amat[1][2] = ahalf;
-          amat[2][2] = ahalf;
-      } else
-      if (3 == structure) { // hex in xy-direction, c/a ratio for hcp
-          double const s34 = std::sqrt(.75), s83=std::sqrt(8/3.);
-          double const ann = ahalf*std::sqrt(2.); // nearest neighbor bond length, same as in fcc
-          amat[0][0] = ann;     amat[0][1] = ann*0.5;
-          amat[1][1] = ann*s34;
-          amat[2][2] = ann*s83;
-      } else {
-          if (echo > 0) std::printf("\n# %s no such structure, key= %i\n", __func__, structure);
-          return -1; // error, no such structure
-      } // switch(structure)
-
-      double bmat[3][4]; set(bmat[0], 3*4, 0.0);
-      // invert amat to find bmat
-      double const cell_volume = amat[0][0]*amat[1][1]*amat[2][2];
-      if (echo > 4) std::printf("# cell volume %g %s^3\n", cell_volume*pow3(Ang), _Ang);
-      double const detinv = 1./cell_volume;
-      for (int i = 0; i < 3; ++i) {     int const i1 = (i + 1)%3, i2 = (i + 2)%3;
-          for (int j = 0; j < 3; ++j) { int const j1 = (j + 1)%3, j2 = (j + 2)%3;
-              bmat[j][i] = ( amat[i1][j1] * amat[i2][j2]
-                           - amat[i1][j2] * amat[i2][j1] )*detinv;
-          } // j
-      } // i
-
-      if (echo > 4) {
-          // show both matrices
-          for (int i = 0; i < 3; ++i) {
-              std::printf("#  bmat %c %8.3f%8.3f%8.3f   amat %8.3f%8.3f%8.3f\n", i+'x',
-                  bmat[i][0],bmat[i][1],bmat[i][2],   amat[i][0],amat[i][1],amat[i][2]);
-          } // i
-      } // echo
-
-      // check if product a*b and b*a are 3x3 unit matrices
-      double maxdev[] = {0, 0};
-      for (int i = 0; i < 3; ++i) {
-          if (echo > 6) std::printf("# i=%i ", i);
-          for (int j = 0; j < 3; ++j) {
-              double uij{0}, uji{0};
-              for (int k = 0; k < 3; ++k) {
-                  uij += amat[i][k] * bmat[k][j];
-                  uji += bmat[i][k] * amat[k][j];
-              } // k - contraction index
-              maxdev[0] = std::max(maxdev[0], std::abs(uij - (i == j)));
-              maxdev[1] = std::max(maxdev[1], std::abs(uji - (i == j)));
-              if (echo > 6) std::printf("%8.3f%8.3f ", uji, uij);
-              if (echo > 8) std::printf("%.1e %.1e ", uji - (i == j), uij - (i == j));
-          } // j
-          if (echo > 6) std::printf("\n");
-      } // i
-      if (echo > 3) std::printf("# %s after inversion largest deviation is %.1e (a*b) and %.1e (b*a)\n", 
-                                   __func__, maxdev[0], maxdev[1]);
+    inline status_t test_plane_wave(int const echo=9, int const structure=4) {
+        status_t stat(0);
+        char const structure_name[][4] = {"???", "sc ", "bcc", "hcp", "fcc"};
+        double const ann = 5.45; // nearest neighbor distance in Gold
+        if (echo > 3) std::printf("\n# structure= %s  neighbor distance= %g %s\n", structure_name[structure], ann*Ang, _Ang);
+        double amat[3][4]; set(amat[0], 3*4, 0.0);
+        if (1 == structure) { // sc
+            auto const alat = ann;
+            for (int d = 0; d < 3; ++d) { amat[d][d] = alat; } // diagonal matrix
+        } else
+        if (2 == structure) { // bcc
+            auto const alat = ann*std::sqrt(4/3.);
+            amat[0][0] = alat;  amat[0][2] = alat/2; // xz
+            amat[1][1] = alat;  amat[1][2] = alat/2; // yz
+            amat[2][2] = alat/2;
+        } else
+        if (3 == structure) { // hex in xy-direction, c/a ratio for hcp, needs a basis atom at 1/3 1/3 1/2
+            amat[0][0] = ann;   amat[0][1] = ann/2; // xy
+            amat[1][1] = ann*std::sqrt(3/4.);
+            amat[2][2] = ann*std::sqrt(8/3.);
+        } else
+        if (4 == structure) { // fcc
+            auto const alat = ann*std::sqrt(2.);
+            amat[0][0] = alat;  amat[0][1] = alat/2; amat[0][2] = alat/2; // xy, xz
+            amat[1][1] = alat/2;
+            amat[2][2] = alat/2;
+        } else {
+            if (echo > 0) std::printf("\n# %s no such structure, key= %i\n", __func__, structure);
+            return -1; // error, no such structure
+        } // switch(structure)
 
 
-      if (echo > 4) {
-          int const ng = 16;          // number of grid points per lattic constant
-          double const h = alat/ng;   // isotropic grid spacing
-          // show both matrices
-          for (int i = 0; i < 3; ++i) {
-              std::printf("# integer amat %c %8.1f%8.1f%8.1f\n", i+'x',
-                  .1*std::round(10*amat[i][0]/h), .1*std::round(10*amat[i][1]/h), .1*std::round(10*amat[i][2]/h));
-          } // i
-      } // echo
+        if (1) { // test distances in real-space and coordination number
+            double distances[250];
+            int ii{0};
+            for (int iz = -2; iz <= 2; ++iz) {
+            for (int iy = -2; iy <= 2; ++iy) {
+            for (int ix = -2; ix <= 2; ++ix) {
+                double v[3] = {0, 0, 0}, d2{0};
+                for (int i = 0; i < 3; ++i) { v[i] = ix*amat[i][0] + iy*amat[i][1] + iz*amat[i][2]; d2 += pow2(v[i]); }
+                // std::printf("Au %11.6f %11.6f %11.6f\n", v[0]*.529177, v[1]*.529177, v[2]*.529177); // export to file
+                distances[ii] = d2;
+                ++ii;
+                if (3 == structure) { // add hcp basis atom
+                    double d2{0};
+                    for (int i = 0; i < 3; ++i) {
+                        d2 += pow2((ix + 1/3.)*amat[i][0] + (iy + 1/3.)*amat[i][1] + (iz + 1/2.)*amat[i][2]);
+                    } // i
+                    distances[ii] = d2;
+                    ++ii;
+                } // hcp
+            }}} // xyz
+            std::sort(distances, distances + 125*(1 + (3 == structure))); // sort distance^2 ascendingly
+            if (echo > 3) {
+                std::printf("# distances ");
+                for (int ii = 1; ii < 32; ++ii) { // do not plot the 1st entry as it will be zero
+                    std::printf(" %.4g", std::sqrt(distances[ii])/ann);
+                } // ii
+                std::printf("\n");
+            } // echo
+        } // 0
 
 
-      // test: set up periodic+shifted BC and diagonalize the free electron Hamiltonian
-      // check that
+        double bmat[3][4]; set(bmat[0], 3*4, 0.0);
+        // invert amat to find bmat
+        double const cell_volume = amat[0][0]*amat[1][1]*amat[2][2];
+        if (echo > 4) std::printf("# cell volume %g %s^3\n", cell_volume*pow3(Ang), _Ang);
+        double const detinv = 1./cell_volume; // inverse of the determinant
+        for (int i = 0; i < 3; ++i) {     int const i1 = (i + 1)%3, i2 = (i + 2)%3;
+            for (int j = 0; j < 3; ++j) { int const j1 = (j + 1)%3, j2 = (j + 2)%3;
+                bmat[j][i] = ( amat[i1][j1] * amat[i2][j2]
+                             - amat[i1][j2] * amat[i2][j1] )*detinv;
+            } // j
+        } // i
 
-      //                  |
-      //         --+------+-----------------+--
-      //           |                        |
-      //           |                        |
-      //           |    phi=e^{i*Ly*kyy}    |     phi=e^{i*(Lx*kxx+Ly*kyy)}
-      //           |                        |
-      //           |                        |    --> x-direction
-      //  --+------+-----------------+------+--
-      //    |                        |
-      //    |                        |
-      //    |        phi=e^0         |   phi=e^{i*Lx*kxx}
-      //    |                        |             ^
-      //    |                        |             | y-direction
-      //  --+-----------------+------+----------   |
-      //                      |
+        if (echo > 4) {
+            // show both matrices
+            for (int i = 0; i < 3; ++i) {
+                std::printf("#  bmat %c %8.3f%8.3f%8.3f  sqRy, amat %c %8.3f%8.3f%8.3f Bohr\n", i+'x',
+                    bmat[i][0],bmat[i][1],bmat[i][2],   i+'x', amat[i][0],amat[i][1],amat[i][2]);
+            } // i
+        } // echo
 
-      // With Cartesian real space lattices, it is even simple
-      // to implement non-symmorphic symmetries like glide reflections
-      // as needed in HCP:
-// ### HCP: Layer structure ABABAB (while FCC has a layer structure ABCABC)
-// #
-// #  A--- ---B---A
-// #  |           |
-// #  | B   A   _ | a
-// #  |           |
-// #  A--- ---B---A
-// #    a sqrt 3
-// #
-   // cell    1 sqrt3 c/a
-   // # from initially 4 atoms at the fractional coordinates
-   // Cd      0   0   0     A
-   // Cd      1:2 3:6 0     A
-   // Cd      1:2 1:6 1:2   B
-   // Cd      0   4:6 1:2   B
+        // check if product a*b and b*a are 3x3 unit matrices
+        double maxdev[] = {0, 0};
+        for (int i = 0; i < 3; ++i) {
+            if (echo > 6) std::printf("# i=%i ", i);
+            for (int j = 0; j < 3; ++j) {
+                double uij{0}, uji{0};
+                for (int k = 0; k < 3; ++k) {
+                    uij += amat[i][k] * bmat[k][j];
+                    uji += bmat[i][k] * amat[k][j];
+                } // k - contraction index
+                maxdev[0] = std::max(maxdev[0], std::abs(uij - (i == j)));
+                maxdev[1] = std::max(maxdev[1], std::abs(uji - (i == j)));
+                if (echo > 6) std::printf("%8.3f%8.3f ", uji, uij);
+                if (echo > 8) std::printf("%.1e %.1e ", uji - (i == j), uij - (i == j));
+            } // j
+            if (echo > 6) std::printf("\n");
+        } // i
+        if (echo > 3) std::printf("# %s after inversion largest deviation is %.1e (a*b) and %.1e (b*a)\n", 
+                                    __func__, maxdev[0], maxdev[1]);
 
-   // # we come to 2 atoms with an xy=0.5 shift boundary
-// #  A--- -+ B   A
-// #  |     |     |
-// #  | B   A-----+
-// #  |     |     |
-// #  A--- -+ B   A  
-// #    a sqrt 3
-
-   // cell    1 sqrt.75 c/a
-   // Cd      0   0   0     A
-   // Cd      1:2 1:6 1:2   B
-
-   // and with another symmetry enabler, we can reduce to one atom:
-   // cell    1 sqrt.75 c/a/2
-   // if we have a glide reflection boundary (shift mirror) by 1/6:
-
-  //
-  //    |                        |
-  //  --+-------+----------------+-------+--
-  //            | 25  24  23  22  21  20 |
-  //            B 15  14  13  12  11  10 |
-  //            | 05  04  03  02  01  00 |       --> y-direction
-  //  --+-------+-------()-------+-------+--
-  //    | 00  01  02  03  04  05 |
-  //    | 10  11  12  13  14  15 A
-  //    | 20  21  22  23  24  25 |             ^
-  //  --+-------+----------------+-------+--   | z-direction
-  //            |                        |
-  // so we reflect at the point marked by () in order to map A onto B
+        if (echo > 4) {
+            int const ng = 16; // number of grid points per shortest Cartesian axis
+            auto const h = std::min(std::min(amat[0][0], amat[1][1]), amat[2][2])/ng; // grid spacing
+            // show both matrices
+            for (int i = 0; i < 3; ++i) {
+                std::printf("# integer amat %c ", i+'x');
+                for (int j = 0; j < 3; ++j) {
+                    std::printf("%8.1f", 0.1*std::round(amat[i][j]*10/h));
+                } // j
+                std::printf("\n");
+            } // i
+        } // echo
 
 
-   // What do we need to simulate diamond structure with 1 atoms?
-        // diamond = FCC + basis, has inversion symmetry
-        // the FCC approach with Cartesian cells is
-        // cell (a, a/2, a/2)
-        // which can, with a mirror plane be reduced to (a/2, a/2, a/2), [also for the wave functions??]
-        // this reduction cannot be done for diamond, as
-        // in one of the cubes, there is the second base atom body centered.
-        // however, if we reflect by a plane through atom #2 and rotate by pi around it,
-        // so the cell may be shaped (a, a/2, a/4)
+        // test: set up periodic+shifted BC and diagonalize the free electron Hamiltonian
+        // check that
 
-    // Probably, it is simpler to work on the lattice periodic part of
-    // a Bloch wave with a k-dependent operator instead of having only
-    // the boundary k-dependent and the Hamiltonian inside the bulk real.
+        //                  |
+        //         --+------+-----------------+--
+        //           |                        |
+        //           |                        |
+        //           |    phi=e^{i*Ly*kyy}    |     phi=e^{i*(Lx*kxx+Ly*kyy)}
+        //           |                        |
+        //           |                        |    --> x-direction
+        //  --+------+-----------------+------+--
+        //    |                        |
+        //    |                        |
+        //    |        phi=e^0         |   phi=e^{i*Lx*kxx}
+        //    |                        |             ^
+        //    |                        |             | y-direction
+        //  --+-----------------+------+----------   |
+        //                      |
 
-      return stat;
-  } // test_plane_wave
+        // With Cartesian real space lattices, it is even simple
+        // to implement non-symmorphic symmetries like glide reflections
+        // as needed in HCP:
+    // ### HCP: Layer structure ABABAB (while FCC has a layer structure ABCABC)
+    // #
+    // #  A--- ---B---A
+    // #  |           |
+    // #  | B   A   _ | a
+    // #  |           |
+    // #  A--- ---B---A
+    // #    a sqrt 3
+    // #
+    // cell    1 sqrt3 c/a
+    // # from initially 4 atoms at the fractional coordinates
+    // Cd      0   0   0     A
+    // Cd      1:2 3:6 0     A
+    // Cd      1:2 1:6 1:2   B
+    // Cd      0   4:6 1:2   B
+
+    // # we come to 2 atoms with an xy=0.5 shift boundary
+    // #  A--- -+ B   A
+    // #  |     |     |
+    // #  | B   A-----+
+    // #  |     |     |
+    // #  A--- -+ B   A  
+    // #    a sqrt 3
+
+    // cell    1 sqrt.75 c/a
+    // Cd      0   0   0     A
+    // Cd      1:2 1:6 1:2   B
+
+    // and with another symmetry enabler, we can reduce to one atom:
+    // cell    1 sqrt.75 c/a/2
+    // if we have a glide reflection boundary (shift mirror) by 1/6:
+
+    //
+    //    |                        |
+    //  --+-------+----------------+-------+--
+    //            | 25  24  23  22  21  20 |
+    //            B 15  14  13  12  11  10 |
+    //            | 05  04  03  02  01  00 |       --> y-direction
+    //  --+-------+-------()-------+-------+--
+    //    | 00  01  02  03  04  05 |
+    //    | 10  11  12  13  14  15 A
+    //    | 20  21  22  23  24  25 |             ^
+    //  --+-------+----------------+-------+--   | z-direction
+    //            |                        |
+    // so we reflect at the point marked by () in order to map A onto B
+
+
+    // What do we need to simulate diamond structure with 1 atoms?
+            // diamond = FCC + basis, has inversion symmetry
+            // the FCC approach with Cartesian cells is
+            // cell (a, a/2, a/2)
+            // which can, with a mirror plane be reduced to (a/2, a/2, a/2), [also for the wave functions??]
+            // this reduction cannot be done for diamond, as
+            // in one of the cubes, there is the second base atom body centered.
+            // however, if we reflect by a plane through atom #2 and rotate by pi around it,
+            // so the cell may be shaped (a, a/2, a/4)
+
+        // Probably, it is simpler to work on the lattice periodic part of
+        // a Bloch wave with a k-dependent operator instead of having only
+        // the boundary k-dependent and the Hamiltonian inside the bulk real.
+
+        return stat;
+    } // test_plane_wave
 
 #ifdef    NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+    inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  inline status_t all_tests(int const echo=0) {
-      if (echo > 1) std::printf("\n# %s: %s\n\n", __FILE__, __func__);
-      status_t stat(0);
-      for (int structure = 1; structure <= 4; ++structure) {
-          stat += test_plane_wave(echo, structure);
-      } // structure
-      return stat;
-  } // all_tests
+    inline status_t all_tests(int const echo=0) {
+        if (echo > 1) std::printf("\n# %s: %s\n\n", __FILE__, __func__);
+        status_t stat(0);
+        for (int structure = 1; structure <= 4; ++structure) {
+            stat += test_plane_wave(echo, structure);
+        } // structure
+#ifndef   GENERAL_CELL
+        if (echo > 0) { std::printf("\n# Warning: this version has been compiled without -DGENERAL_CELL\n\n"); }
+#endif // GENERAL_CELL
+        return stat;
+    } // all_tests
 
 #endif // NO_UNIT_TESTS
 

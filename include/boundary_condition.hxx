@@ -35,6 +35,8 @@
   // For the dyadic potential, we may not reduce over periodic atom images but create copies of the atoms.
   // k-points are not relevant.
 
+  int8_t constexpr Shifted_Boundary = 4;
+
   // The wrap boundary condition is an addition to Periodic_Boundary from boundary_condition.hxx
   int8_t constexpr Wrap_Boundary = 5;
   // Wrap_Boundary means that the truncation sphere fits into the cell, so k-points have no effect.
@@ -42,12 +44,13 @@
   // However, it could be viewed as Repeat_Boundary...
 
 
+
 namespace boundary_condition {
 
-  char const bc_names[8][16] = {"isolated", "periodic", "vacuum", "repeat", "unknown", "wrap", "?invalid", "mirror"};
+  char const bc_names[8][16] = {"isolated", "periodic", "vacuum", "repeat", "shifted", "wrap", "?invalid", "mirror"};
   // internal value                0           1           2         3         4        5         -2          -1
 
-  char constexpr bc_char(int8_t const bc) { return "ipvruw?m"[bc & 0x7]; }
+  char constexpr bc_char(int8_t const bc) { return "ipvrsw?m"[bc & 0x7]; }
 
   inline int8_t potential_bc(int8_t const bc) {
       // translate a Green function BC (which can be also vacuum or repeat) into a regular BC for the potential
@@ -176,11 +179,12 @@ namespace boundary_condition {
       if (nullptr != string) {
           char const first = *string;
           switch (first | 32) { // ignore case with | 32
-              case 'p': case '1': bc = Periodic_Boundary; break;
               case 'i': case '0': bc = Isolated_Boundary; break;
-              case 'm': case '-': bc = Mirrored_Boundary; break; // experimental
+              case 'p': case '1': bc = Periodic_Boundary; break;
               case 'v': case '2': bc =   Vacuum_Boundary; break; // experimental
               case 'r': case '3': bc =   Repeat_Boundary; break; // experimental
+              case 's': case '4': bc =  Shifted_Boundary; break; // experimental
+              case 'm': case '-': bc = Mirrored_Boundary; break; // experimental
           } // switch
       } // nullptr != string
       if (echo > 0) {
@@ -221,11 +225,11 @@ namespace boundary_condition {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
       stat += test_fromString_single(bc_names, echo);
-      {   char const bc_strings[8][16] = {"i", "p", "v", "r", "?", "w", "?", "m"}; // {0, 1, 2, 3, 4, 5, -2, -1}
+      {   char const bc_strings[8][16] = {"i", "p", "v", "r", "s", "w", "?", "m"}; // {0, 1, 2, 3, 4, 5, -2, -1}
           stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[8][16] = {"I", "P", "V", "R", "?", "W", "?", "M"};
+      {   char const bc_strings[8][16] = {"I", "P", "V", "R", "S", "W", "?", "M"};
           stat += test_fromString_single(bc_strings, echo);   }
-      {   char const bc_strings[8][16] = {"0", "1", "2", "3", "?", "5", "*", "-"};
+      {   char const bc_strings[8][16] = {"0", "1", "2", "3", "4", "5", "*", "-"};
           stat += test_fromString_single(bc_strings, echo);   }
       return stat;
   } // test_fromString

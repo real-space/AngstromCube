@@ -20,8 +20,10 @@ namespace real_space {
 
   int constexpr debug = 0;
 
-  double inline length2(double const v[3]) { return v[0]*v[0] + v[1]*v[1] + v[2]*v[2]; }
-  double inline length(double const v[3]) { return std::sqrt(length2(v)); }
+  double inline length2(double const x, double const y, double const z) { return x*x + y*y + z*z; }
+  double inline length2(double const v[3]) { return length2(v[0], v[1], v[2]); }
+  double inline length(double const x, double const y, double const z) { return std::sqrt(length2(x, y, z)); }
+  double inline length(double const v[3]) { return length(v[0], v[1], v[2]); }
   double inline angle(double const v[3], double const w[3]) {
       double const ll = std::sqrt(length2(v)*length2(w));
       double const dot = v[0]*w[0] + v[1]*w[1] + v[2]*w[2];
@@ -38,15 +40,19 @@ namespace real_space {
 #ifdef    GENERAL_CELL
       int32_t shift_yx, shift_zx, shift_zy;
 
-      status_t correct_shift_cell_parameters(int32_t & n_shift_yx, int const y, int const x, int const echo=0) {
+      status_t correct_shift_cell_parameters(int32_t & n_shift_yx, int const x, int const y, int const echo=0) {
           double constexpr threshold = 1e-6;
+          assert(0 <= x && x < 3);
+          assert(0 <= y && y < 3);
           double const old_cell_param = cell[y][x];
           n_shift_yx = std::round(old_cell_param*inv_h[x]);
           double const new_cell_param = n_shift_yx*h[x];
-          if (echo > 6) std::printf("# shift_%c%c=%d or %6.3f %%\n", 'x'+y, 'x'+x, n_shift_yx, n_shift_yx/(dims[x]*.01));
+          cell[y][x] = new_cell_param;
+          status_t stat(0);
+          if (0 == n_shift_yx) return stat; 
+          if (echo > 6) std::printf("# shift_%c%c=%d or %6.3f %%\n", 'x'+y, 'x'+x, n_shift_yx, n_shift_yx*(100./dims[x]));
 
           double const dev = old_cell_param - new_cell_param;
-          status_t stat(0);
           if (std::abs(dev) > threshold*cell[x][x]) {
               warn("inaccurate shift_%c%c: %g - %d*%g = %g %s", 'x'+y, 'x'+x, old_cell_param*Ang, n_shift_yx, h[x]*Ang, dev*Ang, _Ang);
               ++stat;
@@ -54,9 +60,12 @@ namespace real_space {
           if (std::abs(n_shift_yx) >= dims[x]) {
               error("May not shift more than one cell on perpendicular translation in %c-direction!", 'x'+y); // avoid problems with periodic images
           }
-          cell[y][x] = new_cell_param;
-          if (Periodic_Boundary != bc[x]|| Periodic_Boundary != bc[y]) {
-              warn("for shift_%c%c=%d boundary conditions must be periodic, found bc= %d and %d", 'x'+y, 'x'+x, n_shift_yx, bc[x], bc[y]);
+          if (Shifted_Boundary != bc[y]) {
+              warn("for shift_%c%c=%d grid points, boundary conditions in %c-direction must be periodic, found bc= %c", 'x'+y, 'x'+x, n_shift_yx, 'x'+y, boundary_condition::bc_char(bc[y]));
+              ++stat;
+          } // boundary is not shifted
+          if (!(Periodic_Boundary == bc[x] || Shifted_Boundary == bc[x])) {
+              warn("for shift_%c%c=%d grid points, boundary conditions in %c-direction must be periodic, found bc= %c", 'x'+y, 'x'+x, n_shift_yx, 'x'+x, boundary_condition::bc_char(bc[x]));
               ++stat;
           } // boundary is not periodic
           return stat;
@@ -118,15 +127,23 @@ namespace real_space {
                   if (echo > 3) std::printf("# create shifted cell with  %d %d %d  grid points\n", dims[0], dims[1], dims[2]);
                   stat += set_grid_spacing(cell[0][0]/dims[0], cell[1][1]/dims[1], cell[2][2]/dims[2], echo);
                   if (echo > 3) std::printf("# grid spacings  %g %g %g %s\n", h[0]*Ang, h[1]*Ang, h[2]*Ang, _Ang);
-                  stat += correct_shift_cell_parameters(shift_yx, 1, 0, echo);
-                  stat += correct_shift_cell_parameters(shift_zx, 2, 0, echo);
-                  stat += correct_shift_cell_parameters(shift_zy, 2, 1, echo);
+                  stat += correct_shift_cell_parameters(shift_yx, 0, 1, echo);
+                  stat += correct_shift_cell_parameters(shift_zx, 0, 2, echo);
+                  stat += correct_shift_cell_parameters(shift_zy, 1, 2, echo);
                   // show the lengths and angles of unit vectors
+                  double constexpr deg = 180./constants::pi;
                   if (echo > 3) std::printf("# shifted cell vector lengths  %g %g %g  %s\n",
                                     length(c0)*Ang, length(c1)*Ang, length(c2)*Ang, _Ang);
-                  double constexpr deg = 180/constants::pi;
                   if (echo > 3) std::printf("# cell vector angles  %g %g %g  degrees\n",
                                     angle(c1, c2)*deg, angle(c2, c0)*deg, angle(c0, c1)*deg);
+                  // show the length and angles after corrections
+             //   double const corrected_cell[3][3] = {{cell[0][0], shift_yx*h[0], shift_zx*h[0]}, {0, cell[1][1], shift_zy*h[1]}, {0, 0, cell[2][2]}};
+                  double const corrected_cell[3][3] = {{cell[0][0], 0, 0}, {shift_yx*h[0], cell[1][1], 0}, {shift_zx*h[0], shift_zy*h[1], cell[2][2]}};
+                  auto const c0 = corrected_cell[0], c1 = corrected_cell[1], c2 = corrected_cell[2]; // shaddowing previous definition of c0, c1, c2
+                  if (echo > 3) std::printf("# shifted cell vector lengths  %g %g %g  %s after correction\n",
+                      length(c0)*Ang, length(c1)*Ang, length(c2)*Ang, _Ang);
+                  if (echo > 3) std::printf("# cell vector angles  %g %g %g  degrees after correction\n",
+                      angle(c1, c2)*deg, angle(c2, c0)*deg, angle(c0, c1)*deg);
               } else
 #endif // GENERAL_CELL
               {
@@ -151,7 +168,7 @@ namespace real_space {
               if (h[i3] > 0) {
                   inv_h[i3] = 1./h[i3]; // invert only here
               } else {
-                  ++stat;
+                  ++stat; // report failure
               } // h > 0
           } // i3
           return stat;
@@ -162,27 +179,27 @@ namespace real_space {
                                      , int8_t const bcy=Invalid_Boundary 
                                      , int8_t const bcz=Invalid_Boundary) {
           bc[0] = bcx;
-          bc[1] = (bcy == Invalid_Boundary) ? bcx : bcy;
-          bc[2] = (bcz == Invalid_Boundary) ? bcx : bcz;
-          return  (bcx == Invalid_Boundary);
+          bc[1] = (Invalid_Boundary == bcy) ? bcx : bcy;
+          bc[2] = (Invalid_Boundary == bcz) ? bcx : bcz;
+          return  (Invalid_Boundary == bcx);
       } // set
 
       inline int has_upper_elements() const {
-            return int(0 != cell[0][1]) + int(0 != cell[0][2]) + int(0 != cell[1][2]);
+          return int(0 != cell[0][1]) + int(0 != cell[0][2]) + int(0 != cell[1][2]);
       } // has_upper_elements
 
       inline int has_lower_elements() const {
-            return int(0 != cell[1][0]) + int(0 != cell[2][0]) + int(0 != cell[2][1]);
+          return int(0 != cell[1][0]) + int(0 != cell[2][0]) + int(0 != cell[2][1]);
       } // has_lower_elements
 
       inline int is_Cartesian() const { // diagonal elements must be positive, off-diagonals zero
-            return (cell[0][0] > 0) && (cell[1][1] > 0) && (cell[2][2] > 0) &&
-                (0 == has_lower_elements()) && (0 == has_upper_elements());
+          return (cell[0][0] > 0) && (cell[1][1] > 0) && (cell[2][2] > 0) &&
+             (0 == has_lower_elements()) && (0 == has_upper_elements());
       } // is_Cartesian
 
       inline int is_shifted(int const including_Cartesian=0) const {
-            return (cell[0][0] > 0) && (cell[1][1] > 0) && (cell[2][2] > 0) &&
-                (has_lower_elements() >= including_Cartesian) && (0 == has_upper_elements());
+          return (cell[0][0] > 0) && (cell[1][1] > 0) && (cell[2][2] > 0) &&
+              (has_lower_elements() >= including_Cartesian) && (0 == has_upper_elements());
       } // is_shifted
       // is_shifted(1) --> shifted but not Cartesian
       // is_shifted(0) --> shifted, can be Cartesian
