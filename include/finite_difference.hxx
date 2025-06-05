@@ -389,17 +389,12 @@ namespace finite_difference {
         auto const arc = constants::pi/180.;
         double maxdev{0};
         for (int idirection{0}; idirection <= 90; idirection += 9) { // angle
-            // prepare
+            // prepare plane wave vector
             double const k = 1.6; // sqRy
             auto const k_cos = k*std::cos(idirection*arc), k_sin = k*std::sin(idirection*arc);
             double const kv_dir[] = {k_cos, k_sin, 0, k_cos, k_sin};
             double const *const kv = kv_dir + is; // only reference *kv as kv[3]
-            for (int dir{0}; dir < 3; ++dir) {
-                auto const arg = kv[dir]*g[dir]*h[dir];
-                boundary_phase[dir][1] = std::complex<real_t>(std::cos(arg), std::sin(arg));
-                boundary_phase[dir][0] = real_t(1)/boundary_phase[dir][1];
-                // if (echo > 11) { std::printf("# %s(%d deg) %c-phase= %g %g\n", __func__, idirection, 'x'+dir, boundary_phase[dir][1].real(), boundary_phase[dir][1].imag()); }
-            } // dir
+            // prepare wave values
             for (int iz{0}; iz < g('z'); ++iz) {
                 for (int iy{0}; iy < g('y'); ++iy) {
                     for (int ix{0}; ix < g('x'); ++ix) {
@@ -408,14 +403,22 @@ namespace finite_difference {
                     } // ix
                 } // iy
             } // iz
+            // prepare matching boundary phases
+            for (int dir{0}; dir < 3; ++dir) {
+                auto const arg = kv[dir]*g[dir]*h[dir];
+                boundary_phase[dir][1] = std::complex<real_t>(std::cos(arg), std::sin(arg));
+                boundary_phase[dir][0] = real_t(1)/boundary_phase[dir][1];
+                // if (echo > 11) { std::printf("# %s(%d deg) %c-phase= %g %g\n", __func__, idirection, 'x'+dir, boundary_phase[dir][1].real(), boundary_phase[dir][1].imag()); }
+            } // dir
 
             // apply
             stat += finite_difference::apply(result.data(), values.data(), g, Laplacian, 1, boundary_phase);
 
-            // compare
+            // compare to anaytical Laplacian
+            auto const k2 = pow2(kv[0]) + pow2(kv[1]) + pow2(kv[2]);
             double dev{0};
             for (size_t i{0}; i < g.all(); ++i) {
-                auto const val = values[i], res = result[i], ref = -k*k*val; // reference is the analytic solution to the Laplacian operator applied to a plane wave
+                auto const val = values[i], res = result[i], ref = -k2*val; // reference is the analytic solution to the Laplacian operator applied to a plane wave
                 auto const dev_add = std::abs(res - ref);
                 // if (echo > 22 && (i < 30 || i >= 30*25)) { std::printf("# %s(%i, %i) value= %g %g result= %g %g ref= %g %g dev= %g\n",
                 //     __func__, i/g[0], i%g[0], val.real(), val.imag(), res.real(), res.imag(), ref.real(), ref.imag(), dev_add); }
