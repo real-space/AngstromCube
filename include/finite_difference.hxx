@@ -388,10 +388,12 @@ namespace finite_difference {
         std::complex<real_t> boundary_phase[3][2];
         auto const arc = constants::pi/180.;
         double maxdev{0};
-        for (int idirection{0}; idirection <= 180; idirection += 10) { // angle w.r.t. the first lattice vector, ToDo: replace by sampling of the solid angle
+        for (int idirection{0}; idirection <= 90; idirection += 9) { // angle
             // prepare
             double const k = 1.6; // sqRy
-            double const kv[] = {0, k*std::cos(idirection*arc), k*std::sin(idirection*arc)};
+            auto const k_cos = k*std::cos(idirection*arc), k_sin = k*std::sin(idirection*arc);
+            double const kv_dir[] = {k_cos, k_sin, 0, k_cos, k_sin};
+            double const *const kv = kv_dir + is; // only reference *kv as kv[3]
             for (int dir{0}; dir < 3; ++dir) {
                 auto const arg = kv[dir]*g[dir]*h[dir];
                 boundary_phase[dir][1] = std::complex<real_t>(std::cos(arg), std::sin(arg));
