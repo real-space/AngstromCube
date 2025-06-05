@@ -50,13 +50,13 @@ namespace geometry_input {
                     double L[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
                     if (echo > 0) std::printf("# 1st char in 2nd line is %%, read periodic unit cell in file \'%s\': %s\n", filename, line.c_str());
                     iss >> word >> L[0][0] >> L[0][1] >> L[0][2] >> L[1][0] >> L[1][1] >> L[1][2] >> L[2][0] >> L[2][1] >> L[2][2];
-                    if (nullptr != cell) set(cell[0], 12, L[0], Angstrom2Bohr);
+                    if (nullptr != cell) set(cell[0], 3*4, L[0], Angstrom2Bohr);
                     if (nullptr != bc) set(bc, 3, Periodic_Boundary);
                 } else {
                     double L[3] = {0,0,0};
                     std::string B[3];
                     iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2]; // Cartesian mode
-                    if (nullptr != cell) set(cell[0], 12, 0.0); // clear
+                    if (nullptr != cell) set(cell[0], 3*4, 0.0); // clear
                     for (int d{0}; d < 3; ++d) {
                         if (nullptr != cell) {
                             cell[d][d] = L[d] * Angstrom2Bohr;

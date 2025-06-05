@@ -58,7 +58,7 @@ namespace real_space {
               ++stat;
           } else if (echo > 8) std::printf("# shift_%c%c=%d, relative deviation is %.1e\n", 'x'+y, 'x'+x, n_shift_yx, dev/cell[x][x]);
           if (std::abs(n_shift_yx) >= dims[x]) {
-              error("May not shift more than one cell on perpendicular translation in %c-direction!", 'x'+y); // avoid problems with periodic images
+              error("May not shift more than one cell on perpendicular translation in %c%c-direction!", 'x'+x, 'x'+y); // avoid problems with periodic images
           }
           if (Shifted_Boundary != bc[y]) {
               warn("for shift_%c%c=%d grid points, boundary conditions in %c-direction must be periodic, found bc= %c", 'x'+y, 'x'+x, n_shift_yx, 'x'+y, boundary_condition::bc_char(bc[y]));
@@ -137,7 +137,6 @@ namespace real_space {
                   if (echo > 3) std::printf("# cell vector angles  %g %g %g  degrees\n",
                                     angle(c1, c2)*deg, angle(c2, c0)*deg, angle(c0, c1)*deg);
                   // show the length and angles after corrections
-             //   double const corrected_cell[3][3] = {{cell[0][0], shift_yx*h[0], shift_zx*h[0]}, {0, cell[1][1], shift_zy*h[1]}, {0, 0, cell[2][2]}};
                   double const corrected_cell[3][3] = {{cell[0][0], 0, 0}, {shift_yx*h[0], cell[1][1], 0}, {shift_zx*h[0], shift_zy*h[1], cell[2][2]}};
                   auto const c0 = corrected_cell[0], c1 = corrected_cell[1], c2 = corrected_cell[2]; // shaddowing previous definition of c0, c1, c2
                   if (echo > 3) std::printf("# shifted cell vector lengths  %g %g %g  %s after correction\n",
@@ -152,11 +151,11 @@ namespace real_space {
           } else {
               if (echo > 2) std::printf("# cannot set grid spacing as grid dims are %d %d %d\n", dims[0], dims[1], dims[2]);
           }
-          if (echo > 4) std::printf("# cell shape %g %g %g  %g %g %g  %g %g %g %s, type=%s\n",
-                            c0[0]*Ang, c0[1]*Ang, c0[2]*Ang,
-                            c1[0]*Ang, c1[1]*Ang, c1[2]*Ang,
-                            c2[0]*Ang, c2[1]*Ang, c2[2]*Ang, _Ang,
-                            is_Cartesian()?"Cartesian":(has_upper_elements()?"general":"shifted"));
+          if (echo > 4) {                                                                        auto const u = Ang;
+            std::printf("# cell shape %g %g %g  %g %g %g  %g %g %g %s, type=%s\n",
+                          c0[0]*u, c0[1]*u, c0[2]*u,   c1[0]*u, c1[1]*u, c1[2]*u,   c2[0]*u, c2[1]*u, c2[2]*u, _Ang,
+                          is_Cartesian()?"Cartesian":(has_upper_elements()?"general":"shifted"));
+          } // echo
           return stat;
       } // set_cell_shape
 

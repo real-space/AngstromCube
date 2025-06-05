@@ -182,7 +182,7 @@ namespace finite_difference {
       if (0) { std::printf("# %s: low= %g %g = %g degrees, upp= %g %g = %g degrees\n", __func__,
                std::real(phase_xy_low), std::imag(phase_xy_low), polar(phase_xy_low),
                std::real(phase_xy_upp), std::imag(phase_xy_upp), polar(phase_xy_upp)); }
-      assert(0 <= g.shift_yx); assert(g.shift_yx <= nx); // allow ==nx for correctness testing, although ==0 should be used then
+      assert(0 <= g.shift_yx); assert(g.shift_yx < nx);
 #endif // GENERAL_CELL
 
       real_fd_t const scale_factor = factor;
@@ -342,18 +342,15 @@ namespace finite_difference {
         int dims[] = {30, 26, 1};
         real_space::grid_t g(dims);
         g.set_boundary_conditions(Periodic_Boundary, Shifted_Boundary, Isolated_Boundary);
-        // double const cell_shape[3][4] = {{h[0]*dims[0], 0, 0,  0}, {h[0]*(dims[0]/2), h[1]*dims[1], 0,  0}, {0, 0, h[2]*dims[2], 0}}; // lower triangular matrix
-        double const cell_shape[3][4] = {{h[0]*dims[0], 0, 0,  0}, {h[0]*(dims[0]/30), h[1]*dims[1], 0,  0}, {0, 0, h[2]*dims[2], 0}}; // lower triangular matrix
-        g.set_cell_shape(cell_shape, echo);
-        //
-        // g.set_boundary_conditions(Periodic_Boundary, Periodic_Boundary, Isolated_Boundary);
-        // g.set_grid_spacing(h[0], h[1], h[2]);
+        if (echo > 1) std::printf("\n# %s start\n", __func__);
+        for (int xy_shift{0}; xy_shift < dims[0]; ++xy_shift) {
+        double const cell_shape[3][4] = {{h[0]*dims[0], 0, 0,  0}, {h[0]*xy_shift, h[1]*dims[1], 0,  0}, {0, 0, h[2]*dims[2], 0}}; // lower triangular matrix
+        g.set_cell_shape(cell_shape, echo/2);
         std::vector<std::complex<real_t>> values(g.all()), result(g.all());
         std::complex<real_t> boundary_phase[3][2] = {{-1,-1}, {-1,-1}, {0,0}};
-        if (echo > 1) std::printf("\n# %s start\n", __func__);
         auto const arc = constants::pi/180.;
         double maxdev{0};
-        for (int idirection{0}; idirection <= 180*0; idirection += 10) { // angle w.r.t. the first lattice vector
+        for (int idirection{0}; idirection <= 180; idirection += 10) { // angle w.r.t. the first lattice vector
             // prepare
             double const k = 1.5; // sqRy
             double const kv[2] = {k*std::cos(idirection*arc), k*std::sin(idirection*arc)};
@@ -365,7 +362,7 @@ namespace finite_difference {
             } // dir
             for (int iy{0}; iy < g('y'); ++iy) {
                 for (int ix{0}; ix < g('x'); ++ix) {
-                    auto const arg = kv[0]*(ix + .5)*h[0] + kv[1]*(iy + .5)*h[1]; // prepare a plane wave, maybe the wave vector must contain the cross elements of the B-matrix
+                    auto const arg = kv[0]*(ix + .5)*h[0] + kv[1]*(iy + .5)*h[1]; // prepare an arbitrary plane wave
                     values[iy*g('x') + ix] = std::complex<real_t>(std::cos(arg), std::sin(arg));
                 } // ix
             } // iy
@@ -378,14 +375,15 @@ namespace finite_difference {
             for (size_t i{0}; i < g.all(); ++i) {
                 auto const val = values[i], res = result[i], ref = -k*k*val; // reference is the analytic solution to the Laplacian operator applied to a plane wave
                 auto const dev_add = std::abs(res - ref);
-                if (echo > 22 && (i < 30 || i >= 30*25)) { std::printf("# %s(%i, %i) value= %g %g result= %g %g ref= %g %g dev= %g\n",
-                    __func__, i/g[0], i%g[0], val.real(), val.imag(), res.real(), res.imag(), ref.real(), ref.imag(), dev_add); }
+                // if (echo > 22 && (i < 30 || i >= 30*25)) { std::printf("# %s(%i, %i) value= %g %g result= %g %g ref= %g %g dev= %g\n",
+                //     __func__, i/g[0], i%g[0], val.real(), val.imag(), res.real(), res.imag(), ref.real(), ref.imag(), dev_add); }
                 dev += dev_add;
             } // i
-            if (echo > 3) std::printf("# %s direction=%4d degrees, dev= %g\n", __func__, idirection, dev/g.all());
+            if (echo > 5) std::printf("# %s direction=%4d degrees, dev= %g\n", __func__, idirection, dev/g.all());
             maxdev = std::max(maxdev, std::abs(dev/g.all()));
         } // idirection
-        if (echo > 1) std::printf("\n# %s largest deviation is %.1e\n", __func__, maxdev);
+        if (echo > 1) std::printf("# %s largest deviation for shift= %d of %d is %.1e\n", __func__, xy_shift, dims[0], maxdev);
+        } // xy_shift
         return stat;
     } // test_general_cell
 #endif // GENERAL_CELL
