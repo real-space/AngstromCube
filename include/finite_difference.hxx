@@ -180,9 +180,14 @@ namespace finite_difference {
       complex_in_t const phase_xy_low = std::pow(boundary_phase ? boundary_phase[0][0] : 1, complex_in_t(g.shift_yx/double(nx))),
                          phase_xy_upp = std::pow(boundary_phase ? boundary_phase[0][1] : 1, complex_in_t(g.shift_yx/double(nx)));
       if (0) { std::printf("# %s: low= %g %g = %g degrees, upp= %g %g = %g degrees\n", __func__,
-               std::real(phase_xy_low), std::imag(phase_xy_low), polar(phase_xy_low),
-               std::real(phase_xy_upp), std::imag(phase_xy_upp), polar(phase_xy_upp)); }
+                            std::real(phase_xy_low), std::imag(phase_xy_low), polar(phase_xy_low),
+                            std::real(phase_xy_upp), std::imag(phase_xy_upp), polar(phase_xy_upp)); }
       assert(0 <= g.shift_yx); assert(g.shift_yx < nx);
+
+      complex_in_t const phase_xz_low = std::pow(boundary_phase ? boundary_phase[0][0] : 1, complex_in_t(g.shift_yx/double(nx))),
+                         phase_xz_upp = std::pow(boundary_phase ? boundary_phase[0][1] : 1, complex_in_t(g.shift_yx/double(nx)));
+      complex_in_t const phase_yz_low = std::pow(boundary_phase ? boundary_phase[1][0] : 1, complex_in_t(g.shift_zy/double(ny))),
+                         phase_yz_upp = std::pow(boundary_phase ? boundary_phase[1][1] : 1, complex_in_t(g.shift_zy/double(ny)));
 #endif // GENERAL_CELL
 
       real_fd_t const scale_factor = factor;
@@ -208,23 +213,40 @@ namespace finite_difference {
                               // allow shift-rectangular cells from lower triangular cell matrices
                               if (1 == d) { // derive in y-direction
                                   // so far phase only contains the phase factor from crossing the y-boundary, however, we may also cross an x-boundary
-                                  auto const jy = int(j >= ny) - int(j < 0); // in {-1, 0, 1}
-                                  zyx[0] = (x - jy*g.shift_yx + nx) % nx; // modify the x-coordinate of the source
-                                  if (jy > 0) {
+                                //   auto const jy = int(j >= ny) - int(j < 0); // in {-1, 0, 1}
+                                //   zyx[0] = (x - jy*g.shift_yx + nx) % nx; // modify the x-coordinate of the source
+                                //   if (jy > 0) {
+                                //       phase *= phase_xy_upp;
+                                //       if (zyx[0] > x) { phase *= phas[0][n16 - 1]; }
+                                //   } else
+                                //   if (jy < 0) {
+                                //       phase *= phase_xy_low;
+                                //       if (zyx[0] < x) { phase *= phas[0][n16 + nx]; } 
+                                //   }
+                                  // works
+
+                                  // try this formulation
+                                  if (j >= ny) {
+                                      zyx[0] = (x - g.shift_yx + nx) % nx; // modify the x-coordinate of the source
                                       phase *= phase_xy_upp;
                                       if (zyx[0] > x) { phase *= phas[0][n16 - 1]; }
-                                  }
-                                  if (jy < 0) {
+                                  } else
+                                  if (j < 0) {
+                                      zyx[0] = (x + g.shift_yx + nx) % nx; // modify the x-coordinate of the source
                                       phase *= phase_xy_low;
                                       if (zyx[0] < x) { phase *= phas[0][n16 + nx]; } 
+                                  } else {
+                                      zyx[0] = x;
                                   }
-                              } // 'y'
+                                  
 
-                            //   else if (2 == d) { // derive in z-direction
-                            //       auto const jz = int(j >= nz) - int(j < 0); // in {-1, 0, 1}
-                            //       zyx[0] = (zyx[0] - jz*g.shift_zx + 9*nx) % nx; // modify the x-coordinate of the source
-                            //       zyx[1] = (zyx[1] - jz*g.shift_zy + 9*ny) % ny; // modify the y-coordinate of the source
-                            //   } // 'z'
+                              } else // 'y'
+                              if (2 == d) { // derive in z-direction
+                                  auto const jz = int(j >= nz) - int(j < 0); // in {-1, 0, 1}
+                                  zyx[0] = (zyx[0] - jz*g.shift_zx + nx) % nx; // modify the x-coordinate of the source
+                                  zyx[1] = (zyx[1] - jz*g.shift_zy + ny) % ny; // modify the y-coordinate of the source
+                                  // ToDo
+                              } // 'z'
                               assert(0 <= zyx[0]); assert(zyx[0] < nx);
                               assert(0 <= zyx[1]); assert(zyx[1] < ny);
                               assert(0 <= zyx[2]); assert(zyx[2] < nz);
@@ -337,11 +359,11 @@ namespace finite_difference {
         status_t stat(0);
         // create a shifted Cartesian unit cell with angles 60 degree
         double const h[3] = {1/30., std::sqrt(.75)/26., 1}; // grid spacings
-        int const nn[3] = {12, 12, 0}; // FD-order, switch FD off for the z-direction
+        int const nn[3] = {12, 12, 1}; // FD-order, switch FD off for the z-direction
         stencil_t<real_t> Laplacian(h, nn);
-        int dims[] = {30, 26, 1};
+        int dims[] = {15, 14, 1};
         real_space::grid_t g(dims);
-        g.set_boundary_conditions(Periodic_Boundary, Shifted_Boundary, Isolated_Boundary);
+        g.set_boundary_conditions(Periodic_Boundary, Shifted_Boundary, Shifted_Boundary);
         if (echo > 1) std::printf("\n# %s start\n", __func__);
         for (int xy_shift{0}; xy_shift < dims[0]; ++xy_shift) {
         double const cell_shape[3][4] = {{h[0]*dims[0], 0, 0,  0}, {h[0]*xy_shift, h[1]*dims[1], 0,  0}, {0, 0, h[2]*dims[2], 0}}; // lower triangular matrix
@@ -353,19 +375,21 @@ namespace finite_difference {
         for (int idirection{0}; idirection <= 180; idirection += 10) { // angle w.r.t. the first lattice vector
             // prepare
             double const k = 1.5; // sqRy
-            double const kv[2] = {k*std::cos(idirection*arc), k*std::sin(idirection*arc)};
-            for (int dir{0}; dir < 2; ++dir) {
+            double const kv[3] = {k*std::cos(idirection*arc), k*std::sin(idirection*arc), 0};
+            for (int dir{0}; dir < 3; ++dir) {
                 auto const arg = kv[dir]*g[dir]*h[dir];
                 boundary_phase[dir][1] = std::complex<real_t>(std::cos(arg), std::sin(arg));
                 boundary_phase[dir][0] = real_t(1)/boundary_phase[dir][1];
                 // if (echo > 11) { std::printf("# %s(%d deg) %c-phase= %g %g\n", __func__, idirection, 'x'+dir, boundary_phase[dir][1].real(), boundary_phase[dir][1].imag()); }
             } // dir
-            for (int iy{0}; iy < g('y'); ++iy) {
-                for (int ix{0}; ix < g('x'); ++ix) {
-                    auto const arg = kv[0]*(ix + .5)*h[0] + kv[1]*(iy + .5)*h[1]; // prepare an arbitrary plane wave
-                    values[iy*g('x') + ix] = std::complex<real_t>(std::cos(arg), std::sin(arg));
-                } // ix
-            } // iy
+            for (int iz{0}; iz < g('z'); ++iz) {
+                for (int iy{0}; iy < g('y'); ++iy) {
+                    for (int ix{0}; ix < g('x'); ++ix) {
+                        auto const arg = kv[0]*(ix + .5)*h[0] + kv[1]*(iy + .5)*h[1] + kv[2]*(iz + .5)*h[2]; // prepare an arbitrary plane wave
+                        values[(iz*g('y') + iy)*g('x') + ix] = std::complex<real_t>(std::cos(arg), std::sin(arg));
+                    } // ix
+                } // iy
+            } // iz
 
             // apply
             stat += finite_difference::apply(result.data(), values.data(), g, Laplacian, 1, boundary_phase);
@@ -383,6 +407,7 @@ namespace finite_difference {
             maxdev = std::max(maxdev, std::abs(dev/g.all()));
         } // idirection
         if (echo > 1) std::printf("# %s largest deviation for shift= %d of %d is %.1e\n", __func__, xy_shift, dims[0], maxdev);
+        stat += (maxdev > 1e-12);
         } // xy_shift
         return stat;
     } // test_general_cell
