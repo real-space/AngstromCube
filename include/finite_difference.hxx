@@ -439,7 +439,6 @@ namespace finite_difference {
       status_t stat(0);
 #ifdef    GENERAL_CELL
       stat += test_general_cell<double>(echo);
-      return stat;
 #endif // GENERAL_CELL
       stat += test_create_and_destroy(echo);
       stat += test_Laplacian<double>(echo);
