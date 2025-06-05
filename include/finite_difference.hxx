@@ -367,28 +367,31 @@ namespace finite_difference {
     inline status_t test_general_cell(int const echo=3) {
         status_t stat(0);
         // create a shifted Cartesian unit cell with angles 60 degree
-        double const h[3] = {1/30., std::sqrt(.75)/26., 1}; // grid spacings
-        int const nn[3] = {12, 12, 4}; // FD-order, switch FD lower for the z-direction
+        double const h[3] = {1/15., std::sqrt(.75)/13., 1/12.}; // grid spacings
+        int const nn[3] = {12, 12, 12}; // FD-order, switch FD lower for the z-direction
         stencil_t<real_t> Laplacian(h, nn);
-        int dims[] = {15, 14, 4};
+        int dims[] = {15, 13, 12};
         real_space::grid_t g(dims);
         g.set_boundary_conditions(Periodic_Boundary, Shifted_Boundary, Shifted_Boundary);
         if (echo > 1) std::printf("\n# %s start\n", __func__);
         char const shift_name[3][4] = {"xy", "xz", "yz"};
+        int const shift_dim[] = {dims[0], dims[0], dims[1]};
         for (int is{0}; is < 3; ++is) { // xy, xz, yz
-        for (int xyz_shift{0}; xyz_shift < dims[is]; ++xyz_shift) {
+        for (int xyz_shift{0}; xyz_shift < shift_dim[is]; ++xyz_shift) {
         int xyzs[] = {0, 0, 0}; xyzs[is] = xyz_shift;
         int const xy_shift = xyzs[0], xz_shift = xyzs[1], yz_shift = xyzs[2];
-        double const cell_shape[3][4] = {{h[0]*dims[0], 0, 0,  0}, {h[0]*xy_shift, h[1]*dims[1], 0,  0}, {h[0]*xz_shift, h[1]*yz_shift, h[2]*dims[2], 0}}; // lower triangular matrix
+        double const cell_shape[3][4] = {{h[0]*dims[0],             0,             0, 0},
+                                         {h[0]*xy_shift, h[1]*dims[1],             0, 0},
+                                         {h[0]*xz_shift, h[1]*yz_shift, h[2]*dims[2], 0}}; // lower triangular matrix
         g.set_cell_shape(cell_shape, echo/2);
         std::vector<std::complex<real_t>> values(g.all()), result(g.all());
         std::complex<real_t> boundary_phase[3][2];
         auto const arc = constants::pi/180.;
         double maxdev{0};
-        for (int idirection{0}; idirection <= 180; idirection += 10) { // angle w.r.t. the first lattice vector
+        for (int idirection{0}; idirection <= 180; idirection += 10) { // angle w.r.t. the first lattice vector, ToDo: replace by sampling of the solid angle
             // prepare
             double const k = 1.6; // sqRy
-            double const kv[3] = {k*std::cos(idirection*arc), k*std::sin(idirection*arc), 0};
+            double const kv[] = {0, k*std::cos(idirection*arc), k*std::sin(idirection*arc)};
             for (int dir{0}; dir < 3; ++dir) {
                 auto const arg = kv[dir]*g[dir]*h[dir];
                 boundary_phase[dir][1] = std::complex<real_t>(std::cos(arg), std::sin(arg));
@@ -398,7 +401,7 @@ namespace finite_difference {
             for (int iz{0}; iz < g('z'); ++iz) {
                 for (int iy{0}; iy < g('y'); ++iy) {
                     for (int ix{0}; ix < g('x'); ++ix) {
-                        auto const arg = kv[0]*(ix + .5)*h[0] + kv[1]*(iy + .5)*h[1] + kv[2]*(iz + .5)*h[2]; // prepare an arbitrary plane wave
+                        auto const arg = kv[0]*ix*h[0] + kv[1]*iy*h[1] + kv[2]*iz*h[2]; // prepare an arbitrary plane wave
                         values[(iz*g('y') + iy)*g('x') + ix] = std::complex<real_t>(std::cos(arg), std::sin(arg));
                     } // ix
                 } // iy
@@ -419,7 +422,7 @@ namespace finite_difference {
             if (echo > 5) std::printf("# %s direction=%4d degrees, dev= %g\n", __func__, idirection, dev/g.all());
             maxdev = std::max(maxdev, std::abs(dev/g.all()));
         } // idirection
-        if (echo > 1) std::printf("# %s largest deviation for %s-shift= %d of %d is %.1e\n", __func__, shift_name[is], xyz_shift, dims[is], maxdev);
+        if (echo > 1) std::printf("# %s largest deviation for %s-shift= %d of %d is %.1e\n", __func__, shift_name[is], xyz_shift, shift_dim[is], maxdev);
         stat += (maxdev > 1e-12);
         } // xy_shift
         } // is
