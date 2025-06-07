@@ -84,7 +84,7 @@ namespace finite_difference {
         , complex_in_t const boundary_phase[3][2]=nullptr
     ) {
 
-        int const n16 = nnArraySize; // max number of finite difference neighbors, typically 16
+        int constexpr n16 = nnArraySize; // max number of finite difference neighbors, typically 16
         typedef int16_t list_integ_t;
         std::vector<list_integ_t> list[3]; // can be of type int16_t
         std::vector<complex_in_t> phas[3];
@@ -191,47 +191,47 @@ namespace finite_difference {
                                 // allow shift-rectangular cells from lower triangular cell matrices
                                 if (1 == d) { // derive in y-direction
 
-                                        if (j >= ny) {
-                                            zyx[0] = (x - g.shift_yx + nx) % nx; // modify the x-coordinate of the source
-                                            phase *= phase_xy_upp;
-                                            if (zyx[0] > x) { phase *= phas[0][n16 - 1]; }
-                                        } else
-                                        if (j < 0) {
-                                            zyx[0] = (x + g.shift_yx + nx) % nx; // modify the x-coordinate of the source
-                                            phase *= phase_xy_low;
-                                            if (zyx[0] < x) { phase *= phas[0][n16 + nx]; } 
-                                        } else {
-                                            zyx[0] = x;
-                                        }
+                                    if (j >= ny) {
+                                        zyx[0] = (x - g.shift_yx + nx) % nx; // modify the x-coordinate of the source
+                                        phase *= phase_xy_upp;
+                                        if (zyx[0] > x) { phase *= phas[0][n16 - 1]; }
+                                    } else
+                                    if (j < 0) {
+                                        zyx[0] = (x + g.shift_yx + nx) % nx; // modify the x-coordinate of the source
+                                        phase *= phase_xy_low;
+                                        if (zyx[0] < x) { phase *= phas[0][n16 + nx]; } 
+                                    } else {
+                                        zyx[0] = x;
+                                    }
 
                                 } else // 'y'
                                 if (2 == d) { // derive in z-direction
 
-                                        if (j >= nz) {
-                                            zyx[0] = (x - g.shift_zx + nx) % nx; // modify the x-coordinate of the source
-                                            phase *= phase_xz_upp;
-                                            if (zyx[0] > x) { phase *= phas[0][n16 - 1]; }
-                                        } else
-                                        if (j < 0) {
-                                            zyx[0] = (x + g.shift_zx + nx) % nx; // modify the x-coordinate of the source
-                                            phase *= phase_xz_low;
-                                            if (zyx[0] < x) { phase *= phas[0][n16 + nx]; } 
-                                        } else {
-                                            zyx[0] = x;
-                                        }
+                                    if (j >= nz) {
+                                        zyx[0] = (x - g.shift_zx + nx) % nx; // modify the x-coordinate of the source
+                                        phase *= phase_xz_upp;
+                                        if (zyx[0] > x) { phase *= phas[0][n16 - 1]; }
+                                    } else
+                                    if (j < 0) {
+                                        zyx[0] = (x + g.shift_zx + nx) % nx; // modify the x-coordinate of the source
+                                        phase *= phase_xz_low;
+                                        if (zyx[0] < x) { phase *= phas[0][n16 + nx]; } 
+                                    } else {
+                                        zyx[0] = x;
+                                    }
 
-                                        if (j >= nz) {
-                                            zyx[1] = (y - g.shift_zy + ny) % ny; // modify the y-coordinate of the source
-                                            phase *= phase_yz_upp;
-                                            if (zyx[1] > y) { phase *= phas[1][n16 - 1]; }
-                                        } else
-                                        if (j < 0) {
-                                            zyx[1] = (y + g.shift_zy + ny) % ny; // modify the y-coordinate of the source
-                                            phase *= phase_yz_low;
-                                            if (zyx[1] < y) { phase *= phas[1][n16 + ny]; } 
-                                        } else {
-                                            zyx[1] = y;
-                                        }
+                                    if (j >= nz) {
+                                        zyx[1] = (y - g.shift_zy + ny) % ny; // modify the y-coordinate of the source
+                                        phase *= phase_yz_upp;
+                                        if (zyx[1] > y) { phase *= phas[1][n16 - 1]; }
+                                    } else
+                                    if (j < 0) {
+                                        zyx[1] = (y + g.shift_zy + ny) % ny; // modify the y-coordinate of the source
+                                        phase *= phase_yz_low;
+                                        if (zyx[1] < y) { phase *= phas[1][n16 + ny]; } 
+                                    } else {
+                                        zyx[1] = y;
+                                    }
 
                                 } // 'z'
                                 assert(0 <= zyx[0]); assert(zyx[0] < nx);

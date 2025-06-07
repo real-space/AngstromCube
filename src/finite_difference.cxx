@@ -11,6 +11,7 @@
 #include "boundary_condition.hxx" // *_Boundary
 #include "recorded_warnings.hxx" // warn
 #include "inline_math.hxx" // pow2
+#include "control.hxx" // ::get
 
 namespace finite_difference {
 
@@ -119,18 +120,22 @@ namespace finite_difference {
         std::vector<std::complex<real_t>> values(g.all()), result(g.all());
         std::complex<real_t> boundary_phase[3][2];
         g.set_boundary_conditions(Periodic_Boundary, Shifted_Boundary, Shifted_Boundary);
-        if (echo > 1) std::printf("\n# %s start\n", __func__);
-                                    //  000        001   010     011    100    101      110     111
+        if (echo > 1) std::printf("\n# %s: start\n", __func__);
         char const shift_name[8][8] = {"noshift", "xy", "xz", "xz+yz", "yz", "xy+yz", "xy+xz", "xyxzyz"};
+                               // is == 000        001   010    011     100    101      110      111
+        int const ntests = control::get("finite_difference.general_cell.test", 4.); // 0:nothing, 1:unshifted, 4:minimum, 7:mixed directions, 8:all
+        int const incdeg = control::get("finite_difference.general_cell.increment", 15.); // 1 degree:very fine grained, 90 degrees: only Cartesian directions
+        int8_t const is_of_itest[] = {0, 1,2,4, 3,5,6, 7};
         double maxdevall{0};
-        for (int is{0}; is < 7; ++is) { // is==7 needs a very long time, test only 0--6 to be faster
+        for (int itest{0}; itest < std::min(8, ntests); ++itest) {
+            int const is = is_of_itest[itest];
             int const shift_dims[] = {((is >> 0) & 0x1)*(dims[0] - 1),      // max shift along x-direction on crossing a y-boundary
                                       ((is >> 1) & 0x1)*(dims[0] - 1),      // max shift along x-direction on crossing a z-boundary
                                       ((is >> 2) & 0x1)*(dims[1] - 1)};     // max shift along y-direction on crossing a z-boundary
             if (echo > 3) { std::printf("# %s: test xy_shift in [0, %d], xz_shift in [0, %d], yz_shift in [0, %d], name= %s\n",
                                 __func__, shift_dims[0], shift_dims[1], shift_dims[2], shift_name[is]); }
             double maxdev_is{0};
-            for (int idirection{0}; idirection <= 90; idirection += 15) { // angle
+            for (int idirection{0}; idirection <= 90; idirection += incdeg) { // angle
                 // prepare plane wave vector (this could be moved outside the shift loops to save time)
                 double const k = 1.6; // sqRy
                 auto constexpr arc = constants::pi/180.;
@@ -151,7 +156,7 @@ namespace finite_difference {
                     auto const arg = kv[dir]*g[dir]*h[dir];
                     boundary_phase[dir][1] = std::complex<real_t>(std::cos(arg), std::sin(arg));
                     boundary_phase[dir][0] = real_t(1)/boundary_phase[dir][1];
-                    // if (echo > 11) { std::printf("# %s(%d deg) %c-phase= %g %g\n", __func__, idirection, 'x'+dir, boundary_phase[dir][1].real(), boundary_phase[dir][1].imag()); }
+                    // if (echo > 11) { std::printf("# %s: %d deg, %c-phase= %g %g\n", __func__, idirection, 'x'+dir, boundary_phase[dir][1].real(), boundary_phase[dir][1].imag()); }
                 } // dir
 
                 double maxdev{0};
@@ -160,8 +165,8 @@ namespace finite_difference {
                 for (int yz_shift{0}; yz_shift <= shift_dims[2]; ++yz_shift) {          // shift along y-direction on crossing a z-boundary
                     if (echo > 13) { std::printf("# %s: test %s-shifts\n", __func__, shift_name[is]); }
                     double const cell_shape[3][4] = {{h[0]*dims[0],             0,             0, 0},
-                                                    {h[0]*xy_shift, h[1]*dims[1],             0, 0},  // lower triangular matrix
-                                                    {h[0]*xz_shift, h[1]*yz_shift, h[2]*dims[2], 0}};
+                                                     {h[0]*xy_shift, h[1]*dims[1],             0, 0},  // lower triangular matrix
+                                                     {h[0]*xz_shift, h[1]*yz_shift, h[2]*dims[2], 0}};
                     g.set_cell_shape(cell_shape, echo/4);
 
                     // apply
@@ -174,20 +179,20 @@ namespace finite_difference {
                         auto const val = values[i], res = result[i], ref = -k2*val; // reference is the analytic solution to the Laplacian operator applied to a plane wave
                         dev += std::abs(res - ref);
                     } // i
-                    if (echo > 9) { std::printf("# %s direction=%4d degrees xy= %d/%d, xz= %d/%d, yz= %d/%d, dev= %g\n", __func__,
-                                        idirection,  xy_shift, dims[0],  xz_shift, dims[0],  yz_shift, dims[1],  dev/g.all()); }
+                    if (echo > 9) { std::printf("# %s: direction=%4d degrees xy= %d/%d, xz= %d/%d, yz= %d/%d, dev= %.2e\n", __func__,
+                                                idirection, xy_shift, dims[0], xz_shift, dims[0], yz_shift, dims[1], dev/g.all()); }
                     maxdev = std::max(maxdev, std::abs(dev/g.all()));
                 }}} // *_shift
 
                 stat += (maxdev > 1e-12);
-                if (echo > 4) std::printf("# %s direction=%4d degrees, dev= %g\n", __func__, idirection, maxdev);
+                if (echo > 4) std::printf("# %s: direction=%4d degrees, dev= %g\n", __func__, idirection, maxdev);
                 maxdev_is = std::max(maxdev_is, maxdev);
             } // idirection
 
-            if (echo > 0) { std::printf("# %s largest deviation tests \'%s\' is %.1e\n", __func__, shift_name[is], maxdev_is); }
+            if (echo > 0) { std::printf("# %s: largest deviation tests \'%s\' is %.1e\n", __func__, shift_name[is], maxdev_is); }
             maxdevall = std::max(maxdevall, maxdev_is);
-        } // is
-        if (echo > 0) { std::printf("# %s largest deviation of all tests is %.1e\n", __func__, maxdevall); }
+        } // itest --> is
+        if (echo > 0) { std::printf("# %s: largest deviation of all tests is %.1e\n", __func__, maxdevall); }
         return stat;
     } // test_general_cell
 #endif // GENERAL_CELL
