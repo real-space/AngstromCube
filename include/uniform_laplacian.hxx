@@ -2,13 +2,10 @@
 // This file is part of AngstromCube under MIT License
 
 #include <cstdio> // std::printf
-#include <cstdint> // uint32_t, int16_t
-#include <vector> // std::vector<T>
 
 #include "recorded_warnings.hxx" // warn
-
+#include "status.hxx" // status_t
 #ifndef   NO_UNIT_TESTS
-    #include "status.hxx" // status_t
     #include "constants.hxx" // ::pi
 #endif // NO_UNIT_TESTS
 

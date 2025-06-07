@@ -38,6 +38,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	kinetic_plan.o \
 	geometry_input.o \
 	geometry_analysis.o \
+	finite_difference.o \
 	self_consistency.o \
 	iterative_poisson.o \
 	inline_math.o \

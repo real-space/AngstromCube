@@ -105,6 +105,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/energy_contribution.hxx
     ../include/energy_mesh.hxx
     ../include/exchange_correlation.hxx
+    ../include/finite_difference.hxx
     ../include/gaunt_entry.h
     ../include/geometry_analysis.hxx
     ../include/geometry_input.hxx
@@ -143,6 +144,7 @@ set(a43_sources ${a43_atom_sources}
     dense_solver.cxx
     energy_contour.cxx
     energy_mesh.cxx
+    finite_difference.cxx
     geometry_analysis.cxx
     geometry_input.cxx
     green_experiments.cxx
