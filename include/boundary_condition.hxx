@@ -50,6 +50,8 @@ namespace boundary_condition {
   char const bc_names[8][16] = {"isolated", "periodic", "vacuum", "repeat", "shifted", "wrap", "?invalid", "mirror"};
   // internal value                0           1           2         3         4        5         -2          -1
 
+  inline char const * bc_name(int8_t const bc) { return bc_names[bc & 0x7]; }
+
   char constexpr bc_char(int8_t const bc) { return "ipvrsw?m"[bc & 0x7]; }
 
   inline int8_t potential_bc(int8_t const bc) {

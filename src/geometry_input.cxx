@@ -14,6 +14,7 @@
 #include "mpi_parallel.hxx" // ::comm, ::rank, ::broadcast
 #include "data_view.hxx" // view2D<T>
 #include "unit_system.hxx" // ::length_unit, ::energy_unit
+#include "boundary_condition.hxx" // Shifted_Boundary, Periodic_Boundary
 
 namespace geometry_input {
 
@@ -53,17 +54,54 @@ namespace geometry_input {
                     if (nullptr != cell) set(cell[0], 3*4, L[0], Angstrom2Bohr);
                     if (nullptr != bc) set(bc, 3, Periodic_Boundary);
                 } else {
-                    double L[3] = {0,0,0};
-                    std::string B[3];
-                    iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2]; // Cartesian mode
+                    double L[3] = {0,0,0}; // Cartesian cell parameters in Angstrom units
+                    double Lxy{0}, Lxz{0}, Lyz{0}; // shifts for GENERAL_CELL feature in Angstrom units
+                    std::string B[3]; // words describing the boundary conditions
+                    iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2] >> Lxy >> Lxz >> Lyz; // Cartesian mode
                     if (nullptr != cell) set(cell[0], 3*4, 0.0); // clear
                     for (int d{0}; d < 3; ++d) {
                         if (nullptr != cell) {
-                            cell[d][d] = L[d] * Angstrom2Bohr;
+                            cell[d][d] = L[d]*Angstrom2Bohr; // set diagonal
                             assert(cell[d][d] > 0);
                         }
                         if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 'x' + d);
                     } // d
+
+                    // process shifts
+                    if (bc[1] == Shifted_Boundary) {
+                        if (echo > 1) { std::printf("# found xy-shift of %g Ang\n", Lxy); }
+#ifdef    GENERAL_CELL
+                        assert(cell);
+                        cell[1][0] = Lxy*Angstrom2Bohr; // insert into lower triangular part
+                        if (Lxy >= L[0]) error("only shifts less than one unit cell implemented, found Lxy= %g Ang but Lxx= %g Ang", Lxy, L[0]);
+                        if (Lxy < 0)     error("only positive shifts implemented, found Lxy= %g Ang", Lxy);
+                        if (0 == Lxy) warn("y-boundary condition is \"shifted\" but xy-shift is zero", 0);
+#else  // GENERAL_CELL
+                        if (0 != Lxy) warn("ignored xy-shift of %g Ang, make sure -DGENERAL_CELL was active during compilation", Lxy);
+#endif // GENERAL_CELL
+                    } else {
+                        if (0 != Lxy) warn("ignored a xy-shift of %g Ang as y-boundary condition is not \"shifted\"", Lxy);
+                    }
+                    if (bc[2] == Shifted_Boundary) {
+                        if (echo > 1) { std::printf("# found xz-shift of %g Ang and yz-shift of %g Ang\n", Lxz, Lyz); }
+#ifdef    GENERAL_CELL
+                        assert(cell); 
+                        cell[2][0] = Lxz*Angstrom2Bohr; // insert into lower triangular part
+                        cell[2][1] = Lyz*Angstrom2Bohr; // insert into lower triangular part
+                        if (Lxz >= L[0]) error("only shifts less than one unit cell implemented, found Lxz= %g Ang but Lxx= %g Ang", Lxz, L[0]);
+                        if (Lyz >= L[1]) error("only shifts less than one unit cell implemented, found Lyz= %g Ang but Lyy= %g Ang", Lyz, L[1]);
+                        if (Lxz < 0)     error("only positive shifts implemented, found Lxz= %g Ang", Lxz);
+                        if (Lyz < 0)     error("only positive shifts implemented, found Lyz= %g Ang", Lyz);
+                        if (0 == Lxz && 0 == Lyz) warn("z-boundary condition is \"shifted\" but xz-shift and yz-shift are both zero", 0);
+#else  // GENERAL_CELL
+                        if (0 != Lxz) warn("ignored xz-shift of %g Ang, make sure -DGENERAL_CELL was active during compilation", Lxz);
+                        if (0 != Lyz) warn("ignored yz-shift of %g Ang, make sure -DGENERAL_CELL was active during compilation", Lyz);
+#endif // GENERAL_CELL
+                    } else {
+                        if (0 != Lxz) warn("ignored a xz-shift of %g as z-boundary condition is not \"shifted\"", Lxz);
+                        if (0 != Lyz) warn("ignored a yz-shift of %g as z-boundary condition is not \"shifted\"", Lyz);
+                    }
+
                 } // cell == Basis
             } // scope
 
@@ -166,7 +204,7 @@ namespace geometry_input {
         int8_t bc[3]; // boundary conditions
         double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}}; // general cell parameters
         auto const geo_file = control::get("geometry.file", "atoms.xyz");
-        if (echo > 3) std::printf("# +geometry.file=%s\n", geo_file);
+        if (echo > 3) { std::printf("# +geometry.file=%s\n", geo_file); }
         stat += read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
 
         auto const grid_spacing_unit_name = control::get("grid.spacing.unit", "Bohr");
@@ -297,6 +335,11 @@ namespace geometry_input {
         if (echo > 0) std::printf("# electronic.temperature= %g %s == %g %s\n", temp*eu, _eu, temp*eV, _eV);
         return temp;
     } // get_temperature
+
+
+
+
+
 
 #ifdef    NO_UNIT_TESTS
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

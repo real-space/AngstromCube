@@ -40,32 +40,35 @@ namespace real_space {
 #ifdef    GENERAL_CELL
       int32_t shift_yx, shift_zx, shift_zy;
 
-      status_t correct_shift_cell_parameters(int32_t & n_shift_yx, int const x, int const y, int const echo=0) {
+      status_t correct_shift_cell_parameters(int32_t & n_shift_xy, int const x, int const y, int const echo=0) {
           double constexpr threshold = 1e-6;
-          assert(0 <= x && x < 3);
-          assert(0 <= y && y < 3);
+          assert(0 <= x && x < 2);
+          assert(x <= y && y < 3);
           double const old_cell_param = cell[y][x];
-          n_shift_yx = std::round(old_cell_param*inv_h[x]);
-          double const new_cell_param = n_shift_yx*h[x];
+          n_shift_xy = std::round(old_cell_param*inv_h[x]);
+          double const new_cell_param = n_shift_xy*h[x];
           cell[y][x] = new_cell_param;
           status_t stat(0);
-          if (0 == n_shift_yx) return stat; 
-          if (echo > 6) std::printf("# shift_%c%c=%d or %6.3f %%\n", 'x'+y, 'x'+x, n_shift_yx, n_shift_yx*(100./dims[x]));
+          if (0 == n_shift_xy) return stat; 
+          if (echo > 6) std::printf("# shift_%c%c= %g %s or %d grid points or %6.3f %%\n", 'x'+x, 'x'+y, new_cell_param*Ang, _Ang, n_shift_xy, n_shift_xy*(100./dims[x]));
 
           double const dev = old_cell_param - new_cell_param;
           if (std::abs(dev) > threshold*cell[x][x]) {
-              warn("inaccurate shift_%c%c: %g - %d*%g = %g %s", 'x'+y, 'x'+x, old_cell_param*Ang, n_shift_yx, h[x]*Ang, dev*Ang, _Ang);
+              warn("inaccurate shift_%c%c: %g - %d*%g = %g %s", 'x'+x, 'x'+y, old_cell_param*Ang, n_shift_xy, h[x]*Ang, dev*Ang, _Ang);
               ++stat;
-          } else if (echo > 8) std::printf("# shift_%c%c=%d, relative deviation is %.1e\n", 'x'+y, 'x'+x, n_shift_yx, dev/cell[x][x]);
-          if (std::abs(n_shift_yx) >= dims[x]) {
+          } else if (echo > 8) std::printf("# shift_%c%c=%d, relative deviation is %.1e\n", 'x'+x, 'x'+y, n_shift_xy, dev/cell[x][x]);
+          if (n_shift_xy >= dims[x]) {
               error("May not shift more than one cell on perpendicular translation in %c%c-direction!", 'x'+x, 'x'+y); // avoid problems with periodic images
           }
+          if (n_shift_xy < 0) {
+              error("Negative shifts not implemented, found %d grid points in %c%c-direction!", n_shift_xy, 'x'+x, 'x'+y); // avoid problems with periodic images
+          }
           if (Shifted_Boundary != bc[y]) {
-              warn("for shift_%c%c=%d grid points, boundary conditions in %c-direction must be periodic, found bc= %c", 'x'+y, 'x'+x, n_shift_yx, 'x'+y, boundary_condition::bc_char(bc[y]));
+              warn("for shift_%c%c=%d grid points, boundary conditions in %c-direction must be periodic, found bc= %c", 'x'+x, 'x'+y, n_shift_xy, 'x'+y, boundary_condition::bc_char(bc[y]));
               ++stat;
           } // boundary is not shifted
-          if (!(Periodic_Boundary == bc[x] || Shifted_Boundary == bc[x])) {
-              warn("for shift_%c%c=%d grid points, boundary conditions in %c-direction must be periodic, found bc= %c", 'x'+y, 'x'+x, n_shift_yx, 'x'+x, boundary_condition::bc_char(bc[x]));
+          if (Periodic_Boundary != bc[x] && Shifted_Boundary != bc[x]) {
+              warn("for shift_%c%c=%d grid points, boundary conditions in %c-direction must be periodic or shifted, found bc= %c", 'x'+x, 'x'+y, n_shift_xy, 'x'+x, boundary_condition::bc_char(bc[x]));
               ++stat;
           } // boundary is not periodic
           return stat;
