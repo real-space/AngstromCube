@@ -87,6 +87,9 @@ namespace boundary_condition {
       if (echo > 5) std::printf("# %s: check %d x %d x %d = %d images max.\n",
               __func__, nx+1+nx, ny+1+ny, nz+1+nz, ni_max);
 
+      // ToDo: there is a discrepancy between the definition of GENERAL_CELL here and e.g. with finite_difference.hxx ...
+      //        however, it is ok, just slower code.
+
 #ifndef   GENERAL_CELL
       assert((0 == cell[0][1]) && (0 == cell[1][2]) && (0 == cell[0][2]) && "the cell is not a lower triangular matrix");
 #endif // GENERAL_CELL
@@ -109,7 +112,7 @@ namespace boundary_condition {
 #ifdef    GENERAL_CELL
                   double p[3];
                   for (int d{0}; d < 3; ++d) {
-                      p[d] = ix*cell[0][d] + iy*cell[1][d] + iz*cell[2][d];
+                      p[d] = ix*cell[0][d] + iy*cell[1][d] + iz*cell[2][d]; // completely unconstrained cell matrix
                   } // d
 #else  // GENERAL_CELL
                   double const px = ix*cell[0][0]; // can deal with a lower triangular cell matrix
