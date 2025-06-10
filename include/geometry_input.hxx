@@ -13,7 +13,7 @@ namespace geometry_input {
           view2D<double> & xyzZ // result
         , int32_t & n_atoms     // result
         , double cell[3][4]     // result
-        , int8_t bc[3]=nullptr  // result
+        , int8_t bc[3]          // result
         , char const *const filename="atoms.xyz"
         , int const echo=5 // log-level
     ); // declaration only

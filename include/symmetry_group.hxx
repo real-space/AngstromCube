@@ -236,7 +236,8 @@ namespace symmetry_group {
             if (t >= 3) {
                 int n_atoms;
                 view2D<double> xyzZ;
-                stat += geometry_input::read_xyz_file(xyzZ, n_atoms, cell_in_file, nullptr, "atoms.xyz", echo);
+                int8_t bc[3];
+                stat += geometry_input::read_xyz_file(xyzZ, n_atoms, cell_in_file, bc, "atoms.xyz", echo);
                 lattice_vectors = cell_in_file;
             }
             for (int d = 0; d < 3*(echo > 4); ++d) {
