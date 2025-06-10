@@ -1021,13 +1021,12 @@ namespace geometry_analysis {
               for (int is = 0; is < nspecies; ++is) {
                   std::printf("#%9.3f %s coordination for %s", default_half_bond_length(Z_of_species[is])*Ang, _Ang, Sy_of_species[is]);
                   simple_stats::Stats<> cs; // coordination number statistics
+                  for (int cn = 0; cn < max_cn; ++cn) { cs.add(cn, cn_hist(is,cn)); }
+                  std::printf(" average %.2f +/- %.2f\t", cs.mean(), cs.dev());
                   for (int cn = 0; cn < max_cn; ++cn) {
-                      if (cn_hist(is,cn) > 0) {
-                          std::printf("  %d_%d", cn, cn_hist(is,cn)); // show with occurrence
-                          cs.add(cn, cn_hist(is,cn));
-                      } // histogram count non-zero
+                      if (cn_hist(is,cn) > 0) { std::printf("  %d_%d", cn, cn_hist(is,cn)); } // show with occurrence
                   } // cn
-                  std::printf("\taverage %.2f +/- %.2f\n", cs.mean(), cs.dev());
+                  std::printf("\n");
               } // is
               std::printf("# coordination numbers total= %ld\n\n", total_cn);
           } // echo
@@ -1131,6 +1130,9 @@ namespace geometry_analysis {
           } // show_pairs
 
       } // echo
+
+      // display atomic positions (again)
+      plot_structure_ascii(xyzZ, ispecies.data(), natoms, Sy_of_species, cell, true, echo);
 
       return stat;
   } // analysis

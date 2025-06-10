@@ -348,6 +348,8 @@ int main(int const argc, char *argv[]) {
     char const *control_file{nullptr}; // the name of the control file (if any)
     std::vector<int> plus_arguments; // mark additional command line arguments
     int verbosity{3}; // set default verbosity low
+    char const* output_length_unit = "Bohr";
+    char const* output_energy_unit = "Ha";
 
     control::set("executable.name", argv[0]);
 
@@ -365,6 +367,10 @@ int main(int const argc, char *argv[]) {
                 for (char const *vv{argv[iarg] + 1}; *vv; ++vv) {
                     verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
                 } // vv
+            } else
+            if ('u' == (ci1 | IgnoreCase)) { // quick options -U= or -u= to modify default output units
+                if ('u' == ci1) { output_length_unit = argv[iarg] + 3; }
+                if ('U' == ci1) { output_energy_unit = argv[iarg] + 3; }
             } else {
 
                 // other options
@@ -440,8 +446,8 @@ int main(int const argc, char *argv[]) {
 
     if (echo > 0) std::printf("\n# verbosity=%d\n", echo);
 
-    stat += unit_system::set(control::get("output.length.unit", "Bohr"),
-                             control::get("output.energy.unit", "Ha"), echo);
+    stat += unit_system::set(control::get("output.length.unit", output_length_unit),
+                             control::get("output.energy.unit", output_energy_unit), echo);
     // run
     if (run_tests) {
         stat += run_unit_tests(test_unit, echo);

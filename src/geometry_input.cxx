@@ -35,7 +35,7 @@ namespace geometry_input {
         assert(bc);
         int return_status{0};
         if (0 == me) { // MPI master task
-            
+
             std::ifstream infile(filename, std::ifstream::in);
             if (infile.fail()) { error("unable to open file '%s' for reading coordinates", filename); }
 
@@ -53,14 +53,14 @@ namespace geometry_input {
                     double L[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
                     if (echo > 0) std::printf("# 1st char in 2nd line is %%, read periodic unit cell in file \'%s\': %s\n", filename, line.c_str());
                     iss >> word >> L[0][0] >> L[0][1] >> L[0][2] >> L[1][0] >> L[1][1] >> L[1][2] >> L[2][0] >> L[2][1] >> L[2][2];
-                    if (nullptr != cell) set(cell[0], 3*4, L[0], Angstrom2Bohr);
-                    if (nullptr != bc) set(bc, 3, Periodic_Boundary);
+                    set(cell[0], 3*4, L[0], Angstrom2Bohr);
+                    set(bc, 3, Periodic_Boundary);
                 } else {
                     double L[3] = {0,0,0}; // Cartesian cell parameters in Angstrom units
                     double Lxy{0}, Lxz{0}, Lyz{0}; // shifts for GENERAL_CELL feature in Angstrom units
                     std::string B[3]; // words describing the boundary conditions
                     iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2] >> Lxy >> Lxz >> Lyz; // Cartesian mode
-                    if (nullptr != cell) set(cell[0], 3*4, 0.0); // clear
+                    set(cell[0], 3*4, 0.0); // clear
                     for (int d{0}; d < 3; ++d) {
                         cell[d][d] = L[d]*Angstrom2Bohr; // set diagonal
                         assert(cell[d][d] > 0 && "Diagonal cell parameters must be positive in Cartesian reading mode");
