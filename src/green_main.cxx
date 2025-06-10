@@ -46,7 +46,7 @@
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
 #include "green_memory.hxx" // ::high_water_mark
-#include "unit_system.hxx" // ::set_output_units
+#include "unit_system.hxx" // ::set
 #include "control.hxx" // ::command_line_interface, ::get
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -192,11 +192,13 @@ int main(int const argc, char *argv[]) {
     if (0 == me && nprocs >= 65535) error("too many MPI processes will break, found nprocs= %d > 65535", nprocs);
 
     status_t stat(0);
-    char const *test_unit = ""; // the name of the unit to be tested
     int run_tests{0};
-    int verbosity{3*(0 == me)}; // set default verbosity low for master, zero for other ranks
+    char const *test_unit = ""; // the name of the unit to be tested
     char const *control_file{nullptr}; // the name of the control file (if any)
     std::vector<int> plus_arguments; // mark additional command line arguments
+    int verbosity{3*(0 == me)}; // set default verbosity low for master, zero for other ranks
+    char const* output_length_unit = "Bohr";
+    char const* output_energy_unit = "Ha";
 
     if (argc < 2) {  // use defaults: atoms.xyz, control.sh
         if (0 == me) { std::printf("# no arguments passed to %s!\n", (argc < 1) ? __FILE__ : argv[0]); }
@@ -216,6 +218,10 @@ int main(int const argc, char *argv[]) {
                 for (char const *vv{argv[iarg] + 1}; *vv; ++vv) {
                     verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
                 } // vv
+            } else
+            if ('u' == (ci1 | IgnoreCase)) { // quick options -U= or -u= to modify default output units
+                if ('u' == ci1) { output_length_unit = argv[iarg] + 3; }
+                if ('U' == ci1) { output_energy_unit = argv[iarg] + 3; }
             } else {
 
                 // other options
@@ -294,8 +300,8 @@ int main(int const argc, char *argv[]) {
 
     if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
 
-    stat += unit_system::set(control::get("output.length.unit", "Bohr"),
-                             control::get("output.energy.unit", "Ha"), echo);
+    stat += unit_system::set(control::get("output.length.unit", output_length_unit),
+                             control::get("output.energy.unit", output_energy_unit), echo);
     // run
     if (run_tests) {
         stat += run_unit_tests(test_unit, echo);

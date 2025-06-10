@@ -66,7 +66,6 @@
   #include "action_plan.hxx" // ::all_tests
   #include "green_input.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
-  #include "unit_system.hxx" // ::all_tests
   #include "energy_mesh.hxx" // ::all_tests
   #include "simple_math.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
@@ -100,7 +99,7 @@
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
-#include "unit_system.hxx" // ::set_output_units
+#include "unit_system.hxx" // ::set
 #include "control.hxx" // ::command_line_interface, ::get
 #include "mpi_parallel.hxx" // ::init, ::rank, ::finalize
 

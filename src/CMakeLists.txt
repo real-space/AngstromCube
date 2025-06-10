@@ -80,6 +80,7 @@ set(a43_atom_sources
     sho_unitary.cxx
     sigma_config.cxx
     single_atom.cxx
+    unit_system.cxx
 )
    
 # build a shared library libliveatom.so
@@ -101,6 +102,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/bessel_transform.hxx
     ../include/dense_solver.hxx
     ../include/define_version.h
+    ../include/display_units.h
     ../include/energy_contour.hxx
     ../include/energy_contribution.hxx
     ../include/energy_mesh.hxx
@@ -133,6 +135,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/sho_projection.hxx
     ../include/simple_timer.hxx
     ../include/structure_solver.hxx
+    ../include/unit_system.hxx
     ../include/verify_benchmark.hxx
 )
 
@@ -280,6 +283,7 @@ set(green_sources
     parallel_potential.cxx
     recorded_warnings.cxx
     sho_unitary.cxx
+    unit_system.cxx
 )
 
 if(HAS_CUDA)

@@ -29,6 +29,7 @@ OBJATOM = $(addprefix $(OBJDIR)/, \
 	atom_core.o \
 	sho_unitary.o \
 	angular_grid.o \
+	unit_system.o \
 	single_atom.o )
 
 OBJ = $(addprefix $(OBJDIR)/, \

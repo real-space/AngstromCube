@@ -13,7 +13,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "control.hxx" // ::get
 #include "xml_reading.hxx" // ::read_sequence
-#include "unit_system.hxx" // Ang, _Ang
+#include "display_units.h" // Ang, _Ang
 #include "sho_tools.hxx" // ::nn_max, ::nSHO_radial, ::nSHO, ::order_*
 #include "scattering_test.hxx" // ::expand_sho_projectors
 #include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid, ::equation_equidistant
