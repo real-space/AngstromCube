@@ -33,6 +33,9 @@ namespace finite_difference {
 
 
 #ifdef    NO_UNIT_TESTS
+    template class stencil_t<double>; // explicit template instantiation for double
+    template class stencil_t<float>;  // explicit template instantiation for float
+
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 

@@ -66,7 +66,7 @@ namespace unit_system {
 
 
 #ifdef    NO_UNIT_TESTS
-    inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+    inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
     status_t test_all_combinations(int const echo=0) {

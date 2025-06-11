@@ -42,6 +42,7 @@
 
 #include <cstdlib> // std::abs, ::abort
 
+#include "display_units.h" // GByte, _GByte
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::allreduce
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
