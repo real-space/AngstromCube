@@ -22,6 +22,7 @@
 \acrodef{SHO}[SHO]{spherical harmonic oscillator}
 \acrodef{DOS}[DoS]{density of states}
 \acrodef{HO}[HO]{harmonic oscillator}
+\acrodef{BC}[BC]{boundary condition}
 \acrodef{PW}[PW]{plane wave}
 \acrodef{GP}[GP]{grid point}
 \acrodef{AE}[AE]{all-electron}
@@ -196,12 +197,13 @@ based on the \ac{PAW} method \cite{PhysRevB.50.17953} % Bloechl 1994
 with the extension of analytical projectors \cite{BaumeisterTsukamoto2019}
 where the projectors are expanded in eigenfunctions of a \ac{SHO}.
 \ttt{C++} has been chosen for its expressivity
-when it comes to mult-precision algorithms
-and its good interoperability with common \ac{GPU} programming models.
+when it comes to multi-precision algorithms via templates
+and its good interoperability with common \ac{GPU} programming models, mainly \ttt{CUDA}.
 
 \noindent
 For an up-to-date list of the code features, please see the \ttt{README.md} file.
 
+\newpage
 \section{How to get started} \label{sec:how-to-get-started}
 %
 \subsection{Getting the Code} \label{sec:getting-the-code}
@@ -210,13 +212,12 @@ For an up-to-date list of the code features, please see the \ttt{README.md} file
 
 \subsection{Building the Application} \label{sec:compiling}
 %
-Two \ttt{Makefile}s are contained in the folders \ttt{src/} and \ttt{green/} that work with current compilers, e.g.~\ttt{GNU c++ 7.4.0} or \ttt{clang 14.0.0}.
-Alternatively, \ttt{CMake} is supported for most configurations.
-\todo[inline]{Make sure CMake runs}
+Please try to use the \ttt{CMake} support.
+For development purposes, two \ttt{makefile}s are contained in the folder \ttt{src/} (\ttt{src/Makefile} and \ttt{src/Makefile.green}) that work with current compilers, e.g.~\ttt{GNU c++ 7.4.0} or \ttt{clang 14.0.0}.
 
 \noindent
 The application \codename{}, while being written in \ttt{C++}, strongly relies on plane-old-data types,
-i.e.~classes without constructors or destructors as known from C-structs.
+i.e. ~ classes without constructors or destructors as known from C-\ttt{struct}s.
 Furthermore, it makes use of generic programming in the form of templates
 mainly used to maintain a single function supporting different precision (\ttt{float} or \ttt{double}), 
 difference vector lengths, \ttt{real} and \ttt{complex} and in some situations different physics.
@@ -232,9 +233,12 @@ Usage ./a43 [OPTIONs] [<file>]
    -h, --help          	This help message
    -f, --file <file>   	Specify control file
    -t, --test <module> 	Run module unit test
+   -u=<length unit>    	Modify default for output.length.unit
+   -U=<energy unit>    	Modify default for output.energy.unit
    -v, -V, --verbose   	Increment verbosity level by 1 or 4
    --version           	Show version number
-   +<name>=<value>     	Overwrite variable environment\end{verbatim}
+   +<name>=<value>     	Overwrite variable environment
+\end{verbatim}
 
 \noindent
 An important functionality after building the application (see Section \ref{sec:compiling})
@@ -248,11 +252,17 @@ Pass the name of one of the listed modules to run a module unit test like this:
 \begin{verbatim}
 ./a43 --test complex_tools
 \end{verbatim}
+It should tell you that the tests ended with \ttt{status= 0}. 
+If you want a more verbose output increase the verbosity level, e.g.~by 4
+\begin{verbatim}
+./a43 --test complex_tools -V
+\end{verbatim}
 We can also run the unit test of all modules, however, for this we might want to reduce
 the amount of output to \ttt{stdout}.
 We may use the variable environment 
 \footnote{The internal variable environment of \codename{} is not linked to that of the shell.}
-which couples to the command line interface with a leading \ttt{+}. For example use
+which couples to the command line interface with a leading \ttt{+}.
+For example use
 \begin{verbatim}
 ./a43 +verbosity=1 --test
 \end{verbatim}
@@ -263,7 +273,7 @@ Table \ref{tab:verbosity-level-meaning} shows \ttt{+verbosity} ranges in detail.
 \noindent
 The default \ttt{+verbosity} level is $3$ and levels are adjusted occasionally during development.
 However, the ground rule says that higher \ttt{+verbosity} means more output
-and \ttt{verbosity=0} suppresses all output except for warnings and fatal errors.
+and \ttt{verbosity=0} suppresses all output except for warnings and (fatal) errors.
 We can also use the options \ttt{--verbose} to set \ttt{+verbosity=6} (high)
 or fine tune the verbosity level by adding +$1$ for every \ttt{-v} and +$4$ for every \ttt{-V} in the command line.
 Table \ref{tab:verbosity-level-meaning} gives a rough overview on verbosity levels.
@@ -304,7 +314,7 @@ This means that the internal unit of length is Bohr = \unit[0.529177]{\AA{}}
 and the internal unit of energy is Hartree = \unit[27.2114]{$e$V}.
 However, we can change the length and energy units used for output like this:
 \begin{verbatim}
-./a43 +output.energy.unit=eV +output.length.unit=Ang ...
+./a43 +output.length.unit=Ang +output.energy.unit=eV -t none
 \end{verbatim}
 %% sigma_config uses Bohr always (as input and output unit) on purpose
 Available output units are \ttt{eV}, \ttt{Kelvin}, \ttt{Ry} or \ttt{Ha} (default) for energies 
@@ -313,20 +323,25 @@ and \ttt{nm}, \ttt{pm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths. R
 ./a43 --test unit_system
 \end{verbatim}
 to verify this.
+A shorthand for the lengthy command \ttt{+output.length.unit=Ang} is \ttt{-u=Ang} and similarly,
+\ttt{-U=eV} for the display of energies. It changes the default values of the variables \ttt{output.length.unit} and \ttt{output.energy.unit} and can be overwritten later. See
+\begin{verbatim}
+./a43 -u=Ang -U=eV ...
+\end{verbatim}
 %
 Input length units are \AA{} in the \ttt{geometry.file} as this is most convenient for molecular structure viewers
-(\ttt{VESTA}, \ttt{jmol}, etc). Other input quantities may have flexible input units, for example
+(\ttt{VESTA}, \ttt{jmol}, etc.). Other input quantities may have flexible input units, for example
 \begin{verbatim}
-... +logder.unit=Ry +logder.step=1e-3
+... +logder.step=1e-3 +logder.unit=Ry
 \end{verbatim}
 which means that the energy spacing for checking of the logarithmic derivatives is \unit[$10^{-3}$]{Rydberg}.
-The same input unit is assumed for \ttt{+logder.start} and \ttt{+logder.stop}.
+In this situation the same input unit is assumed for \ttt{+logder.start} and \ttt{+logder.stop}.
 
 \noindent
 Experimental parts of the code may not support the flexible unit conversion
 factors for output. Then you should be able to find at least indications as \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the log files.
 Most standard functionality, however, supports unit conversion as described above.
-Some quantities are displayed in characteristic units, e.g., plane wave cutoff energies are typically shown also in \ttt{Rydberg}.
+Some quantities are displayed in characteristic units, e.g., plane wave cutoff energies are typically shown also in \ttt{Rydberg} and temperatures are often converted to \ttt{Kelvin}.
 
 
 \subsection{First Steps} \label{sec:first-steps}
@@ -345,20 +360,21 @@ there will also be a summary of all warnings launched during execution at the en
 %
 
 \noindent
-Once free of warnings, continue with the next step:
-Let's say we want aluminum in our system, then run:
+Once free of warnings, continue with the next step:\\
+Let's say we want aluminium in our system, then run:
 \begin{verbatim}
 ./a43 --test single_atom +single_atom.test.Z=13
 \end{verbatim}
-See Section \ref{sec:single-atom} for more details on \ttt{single\_atom}.
-\todo[inline]{Currently, aluminum produces a critical charge deficit operator eigenvalue}
+See Section \ref{sec:single-atom} for more details on the \ttt{single\_atom} module.
+% \todo[inline]{Currently, aluminium produces a critical charge deficit operator eigenvalue} %%% Seems solved
 %
 \noindent
 \codename{} will then try to access a database of initial atomic potentials
 (full spherically, spin-degenerate) which are stored in \ttt{./pot/Zeff.}$00Z$
-where $00Z$ is a 3-digit integer atomic number.
-\todo[inline]{make the path to pot/ configurable}
-You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax for $33$ iterations if e.g.~the \ac{XC} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
+where $00Z$ is a 3-digit integer atomic number, so \ttt{./pot/Zeff.013} in our case.
+%% \todo[inline]{make the path to pot/ configurable} %% done with +atom_core.path=pot
+You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax for $33$ iterations
+if e.g.~ the \ac{XC} functional differs from the one that was used to generate the \ttt{Zeff.}-file using the \ttt{atom\_core} module.
 
 \noindent
 If the loading fails because of a missing file, 
@@ -371,52 +387,52 @@ You can, however, enforce to generate all these files by
 ./a43 --test atom_core \
         +atom_core.test.Z=1 +atom_core.test.Z.end=86
 \end{verbatim}
-This may take some minutes. To track the progress, \ttt{+verbosity=5} is recommended.
-More details on \ttt{atom\_core} can be found in Section \ref{sec:atom-core}.
+This may take some minutes.
 \todo[inline]{OpenMP would be good here}
+To track the progress, \ttt{+verbosity=5} is recommended.
+More details on \ttt{atom\_core} can be found in Section \ref{sec:atom-core}.
 %
 \noindent
 Now, run the \ttt{single\_atom} test for each of the elements in the system 
-to see if there are warnings before you continue with the main calculation
+to see if there are warnings before you continue with the main calculation:
 \begin{verbatim}
-./a43 --test self_consistency \
-        +geometry.file=molecule.xyz
+./a43 +geometry.file=molecule.xyz +scf.maxiter=1 +control.show=6
 \end{verbatim}
-\todo[inline]{we have not yet defined a functionality of main! only tests so far. Maybe we will never}
+%% \todo[inline]{we have not yet defined a functionality of main! only tests so far. Maybe we will never} %% Done, the main functionality of ./a43 without -t will run self_consistency::SCF and ./green will run parallel_potential::SCF
 %
-
+We recommend to add \ttt{+control.show=6} for a summary of all variable values used during the calculation. It is a useful guide to write input files.
 %
 \subsection{Writing an input file} \label{sec:control-file}
 %
 At some point the command line becomes full.
-We can pass more environment variables to \codename{}\emph{control file}, e.g.:
+We can pass more environment variables to \codename{}'s \ttt{control.file}, e.g.:
 \begin{verbatim}
-./a43 control.sh --test self_consistency
+./a43 -f control.sh --test geometry_input
 \end{verbatim}
 Hint: There is no default name or naming scheme for the control file 
 but it may be helpful to use an \ttt{.sh}-file extension since that
 enables useful syntax highlighting and commenting functionality in common text editors.
-In most examples, we use the name \ttt{control.sh}.
+In most examples we use the name \ttt{control.sh}.
 %
 %
 
 \subsubsection{Control File Rules} \label{sec:control-file-rules}
 %
-Lines in a control file are either 
+Lines in a \ttt{control.file} are either 
 \begin{itemize}
     \item empty
     \item silent comments starting from \ttt{\#}
     \item comments with \ttt{\#!} which appear in the log output or
     \item $variablename$\ttt{=}$value$
 \end{itemize}
-where $value$ is the string between \lq\ttt{=}\rq and the line end and may contain whitespace characters.
+where $value$ is the string between \lq{}\ttt{=}\rq{} and the line end and may contain whitespace characters.
 \\
 Mind: We must not place \ttt{+} in front of $variablename$ when specified in a control file!
-We may add blanks after \lq\ttt{=}\rq for numeric values but not before the \lq\ttt{=}\rq.
+We may add blanks after \lq{}\ttt{=}\rq{} for numeric values but not before the \lq{}\ttt{=}\rq{}.
 \\
 A repeated $variablename$ will launch a warning about redefinition, even if the value is unchanged. Try
 \begin{verbatim}
-./a43 +a=5 +a=5
+./a43 +a=5 +a=5 -t .
 \end{verbatim}
 Variable names may contain any character except \lq\ttt{=}\rq.
 
@@ -424,6 +440,9 @@ Variable names may contain any character except \lq\ttt{=}\rq.
 %
 Use e.g.~\ttt{+control.show=1} to display all environment variables used during execution.
 Set \ttt{+control.show=2} to show only the unused variables, \ttt{=4} to show also those variables that have their default values, \ttt{6} for both.
+\begin{verbatim}
+./a43 -t . +control.show=6 +a_new_variable=6.02214e23
+\end{verbatim}
 In order to get information where the variable's value originated and how many times it was used, invert the same number as above into their negatives, i.e.~\ttt{-1}, \ttt{-2}, \ttt{-4} and \ttt{-6}.
 See Tab \ref{tab:control-show-details} for decoding the origin. 
 %
@@ -444,6 +463,15 @@ Variable value origins shown with \ttt{+control.show=-6}
 \hline
 \end{tabular}
 \end{table}
+
+\subsubsection{Result reproducability} \label{sec:reproducability}
+%
+There are three \emph{variables} defined that foster reproducability by identifying the code version:
+\begin{itemize}
+    \item \ttt{version.main} defines the \ttt{git} hash for \ttt{./a43}
+    \item \ttt{version.green} for the executable \ttt{./green} and
+    \item \ttt{version.atom} for the shared library \ttt{libliveatom.so}     
+\end{itemize}
 
 
 \subsection{Parallel Computing} \label{sec:parallelization}
@@ -577,15 +605,51 @@ a reduced memory capacity consumption and lower memory bandwidth requirements.
 
 
 
+\section{Shifted Cartesian Unit Cells} \label{sec:shifted-BC}
 
+When using finite-difference stencils on uniform real-space grids
+the simplest case is to define a rectangular unit cell,
+i.e.~ all basis vectors are orthogonal.
+Then, the finite-difference stencils are sparse and higher-order can easily be applied.
+This, however, does not allow a treatment of a minimal number of atoms per unit cell.
+For many highly-symmetric crystals computing with a single atom per unit cell is advantageous.
+Although it is possible to define a proper non-rectangular unit cell and corresponding
+derivative operators in real-space representation, we decided to try a different approach.
+We allow \ttt{shifted} \ac{BC}s.
 
+\subsection{What are shifted boundary conditions?}
+%
+Shifted \ac{BC}s in \codename{} (currently only \ttt{./a43}) are an experimental feature
+to enable any Bravais lattice as a unit cell. The \ttt{geometry.file} could be
+% #cell 4 4 2 periodic periodic shifted 0 2 2  --> bcc
+\begin{verbatim}
+2
+#cell 2.46 2.13 8.0 periodic shifted periodic 1.23
+C 0 0 0
+C 1.23 1.065 0
+\end{verbatim}
+which indicates a graphene layer with two carbons forming a honeycomb structure.
+The underlying lattice 2D structure is trigonal and both carbons are $sp_2$-coordinated, i.e.~three bonds in angles of $120\degree$.
+The full syntax is
+\begin{verbatim}
+#cell Lxx Lyy Lzz xBC yBC zBC Lxy [, Lxz, Lyz]
+\end{verbatim}
+where \ttt{Lxy} indicates in units of \AA{}ngtr\"{o}m 
+how much the periodic image in positive $y$-direction of a rectangular box
+is shifted in $x$-direction if the $y$-\ac{BC} is \ttt{shifted}.
+Additionally, we can define the $z$-\ac{BC} to be \ttt{shifted} as well.
+Then, we can specify nonzero \ttt{Lxz} and \ttt{Lyz} in a similar fashion.
+With these three additional parameters even trigonal lattices can be mimicked.
+Mind: the $x$-direction can never be shifted.
 
-
-
-
-
-
-
+The rectangular box is described with a uniform Cartesian real-space grid
+and standard finite-difference operations can be executed.
+Only when a stencil crosses a shifted boundary, the code takes care 
+to read from the right grid point and apply certain phase factors.
+Using interpolation at the boundary, the shift values could take any value.
+However, interpolation has not been implemented, so the shift values will
+be adopted to match an integer multiple of the grid spacing.
+Only positive shifts are allowed, so make sure the unit cell is defined such that the angles between unit vectors are all $\leq 90\degree$.
 
 
 
@@ -741,12 +805,12 @@ with the default filename \ttt{species\_test.xyz}.
 It contains \ttt{+geometry\_analysis.test.nspecies} $\in [2, 128]$ atoms, each with a
 different species, positioned in a chain. Running
 \begin{verbatim}
-./a43 --test geometry_analysis +verbosity=7 \
+./a43 -t geometry_analysis +verbosity=7 \
         +geometry_analysis.select.test=-1 \
         +geometry_analysis.test.nspecies=4 \
         +geometry.file=species_test.xyz
 \end{verbatim}
-will create the file, parse it and analyze its linear geometry.
+will create the file, parse it and analyze its chain-like geometry.
 Technically, one could increase \ttt{+geometry\_analysis.test.nspecies} up to \ttt{127},
 however, the output is far from readable due to too many too long lines.
 The interatomic distances are chosen such that most coordination numbers
@@ -757,8 +821,7 @@ are $2$ and all bond angles are 180\degree{}.
 
 \section{Advanced Controls} \label{sec:advanced-controls}
 %
-This part of the \codename{} manual describes
-various modules in detail.
+This part of the \codename{} manual describes various modules in detail.
 
 %\subsection{Fermi level} \label{sec:fermi-level}
 %During an \ac{SCF} calculation, 
@@ -928,7 +991,7 @@ In further steps, increase the verbosity level slightly (\ttt{-v}) and read the 
 \subsubsection{Exporting PAW potentials} \label{sec:single-atom-export}
 %
 The \ac{PAW} data generated by \ttt{single\_atom} can be exported into the \ttt{PAW-XML} format defined
-by CECAM's ESL\cite{CECAM_Electronic_Structure_Library} (https://esl.cecam.org/data/paw-xml/)
+by CECAM's ESL\cite{CECAM_Electronic_Structure_Library} \todo[inline]{cite https://esl.cecam.org/data/paw-xml/}
 to later be imported by GPAW\cite{gpaw} and ABINIT\cite{abinit}.
 To export please add \ttt{+single\_atom.export=1} and \ttt{+single\_atom.smooth.radial.grid.from=0}.
 The latter option is necessary as \ttt{single\_atom} by default uses less grid points close to the radial center 
@@ -949,7 +1012,8 @@ Try \ttt{+pawxml\_export.type=upf} to see how much is working so far.
 
 \noindent
 \codename{} natively uses a radial exponential grid with the equation \ttt{r=a*(exp(d*i)-1)}.
-If this cannot be imported by the other software, try \ttt{+single\_atom.radial.grid.equation=reciprocal} for GPAW's native radial grid.
+If this cannot be imported by the other software,\\
+try \ttt{+single\_atom.radial.grid.equation=reciprocal} for GPAW's native radial grid.
 
 \noindent
 Within the development branch of \codename{}, several experimental ways to generate the smooth partial waves
@@ -978,7 +1042,7 @@ Most important variables to control self-consistency iterations in \codename{}.
 \centering
 \begin{tabular}{|l|r|l|}
 \hline
-  Variable Name & Default & Meaning, \ttt{Alternatives} \\
+  Variable Name & Default & Meaning/\ttt{Alternatives} \\
 \hline
   \ttt{geometry.file} & \ttt{atoms.xyz}   & Atomic coordinates and cell file \\
   \ttt{basis}         & \ttt{grid}        & Basis set, \ttt{plane\_wave}, \ttt{sho} \\ 
@@ -1156,7 +1220,7 @@ an energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{v
 In wave function methods the electron density is found as sum over the absolute square of occupied wave functions, see Eq.~(\ref{eqn:simplified_density_generation}).
 Mathematically, we can also find the electron density integrating over an energy contour of the imaginary part of the trace of the green function, i.e.
 \begin{align}
-  \int\limits_{\mathcal C} \mathrm{d}E \, \Im\{ G(\vec r, \vec r; E) \} &= \varrho(\vec r) \\
+  \int\limits_{\mathcal C} \  \mathrm{d}E \, \Im\{ G(\vec r, \vec r; E) \} &= \varrho(\vec r) \\
   \left( \hat H - E \cdot \hat S \right) \cdot \hat G &= \mathbf{1}
 \end{align}
 There are two striking advantages of a Green function formulation.
@@ -1292,7 +1356,7 @@ Since a \ac{DFT}-Hamiltonian is Hermitian by construction, its eigenvalue spectr
 The energy contour integration is a mathematically elegant way to avoid an integration over singular values
 which would occur if we tried to integrate
 \begin{equation}
-	\int\limits_{-\infty}^{E\um{Fermi}} \ \mathrm d E (\hat H - E \hat S)^{-1}
+	\int\limits_{-\infty}^{E\um{Fermi}} \mathrm d E \  (\hat H - E \hat S)^{-1}
 \end{equation}
 since $(\hat H - E \hat S)$ diverges when $E$ comes close to a generalized real-valued eigenvalue.
 The method foresees a contour path around the problematic regions on the real axis
@@ -1332,7 +1396,7 @@ In real computations, the band bottom energy needs to be placed in between the h
 \subsection{Green Solver}\label{sec:green-solver}
 The heart of the \fullcodename{} code is the \ac{MPI}-parallelized Green function solver,
 implemented in the comparably shallow wrapper module \ttt{green\_solver}, 
-the central module \ttt{green\_action} making use of the header-only \ttt{tfQMRgpu} library \cite{tfQMRgpu-preprint}
+the central module \ttt{green\_action} making use of the header-only library \ttt{tfQMRgpu} \cite{Baumeister2025}
 which accepts an action operator $\hat A_{\vec k}(E) := (\hat H_{\vec k} - E\hat S_{\vec k})$, henceforth abbreviated simply $\hat A$.
 The transpose-free Quasi Minimal Residual method (tfQMR) solves the linear problem $\hat A \cdot \hat X = \hat B$ where in our case $\hat X \equiv \hat G$ is the Green function and the right hand sides together form $\hat B \equiv \mathbf{1}$, a unit matrix.
 

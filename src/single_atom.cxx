@@ -4761,7 +4761,7 @@ namespace single_atom {
       if (t & (1 << n++)) stat += test_pawxml_constructor(echo);
       if (t & (1 << n++)) stat += test_compensator_normalization(echo);
       if (t & (1 << n++)) stat += test_LiveAtom(echo);
-      if (echo > 0) std::printf("\n# sizeof(LiveAtom) = %ld Byte\n\n", sizeof(LiveAtom));
+      if (echo > 19) { std::printf("\n# sizeof(LiveAtom) = %ld Byte\n\n", sizeof(LiveAtom)); }
       return stat;
   } // all_tests
 

@@ -272,6 +272,10 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
     status_t status(0);
     if (results.size() < 1) { // nothing has been tested
+        if ('.' == input_name[0]) {
+            if (echo > 3) { std::printf("# module name starts with \'.\', ignore --test %s\n", input_name.c_str()); }
+            return status; // success
+        }
         error("test for '%s' not found, use -t '?' to see available modules!", module);
     } else {
         if (echo > 0) std::printf("\n\n");
@@ -392,6 +396,8 @@ int main(int const argc, char *argv[]) {
 #ifndef   NO_UNIT_TESTS
                             "   -t, --test <module> \tRun module unit test\n"
 #endif // NO_UNIT_TESTS
+                            "   -u=<length unit>    \tModify default for output.length.unit\n"
+                            "   -U=<energy unit>    \tModify default for output.energy.unit\n"
                             "   -v, -V, --verbose   \tIncrement verbosity level by 1 or 4\n"
                             "   --version           \tShow version number\n"
                             "   +<name>=<value>     \tOverwrite variable environment\n"

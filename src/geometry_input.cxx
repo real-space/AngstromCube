@@ -96,8 +96,15 @@ namespace geometry_input {
                         if (Shifted_Boundary == bc[2] && 0 == Lxz && 0 == Lyz) { warn("z-boundary condition is \'shifted\' but xz-shift and yz-shift are both zero", 0); }
                         if (Shifted_Boundary == bc[1] && 0 == Lxy)             { warn("y-boundary condition is \'shifted\' but xy-shift is zero", 0); }
                         if (Shifted_Boundary == bc[0])                         { error("x-boundary may never be \'shifted\'", 0); }
+                        // for (int d{0}; d < 3; ++d) {
+                        //     if (Shifted_Boundary == bc[d]) {
+                        //         bc[d] = Periodic_Boundary; // for all other purposes than the input these are just periodic BCs
+                        //     } // shifted
+                        // } // d
 #endif // GENERAL_CELL
                     } // scope
+
+
 
                 } // cell == Basis
             } // scope

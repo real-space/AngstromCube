@@ -152,19 +152,6 @@ status_t run_unit_tests(char const *unit_name, int const echo=0) {
 } // run_unit_tests
 
 
-int show_help(char const *executable, int const echo=1) {
-    if (echo > 0) std::printf("Usage %s [OPTION]\n"
-        "   --help           [-h]\tThis help message\n"
-        "   --version            \tShow version number\n"
-#ifndef   NO_UNIT_TESTS
-        "   --test <module>  [-t]\tRun module unit test\n"
-#endif // NO_UNIT_TESTS
-        "   --verbose        [-V]\tIncrement verbosity level\n"
-        "   +<name>=<value>      \tModify variable environment\n"
-        "\n", executable);
-    return 0;
-} // show_help
-
 
 int show_version(char const *executable="#", int const echo=1) {
 #include    "define_version.h" // define_version --> version_key
@@ -245,6 +232,8 @@ int main(int const argc, char *argv[]) {
 #ifndef   NO_UNIT_TESTS
                             "   -t, --test <module> \tRun module unit test\n"
 #endif // NO_UNIT_TESTS
+                            "   -u=<length unit>    \tModify default for output.length.unit\n"
+                            "   -U=<energy unit>    \tModify default for output.energy.unit\n"
                             "   -v, -V, --verbose   \tIncrement verbosity level by 1 or 4\n"
                             "   --version           \tShow version number\n"
                             "   +<name>=<value>     \tOverwrite variable environment\n"
