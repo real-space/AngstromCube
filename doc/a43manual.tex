@@ -681,18 +681,19 @@ $60\degree_{24\times}$, $90\degree_{12\times}$, $120\degree_{24\times}$, $180\de
 \ttt{2.86\_12 |  60\_24 90\_12 120\_24 180\_6}.
 
 %
-\subsubsection{Hexagonal close packed}
+\subsubsection{Hexagonal close-packed}
 The HCP structure requires two atoms per unit cell but only the \ttt{Lxy}-shift:
 \begin{verbatim}
 2
-#cell 2.8752 2.49 4.6952 p s p 1.4376
+#cell 2.8752 2.49 4.6952 periodic shifted periodic 1.4376
 Au 0 0 0
-Au 1.4376 .83 2.3476
+Au 1.4376 0.83 2.3476
 \end{verbatim}
 will display \ttt{2.88\_12 |  60\_24 90\_12 110\_3 120\_18 146\_6 180\_3}.\\
 Mind that to compute the energy difference between FCC and HCP structures it is, however,
 recommended to use the geometries with 12 atoms per Cartesian unit cell
-as this makes sure that convergence w.r.t.~grid spacings is the same.
+as this makes sure that convergence w.r.t.~grid spacings is the same
+(c.f.~\ttt{geometry\_analysis::test\_fcc\_hcp\_files}).
 
 \section{Geometry Analysis Tool} \label{sec:geometry-analysis}
 %

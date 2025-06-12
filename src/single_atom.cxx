@@ -368,8 +368,11 @@ namespace single_atom {
                                       original_quality, total_weight, original_quality*100/std::max(1., total_weight));
             if (echo > 2) std::printf("# %s optimized sigma= %g %s for numax= %d with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, numax_basis,
                                       best_weighted_quality, total_weight, best_weighted_quality*100/std::max(1., total_weight));
-            if (sigma_range[0]*1.001 > sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
-            if (sigma_range[1]*0.999 < sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
+            {
+                int const wrn = (sigma_range[1]*0.999 < sigma_opt) - (sigma_range[0]*1.001 > sigma_opt);
+                if (0 != wrn) warn("%s optimal sigma %g Bohr is at the %ser end of the analyzed range [%g, %g] Bohr!",
+                                    label, sigma_opt, (wrn>0)?"upp":"low", sigma_range[0], sigma_range[1]);
+            }
         } // range > 1
         double const sigma_out = sigma_opt; // return value
 
@@ -1445,7 +1448,7 @@ namespace single_atom {
             } // iln
         } // scope
 
-        sigma = 0.5*r_cut; // rough estimate, ToDo: sigma from optimizing the projector representation in SHO basis
+        sigma = 0.3*r_cut; // rough estimate, ToDo: sigma from optimizing the projector representation in SHO basis
 
         { // scope: optimize sigma_out to best fit the 
             std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive projectors
@@ -1467,7 +1470,7 @@ namespace single_atom {
                 , projectors // r*functions(numerical), rfunc(nln,>= rg.n)
                 , sigma // input
                 , numax // same numax
-                , 2.0 // range
+                , 2. // control::get("single_atom.fit.sigma.range", 2.);
                 , "numerical projectors from file" // what
                 , label // log-prefix
                 , echo); // log-level
@@ -1510,7 +1513,7 @@ namespace single_atom {
                 auto const inversion_stat = linear_algebra::inverse(nactive, ovl.data(), ovl.stride());
                 if (0 != inversion_stat) {
                     warn("%s failed to invert preliminary duality for ell=%d (%d active partial waves), status= %i",
-                    label, ell, nactive, int(inversion_stat));
+                        label, ell, nactive, int(inversion_stat));
                 } else {
                     // copy into projector coefficients
                     for (int iact = 0; iact < nactive; ++iact) {
