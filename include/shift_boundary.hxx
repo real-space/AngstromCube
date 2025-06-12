@@ -145,6 +145,10 @@ namespace shift_boundary {
 
   // ToDo: how to treat k-points?
 
+#ifdef    NO_UNIT_TESTS
+    inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+#else  // NO_UNIT_TESTS
+
     inline status_t test_plane_wave(int const echo=9, int const structure=4) {
         status_t stat(0);
         char const structure_name[][4] = {"???", "sc ", "bcc", "hcp", "fcc"};
@@ -347,10 +351,6 @@ namespace shift_boundary {
 
         return stat;
     } // test_plane_wave
-
-#ifdef    NO_UNIT_TESTS
-    inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else  // NO_UNIT_TESTS
 
     inline status_t all_tests(int const echo=0) {
         if (echo > 1) std::printf("\n# %s: %s\n\n", __FILE__, __func__);

@@ -8,7 +8,7 @@
 
 namespace unit_system {
 
-    char constexpr _Rydberg[] = "Ry"; // Rydberg atomic energy unit  (NEEDED HERE?)
+    char constexpr _Rydberg[] = "Ry"; // Rydberg atomic energy unit
 
     double energy_unit(char const *which, char const **const symbol); // declaration only
 
