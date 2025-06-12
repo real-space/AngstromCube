@@ -200,8 +200,8 @@ where the projectors are expanded in eigenfunctions of a \ac{SHO}.
 when it comes to multi-precision algorithms via templates
 and its good interoperability with common \ac{GPU} programming models, mainly \ttt{CUDA}.
 
-\noindent
-For an up-to-date list of the code features, please see the \ttt{README.md} file.
+%\noindent
+%For an up-to-date list of the code features, please see the \ttt{README.md} file.
 
 \newpage
 \section{How to get started} \label{sec:how-to-get-started}
@@ -651,7 +651,48 @@ However, interpolation has not been implemented, so the shift values will
 be adopted to match an integer multiple of the grid spacing.
 Only positive shifts are allowed, so make sure the unit cell is defined such that the angles between unit vectors are all $\leq 90\degree$.
 
+\subsection{Common cases}
+%
+While the simple-cubic (SC) lattice can perfectly be simulated with a single atom per Cartesian unit cell,
+this is not the case for the body-centered cubic (BCC) and the face-centered cubic (FCC) structures.
+However, the shifted boundary makes this possible nevertheless.
+%
+\subsubsection{Body-centered cubic}
+For BCC, the cubic unit cell contains two equivalent atoms.
+We slice the cube in $z$-direction exactly in the center, then with \ttt{atoms.xyz}:
+\begin{verbatim}
+1
+#cell 2.86 2.86 1.43 periodic periodic shifted 0 1.43 1.43
+Fe 0 0 0
+\end{verbatim}
+we find that iron has coordination number eight with an interatomic distance of $2.4768\,$\AA{} and typical BCC bond angles,
+$70.5\degree_{12\times}$, $109.5\degree_{12\times}$ and $180\degree_{4\times}$
+displayed as \ttt{2.48\_8 |  70\_12 110\_12 180\_4}.
 
+%
+\subsubsection{Face-centered cubic}
+Similar to the BCC example, aluminium FCC needs the \ttt{Lxy}-shift and the \ttt{Lxz}-shift:
+\begin{verbatim}
+#cell 4.04 2.02 2.02 periodic shifted shifted 2.02 2.02 0
+\end{verbatim}
+% Al   2.86_12 |  60_24 90_12 120_24 180_6
+produces coordination 12 with typical FCC bond angles
+$60\degree_{24\times}$, $90\degree_{12\times}$, $120\degree_{24\times}$, $180\degree_{6\times}$ displayed as
+\ttt{2.86\_12 |  60\_24 90\_12 120\_24 180\_6}.
+
+%
+\subsubsection{Hexagonal close packed}
+The HCP structure requires two atoms per unit cell but only the \ttt{Lxy}-shift:
+\begin{verbatim}
+2
+#cell 2.8752 2.49 4.6952 p s p 1.4376
+Au 0 0 0
+Au 1.4376 .83 2.3476
+\end{verbatim}
+will display \ttt{2.88\_12 |  60\_24 90\_12 110\_3 120\_18 146\_6 180\_3}.\\
+Mind that to compute the energy difference between FCC and HCP structures it is, however,
+recommended to use the geometries with 12 atoms per Cartesian unit cell
+as this makes sure that convergence w.r.t.~grid spacings is the same.
 
 \section{Geometry Analysis Tool} \label{sec:geometry-analysis}
 %
