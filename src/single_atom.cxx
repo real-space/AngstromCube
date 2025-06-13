@@ -1134,37 +1134,49 @@ namespace single_atom {
 
         r_cut = rg[SMT].rmax; // init at maximum
         std::vector<int8_t> enn_ell(1 + ELLMAX, 0);
-        int ist{0};
-        for (auto & s : p.states) {
+        // parse occupied valence states
+        for (int ist{0}; ist < p.states.size(); ++ist) {
+            auto const & s = p.states.at(ist);
             int const enn = s.n, ell = s.l;
             if (echo > 4) std::printf("# %s valence state %d%c E= %.6f %s\n", label, enn, ellchar[ell], s.e*eV, _eV);
             assert(0 <= ell); assert(ell <= ELLMAX);
             ++nn[ell]; // increase the number of partial waves for this ell
             if (enn > 0) {
-                if (ell < 4) ncmx[ell] = std::min(ncmx[ell], enn - 1);
+                if (ell < 4) ncmx[ell] = std::min(ncmx[ell], enn - 1); // set the ennmax of the core
                 enn_ell[ell] = enn;
                 int const inl = atom_core::nl_index(enn, ell);
-                assert(inl < 36);
-                ist_custom[inl] = ist;
+                ist_custom.at(inl) = ist;
                 assert(0 <= s.f); assert(s.f <= 2*(ell + 1 + ell)); // sanity check for occupation numbers
                 occ_custom[inl] = s.f; // copy occupation numbers
                 csv_custom[inl] = valence;
             } else {
-                int const enn_prime = std::max(ell + 1, enn_ell[ell] + 1);
-                int const inl = atom_core::nl_index(enn_prime, ell);
-                assert(inl < 36);
-                ist_custom[inl] = ist;
-                ++enn_ell[ell];
+                // done later
             } // enn valid
             r_cut = std::min(r_cut, double(s.rc));
-            ++ist;
-        } // valence states
-        assert(p.states.size() == ist && "fatal counting error");
+        } // ist
+
         if (echo > 3) std::printf("# %s core states up to %ds %dp %dd %df\n", label,
             (ncmx[0] > 0)*ncmx[0], (ncmx[1] > 1)*ncmx[1], (ncmx[2] > 2)*ncmx[2], (ncmx[3] > 3)*ncmx[3]);
         if (echo > 3) std::printf("# %s smallest cutoff radius is %g %s\n", label, r_cut*Ang, _Ang);
 
-        { // scope: determine numax
+        // parse unoccupied valence states
+        for (int ist{0}; ist < p.states.size(); ++ist) {
+            auto const & s = p.states.at(ist);
+            int const enn = s.n, ell = s.l;
+            if (enn > 0) {
+                // done earlier
+                if (echo > 19) std::printf("# %s   bound valence state %d%c  inl= %i\n", label, enn, ellchar[ell], atom_core::nl_index(enn, ell));
+            } else {
+                int const enn_prime = std::max(ncmx[ell] + 1, std::max(ell + 1, enn_ell[ell] + 1));
+                ++enn_ell[ell];
+                int const inl = atom_core::nl_index(enn_prime, ell);
+                csv_custom[inl] = valence;
+                ist_custom.at(inl) = ist;
+                if (echo > 19) std::printf("# %s unbound valence state %d%c  inl= %i\n", label, enn_prime, ellchar[ell], inl);
+            } // enn valid
+        } // ist
+
+        { // scope: determine numax from nn[:]
             int nu_max{-1};
             for (int ell = 0; ell <= ELLMAX; ++ell) {
                 if (nn[ell] > 0) {
@@ -1320,7 +1332,7 @@ namespace single_atom {
 
                         if (ist >= 0) {
                             // copy the true and smmoth partial wave function
-                            auto const & tsp = p.states[ist].tsp;
+                            auto const & tsp = p.states.at(ist).tsp;
                             for (int ts = TRU; ts <= SMT; ++ts) {
                                 if (tsp[ts].size() != rg[ts].n) {
                                     error("%s %s partial wave %s has %ld grid points but expected %d",
@@ -1332,7 +1344,11 @@ namespace single_atom {
                             // copy the numerical projector function and multiply by r
                             {   assert(tsp[2].size() == rg[SMT].n);
                                 product(projectors[iln], rg[SMT].n, tsp[2].data(), rg[SMT].r);
+                                if (echo > 33) { std::printf("# %s copy %d%c-projector: %g %g %g\n",
+                                    label, enn,ellchar[ell], projectors(iln,1), projectors(iln,2), projectors(iln,3)); }
                             }
+                        } else {
+                            if (echo > 33) { std::printf("# %s no copy of %d%c-projector: ist_index[iln=%i]=%i\n", label, enn,ellchar[ell], iln,ist); }
                         } // ist >= 0
 
                         // missing: valence_kinetic_energy += vs.occupation * dot_product(rg[TRU].n, vs.wave[TRU], vs.wKin[TRU], rg[TRU].rdr);
@@ -1448,8 +1464,7 @@ namespace single_atom {
             } // iln
         } // scope
 
-        sigma = 0.3*r_cut; // rough estimate, ToDo: sigma from optimizing the projector representation in SHO basis
-
+        sigma = 0.3*r_cut; // rough estimate
         { // scope: optimize sigma_out to best fit the 
             std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive projectors
             for (int ell = 0; ell <= numax; ++ell) {
@@ -1477,6 +1492,7 @@ namespace single_atom {
 
             if (echo > 0) std::printf("# %s take optimized sigma= %g %s\n", label, sigma_out*Ang, _Ang);
             sigma = sigma_out; // take
+            // return; // ToDo: remove return, only for testing the fitting only
         } // scope
 
         // regenerate projectors with optimized sigma and orthogonalize projectors against partial waves
@@ -1503,17 +1519,22 @@ namespace single_atom {
                 for (int iact = 0; iact < nactive; ++iact) {
                     int const iln = active_iln[iact];
                     auto const & vs = partial_wave[iln]; // abbreviate "valence state"
+                    if (echo > 23) { std::printf("# %s partial_wave[%s] smooth wave= %g %g %g ...\n",
+                                label, vs.tag, vs.wave[SMT][1], vs.wave[SMT][2], vs.wave[SMT][3]); }
                     for (int jact = 0; jact < nactive; ++jact) {
                         int const jln = active_iln[jact];
                         ovl(iact,jact) = dot_product(rg[SMT].n, vs.wave[SMT], sho_basis[jln], rg[SMT].r2dr);
+                        if (echo > 33) { std::printf("# %s dot_product(partial_wave[%c%d], %c%d-sho_projector) = %g\n",
+                            label,  ellchar[ell],active_irn[iact],  ellchar[ell],active_irn[jact],  ovl(iact,jact)); }
                     } // jact
                 } // iact
 
                 // now invert ovl to restore the duality
+                auto const ovl00 = ovl[0][0];
                 auto const inversion_stat = linear_algebra::inverse(nactive, ovl.data(), ovl.stride());
                 if (0 != inversion_stat) {
-                    warn("%s failed to invert preliminary duality for ell=%d (%d active partial waves), status= %i",
-                        label, ell, nactive, int(inversion_stat));
+                    warn("%s failed to invert preliminary duality for ell=%d (%d active partial waves), status= %i, ovl[0][0]= %g",
+                        label, ell, nactive, int(inversion_stat), ovl00);
                 } else {
                     // copy into projector coefficients
                     for (int iact = 0; iact < nactive; ++iact) {
