@@ -1167,8 +1167,9 @@ namespace single_atom {
                 // done earlier
                 if (echo > 19) std::printf("# %s   bound valence state %d%c  inl= %i\n", label, enn, ellchar[ell], atom_core::nl_index(enn, ell));
             } else {
+                // determine the principal quantum number for this unbound state
                 int const enn_prime = std::max(ncmx[ell] + 1, std::max(ell + 1, enn_ell[ell] + 1));
-                ++enn_ell[ell];
+                enn_ell[ell] = enn_prime;
                 int const inl = atom_core::nl_index(enn_prime, ell);
                 csv_custom[inl] = valence;
                 ist_custom.at(inl) = ist;
@@ -1348,7 +1349,7 @@ namespace single_atom {
                                     label, enn,ellchar[ell], projectors(iln,1), projectors(iln,2), projectors(iln,3)); }
                             }
                         } else {
-                            if (echo > 33) { std::printf("# %s no copy of %d%c-projector: ist_index[iln=%i]=%i\n", label, enn,ellchar[ell], iln,ist); }
+                            warn("# %s no copy of %d%c-projector: ist_index[iln=%i]=%i\n", label, enn,ellchar[ell], iln,ist);
                         } // ist >= 0
 
                         // missing: valence_kinetic_energy += vs.occupation * dot_product(rg[TRU].n, vs.wave[TRU], vs.wKin[TRU], rg[TRU].rdr);
