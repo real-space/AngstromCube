@@ -58,7 +58,8 @@ namespace sho_basis {
 
   struct RadialFunction {
      std::vector<double> vec;
-     int8_t enn = -1, ell = -1;
+     int8_t enn = -1;
+     int8_t ell = -1;
   }; // RadialFunction
 
   struct RadialFunctionSet {
@@ -77,7 +78,7 @@ namespace sho_basis {
 
 
   char ellchar(int const ell) {
-      char const _ellchar[8] = "spdfgh?";
+      static char const _ellchar[8] = "spdfgh?";
       return _ellchar[ell & 0x7];
   } // ellchar
 
@@ -296,17 +297,17 @@ namespace sho_basis {
   template <typename complex_t>
   status_t generate(
         view2D<complex_t> & matrix // result: on successful exit this is a nSHO(numax) x nbasis matrix
-      , double & sigma
-      , int & numax // SHO basis size parameter
-      , double const Z_core // nuclear charge
+      , double & sigma // result: SHO spread parameter
+      , int & numax // input: select numax, -1:auto, result: SHO basis size parameter
+      , double const Z_core // input: nuclear charge
       , int const echo // =0, verbosity
   ) {
       if (echo > 1) std::printf("# %s<%s>(Z= %g, numax= %d)\n", __func__, complex_name<complex_t>(), Z_core, numax);
 
       // make sure that the pseudo_basis.xml file has been loaded for this Z
-      RadialFunctionSet const * rfset = nullptr;
+      RadialFunctionSet const *rfset{nullptr};
       auto const load_stat = load(rfset, Z_core, numax, -1); // should return a RadialFunctionSet
-      if (echo > 3) std::printf("# loading status= %i ptr= %p\n", int(load_stat), (void*)rfset);
+      if (echo > 3) std::printf("# rfset pointer %svalid, loading status= %i\n", (nullptr == rfset)?"in":"", int(load_stat));
       // get nbasis
       if (0 != load_stat) {
           warn("failed to load a pseudo_basis for Z= %g numax= %d", Z_core, numax);
@@ -446,8 +447,8 @@ namespace sho_basis {
   } // test_load
 
   status_t test_generate(int const echo=5) {
-      double const Z = control::get("sho_basis.test.Z", 29.);
-      int numax      = control::get("sho_basis.test.numax", -1.);
+      auto const Z = control::get("sho_basis.test.Z", 29.);
+      int numax    = control::get("sho_basis.test.numax", -1.);
       status_t stat(0);
       double sigma;
       { view2D<std::complex<double>> m; stat += generate(m, sigma, numax, Z, echo  ); }
