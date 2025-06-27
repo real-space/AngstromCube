@@ -718,7 +718,7 @@ namespace atom_core {
         status_t stat(0);
         char const custom_config = *control::get("atom_core.occupations", "custom") | 32; // 32: ignore case
         size_t const i_end = std::round(std::abs(Z_end - Z_begin)/std::max(1e-9, std::abs(Z_inc)));
-        // #pragma omp parallel for schedule(dynamic,1)
+        #pragma omp parallel for schedule(dynamic,1)
         for (size_t i = 0; i < i_end; ++i) {
             double const Z = Z_begin + i*Z_inc;
             if (echo > 1) std::printf("\n# atom_core solver for Z= %g\n", Z);
