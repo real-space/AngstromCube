@@ -122,9 +122,9 @@ namespace cho_radial {
       return value;
   } // expand_poly
 
-#ifdef NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
   char const *const ellchar = "spdfghijklmno";
 
@@ -292,7 +292,7 @@ namespace cho_radial {
       return (dev > 1e-12);
   } // test_Gram_Schmidt
 
-#ifdef HAS_BMP_EXPORT
+#ifdef    HAS_BMP_EXPORT
   template <typename real_t=double> // real_t can be float if memory is an issue
   inline status_t test_radial_and_Cartesian_image(int const echo=0) {
       status_t stat(0);
@@ -436,7 +436,7 @@ namespace cho_radial {
       status_t stat(0);
       stat += test_orthonormality(echo);
       stat += test_Gram_Schmidt(echo);
-#ifdef HAS_BMP_EXPORT
+#ifdef    HAS_BMP_EXPORT
       stat += bitmap::test_image(echo);
       stat += test_radial_and_Cartesian_image(echo);
 #endif // HAS_BMP_EXPORT
@@ -444,5 +444,5 @@ namespace cho_radial {
   } // all_tests
 
 #endif // NO_UNIT_TESTS
-  
+
 } // namespace cho_radial

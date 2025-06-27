@@ -17,17 +17,17 @@ typedef int status_t;
 
 namespace cho_unitary {
 
-#ifdef  NO_UNIT_TESTS
+#ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#else  // NO_UNIT_TESTS
 
 
   template <typename T> int sgn(T val) {
       return (T(0) < val) - (val < T(0));
   } // sgn from https://stackoverflow.com/questions/1903954/is-there-a-standard-sign-function-signum-sgn-in-c-c/10133700
 
-#define HAS_GENERATION
-#ifdef  HAS_GENERATION
+#define   HAS_GENERATION
+#ifdef    HAS_GENERATION
 
   template <int lmax=23>
   status_t generate_unitary_transform(int const echo) {
@@ -114,8 +114,8 @@ namespace cho_unitary {
       // (i + j) even, i + j = 2*n, then
       //  
       //  \sqrt{\pi} (2n - 1)!! / 2^n
-#define SIMPLIFY_PI
-#ifdef  SIMPLIFY_PI
+#define   SIMPLIFY_PI
+#ifdef    SIMPLIFY_PI
       double constexpr pi = 1, sqrtpi = 1; // pi, sqrt(pi) can be eliminated from the formulas, so we can set it to unity
 #else  // SIMPLIFY_PI
       double constexpr pi = 3.14159265358979323846; // pi

@@ -70,13 +70,13 @@ The root folder of this repository contains the following directories:
 | XC    | Exchange-correlation                                                                  |
 | LDA   | Local Density Approximation                                                           |
 | GGA   | Generalized Gradient Approximation                                                    |
-| PAW   | Projector Augmented Wave                                                              |
+| Wf    | Wave function (eigenstate)                                                            |
+| Gf    | Green function                                                                        |
+| PAW   | Projector Augmented Wave (method)                                                     |
+| SHO   | Spherical Harmonic Oscillator                                                         |
 | CPU   | Central Processing Unit                                                               |
 | GPU   | Graphical Processing Unit                                                             |
-| SHO   | Spherical Harmonic Oscillator                                                         |
 | MPI   | Message Passing Interface                                                             |
 | FFT   | Fast Fourier Transform                                                                |
 | OMP   | OpenMP, Open Multi-Processing                                                         |
 | TeX   | LaTeX typesetting                                                                     |
-| Gf    | Green function                                                                        |
-| Wf    | Wave function (eigenstate)                                                            |
