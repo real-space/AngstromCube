@@ -9,6 +9,7 @@
 #include <cstring> // std::strchr, ::strncpy
 #include <cmath> // std::sqrt
 #include <fstream> // std::ifstream
+#include <cstdint> // int32_t, uint32_t
 
 #include "control.hxx" // ::default_echo_level, ::set, ::get, ::command_line_interface, ::read_control_file, ::all_tests
 
