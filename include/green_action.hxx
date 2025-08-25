@@ -84,9 +84,9 @@ namespace green_action {
 #ifdef    HAS_TFQMRGPU
             if (nnzbX > 0) {
                 if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
-                // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
+                // try to instanciate tfqmrgpu::solve<T> with this T=action_t<real_t,R1C2,Noco,64>
                 tfqmrgpu::solve(*this); // compute GPU memory requirements
-                auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
+                auto const me = mpi_parallel::rank();                                      // uses MPI_COMM_WORLD
                 {
                     simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m); // uses MPI_COMM_WORLD
                     if (echo + check > 3) std::printf("# tfqmrgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
@@ -128,7 +128,7 @@ namespace green_action {
             auto const natomcoeffs = dp.AtomImageStarts ? dp.AtomImageStarts[dp.nAtomImages] : 0;
             auto const n = size_t(natomcoeffs) * p_->nCols;
             apc_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "apc");
-//          aac_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "aac"); // currently not used
+//          aac_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "aac"); // currently not used, coefficients are rotated in-place
         } // take_memory
 
         void transfer(char* const buffer, cudaStream_t const streamId=0) {

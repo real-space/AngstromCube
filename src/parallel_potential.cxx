@@ -76,7 +76,7 @@ namespace parallel_potential {
                     auto const *const control_file = control::get("control.file", "");
                     if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
                         "# read single_atom.*-controls from +control.file=%s\n", control_file);
-                    live_atom_init_env_(control_file, &stat);
+                    live_atom_init_env_(control_file, &stat); // C-interface
                     if (0 != stat) {
                         warn("+control.file=%s for libliveatom.so, live_atom_init_env_ returned %i", control_file, int(stat));
                     }
@@ -979,7 +979,7 @@ namespace parallel_potential {
             // use linked library libliveatom
             if (echo > 1) { std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", na); std::fflush(stdout); }
 #else  // HAS_LIVE_ATOM
-            if (echo > 1) std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n");
+            if (echo > 1) { std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n"); }
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
 
