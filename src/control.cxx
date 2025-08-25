@@ -86,9 +86,7 @@ namespace control {
               // get
               auto const oldvalue = std::get<0>(tuple).c_str();
               #pragma omp atomic update
-              {
-                  ++std::get<1>(tuple); // increment reading counter
-              } // atomic
+              ++std::get<1>(tuple); // increment reading counter
               if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue);
               return oldvalue;
 
