@@ -56,6 +56,9 @@ namespace control {
           auto & tuple = _map[varname];
           if (nullptr != value) {
 
+            #pragma omp critical
+            {
+
               // set
               bool const warn_about_redefinitons = (echo > echo_set_without_warning); // use a negative echo to suppress re-definition warnings
               if (warn_about_redefinitons) {
@@ -75,13 +78,17 @@ namespace control {
               std::get<1>(tuple) = (_default_value_tag == linenumber); // counter how many times this variable was evaluated: init as 1 for defaults, 0 otherwise
               std::get<2>(tuple) = linenumber; // store line number in input file
                                                // or (if negative) command line argument number
+            } // critical
               return value;
 
           } else { // value
 
               // get
               auto const oldvalue = std::get<0>(tuple).c_str();
-              ++std::get<1>(tuple); // increment reading counter
+              #pragma omp atomic update
+              {
+                  ++std::get<1>(tuple); // increment reading counter
+              } // atomic
               if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue);
               return oldvalue;
 
