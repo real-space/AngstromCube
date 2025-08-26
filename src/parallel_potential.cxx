@@ -64,8 +64,6 @@ namespace parallel_potential {
 
         static int use{-1};
         if (-1 == use) {
-          #pragma omp critical
-          {
             use = control::get("use.live.atom", 1.);
             int const echo = (0 == mpi_parallel::rank());
 #ifdef    HAS_SINGLE_ATOM
@@ -103,7 +101,6 @@ namespace parallel_potential {
         } // launch warning only once
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
-          } // critical
         } // needs init
         if (0 == use) {
             warn("single_atom::atom_update deactivated by use.live.atom=%d", use); 
@@ -1489,7 +1486,7 @@ namespace parallel_potential {
             } // total_energy_details
 
             double atomic_energy_corrections{0};
-            for (int32_t ia = 0; ia < na; ++ia) {
+            for (int32_t ia{0}; ia < na; ++ia) {
                 atomic_energy_corrections += atomic_energy_diff[ia];
             } // ia
             atomic_energy_corrections = mpi_parallel::sum(atomic_energy_corrections, comm);
