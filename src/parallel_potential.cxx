@@ -64,6 +64,8 @@ namespace parallel_potential {
 
         static int use{-1};
         if (-1 == use) {
+          #pragma omp critical
+          {
             use = control::get("use.live.atom", 1.);
             int const echo = (0 == mpi_parallel::rank());
 #ifdef    HAS_SINGLE_ATOM
@@ -101,6 +103,7 @@ namespace parallel_potential {
         } // launch warning only once
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
+          } // critical
         } // needs init
         if (0 == use) {
             warn("single_atom::atom_update deactivated by use.live.atom=%d", use); 
@@ -925,6 +928,7 @@ namespace parallel_potential {
         if (echo > 4) std::printf("# rank#%i has %d owned atoms\n", me, na);
 
         std::vector<double> Z_owned_atoms(na, 0.);
+        #pragma omp for
         for (int32_t ia{0}; ia < na; ++ia) {
             auto const gid = nprocs*ia + me;
             assert(0 <= gid); assert(gid < n_all_atoms);
@@ -993,6 +997,7 @@ namespace parallel_potential {
 
             { // scope: initialized the data_lists for owned atoms
                 view2D<uint32_t> num(6, na, 0); // how many entries per atom
+                #pragma omp for
                 for (int32_t ia{0}; ia < na; ++ia) {
                     num(0,ia) = pow2(1 + lmax_qlm.at(ia)); // qlm
                     num(1,ia) = pow2(1 + lmax_vlm.at(ia)); // vlm
@@ -1015,6 +1020,7 @@ namespace parallel_potential {
                 unsigned constexpr m8 = 8; // up to 8 scalars are transmitted as doubles
                 std::vector<uint32_t> num(na, m8);
                 data_list<double> atom_send(num, 0.0);
+                #pragma omp for
                 for (int32_t ia{0}; ia < na; ++ia) { // owned atoms
                     atom_send(ia,0) = numax.at(ia);
                     atom_send(ia,1) = lmax_qlm.at(ia);
@@ -1031,6 +1037,7 @@ namespace parallel_potential {
 
                 stat += atom_comm_list.broadcast(atoms_recv, atom_send, "eight atom scalars", echo);
 
+                #pragma omp for
                 for (uint32_t iatom{0}; iatom < natoms; ++iatom) { // contributing atoms
                     lmaxs_qlm.at(iatom)  = atoms_recv(iatom,1);
                     lmaxs_vlm.at(iatom)  = atoms_recv(iatom,2);
@@ -1042,6 +1049,7 @@ namespace parallel_potential {
 
             { // scope: initialized the data_lists for addition and projection with contributing atoms
                 view2D<uint32_t> num(2, natoms, 0); // how many
+                #pragma omp for
                 for (uint32_t iatom{0}; iatom < natoms; ++iatom) {
                     num(0,iatom) = sho_tools::nSHO(lmaxs_qlm[iatom]);
                     num(1,iatom) = sho_tools::nSHO(lmaxs_vlm[iatom]);
@@ -1196,6 +1204,7 @@ namespace parallel_potential {
                 auto & atom_rhov = atom_vbar; // use memory of vbar for the moment
                 // get smooth spherical valence density
                 stat += live_atom_update("valence densities", na, 0, nr2.data(), 0, atom_rhov.data());
+                #pragma omp for
                 for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
                     // add valence density to r^2-gridded core density
                     if (echo > 15) std::printf("# rank#%i atom#%i wants to add %g core electrons\n",         me, ia, integrate_r2grid(atom_rhoc[ia], nr2[ia]));
@@ -1223,7 +1232,7 @@ namespace parallel_potential {
                 auto const *const density = augmented_density[0]; // augmented density before adding compensation charges
                 auto       *const potential = V_xc[0];
                 // double rho_max{0}; int64_t i_max{-1};
-//              #pragma omp parallel for // does not compile with GCC/12.3.0
+                #pragma omp parallel for // does not compile with GCC/12.3.0
                 for (size_t i{0}; i < n_cubes*n8x8x8; ++i) {
                     auto const rho_i = density[i];
                     // if (rho_i > rho_max) { rho_max = rho_i; i_max = i; }
@@ -1243,6 +1252,7 @@ namespace parallel_potential {
 
             stat += live_atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
 
+            #pragma omp for
             for (int ia{0}; ia < na; ++ia) {
                 auto const global_atom_id = ia*nprocs + me;
                 auto const stat_den = sho_projection::denormalize_electrostatics(atom_qzyx[ia], atom_qlm[ia], lmax_qlm[ia], sigma_cmp[ia], unitary, echo);

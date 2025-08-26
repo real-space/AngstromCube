@@ -64,7 +64,7 @@ namespace control {
               if (warn_about_redefinitons) {
                   auto const oldvalue = std::get<0>(tuple).c_str();
                   assert(nullptr != oldvalue);
-                  bool const redefined = ('\0' != *oldvalue);
+                  bool const redefined = (*oldvalue != '\0' && std::get<0>(tuple) != value); // redefinition warning only when the variable was initialized before and the value changes
                   if (echo > 7) {
                       std::printf("# control sets \"%s\"", name);
                       if (redefined) std::printf(" from \"%s\"", oldvalue);
