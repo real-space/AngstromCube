@@ -1701,13 +1701,13 @@ namespace angular_grid {
 
 
   typedef struct {
-      double *Xlm2grid  = nullptr;
-      double *grid2Xlm  = nullptr;
-      double (*xyzw)[4] = nullptr;
-      int Xlm2grid_stride = 0;
-      int grid2Xlm_stride = 0;
-      int npoints = 0;
-      int ellmax = -1;
+      double *Xlm2grid;
+      double *grid2Xlm;
+      double (*xyzw)[4];
+      int Xlm2grid_stride;
+      int grid2Xlm_stride;
+      int npoints;
+      int ellmax;
   } angular_grid_t;
 
 

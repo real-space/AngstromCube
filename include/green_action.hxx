@@ -95,7 +95,7 @@ namespace green_action {
                                  + nnzbX*sizeof(uint16_t)   // index lists
                                  + nnzbB*sizeof(uint32_t)   // index lists
                                  + p.nCols*sizeof(int8_t);  // index lists
-                std::printf("# memory estimate for tfQMRgpu(nnzbX=%d, nCols=%d) is %.3f %s\n", nnzbX, p.nCols, mem*GByte, _GByte);
+                std::printf("# memory estimate for tfQMRgpu(nnzbX=%ld, nCols=%d) is %.3f %s\n", nnzbX, p.nCols, mem*GByte, _GByte);
             } // echo
 
 #ifdef    HAS_TFQMRGPU
