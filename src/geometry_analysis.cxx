@@ -310,6 +310,7 @@ namespace geometry_analysis {
       for (int i = 0; i < n; ++i) {
           int const ih = std::round(data[i]*factor);
           if ((ih >= 0) && (ih < hmax)) {
+              #pragma omp atomic update
               ++hist[ih];
           } else { ++out_of_range; }
       } // i
@@ -796,7 +797,7 @@ namespace geometry_analysis {
 
       // warnings:
       if (nspecies > 0) { // warn if minimum distance is too low
-          auto const compression = 1/elongation; // warn if bonds are shorter than this
+          auto const compression = 1./elongation; // warn if bonds are shorter than this
           auto const & Sy = Sy_of_species_null;
           double minimum_distance{9e37}; int is_min[2] = {-1, -1};
           int const is_start = (0 == Z_of_species[0]); // avoid to warn about the minimum distance between vacuum atoms
@@ -912,17 +913,10 @@ namespace geometry_analysis {
 
               int const sbond = control::get("geometry_analysis.show.bond.structure", 1.);
               bool const show = (echo > 5) && (sbond > 0);
-              if (show) {
-                  std::printf("\n# bond structure analysis: bond lengths are in %s | angles in degree\n", _Ang);
-                  std::printf("# example coordinations:\n"
-                              "# dia:  _4 |  110_6\n"                                   // diamond structure
-                              "# sc:   _6 |  90_12 180_3\n"                             // simple cubic
-                              "# bcc:  _8 |  70_12 110_12 180_4\n"                      // body-centered cubic
-                              "# fcc: _12 |  60_24 90_12 120_24 180_6\n"                // face-centered cubic
-                              "# hcp: _12 |  60_24 90_12 110_3 120_18 146_6 180_3\n"    // hexagonal close packed
-                              "#\n");
-              } // show
-// #pragma omp parallel for
+
+              std::vector<std::string> bsa_string(show?bond_partner.size():0);
+
+              #pragma omp parallel for
               for (index_t ia = 0; ia < bond_partner.size(); ++ia) {
                   int const cn = std::min(int(coordination_number[ia]), MaxBP);
                   double const xyz_ia[3] = {xyzZ[ia][0], xyzZ[ia][1], xyzZ[ia][2]}; // load center coordinates
@@ -942,14 +936,27 @@ namespace geometry_analysis {
                   char string_buffer[2048];
                   analyze_bond_structure(show?string_buffer:nullptr, cn, coords.data(), xyzZ[ia][3]
                                    , ia, bond_angle_length_hist(0,is), nhist, per_degree
-                                       , bond_angle_length_hist(1,is), nhist, per_length
-                                        );
-// #pragma omp critical (geometry_analsysis_bond_structure_analysis)
-                  {
-                      if (show) std::printf("# a#%i %s %s\n", ia, Sy_of_species[is], string_buffer); // no new line
-                  } // critical
+                                       , bond_angle_length_hist(1,is), nhist, per_length);
+                  if (show) bsa_string[ia] = string_buffer;
               } // ia
 
+              if (show) {
+                  std::printf("\n# bond structure analysis: bond lengths are in %s | angles in degree\n", _Ang);
+                  std::printf("# example coordinations:\n"
+                              "# dia:  _4 |  110_6\n"                                   // diamond structure
+                              "# sc:   _6 |  90_12 180_3\n"                             // simple cubic
+                              "# bcc:  _8 |  70_12 110_12 180_4\n"                      // body-centered cubic
+                              "# fcc: _12 |  60_24 90_12 120_24 180_6\n"                // face-centered cubic
+                              "# hcp: _12 |  60_24 90_12 110_3 120_18 146_6 180_3\n"    // hexagonal close packed
+                              "#\n");
+                  for (index_t ia = 0; ia < bond_partner.size(); ++ia) { // serial loop
+                      auto const is = ispecies[ia];
+                      std::printf("# a#%i %s %s\n", ia, Sy_of_species[is], bsa_string[ia].c_str()); // no new line
+                  } // ia
+              } // show
+              bsa_string.clear();
+              bond_partner.clear();
+              
               // display the histogram of bond length and angles summed up over all species
               if (nhist > 0) {
                   if (echo > 3) {
