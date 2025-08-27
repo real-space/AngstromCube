@@ -38,7 +38,7 @@ namespace spherical_harmonics {
       static std::vector<real_t> ynorm;
       static int ellmaxd = -1; // -1:not_initalized
 
-    #pragma omp critical
+    #pragma omp critical (spherical_harmonics_Ylm)
     {
       if (ellmax > ellmaxd) {
 #ifdef    DEBUG

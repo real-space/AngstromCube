@@ -102,11 +102,13 @@ namespace mpi_parallel {
       static bool already{false};
       int stat{1};
       if (!already) {
-          #pragma omp critical
+          #pragma omp critical (mpi_parallel_init)
           {
-              already = true;
-              stat = MPI_Check(MPI_Init(&argc, &argv));
-          } // ciritcal
+              if (!already) {
+                  stat = MPI_Check(MPI_Init(&argc, &argv));
+                  already = true;
+              }
+          } // critical
       }
       return stat;
   } // init

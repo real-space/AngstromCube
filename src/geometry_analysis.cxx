@@ -944,8 +944,10 @@ namespace geometry_analysis {
                                    , ia, bond_angle_length_hist(0,is), nhist, per_degree
                                        , bond_angle_length_hist(1,is), nhist, per_length
                                         );
-// #pragma omp critical
-                  if (show) std::printf("# a#%i %s %s\n", ia, Sy_of_species[is], string_buffer); // no new line
+// #pragma omp critical (geometry_analsysis_bond_structure_analysis)
+                  {
+                      if (show) std::printf("# a#%i %s %s\n", ia, Sy_of_species[is], string_buffer); // no new line
+                  } // critical
               } // ia
 
               // display the histogram of bond length and angles summed up over all species

@@ -37,7 +37,7 @@ namespace solid_harmonics {
       static std::vector<real_t> xnorm;
       static int ellmaxd = -1; // -1:not_initalized
 
-    #pragma omp critical
+    #pragma omp critical (solid_harmonics_rlXlm)
     {
       if (ellmax > ellmaxd) {
 #ifdef    DEBUG

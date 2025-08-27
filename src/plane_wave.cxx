@@ -708,7 +708,7 @@ namespace plane_wave {
               nPW_stats.add(nPWs);
           } // !can_be_real
           if (echo > 0) std::fflush(stdout);
-          #pragma omp critical
+          #pragma omp critical (plane_wave_solve_add_statistics)
           {
               tPW_stats.add(timer.stop());
           }

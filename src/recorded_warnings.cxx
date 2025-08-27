@@ -76,6 +76,10 @@ namespace recorded_warnings {
       int get_sourceline(void) const { return source_file_line_; }
       size_t get_times(void) const { return times_overwritten_; }
       int get_times_printed(void) const { return times_printed_; }
+      void increment_times_printed(void) {
+          #pragma omp atomic update
+          ++times_printed_;
+      }
 
   }; // class WarningRecord
 
@@ -127,18 +131,18 @@ namespace recorded_warnings {
         auto const hash = combined_hash(short_file, line);
 
         WarningRecord *w;
+      #pragma omp critical (recorded_warnings_insert_new_record)
+      {
         auto const search = map_.find(hash);
         if (map_.end() != search) {
             if (echo > 1) std::printf("# %s: found entry for hash %16llx\n", __func__, hash);
             w = &search->second;
         } else {
-          #pragma omp critical
-          {
             if (echo > 1) std::printf("# %s: insert new entry for hash %16llx\n", __func__, hash);
             auto const iit = map_.insert({hash, WarningRecord(short_file, line, func)});
             w = &iit.first->second;
-          } // critical
         } // found
+      } // critical
 
         // output the warning to stdout and stderr when encountered the 1st time, otherwise,
         // we could have a segfault later and do not know where that could be coming from
@@ -160,8 +164,7 @@ namespace recorded_warnings {
             flags |= 2; // 2: message to stderr
         }
         if (flags) {
-            #pragma omp atomic update 
-            ++w->times_printed_; // count that we will print message to stdout or stderr
+            w->increment_times_printed(); // count that we will print message to stdout or stderr
         } // flags != 0
 
         return std::make_pair(w->get_message(), flags);

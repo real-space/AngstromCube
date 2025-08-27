@@ -3132,10 +3132,12 @@ namespace single_atom {
         // while they should use the new density matrix to compute the term integral V_ij*D_ij
 
 
+        if (echo > 0) { std::printf("# %s next initialize_Gaunt\n", label); std::fflush(stdout); }
         //   Now, contract with the Gaunt tensor over m_1 and m_2
-        initialize_Gaunt(); // make sure the Gaunt tensor has been precomputed
+        initialize_Gaunt(echo); // make sure the Gaunt tensor has been precomputed
         //   rho_tensor[lm][iln][jln] =
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
+        if (echo > 0) { std::printf("# %s Gaunt initialized\n", label); std::fflush(stdout); }
 
         set(rho_tensor, nlm, 0.0); // clear
         for (auto gnt : gaunt) {
