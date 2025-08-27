@@ -67,11 +67,13 @@ namespace parallel_potential {
             use = control::get("use.live.atom", 1.);
             int const echo = (0 == mpi_parallel::rank());
 #ifdef    HAS_SINGLE_ATOM
+            // the objects single_atom.o have been compiled together with parallel_potential.o and are linked
             if (echo > 1) std::printf("# use.live.atom=%d via single_atom::atom_update\n", use);
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
             int32_t is_dynamic{0}; live_atom_is_a_dynamic_library_(&is_dynamic);
             if (is_dynamic) {
+                // libliveatom.so has been linked. The shared object has a different control environment.
                 if (use > 1) {
                     auto const *const control_file = control::get("control.file", "");
                     if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
@@ -82,6 +84,7 @@ namespace parallel_potential {
                     }
                 } // use.live.atom > 1 
             } else {
+                // libliveatom.a has been linked
                 // We do not need the control file in the case of a static library
                 //       as we share the control.o and recorded_warnings.o objects
                 //       however, we can check if all objects are from one version
