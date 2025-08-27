@@ -1715,6 +1715,8 @@ namespace angular_grid {
       static angular_grid_t grids[1 + ellmax_implemented];
 
       if (ellmax < 0) { // memory cleanup
+        #pragma omp critical
+        {
           if (echo > 3) std::printf("# %s: memory cleanup!\n", __FILE__);
           for (int ell = 0; ell <= ellmax_implemented; ++ell) {
               auto & g = grids[ell];
@@ -1727,6 +1729,7 @@ namespace angular_grid {
                   g.ellmax = -1;
               } // this grid was initialized
           } // ell
+        } // critical
           return nullptr; // success
       } else if (ellmax > ellmax_implemented) {
           if (echo > 0) std::printf("# %s: ellmax= %i > ellmax_implemented=%d\n",
@@ -1736,7 +1739,9 @@ namespace angular_grid {
 
       auto & g = grids[ellmax];
       if ((g.npoints < 1) || (g.ellmax != ellmax)) {
-          // init this instance
+        #pragma omp critical
+        {
+          // initialize this instance
           g.ellmax = ellmax;
           g.npoints = get_grid_size(ellmax);
 
@@ -1766,6 +1771,7 @@ namespace angular_grid {
           } // ipt
           if (echo > 3) std::printf("# %s: angular grid for ellmax= %i has %d points\n",
                                 __func__, ellmax, g.npoints);
+        } // critical
       } // grid was not set
       return &g;
 

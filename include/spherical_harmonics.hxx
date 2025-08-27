@@ -38,6 +38,8 @@ namespace spherical_harmonics {
       static std::vector<real_t> ynorm;
       static int ellmaxd = -1; // -1:not_initalized
 
+    #pragma omp critical
+    {
       if (ellmax > ellmaxd) {
 #ifdef    DEBUG
            std::printf("# %s: resize table of normalization constants from %d to %d\n",
@@ -70,6 +72,8 @@ namespace spherical_harmonics {
           ellmaxd = -1; // set static variable
           ynorm.resize(0); // cleanup
       }
+    } // critical
+
       if (ellmax < 0) return;
 
       // calculate sin and cos of theta and phi

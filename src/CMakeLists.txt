@@ -122,6 +122,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/load_balancer.hxx
     ../include/mpi_parallel.hxx
     ../include/multi_grid.hxx
+    ../include/omp_parallel.hxx
     ../include/parallel_poisson.hxx
     ../include/parallel_potential.hxx
     ../include/plane_wave.hxx
@@ -352,10 +353,10 @@ if(HAS_OPENMP)
     find_package(OpenMP)
     if(OpenMP_CXX_FOUND)
         target_link_libraries(a43      PUBLIC OpenMP::OpenMP_CXX)
-        # target_link_libraries(liveatom PUBLIC OpenMP::OpenMP_CXX)
+        target_link_libraries(liveatom PUBLIC OpenMP::OpenMP_CXX)
         # target_link_libraries(green    PUBLIC OpenMP::OpenMP_CXX)
     endif()
-    target_compile_definitions(liveatom PUBLIC -DHAS_NO_OMP)
+    # target_compile_definitions(liveatom PUBLIC -DHAS_NO_OMP)
     target_compile_definitions(green    PUBLIC -DHAS_NO_OMP)
 else(HAS_OPENMP)
     add_definitions(-DHAS_NO_OMP)
