@@ -55,11 +55,11 @@ namespace control {
           std::string const varname(name);
           auto & tuple = _map[varname];
           if (nullptr != value) {
+              // set
 
-            #pragma omp critical
+            #pragma omp critical (control__environment_define)
             {
 
-              // set
               bool const warn_about_redefinitons = (echo > echo_set_without_warning); // use a negative echo to suppress re-definition warnings
               if (warn_about_redefinitons) {
                   auto const oldvalue = std::get<0>(tuple).c_str();

@@ -729,7 +729,7 @@ namespace green_function {
             if (echo > 3) {
                 char const inout_class[][8] = {"inside", "partial", "outside",  "checked"};
                 for (int i{0}; i < 4; ++i) {
-                    std::printf("# RHSs have [%7g,%9.1f +/-%5.1f, %7g] blocks %s\n",
+                    std::printf("# RHSs have [%7g, %9.1f +/- %5.1f, %7g] blocks %s\n",
                         inout[i].min(), inout[i].mean(), inout[i].dev(), inout[i].max(), inout_class[i]);
                 } // i
             } // echo
@@ -793,8 +793,8 @@ namespace green_function {
             assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
 
             // resize BSR tables: (Block-compressed Sparse Row format)
-            if (echo > 3) std::printf("# memory of a complex Green function is %.6f (float) and %.6f %s (double), Noco=%d\n",
-                  nnzb*2.*pow2(Noco*64)*sizeof(float)*GByte,  nnzb*2.*pow2(Noco*64)*sizeof(double)*GByte, _GByte, Noco);
+            if (echo > 3) std::printf("# memory of a complex Green function is %.6f %s (float) and %.6f %s (double), Noco=%d\n",
+                  nnzb*2.*pow2(Noco*64)*sizeof(float)*GByte, _GByte,  nnzb*2.*pow2(Noco*64)*sizeof(double)*GByte, _GByte, Noco);
             p.colindx.resize(nnzb);
             p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
             p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");

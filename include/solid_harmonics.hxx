@@ -33,10 +33,12 @@ namespace solid_harmonics {
 // !     cleaned up    mw 1995
 // !************************************************************
 
-// check whether  or not normalizations are needed
+// check whether or not normalizations are needed
       static std::vector<real_t> xnorm;
       static int ellmaxd = -1; // -1:not_initalized
 
+    #pragma omp critical (solid_harmonics_rlXlm)
+    {
       if (ellmax > ellmaxd) {
 #ifdef    DEBUG
           std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
@@ -68,6 +70,8 @@ namespace solid_harmonics {
           ellmaxd = -1; // set static variable
           xnorm.resize(0); // cleanup
       }
+    } // critical
+
       if (ellmax < 0) return;
 
       int const S = 1 + ellmax; // stride for p, the array of associated Legendre functions
@@ -194,8 +198,8 @@ namespace solid_harmonics {
       // test interal consistency of find_ell and find_emm
       status_t stat(0);
       for (int lm = -3; lm < 64; ++lm) {
-          int const ell = find_ell(lm),
-                    emm = find_emm(lm, ell);
+          int const ell = find_ell(lm);
+          int const emm = find_emm(lm, ell);
           if (echo > 4) std::printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
           stat += (lm_index(ell, emm) != lm);
       } // lm

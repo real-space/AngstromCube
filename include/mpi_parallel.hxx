@@ -100,9 +100,16 @@ namespace mpi_parallel {
 
   inline int init(int argc=0, char **argv=nullptr) { // forward the arguments of main
       static bool already{false};
-      if (already) return 1; // has already been initialized
-      already = true;
-      auto const stat = MPI_Check(MPI_Init(&argc, &argv));
+      int stat{1};
+      if (!already) {
+          #pragma omp critical (mpi_parallel_init)
+          {
+              if (!already) {
+                  stat = MPI_Check(MPI_Init(&argc, &argv));
+                  already = true;
+              }
+          } // critical
+      }
       return stat;
   } // init
 

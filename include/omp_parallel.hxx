@@ -9,7 +9,7 @@
   inline int  omp_get_num_threads() { return 1; }
   inline int  omp_get_thread_num()  { return 0; }
   inline int  omp_get_num_procs()   { return 1; }
-  inline bool omp_in_parallel()     { return 0; }
+  inline int  omp_in_parallel()     { return 0; }
 
   bool constexpr omp_replacement = true;
 #else  // HAS_NO_OMP
@@ -32,7 +32,7 @@ namespace omp_parallel {
       for (int i = 0; i < max_threads; ++i) {
           auto const num_threads = omp_get_num_threads();
           auto const thread_id   = omp_get_thread_num();
-          if (echo > 4) std::printf("# OpenMP thread#%i of %d works on item#%i\n", thread_id, num_threads, i);
+          if (echo > 6) std::printf("# OpenMP thread#%i of %d works on item#%i\n", thread_id, num_threads, i);
           ++sum;
       } // i
       assert(max_threads == sum);

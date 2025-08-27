@@ -65,14 +65,21 @@ namespace recorded_warnings {
 #endif // DEBUG
       } // destructor
 
-      char* get_message(void) { ++times_overwritten_; return message_.data(); }
-      char const* get_message_pointer(void)  const  { return message_.data(); }
+      char* get_message(void) {
+          #pragma omp atomic update
+          ++times_overwritten_;
+          return message_.data();
+      } // get_message
+      char const* get_message_pointer(void) const { return message_.data(); }
       char const* get_sourcefile(void) const { return source_file_name_.c_str(); }
       char const* get_functionname(void) const { return function_name_.c_str(); }
       int get_sourceline(void) const { return source_file_line_; }
       size_t get_times(void) const { return times_overwritten_; }
       int get_times_printed(void) const { return times_printed_; }
-      void increment_times_printed(void) { ++times_printed_; }
+      void increment_times_printed(void) {
+          #pragma omp atomic update
+          ++times_printed_;
+      }
 
   }; // class WarningRecord
 
@@ -83,6 +90,7 @@ namespace recorded_warnings {
                       __FILE__, __LINE__, __func__, file, line, echo);
 
     static std::map<uint64_t, WarningRecord> map_;
+
     if (line < 1) { // line numbers created by the preprocessor start from 1
         assert('?' == file[0]); // make sure that we want special functionality
 
@@ -99,10 +107,9 @@ namespace recorded_warnings {
                     for (auto &hw : map_) {
                         auto const &w = hw.second;
                         auto const n_times = w.get_times();
-                        std::printf("# \tin %s:%d %s (%ld times)\n"
-                               "# \t\t%s\n", w.get_sourcefile(),
-                            w.get_sourceline(), w.get_functionname(),
-                            n_times, w.get_message_pointer());
+                        std::printf("# \tin %s:%d %s (%ld times)\n# \t\t%s\n",
+                            w.get_sourcefile(), w.get_sourceline(), w.get_functionname(), n_times,
+                            w.get_message_pointer());
                         total_count += n_times;
                     } // w
                     if (nw > 0) std::printf("# %ld warnings in total\n", total_count);
@@ -124,6 +131,8 @@ namespace recorded_warnings {
         auto const hash = combined_hash(short_file, line);
 
         WarningRecord *w;
+      #pragma omp critical (recorded_warnings_insert_new_record)
+      {
         auto const search = map_.find(hash);
         if (map_.end() != search) {
             if (echo > 1) std::printf("# %s: found entry for hash %16llx\n", __func__, hash);
@@ -133,6 +142,7 @@ namespace recorded_warnings {
             auto const iit = map_.insert({hash, WarningRecord(short_file, line, func)});
             w = &iit.first->second;
         } // found
+      } // critical
 
         // output the warning to stdout and stderr when encountered the 1st time, otherwise,
         // we could have a segfault later and do not know where that could be coming from
@@ -154,7 +164,7 @@ namespace recorded_warnings {
             flags |= 2; // 2: message to stderr
         }
         if (flags) {
-            w->increment_times_printed(); // will print message to stdout or stderr, count that
+            w->increment_times_printed(); // count that we will print message to stdout or stderr
         } // flags != 0
 
         return std::make_pair(w->get_message(), flags);
