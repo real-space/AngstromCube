@@ -84,13 +84,13 @@ namespace green_action {
 #ifdef    HAS_TFQMRGPU
       if (iterations > 0) {
           if (nnzbX < 1) {
-              if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+              if (echo > 2) std::printf("# cannot call tfQMRgpu library if X has no elements!\n");
               return;
           }
           p.echo = echo - 5;
           if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
 
-          // beware, the changes only the local potential. In a non-benchmark situation use ::update_energy_parameter
+          // beware, this changes only the local potential. In a non-benchmark situation use ::update_energy_parameter
           p.E_param = std::complex<double>(control::get("green_action.energy.parameter.real", 0.0),
                                            control::get("green_action.energy.parameter.imag", 0.0));
 
@@ -99,7 +99,7 @@ namespace green_action {
 
           {
               simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem); // uses MPI_COMM_WORLD
-              if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
+              if (echo > 5) std::printf("# tfQMRgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                 mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
           }
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
