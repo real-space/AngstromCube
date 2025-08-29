@@ -45,7 +45,6 @@
     extern "C" {
        #include "single_atom.h" // live_atom_update_
                                 // live_atom_is_a_dynamic_library_
-                                // live_atom_init_env_
     } // extern "C"
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
@@ -60,53 +59,56 @@ namespace parallel_potential {
       , float   *const fp=nullptr // quantities (input)        float   fp[natoms or less]
       , double  *const *const dpp=nullptr // quantities (input/output) double* dpp[natoms]
     ) {
-        int32_t stat(0); // status variable for
+        int32_t stat(0); // status result
 
-        static int use{-1};
+        static int use{-1}; // -1: has not been initialized
         if (-1 == use) {
-            use = control::get("use.live.atom", 1.);
-            int const echo = (0 == mpi_parallel::rank());
+            #pragma omp single
+            {
+                use = control::get("use.live.atom", 1.);
+                int const echo = (0 == mpi_parallel::rank());
+
 #ifdef    HAS_SINGLE_ATOM
-            // the objects single_atom.o have been compiled together with parallel_potential.o and are linked
-            if (echo > 1) std::printf("# use.live.atom=%d via single_atom::atom_update\n", use);
+                if (0 == use) {
+                    warn("single_atom::atom_update deactivated by use.live.atom=%i", use);
+                } else {
+                    // the objects single_atom.o have been compiled together with parallel_potential.o and are linked
+                    if (echo > 1) { std::printf("# use.live.atom=%i via single_atom::atom_update\n", use); }
+                }
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
-            int32_t is_dynamic{0}; live_atom_is_a_dynamic_library_(&is_dynamic);
-            if (is_dynamic) {
-                // libliveatom.so has been linked. The shared object has a different control environment.
-                if (use > 1) {
-                    auto const *const control_file = control::get("control.file", "");
-                    if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
-                        "# read single_atom.*-controls from +control.file=%s\n", control_file);
-                    live_atom_init_env_(control_file, &stat); // C-interface
-                    if (0 != stat) {
-                        warn("+control.file=%s for libliveatom.so, live_atom_init_env_ returned %i", control_file, int(stat));
-                    }
-                } // use.live.atom > 1 
-            } else {
-                // libliveatom.a has been linked
-                // We do not need the control file in the case of a static library
-                //       as we share the control.o and recorded_warnings.o objects
-                //       however, we can check if all objects are from one version
-                auto const version_none = "<none>";
-                auto const version_atom = control::get("version.atom", version_none);
-                auto const version_main = control::get("version.main", version_none);
-                if (echo > 0) std::printf("# static library libliveatom.a git checkout %s\n", version_atom);
-                if (std::string(version_atom) != version_main) {
-                    warn("different versions: %s but libliveatom.a has %s", version_main, version_atom);
-                } // no warning if both versions are none
-            } // is_dynamic
+                int32_t is_dynamic{0};
+                live_atom_is_a_dynamic_library_(&is_dynamic);
+                char const *const lib = is_dynamic?"so":"a";
+                if (0 == use) {
+                    warn("live_atom_update_@libliveatom.%s deactivated by use.live.atom=%i", lib, use);
+                } else {
+                    if (echo > 1) { std::printf("# use.live.atom=%i via live_atom_update_@libliveatom.%s\n", use, lib); }
+                }
+
+                { // scope: check git version keys for deviation, libliveatom.so or libliveatom.a might be old
+                    live_atom_set_version_(&stat);
+                    auto const version_none = "<none>";
+                    auto const version_atom = control::get("version.atom", version_none);
+                    auto const version_main = control::get("version.main", version_none);
+                    if (echo > 0) { std::printf("# library libliveatom.%s git checkout %s\n", lib, version_atom); }
+                    if (std::string(version_atom) != version_main) {
+                        warn("different versions: %s but libliveatom.%s has %s", version_main, lib, version_atom);
+                    } // no warning if both versions are none
+                } // use
 #else  // HAS_LIVE_ATOM
-        static bool warned = false;
-        if (!warned) {
-            warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM for %d atoms", natoms);
-            warned = true;
-        } // launch warning only once
+                if (0 != use) {
+                    warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM for %d atoms", natoms);
+                    control::set("use.live.atom", 0.); // should launch another warning about redefinition
+                }
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
-        } // needs init
+
+            } // omp single
+        } // -1 == use
+
         if (0 == use) {
-            warn("single_atom::atom_update deactivated by use.live.atom=%d", use); 
+            // usage has been deactivated by use.live.atom=0, warnings about that should have been launched earlier
             return 0;
         } // 0 == use
 
@@ -1086,7 +1088,7 @@ namespace parallel_potential {
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
                 #pragma omp parallel for
-                for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
+                for (int32_t ia = 0; ia < na; ++ia) { // loop over owned atoms
                     assert(numax_prj.at(ia) == numax.at(ia) && "inconsist between 'projectors' and 'initialize' call");
                     auto const gid = nprocs*ia + me; // global_atom_id
                     assert(0 <= gid); assert(gid < n_all_atoms);
@@ -1098,7 +1100,7 @@ namespace parallel_potential {
 
                 xyzZinso.resize(n_all_atoms*8ull);
                 #pragma omp parallel for
-                for (int32_t gid{0}; gid < n_all_atoms; ++gid) { // another loop over all atoms, TODO can we avoid this?
+                for (int32_t gid = 0; gid < n_all_atoms; ++gid) { // another loop over all atoms, TODO can we avoid this?
                     set(&xyzZinso[gid*8ull], 4, xyzZ_all[gid]); // copy position and atomic number
                     xyzZinso[gid*8ull + 4] = gid; // global atom id
                     xyzZinso[gid*8ull + 5] = numax_sigma(gid,0); // numax
@@ -1114,14 +1116,14 @@ namespace parallel_potential {
             auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
             std::vector<int64_t> owned_global_atom_ids(na);
             #pragma omp parallel for
-            for (int32_t ia{0}; ia < na; ++ia) {
+            for (int32_t ia = 0; ia < na; ++ia) {
                 owned_global_atom_ids[ia] = nprocs*ia + me;
             } // ia
             assert(0 == (xyzZinso.size() & 0x7)); // make sure it is divisible by 8
             uint32_t const n_all_atoms = xyzZinso.size() >> 3; // divide by 8
             std::vector<green_parallel::rank_int_t> atom_owner_rank(n_all_atoms, green_parallel::no_owner);
             #pragma omp parallel for
-            for (uint32_t gid{0}; gid < n_all_atoms; ++gid) {
+            for (uint32_t gid = 0; gid < n_all_atoms; ++gid) {
                 atom_owner_rank[gid] = gid % nprocs;
             } // gid
             uint32_t const nb[] = {n_all_atoms, 0, 0};

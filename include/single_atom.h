@@ -344,9 +344,26 @@
 #endif // SINGLE_ATOM_SOURCE
     ;
 
+    fortran_callable(set_version) (int32_t *status)
+#ifdef    SINGLE_ATOM_SOURCE
+    {
+        static bool set_version{true};
+        #pragma omp single
+        {
+            if (set_version) {
+#include        "define_version.h" // define_version --> version_key
+                control::set("version.atom", version_key);
+                set_version = false; // only once
+            } // set_version
+        } // omp single
+        *status = 0;
+    } // live_atom_set_version_
+#endif // SINGLE_ATOM_SOURCE
+    ;
+
     // this function allows to determine at runtime, if the 
     // live_atom lib is linked as static (.a) library or dynamic (e.g. as .so)
-    fortran_callable(is_a_dynamic_library) (int32_t *status);
+    fortran_callable(is_a_dynamic_library) (int32_t *is_dynamic);
     // the function definition can be found in library_kind_dynamic.cxx or library_kind_static.cxx
 
 
