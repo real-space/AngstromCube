@@ -275,7 +275,9 @@ namespace green_function {
                                     // rank_center[3] is the number of tasks with nonzero weight
             owner_rank.resize(nall, load_balancer::no_owner);
 
-            load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
+            // currently the load balancer assumes that each of the nb^3 source blocks is equally expensive, however,
+            //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
+            auto const load = load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
 
             mpi_parallel::min(owner_rank.data(), nall, comm); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
@@ -285,7 +287,13 @@ namespace green_function {
                 simple_stats::Stats<> nt; // number of tasks
                 nt.add(nrhs);
                 mpi_parallel::allreduce(nt, comm);
-                if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
+                if (echo > 2) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
+            }
+            {
+                simple_stats::Stats<> nt; // number of tasks
+                nt.add(load);
+                mpi_parallel::allreduce(nt, comm);
+                if (echo > 1) std::printf("# load per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
             }
 
             {

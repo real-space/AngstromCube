@@ -868,7 +868,7 @@ namespace parallel_potential {
 
         auto constexpr n8x8x8 = size_t(8*8*8); // each cube for the potential generation has 8^3 grid points
 
-        // create a coarse grid descriptor
+        // create a coarse grid descriptor, gc
         real_space::grid_t gc(g[0] >> 1, g[1] >> 1, g[2] >> 1); // divide +grid.points by 2
         {
             assert(gc[0]*2 == g[0]); assert(gc[1]*2 == g[1]); assert(gc[2]*2 == g[2]); // g.grid_points must be an even number
@@ -1085,6 +1085,7 @@ namespace parallel_potential {
                 stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
+                #pragma omp parallel for
                 for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
                     assert(numax_prj.at(ia) == numax.at(ia) && "inconsist between 'projectors' and 'initialize' call");
                     auto const gid = nprocs*ia + me; // global_atom_id
@@ -1096,6 +1097,7 @@ namespace parallel_potential {
                 mpi_parallel::max(numax_sigma[0], n_all_atoms*2, comm); // this is potentially slow
 
                 xyzZinso.resize(n_all_atoms*8ull);
+                #pragma omp parallel for
                 for (int32_t gid{0}; gid < n_all_atoms; ++gid) { // another loop over all atoms, TODO can we avoid this?
                     set(&xyzZinso[gid*8ull], 4, xyzZ_all[gid]); // copy position and atomic number
                     xyzZinso[gid*8ull + 4] = gid; // global atom id
@@ -1111,12 +1113,14 @@ namespace parallel_potential {
             // setup communication infrastructure for atom_mat
             auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
             std::vector<int64_t> owned_global_atom_ids(na);
+            #pragma omp parallel for
             for (int32_t ia{0}; ia < na; ++ia) {
                 owned_global_atom_ids[ia] = nprocs*ia + me;
             } // ia
             assert(0 == (xyzZinso.size() & 0x7)); // make sure it is divisible by 8
             uint32_t const n_all_atoms = xyzZinso.size() >> 3; // divide by 8
             std::vector<green_parallel::rank_int_t> atom_owner_rank(n_all_atoms, green_parallel::no_owner);
+            #pragma omp parallel for
             for (uint32_t gid{0}; gid < n_all_atoms; ++gid) {
                 atom_owner_rank[gid] = gid % nprocs;
             } // gid
