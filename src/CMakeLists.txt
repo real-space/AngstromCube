@@ -261,7 +261,7 @@ set(green_headers
     ../include/xml_reading.hxx
 )
 
-# source files needed for ./green (independent of CUDA or no-CUDA)
+# source files needed for ./green (independent of CUDA or no-CUDA) 
 set(green_sources
     action_plan.cxx
     atom_communication.cxx
