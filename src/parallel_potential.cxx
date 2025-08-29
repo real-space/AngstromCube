@@ -58,6 +58,7 @@ namespace parallel_potential {
       , int32_t *const ip=nullptr // quantities (input/output) integer ip[natoms]
       , float   *const fp=nullptr // quantities (input)        float   fp[natoms or less]
       , double  *const *const dpp=nullptr // quantities (input/output) double* dpp[natoms]
+      , int const echo=0 // log-level
     ) {
         int32_t stat(0); // status result
 
@@ -66,9 +67,9 @@ namespace parallel_potential {
             #pragma omp single
             {
                 use = control::get("use.live.atom", 1.);
-                int const echo = (0 == mpi_parallel::rank());
-
+                
 #ifdef    HAS_SINGLE_ATOM
+                if (echo > 1) { std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", natoms); std::fflush(stdout); }
                 if (0 == use) {
                     warn("single_atom::atom_update deactivated by use.live.atom=%i", use);
                 } else {
@@ -77,6 +78,7 @@ namespace parallel_potential {
                 }
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
+                if (echo > 1) { std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", natoms); std::fflush(stdout); }
                 int32_t is_dynamic{0};
                 live_atom_is_a_dynamic_library_(&is_dynamic);
                 char const *const lib = is_dynamic?"so":"a";
@@ -94,7 +96,7 @@ namespace parallel_potential {
                     if (echo > 0) { std::printf("# library libliveatom.%s git checkout %s\n", lib, version_atom); }
                     if (std::string(version_atom) != version_main) {
                         warn("different versions: %s but libliveatom.%s has %s", version_main, lib, version_atom);
-                    } // no warning if both versions are none
+                    } // no warning if both versions are "<none>"
                 } // use
 #else  // HAS_LIVE_ATOM
                 if (0 != use) {
@@ -977,21 +979,11 @@ namespace parallel_potential {
         // initialize and get sigma, lmax for each atom
         data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat, atom_qzyx, atom_vzyx; // for owned atoms
         data_list<double> atoms_qzyx, atoms_vzyx; // for contributing atoms
-        {
-#ifdef    HAS_SINGLE_ATOM
-            if (echo > 1) { std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", na); std::fflush(stdout); }
-#else  // HAS_SINGLE_ATOM
-#ifdef    HAS_LIVE_ATOM
-            // use linked library libliveatom
-            if (echo > 1) { std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", na); std::fflush(stdout); }
-#else  // HAS_LIVE_ATOM
-            if (echo > 1) { std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n"); }
-#endif // HAS_LIVE_ATOM
-#endif // HAS_SINGLE_ATOM
+        { // scope
 
             std::vector<float> ionization(na, 0.f);
             {   SimpleTimer atom_init_timer(strip_path(__FILE__), __LINE__, "atom init", echo);
-            stat += live_atom_update("initialize", na, Z_owned_atoms.data(), numax.data(), ionization.data(), (double**)1);
+            stat += live_atom_update("initialize", na, Z_owned_atoms.data(), numax.data(), ionization.data(), (double**)1, echo);
             } // timer
             stat += live_atom_update("lmax qlm", na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
             stat += live_atom_update("lmax vlm", na, (double*)1, lmax_vlm.data());

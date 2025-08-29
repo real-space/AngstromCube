@@ -30,7 +30,7 @@
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
-#include "single_atom.hxx" // ::atom_update
+#include "single_atom.hxx" // ::atom_update, ::set_version
 #include "energy_contribution.hxx" // ::show, ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
@@ -195,6 +195,7 @@ namespace self_consistency {
       std::vector<int32_t> lmax_vlm(na, -1);
 
       // initialize and get sigma, lmax for each atom
+      stat += single_atom::set_version(echo);
       if (echo > 0) std::printf("# initialize %d atoms\n", na);
       stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
       stat += single_atom::atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);

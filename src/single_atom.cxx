@@ -73,6 +73,7 @@
     #define here
 #endif // DEBUG
 
+#include "omp_parallel.hxx" // omp_in_parallel
 
 namespace single_atom {
 
@@ -4441,6 +4442,19 @@ namespace single_atom {
   }; // class LiveAtom
 
 
+  status_t set_version(int const echo) {
+      static bool set_once{true};
+      #pragma omp single
+      {
+          if (set_once) {
+#include      "define_version.h" // define_version --> version_key
+              control::set("version.atom", version_key, echo);
+              set_once = false;
+          } // set_once
+      } // omp single
+      return 0;
+  } // set_version
+
 
   status_t atom_update(
         char const *const what    // selector string, only 1st and in some cases 2nd char counts
@@ -4461,6 +4475,14 @@ namespace single_atom {
       static std::vector<int8_t> echo_mask;
       static int echo{-9};
 
+      {
+          int const in_parallel = omp_in_parallel();
+          if (in_parallel) {
+              error("%s must be called outside a thread-parallel region, omp_in_parallel=%i",
+                      __func__, in_parallel);
+          } // in_parallel
+      }
+      
       if (-9 == echo) echo = int(control::get("single_atom.echo", 0.)); // initialize only on the 1st call to atom_update()
 
       if (nullptr == what) return -1;
@@ -4724,6 +4746,12 @@ namespace single_atom {
       if (stat) warn("what='%s' returns status= %i", what, int(stat));
       return stat;
   } // atom_update
+
+
+
+
+
+
 
 
 #ifdef    NO_UNIT_TESTS

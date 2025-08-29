@@ -16,6 +16,8 @@ namespace single_atom {
       , double *const *dpp=nullptr // (c/v/z)out quantities on r2-grid, (u)in vlm, (q)out qlm, (h)out: aHm, aSm, (a)in aDm
   ); // declaration only
 
+  status_t set_version(int const echo=0); // declaration only
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace single_atom

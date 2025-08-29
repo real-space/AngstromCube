@@ -31,6 +31,7 @@ set(a43_atom_headers
     ../include/inline_math.hxx
     ../include/linear_algebra.hxx
     ../include/lossful_compression.hxx
+    ../include/omp_parallel.hxx
     ../include/pawxml_export.hxx
     ../include/pawxml_import.hxx
     ../include/print_tools.hxx
