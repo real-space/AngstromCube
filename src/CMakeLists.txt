@@ -239,6 +239,7 @@ set(green_headers
     ../include/kinetic_plan.hxx
     ../include/load_balancer.hxx
     ../include/mpi_parallel.hxx
+    ../include/omp_parallel.hxx
     ../include/parallel_poisson.hxx
     ../include/parallel_potential.hxx
     ../include/print_tools.hxx
@@ -265,7 +266,7 @@ set(green_sources
     action_plan.cxx
     atom_communication.cxx
     chemical_symbol.cxx
-    control.cxx
+    # control.cxx
     display_units.cxx
     dyadic_plan.cxx
     energy_contour.cxx
@@ -282,10 +283,11 @@ set(green_sources
     mpi_parallel.cxx
     parallel_poisson.cxx
     parallel_potential.cxx
-    recorded_warnings.cxx
+    # recorded_warnings.cxx
     sho_unitary.cxx
     unit_system.cxx
 )
+#### the objects for control and recorded_warnings are provided through libliveatom.so
 
 if(HAS_CUDA)
     enable_language(CUDA)
@@ -339,8 +341,9 @@ endif(HAS_CUDA)
 # a43 never has CUDA
 target_compile_definitions(a43 PUBLIC -DHAS_NO_CUDA)
 
-# a43 comes together with single_atom, while green will be linked against libliveatom.so
+# a43 comes together with single_atom::
 target_compile_definitions(a43   PUBLIC -DHAS_SINGLE_ATOM)
+# green will be linked against libliveatom.so
 target_compile_definitions(green PUBLIC -DHAS_LIVE_ATOM)
 target_link_libraries(green PUBLIC liveatom)
 
