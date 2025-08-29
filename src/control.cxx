@@ -34,7 +34,7 @@ namespace control {
 
   // hidden function:
   //    _environment(echo, name, value) --> set
-  //    _environment(echo, name, value, linenumber) --> set_to_default
+  //    _environment(echo, name, value, linenumber=_default_value_tag) --> set_to_default
   //    _environment(echo, name) --> get
   //    _environment(echo) --> show_variables
   char const* _environment(
@@ -53,12 +53,13 @@ namespace control {
           assert(nullptr == std::strchr(name, '=')); // make sure that there is no '=' sign in the name
 
           std::string const varname(name);
+          char const* return_value{nullptr};
+        #pragma omp critical (control__environment_set)
+        {
+
           auto & tuple = _map[varname];
           if (nullptr != value) {
               // set
-
-            #pragma omp critical (control__environment_define)
-            {
 
               bool const warn_about_redefinitons = (echo > echo_set_without_warning); // use a negative echo to suppress re-definition warnings
               if (warn_about_redefinitons) {
@@ -78,8 +79,7 @@ namespace control {
               std::get<1>(tuple) = (_default_value_tag == linenumber); // counter how many times this variable was evaluated: init as 1 for defaults, 0 otherwise
               std::get<2>(tuple) = linenumber; // store line number in input file
                                                // or (if negative) command line argument number
-            } // critical
-              return value;
+              return_value = value;
 
           } else { // value
 
@@ -88,9 +88,11 @@ namespace control {
               #pragma omp atomic update
               ++std::get<1>(tuple); // increment reading counter
               if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue);
-              return oldvalue;
+              return_value = oldvalue;
 
           } // value
+        } // critical
+          return return_value;
 
       } else { // name
 
