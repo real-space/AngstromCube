@@ -33,7 +33,7 @@ namespace solid_harmonics {
 // !     cleaned up    mw 1995
 // !************************************************************
 
-// check whether or not normalizations are needed
+      // check whether or not normalizations are needed
       static std::vector<real_t> xnorm;
       static int ellmaxd = -1; // -1:not_initalized
 
@@ -41,13 +41,13 @@ namespace solid_harmonics {
     {
       if (ellmax > ellmaxd) {
 #ifdef    DEBUG
-          std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
+          std::printf("# %s resize table of normalization constants from %d to %d\n",
+                          __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
 #endif // DEBUG
           xnorm.resize((1 + ellmax)*(1 + ellmax));
 
 // !********************************************************************
-// !     normalization constants for ylm (internal subroutine has access
-// !     to ellmax and xnorm from above)
+// !     normalization constants for rlXlm (internal subroutine has access to ellmaxd and xnorm from above)
 // !********************************************************************
           { // scope to fill xnorm with values
               double const fpi = 4.0*pi;
@@ -67,8 +67,8 @@ namespace solid_harmonics {
           } // scope
           ellmaxd = ellmax; // set static variable
       } else if (ellmax < 0) {
-          ellmaxd = -1; // set static variable
           xnorm.resize(0); // cleanup
+          ellmaxd = -1; // set static variable
       }
     } // critical
 
