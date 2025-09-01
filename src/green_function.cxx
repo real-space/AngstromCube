@@ -233,7 +233,7 @@ namespace green_function {
         } // d
 
         auto & dp = p.dyadic_plan;
-        assert(dp.AtomImagePhase && "AtomImagePhase must already be allocated");
+        if (dp.nAtomImages > 0) assert(dp.AtomImagePhase && "AtomImagePhase must already be allocated");
         for (uint32_t iai = 0; iai < dp.nAtomImages; ++iai) { // parallel
             std::complex<double> ph(1, 0);
             for (int d = 0; d < 3; ++d) {
