@@ -442,7 +442,7 @@ if(HAS_TFQMRGPU)
     # we use the header-only part of the tfQMRgpu library
     target_compile_definitions(green PUBLIC -DHAS_TFQMRGPU)
     # we try to avoid using too much memory in the situation of many columns
-    target_compile_definitions(green PUBLIC -DTFQMRGPU_USE_ATOMIC_ADD)
+    target_compile_definitions(green PUBLIC -DTFQMRGPU_USE_ATOMICADD)
     target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/tfqmrgpu-src/tfQMRgpu/include>)
 endif(HAS_TFQMRGPU)
 
