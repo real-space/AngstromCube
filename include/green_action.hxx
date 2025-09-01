@@ -85,7 +85,12 @@ namespace green_action {
         
             if (echo > 3) {
                 // memory estimate for tfQMRgpu
-                int const nnzbB = 1, l2nX = std::ceil(std::log2(nnzbX*1.));
+#ifdef    TFQMRGPU_USE_ATOMICADD
+                int const l2nX = 0; // if we use atomicAdd, the reduction memory is just the coefficients itself
+#else  // TFQMRGPU_USE_ATOMICADD
+                int const l2nX = std::ceil(std::log2(nnzbX*1.));
+#endif // TFQMRGPU_USE_ATOMICADD
+                int const nnzbB = 1;
                 size_t const mem = 7*nnzbX*2ull*LM*LN*sizeof(real_t) // v4 ... v9
                                  + nnzbX*2ull*LM*LN*sizeof(float) // v3
                                  + nnzbB*2ull*LM*LN*sizeof(real_t) // v2
