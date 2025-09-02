@@ -1786,7 +1786,7 @@ namespace angular_grid {
        } // critical
       }
 
-      if (echo > 9) { std::printf("# %s Lebedev-Laikov grid, ptr= %p\n", __func__, &g); std::fflush(stdout); }
+      if (echo > 9) { std::printf("# %s Lebedev-Laikov grid, ptr= %p\n", __func__, (void*)&g); std::fflush(stdout); }
 
       return &g;
 
@@ -1815,7 +1815,7 @@ namespace angular_grid {
       std::vector<gaunt_entry_t> gaunt_coeffs;
       if (echo > 5) { std::printf("# %s: angular_grid for ellmax=%d\n", __func__, ellmax); std::fflush(stdout); }
       auto const *const g = get_grid(2*ellmax, echo);
-      if (echo > 7) { std::printf("# %s: angular_grid for ellmax=%d  g_ptr=%p\n", __func__, ellmax, g); std::fflush(stdout); }
+      if (echo > 7) { std::printf("# %s: angular_grid for ellmax=%d  g_ptr=%p\n", __func__, ellmax, (void*)g); std::fflush(stdout); }
       if (nullptr != g) {
           assert(2*ellmax == g->ellmax);
           int const M = pow2(1 + ellmax), M2 = pow2(1 + 2*ellmax);

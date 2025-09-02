@@ -4521,12 +4521,13 @@ namespace single_atom {
               for (int32_t ia = 0; ia <= kia*(na - 1); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((ia < 53) ? ((bmask >> ia) & 0x1) : 0);
-                  int type{0}; if (ip) type = (-9 == ip[ia]);
+                  int type{0}; if (ip) type = (ip[ia] < 0);
+                  int32_t const global_atom_id = (ip) ? std::abs(ip[ia]) - 1 : ia;
                   if (0 == type) {
-                      a[ia] = new LiveAtom(Za[ia], atomic_valence_density, int32_t(ia), echo_mask[ia]*echo_init, ion);
+                      a[ia] = new LiveAtom(Za[ia], atomic_valence_density, global_atom_id, echo_mask[ia]*echo_init, ion);
                   } else {
 #ifdef    HAS_RAPIDXML
-                      a[ia] = new LiveAtom(Za[ia], int32_t(ia), echo_mask[ia]*echo_init); // load from pawxml files
+                      a[ia] = new LiveAtom(Za[ia], global_atom_id, echo_mask[ia]*echo_init); // load from pawxml files
 #else  // HAS_RAPIDXML
                       ++stat;
 #endif // HAS_RAPIDXML

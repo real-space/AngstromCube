@@ -931,13 +931,6 @@ namespace parallel_potential {
         int32_t const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model: owner_rank = global_atom_id % nprocs
         if (echo > 4) std::printf("# rank#%i has %d owned atoms\n", me, na);
 
-        std::vector<double> Z_owned_atoms(na, 0.);
-        #pragma omp parallel for
-        for (int32_t ia = 0; ia < na; ++ia) {
-            auto const gid = nprocs*ia + me;
-            assert(0 <= gid); assert(gid < n_all_atoms);
-            Z_owned_atoms.at(ia) = xyzZ_all(gid,3); // component 3 is the atomic number Z
-        } // ia
 
         auto const n_cubes = pg.n_local();
         view2D<double> cube_coords(n_cubes, 4, 0.0);
@@ -958,13 +951,7 @@ namespace parallel_potential {
 
         atom_communication::AtomCommList_t const atom_comm_list(n_all_atoms, global_atom_ids, comm, echo);
 
-        float take_atomic_valence_densities{1}; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
-        if (echo > 2) std::printf("# take atomic valence densities with %g %%\n", take_atomic_valence_densities*100);
-
-        char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
-        auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
-        if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
-        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -4); // -4: libliveatom, -9: load from pawxml files
+        std::vector<int32_t> numax(na, 0);          // SHO basis size 
         std::vector<int32_t> lmax_qlm(na, -1);      // expansion of qlm on owned atoms
         std::vector<int32_t> lmaxs_qlm(natoms, -1); // expansion of qlm on contributing atoms
         std::vector<int32_t> lmax_vlm(na, -1);      // expansion of vlm on owned atoms
@@ -976,10 +963,26 @@ namespace parallel_potential {
         std::vector<double> sigma_cmp(na, 1.);      // spread of the Gaussian used in the compensation charges on owned atoms
         std::vector<double> sigmas_cmp(natoms, 1.); // spread of the Gaussian used in the compensation charges on contributing atoms
 
+        float take_atomic_valence_densities{1}; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
+        if (echo > 2) std::printf("# take atomic valence densities with %g %%\n", take_atomic_valence_densities*100);
+
         // initialize and get sigma, lmax for each atom
         data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat, atom_qzyx, atom_vzyx; // for owned atoms
         data_list<double> atoms_qzyx, atoms_vzyx; // for contributing atoms
         { // scope
+
+            char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
+            auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
+            if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
+
+            std::vector<double> Z_owned_atoms(na, 0.);
+            #pragma omp parallel for
+            for (int32_t ia = 0; ia < na; ++ia) {
+                auto const gid = nprocs*ia + me;
+                assert(0 <= gid); assert(gid < n_all_atoms);
+                Z_owned_atoms.at(ia) = xyzZ_all(gid,3); // component 3 is the atomic number Z
+                numax.at(ia) = pawdata_from_file ? -(gid + 1) : (gid + 1);
+            } // ia
 
             std::vector<float> ionization(na, 0.f);
             {   SimpleTimer atom_init_timer(strip_path(__FILE__), __LINE__, "atom init", echo);
