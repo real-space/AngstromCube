@@ -917,7 +917,7 @@ namespace green_function {
                             } // d
                             if (potential_given) {
                                 for (int d{0}; d < 3; ++d) { assert(mod[d] >= 0 && mod[d] < n_blocks[d]); }
-                                // auto const iloc = index3D(n_blocks, mod);
+                                // auto const iloc = index3D(n_blocks, mod); // deactivated, ToDo: check if Repeat_Boundary is still correct when exectuted with MPI
                                 p.global_target_indices[iRow] = global_coordinates::get(mod);
                                 // global_target_indices are needed to gather the local potential data from other MPI processes
                                 veff_index = iRow; assert(iRow == veff_index && "safe assign");
