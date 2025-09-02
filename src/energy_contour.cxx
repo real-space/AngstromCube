@@ -104,6 +104,7 @@ namespace energy_contour {
 
         auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me   = mpi_parallel::rank(comm);
+        bool const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.));
 
         int const max_iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
@@ -204,19 +205,23 @@ namespace energy_contour {
                     stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
 
                     add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
-                    auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc; // MPI synchronization point
-                    if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
-                                                    energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral, plan.iterations_needed);
+                    if (sync) {
+                        auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], ncubes*n4x4x4).imag(), comm)*dVc; // MPI synchronization point
+                        if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
+                                                        energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral, plan.iterations_needed);
+                    } // sync
                     iterations_needed_k.add(plan.iterations_needed);
                 } // check
 
             } // ikpoint
 
             if (0 == check) {
-                auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dVc; // MPI synchronization points
-                auto const rho_realpart = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).real(), comm)*dVc;
-                if (echo + echo_dos > 5) { std::printf("# Green function solution for E=%s has %g electrons, real part %g\n",
+                if (sync) {
+                    auto const rho_integral = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).imag(), comm)*dVc; // MPI synchronization point
+                    auto const rho_realpart = mpi_parallel::sum(sum(rho_E[0], ncubes*n4x4x4).real(), comm)*dVc; // MPI synchronization point
+                    if (echo + echo_dos > 5) { std::printf("# Green function solution for E=%s has %g electrons, real part %g\n",
                                                   energy_parameter_label, rho_integral, rho_realpart); std::fflush(stdout); }
+                } // sync
                 // accumulate density over E-points
                 add_product(rho_c[0], ncubes*n4x4x4, rho_E[0], energy_weight);
                 if (echo > 7) { std::printf("# energy parameter#%i iterations neeed %s\n", iEpoint, iterations_needed_k.interval().c_str()); std::fflush(stdout); }
@@ -251,17 +256,17 @@ namespace energy_contour {
             } // i444
         } // ib cube index
 
-        {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], ncubes*n4x4x4), comm)*dVc;
+        if (sync) {
+            auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], ncubes*n4x4x4), comm)*dVc; // MPI synchronization point
             if (echo + check > 3) std::printf("# solved density has %g electrons\n", rho_integral);
             if (echo > 4) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_444[0], ncubes*n4x4x4));
-        }
+        } // sync
 
-        {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], ncubes*n4x4x4), comm)*dVc;
+        if (sync) {
+            auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], ncubes*n4x4x4), comm)*dVc; // MPI synchronization point
             if (echo + check > 3) std::printf("# solved response density has %g electrons\n", rho_integral);
             // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
-        }
+        } // sync
 
         int const verify = control::get("verify.benchmark", 0.);
         if (verify) {
@@ -277,11 +282,11 @@ namespace energy_contour {
         if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
         parallel_poisson::cube4x4x4_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
 
-        {
-            auto const rho_integral = mpi_parallel::sum(sum(rho_888, ncubes*n8x8x8), comm)*dV;
+        if (sync) {
+            auto const rho_integral = mpi_parallel::sum(sum(rho_888, ncubes*n8x8x8), comm)*dV; // MPI synchronization point
             if (echo + check > 3) std::printf("# interpolated density has %g electrons\n", rho_integral);
             if (echo > 4) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_888, ncubes*n8x8x8));
-        }
+        } // sync
 
         if (echo > 3) std::printf("# density integrated over %d energy points\n", nEpoints);
         return stat;

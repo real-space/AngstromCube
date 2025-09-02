@@ -1419,15 +1419,17 @@ namespace parallel_potential {
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
 
                 auto const green_function_took = green_timer.stop();
+                {
+                    simple_stats::Stats<> green_time_stats;
+                    green_time_stats.add(green_function_took);
+                    mpi_parallel::allreduce(green_time_stats);
+                    if (0 == check && echo > 2) {
+                        std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
+                            scf_iteration, green_time_stats.interval().c_str());
+                    } // echo
+                    green_function_times.add(green_time_stats.max());
+                }
                 mpi_parallel::barrier(comm); // wait until other ranks have finished the Green function solution
-                simple_stats::Stats<> green_time_stats;
-                green_time_stats.add(green_function_took);
-                mpi_parallel::allreduce(green_time_stats);
-                if (0 == check && echo > 2) {
-                    std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
-                        scf_iteration, green_time_stats.interval().c_str());
-                } // echo
-                green_function_times.add(green_time_stats.max());
             }
             break;
 
