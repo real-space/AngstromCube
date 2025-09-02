@@ -32,7 +32,9 @@ namespace green_memory {
 #endif // HAS_NO_CUDA
 
 #ifdef    HAS_MEMORY_COUNTER
+        #pragma omp atomic update
         _memory_counter += size_in_Bytes;
+        // ToDo: make the std::max function atomic, e.g. like this stackoverflow.com/a/16190791
         _memory_maximum = std::max(_memory_maximum, _memory_counter);
         _memory_map[ptr] = size_in_Bytes;
 #endif // HAS_MEMORY_COUNTER
@@ -54,6 +56,7 @@ namespace green_memory {
         auto const it = _memory_map.find(ptr);
         if (it != _memory_map.end()) {
             auto const size_in_Bytes = it->second;
+            #pragma omp atomic update
             _memory_counter -= size_in_Bytes;
             _memory_map.erase(it);
         } // found
