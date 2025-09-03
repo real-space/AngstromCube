@@ -1361,8 +1361,6 @@ namespace parallel_potential {
 
             case 'g':
             {
-                std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
-                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
 
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
                 view2D<double> V_coarse(n_cubes, 4*4*4, 0.0);
@@ -1411,6 +1409,9 @@ namespace parallel_potential {
                     }
                     control::set("energy_contour.band.bottom", band_bottom); // avoid changing the interface for now
                 } // scope
+
+                std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
+                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
 
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,

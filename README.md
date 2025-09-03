@@ -12,16 +12,14 @@
 
 **Setup**
 ```console
+module --force purge
+module load Stages/2025 imkl/2024.2.0 NVHPC/24.9-CUDA-12 CUDA/12 OpenMPI/5.0.5 CMake/3.30.3
 rm -rf build
 cmake . -B build -DHAS_MKL=ON -DHAS_MPI=ON -DHAS_FFTW=ON -DHAS_OPENMP=ON -DHAS_TFQMRGPU=ON
 make -C build -j
 ```
 Depending on your system of choice, you may need to switch some of these options to `OFF`.
-On JSC systems (Jülich Supercomputing Centre) we can try with the following module environment:
-```console
-module --force purge
-module load Stages/2025 imkl/2024.2.0 CUDA/12 GCCcore/.13.3.0 NVHPC/24.9-CUDA-12 OpenMPI/5.0.5 CMake/3.30.3
-```
+On JSC systems (Jülich Supercomputing Centre) we can try it with the given module environment.
 
 
 **Name**

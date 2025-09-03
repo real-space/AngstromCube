@@ -104,7 +104,9 @@ namespace energy_contour {
 
         auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me   = mpi_parallel::rank(comm);
-        bool const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.)); // configure +energy_contour.integrate.mpi.sync=0 to measure the load imbalance
+        int  const mpi_sync = control::get("energy_contour.integrate.mpi.sync", 1.);
+        bool const sync = (0 != mpi_sync); // configure +energy_contour.integrate.mpi.sync=0 to measure the load imbalance
+        if (!sync && echo > 4) { std::printf("# MPI synchronization points turned off by +energy_contour.integrate.mpi.sync=%d\n", mpi_sync); } 
 
         int const max_iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);

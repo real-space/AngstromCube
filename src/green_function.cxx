@@ -486,7 +486,7 @@ namespace green_function {
 
         // truncation radius
         auto const r_trunc = control::get("green_function.truncation.radius", 10.);
-        if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
+        if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f average grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
         p.r_truncation  = std::max(0., r_trunc);
         // confinement potential
         p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);

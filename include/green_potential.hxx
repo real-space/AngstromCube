@@ -162,7 +162,7 @@ namespace green_potential {
 
         Potential<real_t,R1C2,Noco>
 #ifndef   HAS_NO_CUDA
-            <<< dim3(64, 7, 1), dim3(Noco*64, Noco, R1C2) >>> ( // 7=any, maybe find a function for a good choice
+            <<< dim3(64, (Noco == 2)?9:33, 1), dim3(Noco*64, Noco, R1C2) >>> ( // 9 and 33 are chosen for GH200 (132 SMx, max 2048 concurrent threads)
 #else  // HAS_NO_CUDA
               ( dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA
