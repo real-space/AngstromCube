@@ -926,7 +926,9 @@ namespace parallel_poisson {
             if (echo > 3) std::printf("# %s %s integrated density %g\n", strip_path(__FILE__), __func__, integral*g.dV());
         } // scope
 
-        load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo);
+        auto const comm = MPI_COMM_WORLD;
+
+        load_balancing_t const lb(g, comm, 8, echo);
         parallel_grid_t const pg(g, lb, echo);
 
         view3D<real_t> xb_local(2, std::max(pg.n_local(), 1u), 512, real_t(0)); // create parallelized memory load
@@ -945,8 +947,6 @@ namespace parallel_poisson {
         float residual_reached{0};
 
         auto const stat = solve(xb_local(0,0), xb_local(1,0), pg, *method, echo, threshold, &residual_reached, max_it);
-
-        auto const comm = MPI_COMM_WORLD;
 
         { // scope: copy out
             auto const local_ids = pg.local_ids();
