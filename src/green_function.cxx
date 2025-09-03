@@ -114,26 +114,26 @@ namespace green_function {
     // ToDo: make it a method of action_plan_t
     status_t update_potential(
           action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-        , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
-        , std::vector<double> const & Veff // [nRHS][4*4*4]
+      // , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
+        , std::vector<double> const & Veff // [nRHS*4*4*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
         , int const Noco // =1
     ) {
-        auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
+        // auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
         auto const n_grid_points = Veff.size();
         int32_t const nrhs = p.nCols;
-        auto const n_all_blocks = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
+        // auto const n_all_blocks = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
 
         double const scale_V = control::get("hamiltonian.scale.potential", 1.);
         if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
 
-        if (n_grid_points == n_all_grid_points) {
-            if (echo > 0) std::printf("# copy all %.3f k grid blocks points\n", n_all_blocks*.001);
-        } else {
-            if (echo > 0) std::printf("# copy only %.3f k grid blocks points, expect %d\n", n_grid_points/64000., nrhs);
-            assert(n_grid_points == 64*nrhs);
-        }
+        // if (n_grid_points == n_all_grid_points) {
+        //     if (echo > 0) std::printf("# copy all %.3f k grid blocks points\n", n_all_blocks*.001);
+        // } else {
+        if (echo > 0) std::printf("# copy only %.3f k grid blocks points, expect %d\n", n_grid_points/64000., nrhs);
+        assert(n_grid_points == 64*nrhs);
+        // }
 
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {

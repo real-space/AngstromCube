@@ -682,8 +682,8 @@ namespace green_experiments {
                 owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
         } // scope
 
-        uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
-        auto const pot_stat = green_function::update_potential(p, nb, Veff, AtomMatrices, echo, Noco);
+        // uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
+        auto const pot_stat = 1; // green_function::update_potential(p, nb, Veff, AtomMatrices, echo, Noco); // ToDo: interface changed
         if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
 
         here;
@@ -710,7 +710,7 @@ namespace green_experiments {
             pS.matrices_requests = p.matrices_requests; // deep copy
 
             // this needs to be done to get the AtomMatrices into the overlap operators
-            auto const pot_stat = green_function::update_potential(pS, nb, Veff, AtomMatrices, echo, Noco);
+            auto const pot_stat = 1; // green_function::update_potential(pS, nb, Veff, AtomMatrices, echo, Noco); // ToDo: interface changed
             if (pot_stat) warn("green_function::update_potential (pS) failed with status=%d", int(pot_stat));
 
             here;

@@ -47,7 +47,7 @@ namespace energy_contour {
             , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
             , std::vector<int32_t> const & numax_prj
             , std::vector<double> const & sigma_prj
-            , parallel_poisson::parallel_grid_t const & pg
+            , parallel_poisson::parallel_grid_t const & pg // ToDo: replace by comm and n_local
             , double const n_electrons=1 // required total number of electrons 
             , double const dV=1 // grid volume element
             , int const echo=0 // log level

@@ -143,7 +143,7 @@ namespace energy_contour {
         std::vector<double> Veff(ncubes*n4x4x4, 0.);
         double constexpr scale_V = 1.0;
         set(Veff.data(), ncubes*n4x4x4, Vtot, scale_V);
-        stat += green_function::update_potential(plan, pg.grid_cubes(), Veff, AtomMatrices, echo, Noco);
+        stat += green_function::update_potential(plan, Veff, AtomMatrices, echo, Noco);
 
 #ifdef    DEVEL
         int const verify_pot = control::get("verify.potential", 0.);
@@ -284,8 +284,12 @@ namespace energy_contour {
         // ToDo: add response density until we match the Fermi level
 
         // interpolation density from 4*4*4 to 8*8*8 block could be done here
-        if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
-        parallel_poisson::cube4x4x4_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
+        if (sync) {
+            if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
+            parallel_poisson::cube4x4x4_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
+        } else {
+            warn("Cannot interpolate without MPI synchronization", 0);
+        }
 
         if (sync) {
             auto const rho_integral = mpi_parallel::sum(sum(rho_888, ncubes*n8x8x8), comm)*dV; // MPI synchronization point
