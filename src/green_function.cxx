@@ -37,7 +37,7 @@
   #include "bitmap.hxx" // ::write_bmp_file
 #endif // HAS_BITMAP_EXPORT
 
-#define   GREEN_FUNCTION_SVG_EXPORT
+// #define   GREEN_FUNCTION_SVG_EXPORT
 
  /*
   *  Future plan:
