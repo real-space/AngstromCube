@@ -4,7 +4,7 @@
 #include <algorithm> // std::swap
 
 #include "status.hxx" // status_t
-#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
+#include "mpi_parallel.hxx" // MPI_Comm
 #include "parallel_poisson.hxx" // ::parallel_grid_t
 #include "action_plan.hxx" // action_plan_t
 #include "real_space.hxx" // ::grid_t
@@ -21,6 +21,7 @@ namespace energy_contour {
         Integrator(
               real_space::grid_t const & gc // coarse grid descriptor
             , std::vector<double> const & xyzZinso // all atoms
+            , MPI_Comm const comm
             , int const echo=0 // verbosity
             , int const check=0
         ); // constructor, declaration only
@@ -46,7 +47,7 @@ namespace energy_contour {
             , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
             , std::vector<int32_t> const & numax_prj
             , std::vector<double> const & sigma_prj
-            , parallel_poisson::parallel_grid_t const & pg
+            , parallel_poisson::parallel_grid_t const & pg // ToDo: replace by comm and n_local
             , double const n_electrons=1 // required total number of electrons 
             , double const dV=1 // grid volume element
             , int const echo=0 // log level

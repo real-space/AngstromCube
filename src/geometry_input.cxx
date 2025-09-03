@@ -11,7 +11,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "chemical_symbol.hxx" // ::decode
 #include "control.hxx" // ::get, ::set, ::echo_set_without_warning
-#include "mpi_parallel.hxx" // ::comm, ::rank, ::broadcast
+#include "mpi_parallel.hxx" // MPI_Comm, ::comm, ::rank, ::broadcast
 #include "data_view.hxx" // view2D<T>
 #include "unit_system.hxx" // ::length_unit, ::energy_unit
 #include "boundary_condition.hxx" // Shifted_Boundary, Periodic_Boundary
@@ -26,10 +26,11 @@ namespace geometry_input {
         , int32_t & n_atoms
         , double cell[3][4]
         , int8_t bc[3]
+     // , MPI_Comm const comm
         , char const *const filename // ="atoms.xyz"
         , int const echo // =5 log-level
     ) {
-        auto const comm = mpi_parallel::comm(); // default_communicator
+        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
         assert(cell);
         assert(bc);
@@ -198,6 +199,7 @@ namespace geometry_input {
             real_space::grid_t & g // output grid descriptor
           , view2D<double> & xyzZ // output atom coordinates and core charges Z
           , int32_t & natoms // output number of atoms found
+//        , MPI_Comm const comm
           , unsigned const n_even // =2
           , int const echo // =0 log-level
     ) {

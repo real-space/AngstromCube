@@ -11,7 +11,7 @@
 
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
-#include "mpi_parallel.hxx" // ::rank, ::comm, MPI_COMM_WORLD
+#include "mpi_parallel.hxx" // MPI_Comm, ::rank, ::comm, MPI_COMM_WORLD
 #include "data_view.hxx" // view2D<T>
 #include "parallel_poisson.hxx" // ::parallel_grid_t
 #include "action_plan.hxx" // action_plan_t
@@ -38,6 +38,7 @@ namespace energy_contour {
     Integrator::Integrator( // implementation of constructor
           real_space::grid_t const & gc // coarse grid descriptor
         , std::vector<double> const & xyzZinso // all atoms
+        , MPI_Comm const comm
         , int const echo // verbosity
         , int const check
     ) {
@@ -45,7 +46,7 @@ namespace energy_contour {
         plan_ = new action_plan_t(); // CPU memory for the plan
         auto const stat = green_function::construct_Green_function(*plan_,
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(),
-                            xyzZinso, echo);
+                            xyzZinso, comm, echo);
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
         if (echo > 0) std::printf("# move green_solver_t\n");
@@ -102,8 +103,8 @@ namespace energy_contour {
         size_t constexpr n8x8x8 = 8*8*8;
         auto const dVc = 8*dV; // grid volume element on the dense grid
 
-        auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
-        auto const me   = mpi_parallel::rank(comm);
+        auto const comm = pg.comm();
+        auto const me = mpi_parallel::rank(comm);
         bool const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.)); // configure +energy_contour.integrate.mpi.sync=0 to measure the load imbalance
 
         int const max_iterations = control::get("green_solver.iterations", 99.);
@@ -142,7 +143,7 @@ namespace energy_contour {
         std::vector<double> Veff(ncubes*n4x4x4, 0.);
         double constexpr scale_V = 1.0;
         set(Veff.data(), ncubes*n4x4x4, Vtot, scale_V);
-        stat += green_function::update_potential(plan, pg.grid_cubes(), Veff, AtomMatrices, echo, Noco);
+        stat += green_function::update_potential(plan, Veff, AtomMatrices, echo, Noco);
 
 #ifdef    DEVEL
         int const verify_pot = control::get("verify.potential", 0.);
@@ -283,8 +284,12 @@ namespace energy_contour {
         // ToDo: add response density until we match the Fermi level
 
         // interpolation density from 4*4*4 to 8*8*8 block could be done here
-        if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
-        parallel_poisson::cube4x4x4_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
+        if (sync) {
+            if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
+            parallel_poisson::cube4x4x4_interpolation(rho_888, rho_444[0], pg, echo, 1., "density");
+        } else {
+            warn("Cannot interpolate without MPI synchronization", 0);
+        }
 
         if (sync) {
             auto const rho_integral = mpi_parallel::sum(sum(rho_888, ncubes*n8x8x8), comm)*dV; // MPI synchronization point
@@ -307,6 +312,7 @@ namespace energy_contour {
     status_t test_integrator(int const echo=3) {
         if (echo > 1) std::printf("\n#\n# %s\n", __func__);
         status_t stat(0);
+        auto const comm = mpi_parallel::comm(); // for tests
         { // scope
             // spectrum of an isolated box  0.648721 1.29538_x3 1.94203_x3 2.34449_x3 2.58869 2.99114_x6 3.55103_x3 3.6378_x3 ...
             //  ... 4.04025_x3 4.19768_x6 4.68691_x3 4.84434_x3 5.24679_x6 5.73601 5.89345_x6 6.45333_x3 6.94256_x3 7.09999_x3 8.1491_x3 9.35564
@@ -314,7 +320,7 @@ namespace energy_contour {
             double E_Fermi{1.0};
             std::vector<double> xyzZinso(0); // no atoms
             real_space::grid_t gc(4, 4, 4); // one block, isolated BCs by default, grid spacing 1.0
-            parallel_poisson::load_balancing_t const lb(gc, MPI_COMM_WORLD, 4, echo);
+            parallel_poisson::load_balancing_t const lb(gc, comm, 4, echo);
             parallel_poisson::parallel_grid_t const pg(gc, lb, echo, "Interpolation");
             view2D<double> V_coarse(pg.n_local(), 4*4*4, 0.5);
             view2D<double> rhov_new(pg.n_local(), 8*8*8, 0.0);
@@ -322,7 +328,7 @@ namespace energy_contour {
             data_list<double> atom_mat(num);
             std::vector<int32_t> numax_prj(0, 0);
             std::vector<double> sigma_prj(0, 1.);
-            Integrator integrator(gc, xyzZinso, echo);
+            Integrator integrator(gc, xyzZinso, comm, echo);
             if (echo > 1) std::printf("# %s: Integrator constructed\n\n", __func__);
             stat += integrator.integrate(rhov_new[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj, pg, 1., 1., echo);
         } // scope (so all destructors belonging to this test are called before the next log message)

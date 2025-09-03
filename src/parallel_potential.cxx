@@ -1105,7 +1105,7 @@ namespace parallel_potential {
             } // scope
 
             // construct the energy_contour::Integrator
-            integrator = energy_contour::Integrator(gc, xyzZinso, echo, check);
+            integrator = energy_contour::Integrator(gc, xyzZinso, comm, echo, check);
 
             // setup communication infrastructure for atom_mat
             auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;

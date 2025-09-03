@@ -133,7 +133,7 @@ status_t run_unit_tests(char const *unit_name, int const echo=0) {
         auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
         status = mpi_parallel::max(status,comm);
-        auto const non0status = mpi_parallel::max(nonzero_status,comm);
+        auto const non0status = mpi_parallel::max(nonzero_status, comm);
         if (show) {
             if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
             if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);

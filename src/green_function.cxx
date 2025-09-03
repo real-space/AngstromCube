@@ -114,26 +114,26 @@ namespace green_function {
     // ToDo: make it a method of action_plan_t
     status_t update_potential(
           action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-        , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
-        , std::vector<double> const & Veff // [nRHS][4*4*4]
+      // , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
+        , std::vector<double> const & Veff // [nRHS*4*4*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
         , int const Noco // =1
     ) {
-        auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
+        // auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
         auto const n_grid_points = Veff.size();
         int32_t const nrhs = p.nCols;
-        auto const n_all_blocks = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
+        // auto const n_all_blocks = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
 
         double const scale_V = control::get("hamiltonian.scale.potential", 1.);
         if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
 
-        if (n_grid_points == n_all_grid_points) {
-            if (echo > 0) std::printf("# copy all %.3f k grid blocks points\n", n_all_blocks*.001);
-        } else {
-            if (echo > 0) std::printf("# copy only %.3f k grid blocks points, expect %d\n", n_grid_points/64000., nrhs);
-            assert(n_grid_points == 64*nrhs);
-        }
+        // if (n_grid_points == n_all_grid_points) {
+        //     if (echo > 0) std::printf("# copy all %.3f k grid blocks points\n", n_all_blocks*.001);
+        // } else {
+        if (echo > 0) std::printf("# copy only %.3f k grid blocks points, expect %d\n", n_grid_points/64000., nrhs);
+        assert(n_grid_points == 64*nrhs);
+        // }
 
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
@@ -259,7 +259,7 @@ namespace green_function {
     std::vector<int64_t> get_right_hand_sides(
           uint32_t const nb[3] // number of blocks
         , std::vector<green_parallel::rank_int_t> & owner_rank // result: who owns which RHS block
-        , MPI_Comm const comm=MPI_COMM_WORLD
+        , MPI_Comm const comm
         , int const echo=0
     ) {
         std::vector<int64_t> global_source_indices; // result array
@@ -372,10 +372,10 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
+        , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , int const echo // =0 // log-level
         , int const Noco // =1
     ) {
-        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
         auto const nprocs = mpi_parallel::size(comm);
         auto const me = mpi_parallel::rank(comm, nprocs);
 
@@ -1031,7 +1031,6 @@ namespace green_function {
         // prepare for the MPI exchange of potential blocks
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
-            auto const comm = mpi_parallel::comm();
             p.potential_requests = green_parallel::RequestList_t(p.global_target_indices,  // requests
                                                                  p.global_source_indices, // offerings
                                                                  owner_rank.data(), n_blocks, comm, echo, "potential");
@@ -1135,6 +1134,7 @@ namespace green_function {
 
     status_t test_construct_Green_function(int const echo=0) {
         status_t stat(0);
+        auto const comm = mpi_parallel::comm(); // for tests
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 6.);
         uint32_t const ng[] = {4*uint32_t(bb[X]), 4*uint32_t(bb[Y]), 4*uint32_t(bb[Z])};
         double const grid_spacing[] = {1, 1, 1};
@@ -1147,7 +1147,7 @@ namespace green_function {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
             if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
             action_plan_t p;
-            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, echo/8, Noco);
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, comm, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
         return stat;
