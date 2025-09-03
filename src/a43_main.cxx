@@ -304,9 +304,10 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
                 ++nmodules;
             } // chapter marker
         } // result
-        auto const me = mpi_parallel::rank();
-        status = mpi_parallel::max(status);
-        auto const non0status = mpi_parallel::max(nonzero_status);
+        auto const comm = MPI_COMM_WORLD;
+        auto const me = mpi_parallel::rank(comm);
+        status = mpi_parallel::max(status,comm);
+        auto const non0status = mpi_parallel::max(nonzero_status,comm);
         if (show) {
             if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
             if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);
@@ -339,8 +340,10 @@ int main(int const argc, char *argv[]) {
     // initialize the Message Passing Interface (MPI) for parallel computing
     mpi_parallel::init(argc, argv);
 
+    auto const comm = MPI_COMM_WORLD;
+
     // determine the MPI rank
-    auto const me = mpi_parallel::rank();
+    auto const me = mpi_parallel::rank(comm);
 
     if (argc < 2) warn("no arguments passed to %s!", (argc < 1) ? __FILE__ : argv[0]);
 

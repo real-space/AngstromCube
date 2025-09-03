@@ -47,8 +47,10 @@ namespace verify_benchmark {
             } // i64
         } // icube
 
+        auto const comm = MPI_COMM_WORLD;
+
         { // scope: make sure that there is a balanced number of cubes of each unit cell
-            mpi_parallel::sum(m444.data(), m444.size()); // usues MPI_COMM_WORLD by default
+            mpi_parallel::sum(m444.data(), comm, m444.size()); // usues MPI_COMM_WORLD
             int32_t mini{2147483647}, maxi{-1};
             for (int i444{0}; i444 < 4*4*4; ++i444) {
                 mini = std::min(mini, m444[i444]);
@@ -59,7 +61,7 @@ namespace verify_benchmark {
         } // scope
 
         for (int i40{0}; i40 < n; ++i40) {
-            mpi_parallel::allreduce(st.at(i40)); // usues MPI_COMM_WORLD by default
+            mpi_parallel::allreduce(st.at(i40),comm); // usues MPI_COMM_WORLD
         } // i40
 
         double maxdev{0}, totalsum{0}, totaltim{0};

@@ -105,12 +105,13 @@ namespace green_action {
 
 #ifdef    HAS_TFQMRGPU
             if (nnzbX > 0) {
+                auto const comm = MPI_COMM_WORLD;
                 if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
                 // try to instanciate tfqmrgpu::solve<T> with this T=action_t<real_t,R1C2,Noco,64>
                 tfqmrgpu::solve(*this); // compute GPU memory requirements
-                auto const me = mpi_parallel::rank();                                      // uses MPI_COMM_WORLD
+                auto const me = mpi_parallel::rank(comm);                                      // uses MPI_COMM_WORLD
                 {
-                    simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m); // uses MPI_COMM_WORLD
+                    simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m,comm); // uses MPI_COMM_WORLD
                     if (echo + check > 3) std::printf("# tfQMRgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
                     if (echo > 7) std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
@@ -199,7 +200,7 @@ namespace green_action {
 
 // #ifdef    DEBUGGPU
             if (echo > 5) {
-                auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD            
+                auto const me = mpi_parallel::rank(MPI_COMM_WORLD); // usues MPI_COMM_WORLD            
                 std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
             } // echo
 // #endif // DEBUGGPU

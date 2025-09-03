@@ -116,7 +116,7 @@ namespace parallel_poisson {
                 std::printf("# rank#%i owner_rank before MPI_MIN ", me);
                 printf_vector(" %i", owner_rank_.data(), nall);
             } // echo
-            mpi_parallel::min(owner_rank_.data(), nall, comm);
+            mpi_parallel::min(owner_rank_.data(), comm, nall);
             if (echo > 19) {
                 std::printf("# rank#%i owner_rank after  MPI_MIN ", me);
                 printf_vector(" %i", owner_rank_.data(), nall);
@@ -946,6 +946,8 @@ namespace parallel_poisson {
 
         auto const stat = solve(xb_local(0,0), xb_local(1,0), pg, *method, echo, threshold, &residual_reached, max_it);
 
+        auto const comm = MPI_COMM_WORLD;
+
         { // scope: copy out
             auto const local_ids = pg.local_ids();
             for (int ilb{0}; ilb < pg.n_local(); ++ilb) {
@@ -953,7 +955,7 @@ namespace parallel_poisson {
                 size_t const j512 = (ixyz[2]*nb[1] + ixyz[1])*nb[0] + ixyz[0];
                 set(x + j512*512, 512, xb_local(0,ilb)); // copy one cube of x
             } // ilb
-            if (mpi_parallel::size() > 1) mpi_parallel::sum(x, ng_all);
+            if (mpi_parallel::size() > 1) mpi_parallel::sum(x, comm, ng_all);
         } // scope
 
         auto constexpr pi = constants::pi;
@@ -1017,7 +1019,7 @@ namespace parallel_poisson {
             } // echo
             std::fflush(stdout);
         } // echo
-        mpi_parallel::barrier();
+        mpi_parallel::barrier(comm);
         if (0 != stat) warn("test_solver returned status= %i", int(stat));
         return stat;
     } // test_solver
@@ -1043,7 +1045,7 @@ namespace parallel_poisson {
         for (int8_t bx{0}; bx < nBCs; ++bx) {
             int8_t const bc[] = {BCs[bx], BCs[by], BCs[bz]};
             if (echo > 3) { std::printf("# %s with boundary conditions [%d %d %d]\n", __func__, bc[0], bc[1], bc[2]); std::fflush(stdout); }
-            mpi_parallel::barrier(); 
+            mpi_parallel::barrier(MPI_COMM_WORLD); 
 
             g.set_boundary_conditions(bc);
             parallel_grid_t pg(g, lb, echo >> 3, what); // run constructor silently

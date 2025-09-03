@@ -284,7 +284,7 @@ namespace green_function {
             //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
             auto const load = load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
 
-            mpi_parallel::min(owner_rank.data(), nall, comm); // MPI_Allreduce(MPI_MIN)
+            mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
             auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
             if (echo > 5) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs);
@@ -486,7 +486,7 @@ namespace green_function {
 
         // truncation radius
         auto const r_trunc = control::get("green_function.truncation.radius", 10.);
-        if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f average grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
+        if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
         p.r_truncation  = std::max(0., r_trunc);
         // confinement potential
         p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);

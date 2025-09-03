@@ -98,7 +98,7 @@ namespace green_action {
           tfqmrgpu::solve(action); // compute GPU memory requirements
 
           {
-              simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem); // uses MPI_COMM_WORLD
+              simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem,MPI_COMM_WORLD); // uses MPI_COMM_WORLD
               if (echo > 5) std::printf("# tfQMRgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                 mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
           }

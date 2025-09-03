@@ -1091,7 +1091,7 @@ namespace parallel_potential {
                     numax_sigma(gid,1) = sigma_prj.at(ia);
                 } // ia
 
-                mpi_parallel::max(numax_sigma[0], n_all_atoms*2, comm); // this is potentially slow
+                mpi_parallel::max(numax_sigma[0], comm, n_all_atoms*2); // this is potentially slow
 
                 xyzZinso.resize(n_all_atoms*8ull);
                 #pragma omp parallel for
@@ -1361,6 +1361,8 @@ namespace parallel_potential {
 
             case 'g':
             {
+                std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
+                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
 
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
                 view2D<double> V_coarse(n_cubes, 4*4*4, 0.0);
@@ -1410,9 +1412,6 @@ namespace parallel_potential {
                     control::set("energy_contour.band.bottom", band_bottom); // avoid changing the interface for now
                 } // scope
 
-                std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
-                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
-
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
                                                           pg_Interpolation, n_valence_electrons, g.dV(), echo, check);
@@ -1423,7 +1422,7 @@ namespace parallel_potential {
                 {
                     simple_stats::Stats<> green_time_stats;
                     green_time_stats.add(green_function_took);
-                    mpi_parallel::allreduce(green_time_stats);
+                    mpi_parallel::allreduce(green_time_stats,comm);
                     if (0 == check && echo > 2) {
                         std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
                             scf_iteration, green_time_stats.interval().c_str());
@@ -1475,7 +1474,7 @@ namespace parallel_potential {
                 for (int32_t ia{0}; ia < na; ++ia) {
                     add_product(Ea.data(), nE, atom_contrib[ia], 1.); // all atomic weight factors are 1.0
                 } // ia
-                mpi_parallel::sum(Ea.data(), nE, comm);
+                mpi_parallel::sum(Ea.data(), comm, nE);
                 if (echo > 7) std::printf("\n# sum of atomic energy contributions without grid contributions:\n");
                 energy_contribution::show(Ea.data(), echo - 7, eV, _eV);
                 // now add grid contributions
