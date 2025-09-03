@@ -161,7 +161,7 @@ namespace green_parallel {
         this->owner = std::vector<int32_t>(nreq, 0); // initialize with master rank for the serial version
         this->local_indices = std::vector<int32_t>(nreq, -1);
         this->requested_id = requests; // deep copy
-        this->offered_id = offerings; // deep copy
+        this->offered_id  = offerings; // deep copy
         this->window_size = nown; // number of owned data items
 
         size_t not_found{0};
@@ -330,38 +330,41 @@ namespace green_parallel {
         { // scope: exchange indices, slightly confusing in terms of naming ....
             //  ... but yes, we send the list of indices that we want to receive ...
             //  ... and we receive the list of indices we need to send.
-            int tag = __LINE__;
             auto const nr = n_recv_partners + n_send_partners;
             std::vector<MPI_Request> mpi_req(nr);
 
-            for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
-                auto const rank = recv_packages_from_ranks.at(ri);
-                MPI_Isend(this->recv_package_index.at(ri).data(), this->recv_package_index.at(ri).size(), 
-                            MPI_UINT32_T, rank, tag, comm, &mpi_req.at(ri));
-            } // ri
+            {
+                int const tag = __LINE__;
+                for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
+                    auto const rank = recv_packages_from_ranks.at(ri);
+                    MPI_Isend(this->recv_package_index.at(ri).data(), this->recv_package_index.at(ri).size(), 
+                                MPI_UINT32_T, rank, tag, comm, &mpi_req.at(ri));
+                } // ri
 
-            for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
-                auto const rank = send_packages_to_ranks.at(rj);
-                MPI_Irecv(this->send_package_index.at(rj).data(), this->send_package_index.at(rj).size(),
-                            MPI_UINT32_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
-            } // rj
+                for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
+                    auto const rank = send_packages_to_ranks.at(rj);
+                    MPI_Irecv(this->send_package_index.at(rj).data(), this->send_package_index.at(rj).size(),
+                                MPI_UINT32_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
+                } // rj
+            } // scope
 
             MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
 
-
             // now also communicate the global indices
-            tag = __LINE__;
-            for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
-                auto const rank = recv_packages_from_ranks.at(ri);
-                MPI_Isend(recv_package_global_id.at(ri).data(), recv_package_global_id.at(ri).size(), 
-                            MPI_INT64_T, rank, tag, comm, &mpi_req.at(ri));
-            } // ri
+            {
+                int const tag = __LINE__;
+                for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
+                    auto const rank = recv_packages_from_ranks.at(ri);
+                    MPI_Isend(recv_package_global_id.at(ri).data(), recv_package_global_id.at(ri).size(), 
+                                MPI_INT64_T, rank, tag, comm, &mpi_req.at(ri));
+                } // ri
 
-            for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
-                auto const rank = send_packages_to_ranks.at(rj);
-                MPI_Irecv(send_package_global_id.at(rj).data(), send_package_global_id.at(rj).size(),
-                            MPI_INT64_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
-            } // rj
+                for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
+                    auto const rank = send_packages_to_ranks.at(rj);
+                    MPI_Irecv(send_package_global_id.at(rj).data(), send_package_global_id.at(rj).size(),
+                                MPI_INT64_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
+                } // rj
+            } // scope
 
             MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
 

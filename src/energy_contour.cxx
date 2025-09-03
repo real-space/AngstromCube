@@ -104,7 +104,7 @@ namespace energy_contour {
 
         auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me   = mpi_parallel::rank(comm);
-        bool const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.));
+        bool const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.)); // configure +energy_contour.integrate.mpi.sync=0 to measure the load imbalance
 
         int const max_iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
@@ -144,6 +144,7 @@ namespace energy_contour {
         set(Veff.data(), ncubes*n4x4x4, Vtot, scale_V);
         stat += green_function::update_potential(plan, pg.grid_cubes(), Veff, AtomMatrices, echo, Noco);
 
+#ifdef    DEVEL
         int const verify_pot = control::get("verify.potential", 0.);
         if (verify_pot) {
             if (echo > 3) std::printf("\n# +verify.potential=%i\n", verify_pot);
@@ -154,6 +155,7 @@ namespace energy_contour {
             stat += std::abs(stat_verify);
             if (echo > 0) std::fflush(stdout);
         } // verify_pot
+#endif // DEVEL
 
         view2D<double> kpoint_mesh;
         // get a kpoint mesh controlled by +hamiltonian.kmesh.x .y .z, the same for each energy point
@@ -268,6 +270,7 @@ namespace energy_contour {
             // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
         } // sync
 
+#ifdef    DEVEL
         int const verify = control::get("verify.benchmark", 0.);
         if (verify) {
             assert(plan_->global_source_indices.size() == ncubes);
@@ -275,6 +278,7 @@ namespace energy_contour {
             if (0 != stat_verify) warn("ran with +verify.benchmark=%d --> status= %i", verify, int(stat_verify));
             stat += std::abs(stat_verify);
         } // verify
+#endif // DEVEL
 
         // ToDo: add response density until we match the Fermi level
 
