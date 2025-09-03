@@ -704,7 +704,7 @@ namespace green_parallel {
         std::vector<int64_t> requests = {0,7,6,1,5,2,4,3}; // every process requests all 8 of these ids
 
         auto const nrows = requests.size();
-        auto const comm = mpi_parallel::comm();
+        auto const comm = mpi_parallel::comm(); // for tests
         auto const nprocs = mpi_parallel::size(comm);       assert(nprocs > 0);
         auto const me = mpi_parallel::rank(comm, nprocs);
 

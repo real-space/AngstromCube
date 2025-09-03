@@ -36,6 +36,7 @@
 #include "control.hxx" // ::get
 #include "progress_report.hxx" // ProgressReport
 #include "linear_algebra.hxx" // ::eigenvalues, ::gemm
+#include "mpi_parallel.hxx" // ::comm
 
 #ifdef    HAS_BITMAP_EXPORT
     #include "bitmap.hxx" // ::write_bmp_file
@@ -659,8 +660,10 @@ namespace green_experiments {
 
         here;
 
+        auto const comm = mpi_parallel::comm(); // for tests
+
         action_plan_t p;
-        auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, Noco);
+        auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, comm, echo, Noco);
         if (plan_stat) {
             warn("construct_Green_function failed with status=%d", int(plan_stat));
             return plan_stat;
@@ -676,7 +679,7 @@ namespace green_experiments {
             uint32_t const nb[] = {uint32_t(na), 0, 0};
             std::vector<uint16_t> atom_owner_rank(na, uint16_t(0)); // all atoms owned by the MPI master
             p.matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
-                owned_global_atom_ids, atom_owner_rank.data(), nb, mpi_parallel::comm(), echo, "atom matrices");
+                owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
         } // scope
 
         uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
@@ -696,7 +699,7 @@ namespace green_experiments {
             if (echo > 4) std::printf("# verbosity for second call to construct_Green_function is +green_experiments.overlap.echo=%d\n", echo_pS);
 
             action_plan_t pS; // plan for the overlap operator
-            auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, echo_pS, Noco); // since the copy operator is deleted we have to do it again
+            auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, comm, echo_pS, Noco); // since the copy operator is deleted we have to do it again
             if (plan_stat) {
                 warn("construct_Green_function failed with status=%d for the overlap operator", int(plan_stat));
                 return plan_stat;

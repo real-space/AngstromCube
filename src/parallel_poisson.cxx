@@ -18,7 +18,7 @@
 #include "inline_math.hxx" // set, dot_product, pow2, add_product
 #include "constants.hxx" // ::pi, ::sqrtpi
 #include "boundary_condition.hxx" // Periodic_Boundary
-#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD, MPI_COMM_NULL, ::sum, ::rank, ::size, ::min, ::barrier
+#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_NULL, ::sum, ::rank, ::size, ::min, ::barrier, ::comm
 #include "load_balancer.hxx" // ::get, ::no_owner
 #include "simple_timer.hxx" // strip_path
 #include "global_coordinates.hxx" // ::get
@@ -39,34 +39,34 @@ namespace parallel_poisson {
     double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
 
     template <typename real_t>
-    double norm2(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL) {
+    double norm2(real_t const v[], size_t const n, MPI_Comm const comm) {
         double s{0};
         for (size_t i{0}; i < n; ++i) { 
             s += pow2(double(v[i]));
         } // i 
-        if (MPI_COMM_NULL != comm) s = mpi_parallel::sum(s, comm);
+        s = mpi_parallel::sum(s, comm);
         return s;
     } // norm2
 
     template <typename real_t>
-    double norm1(real_t const v[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL, int const echo=0) {
+    double norm1(real_t const v[], size_t const n, MPI_Comm const comm, int const echo=0) {
         double s{0};
         for (size_t i{0}; i < n; ++i) {
             s += double(v[i]);
         } // i
         auto const norm1_local = s;
-        if (MPI_COMM_NULL != comm) s = mpi_parallel::sum(s, comm);
+        s = mpi_parallel::sum(s, comm);
         if (echo > 0) std::printf("# norm1_local= %g, norm1= %g\n", norm1_local, s);
         return s;
     } // norm1
 
     template <typename real_t>
-    double scalar_product(real_t const v[], real_t const w[], size_t const n, MPI_Comm const comm=MPI_COMM_NULL) {
+    double scalar_product(real_t const v[], real_t const w[], size_t const n, MPI_Comm const comm) {
         double dot{0};
         for (size_t i = 0; i < n; ++i) {
             dot += double(v[i])*double(w[i]); // conversion to double is different from dot_product define in inline_math.hxx
         } // i
-        if (MPI_COMM_NULL != comm) dot = mpi_parallel::sum(dot, comm);
+        dot = mpi_parallel::sum(dot, comm);
         return dot;
     } // scalar_product
 
@@ -926,7 +926,9 @@ namespace parallel_poisson {
             if (echo > 3) std::printf("# %s %s integrated density %g\n", strip_path(__FILE__), __func__, integral*g.dV());
         } // scope
 
-        load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo);
+        auto const comm = mpi_parallel::comm(); // for tests
+
+        load_balancing_t const lb(g, comm, 8, echo);
         parallel_grid_t const pg(g, lb, echo);
 
         view3D<real_t> xb_local(2, std::max(pg.n_local(), 1u), 512, real_t(0)); // create parallelized memory load
@@ -946,7 +948,6 @@ namespace parallel_poisson {
 
         auto const stat = solve(xb_local(0,0), xb_local(1,0), pg, *method, echo, threshold, &residual_reached, max_it);
 
-        auto const comm = MPI_COMM_WORLD;
 
         { // scope: copy out
             auto const local_ids = pg.local_ids();
@@ -1026,6 +1027,7 @@ namespace parallel_poisson {
 
     status_t test_parallel_grid(int const echo=0) {
         // test all combinations of isolated and periodic boundary conditions
+        auto const comm = mpi_parallel::comm(); // for tests
         uint32_t const gm = control::get("parallel_poisson.test.grid.max", 0.); // and grids up to this number^3
         int8_t constexpr nBCs = 2; // can be used to limit it to one
         int8_t const BCs[] = {Isolated_Boundary, Periodic_Boundary};
@@ -1039,13 +1041,13 @@ namespace parallel_poisson {
             if (echo > 9) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n\n");
             real_space::grid_t g(8*gx, 8*gy, 8*gz);
             if (echo > 7) std::printf("\n#\n# %s with grid [%d %d %d]\n", __func__, g[0], g[1], g[2]);
-            load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo);
+            load_balancing_t const lb(g, comm, 8, echo);
         for (int8_t bz{0}; bz < nBCs; ++bz) {
         for (int8_t by{0}; by < nBCs; ++by) { // loops over boundary conditions
         for (int8_t bx{0}; bx < nBCs; ++bx) {
             int8_t const bc[] = {BCs[bx], BCs[by], BCs[bz]};
             if (echo > 3) { std::printf("# %s with boundary conditions [%d %d %d]\n", __func__, bc[0], bc[1], bc[2]); std::fflush(stdout); }
-            mpi_parallel::barrier(MPI_COMM_WORLD); 
+            mpi_parallel::barrier(comm); 
 
             g.set_boundary_conditions(bc);
             parallel_grid_t pg(g, lb, echo >> 3, what); // run constructor silently
@@ -1057,13 +1059,14 @@ namespace parallel_poisson {
 
     template <typename real_t>
     status_t test_Laplace16th(int8_t const bc[3], int const echo=9) {
+        auto const comm = mpi_parallel::comm(); // for tests
         if (echo > 4) std::printf("\n# %s<%s>(bc=[%d %d %d])\n", __func__, (8 == sizeof(real_t))?"double":"float", bc[0], bc[1], bc[2]);
         status_t stat(0);
         double nb_inp[3]; control::get(nb_inp, "parallel_poisson.test.grid", "xyz", 4.);
         uint32_t const nb[] = {uint32_t(nb_inp[0]), uint32_t(nb_inp[1]), uint32_t(nb_inp[2])}; // number of 8*8*8 cubes
         real_space::grid_t g(nb[0]*8, nb[1]*8, nb[2]*8); // grid spacing == 1.0
         g.set_boundary_conditions(bc);
-        load_balancing_t const lb(g, MPI_COMM_WORLD, 8, echo);
+        load_balancing_t const lb(g, comm, 8, echo);
         parallel_grid_t pg(g, lb, echo);
         auto const nl = pg.n_local(), nr = pg.n_remote();
         view3D<real_t> xAx(2, std::max(1, int(nl + nr)), 512, real_t(0));

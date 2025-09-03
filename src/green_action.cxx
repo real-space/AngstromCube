@@ -26,7 +26,7 @@
   #include "display_units.h" // GByte, _GByte
   #include "green_input.hxx" // ::load_Hamiltonian
   #include "green_function.hxx" // ::construct_Green_function
-  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
+  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm
 
   #ifdef    HAS_TFQMRGPU
 
@@ -182,8 +182,9 @@ namespace green_action {
       int const r1c2 = control::get("green_function.benchmark.complex", 1.) + 1;
       int const noco = control::get("green_function.benchmark.noco", 1.);
 
+      auto const comm = mpi_parallel::comm(); // for tests
       action_plan_t p;
-      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, noco);
+      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, comm, echo, noco);
 
       assert(1 == r1c2 || 2 == r1c2);
       assert(1 == noco || r1c2 == noco);

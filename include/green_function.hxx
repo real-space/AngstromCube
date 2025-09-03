@@ -9,6 +9,7 @@
 #include "action_plan.hxx" // action_plan_t
 #include "green_parallel.hxx" // ::RequestList_t
 #include "data_view.hxx" // view3D<T>
+#include "mpi_parallel.hxx" // MPI_Comm
 
  /*
   *  Future plan:
@@ -26,6 +27,7 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
+        , MPI_Comm const comm //
         , int const echo=0 // verbosity
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear
     ); // declaration only

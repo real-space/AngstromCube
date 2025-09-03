@@ -25,6 +25,7 @@
 
 #include "status.hxx" // status_t
 
+#include "mpi_parallel.hxx" // MPI_Comm
 #include "kinetic_plan.hxx" // kinetic_plan_t
 #include "dyadic_plan.hxx" // dyadic_plan_t
 #include "green_parallel.hxx" // ::RequestList_t
@@ -105,6 +106,7 @@ public:
       , int8_t const bc[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
       , double const hg[3] // grid spacings
       , std::vector<double> const & xyzZinso // [natoms*8]
+      , MPI_Comm const comm
       , int const echo // =0 // log-level
       , int const Noco // =2
     ); // declaration only
