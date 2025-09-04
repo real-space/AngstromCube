@@ -29,8 +29,6 @@
 #include "energy_mesh.hxx" // ::Complex, ::get_energy_mesh
 #include "simple_stats.hxx" // ::Stats<>
 
-// #define ENERGY_CONTOUR_SVG_EXPORT
-
 namespace energy_contour {
 
     typedef energy_mesh::Complex Complex;
@@ -227,7 +225,7 @@ namespace energy_contour {
                 } // sync
                 // accumulate density over E-points
                 add_product(rho_c[0], ncubes*n4x4x4, rho_E[0], energy_weight);
-                if (echo > 7) { std::printf("# energy parameter#%i iterations need %s\n", iEpoint, iterations_needed_k.interval().c_str()); std::fflush(stdout); }
+                if (echo > 7) { std::printf("# energy parameter#%i iterations needed %s\n", iEpoint, iterations_needed_k.interval().c_str()); std::fflush(stdout); }
 
             } else if (echo > 7) std::printf("# solve Green function for E=%s\n", energy_parameter_label);
 
@@ -243,7 +241,7 @@ namespace energy_contour {
         } // iEpoint
 
         if (0 == check && echo > 3) {
-            std::printf("# iterations need %s\n", iterations_needed_Ek.interval().c_str()); std::fflush(stdout);
+            std::printf("# iterations needed %s\n", iterations_needed_Ek.interval().c_str()); std::fflush(stdout);
         } // check echo
 
         if (nEpoints < 2) warn("unable to eval a meaningful response density with less than 2 energy points, found %d", nEpoints);
