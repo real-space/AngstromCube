@@ -209,10 +209,11 @@
       if (echo > 3) std::printf("# projection radii are between %g and %g %s\n", min_sigma*r_proj*Ang, max_sigma*r_proj*Ang, _Ang);
       if (echo > 6) std::printf("# cubes have a circumscribing radius of %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
 
-      if (min_sigma*r_proj <= r_block_circumscribing_sphere) {
-          warn("a small projection radius (%g %s) could fall between cube corners (diagonal %g %s), enlarge +green_function.projection.radius=%.1f",
-              min_sigma*r_proj*Ang, _Ang, r_block_circumscribing_sphere*Ang, _Ang, r_block_circumscribing_sphere/std::max(.01, min_sigma) + .1);
-      }
+    //   // ToDo: check if the new structure makes this warning redundant
+    //   if (min_sigma*r_proj <= r_block_circumscribing_sphere) {
+    //       warn("a small projection radius (%g %s) could fall between cube corners (diagonal %g %s), enlarge +green_function.projection.radius=%.1f",
+    //           min_sigma*r_proj*Ang, _Ang, r_block_circumscribing_sphere*Ang, _Ang, r_block_circumscribing_sphere/std::max(.01, min_sigma) + .1);
+    //   }
 
       auto const radius = r_trunc + max_distance_from_center + 2*max_sigma*r_proj + 2*r_block_circumscribing_sphere;
       if (echo > 3) std::printf("# search radius is %g %s\n", radius*Ang, _Ang);
@@ -272,8 +273,8 @@
           size_t iaa{0};
           for (int ia{0}; ia < natoms; ++ia) { // loop over original atoms in the unit cell, serial
               auto const gid = int32_t(xyzZinso[ia*8 + 4]); // global_atom_id
-              auto const numax =   int(xyzZinso[ia*8 + 5]);
-              auto const sigma =       xyzZinso[ia*8 + 6] ;
+              auto const numax =   int(xyzZinso[ia*8 + 5]); // SHO basis size
+              auto const sigma =       xyzZinso[ia*8 + 6] ; // Gaussian spread
 
               double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
               double const r2projection = pow2(r_projection);
@@ -296,13 +297,16 @@
               uint32_t ntb{0}; // number of hit target blocks for this image
               for (uint32_t icube{0}; icube < nRowsGreen; ++icube) { // loop over blocks
                   auto const *const target_block_coords = rowCubePos[icube];
+
                   // do we need to do precise checking?
-                  double center_distance2{0};
+                  double dist2{0};
                   for (int d{0}; d < 3; ++d) {
                       double const cube_center = (target_block_coords[d]*4. + 2.)*grid_spacing[d];
-                      center_distance2 += pow2(cube_center - atom_pos[d]);
+                      dist2 += pow2(cube_center - atom_pos[d]);
                   } // d
-                  if (center_distance2 <= r2projection_plus) { // do more precise checking
+                  auto const center_distance2 = dist2;
+                  if (center_distance2 <= r2projection_plus) {
+                      // do more precise checking
 //                    if (echo > 9) std::printf("# target block #%i at %s gets corner check with image at %s Bohr, radius= %g Bohr\n", icube, str(target_block_coords), str(atom_pos), r_projection);
                       int nci{0}; // number of corners inside
 
@@ -352,7 +356,7 @@
                       } else { // nci
 //                        if (echo > 9) std::printf("# target block #%i at %s is outside\n", icube, str(target_block_coords));
                           // assert(0 == nci);
-                          assert(center_distance2 > r2block_circumscribing_sphere && "enlarge +green_function.projection.radius"); // a projection sphere fell between the corners
+                          assert(center_distance2 < r2block_circumscribing_sphere && "enlarge +green_function.projection.radius"); // a projection sphere fell between the corners
                       } // nci
                       ++nci_stats[nci];
 
