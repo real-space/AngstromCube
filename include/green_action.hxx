@@ -44,7 +44,7 @@
 #include "constants.hxx"       // ::pi
 #include "green_memory.hxx"    // get_memory, free_memory
 #include "status.hxx"          // status_t, STATUS_TEST_NOT_INCLUDED
-#include "mpi_parallel.hxx"    // ::allreduce, ::rank
+#include "mpi_parallel.hxx"    // ::allreduce, ::rank, MPI_COMM_WORLD
 #include "recorded_warnings.hxx" // warn
 #include "inline_math.hxx"     // set
 
@@ -198,12 +198,12 @@ namespace green_action {
         ) {
             if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
 
-// #ifdef    DEBUGGPU
-            if (echo > 5) {
-                auto const me = mpi_parallel::rank(MPI_COMM_WORLD); // usues MPI_COMM_WORLD            
+#ifdef    DEBUGGPU
+            if (echo > 9) {
+                auto const me = mpi_parallel::rank(MPI_COMM_WORLD);
                 std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
             } // echo
-// #endif // DEBUGGPU
+#endif // DEBUGGPU
 
             assert(nullptr != p_);
             auto const & p = *p_;
