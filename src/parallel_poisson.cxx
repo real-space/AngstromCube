@@ -98,7 +98,7 @@ namespace parallel_poisson {
 
         double rank_center[4] = {0,0,0,  0};
 
-        load_ = load_balancer::get(np, me, nb, echo, rank_center, owner_rank_.data());
+        load_ = load_balancer::get(np, me, nb, nullptr, echo, rank_center, owner_rank_.data());
         n_local_cubes_ = rank_center[3]; // the 4th component contains the number of items
         if (echo > 7) std::printf("# rank#%i rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
 

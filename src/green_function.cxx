@@ -282,7 +282,7 @@ namespace green_function {
 
             // currently the load balancer assumes that each of the nb^3 source blocks is equally expensive, however,
             //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
-            auto const load = load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
+            auto const load = load_balancer::get(comm_size, comm_rank, nb, nullptr, echo, rank_center, owner_rank.data());
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
