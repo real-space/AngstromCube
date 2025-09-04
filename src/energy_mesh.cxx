@@ -16,7 +16,7 @@
 #include "print_tools.hxx" // printf_vector
 #include "simple_math.hxx" // ::random
 
-#define   ENERGY_MESH_SVG_EXPORT
+// #define   ENERGY_MESH_SVG_EXPORT
 
 namespace energy_mesh {
 

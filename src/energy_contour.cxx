@@ -29,8 +29,6 @@
 #include "energy_mesh.hxx" // ::Complex, ::get_energy_mesh
 #include "simple_stats.hxx" // ::Stats<>
 
-// #define ENERGY_CONTOUR_SVG_EXPORT
-
 namespace energy_contour {
 
     typedef energy_mesh::Complex Complex;
