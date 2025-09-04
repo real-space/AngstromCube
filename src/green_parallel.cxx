@@ -58,7 +58,7 @@ namespace green_parallel {
         auto const nprocs = mpi_parallel::size(comm);
         auto const me     = mpi_parallel::rank(comm, nprocs);
 
-        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=%s\n",
+        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=\'%s\'\n",
                         me, __FILE__, __LINE__, nb[0], nb[1], nb[2], what); std::fflush(stdout); }
         mpi_parallel::barrier(comm);
 
@@ -460,7 +460,7 @@ namespace green_parallel {
         auto const me = mpi_parallel::rank(comm, nprocs);
 
         // The number of local atoms is limited to 2^16 == 65536
-        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
+        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
                                                                                   count, count*sizeof(real_t)*.001, what);
         auto const nreq = this->size(); // number of requests
         auto const nwin = this->window(); // number of offerings
@@ -539,7 +539,7 @@ namespace green_parallel {
             return this->exchange_onesided(data_out, data_inp, count, echo, what);
         } // use one-sided MPI communication routines
 #endif // HAS_ONESIDED_MPI
-        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte %s\n",
+        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
                                                                                   count, count*sizeof(real_t)*.001, what);
         status_t status(0);
 
