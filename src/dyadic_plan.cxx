@@ -209,12 +209,6 @@
       if (echo > 3) std::printf("# projection radii are between %g and %g %s\n", min_sigma*r_proj*Ang, max_sigma*r_proj*Ang, _Ang);
       if (echo > 6) std::printf("# cubes have a circumscribing radius of %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
 
-    //   // ToDo: check if the new structure makes this warning redundant
-    //   if (min_sigma*r_proj <= r_block_circumscribing_sphere) {
-    //       warn("a small projection radius (%g %s) could fall between cube corners (diagonal %g %s), enlarge +green_function.projection.radius=%.1f",
-    //           min_sigma*r_proj*Ang, _Ang, r_block_circumscribing_sphere*Ang, _Ang, r_block_circumscribing_sphere/std::max(.01, min_sigma) + .1);
-    //   }
-
       auto const radius = r_trunc + max_distance_from_center + 2*max_sigma*r_proj + 2*r_block_circumscribing_sphere;
       if (echo > 3) std::printf("# search radius is %g %s\n", radius*Ang, _Ang);
       auto const r2block_circumscribing_sphere = pow2(r_block_circumscribing_sphere);
@@ -298,24 +292,30 @@
               for (uint32_t icube{0}; icube < nRowsGreen; ++icube) { // loop over blocks
                   auto const *const target_block_coords = rowCubePos[icube];
 
-                  // do we need to do precise checking?
+                  // compute the distance of the cube center from the position of the atomic nucleus
                   double dist2{0};
                   for (int d{0}; d < 3; ++d) {
                       double const cube_center = (target_block_coords[d]*4. + 2.)*grid_spacing[d];
                       dist2 += pow2(cube_center - atom_pos[d]);
                   } // d
                   auto const center_distance2 = dist2;
-                  if (center_distance2 <= r2projection_plus) {
-                      // do more precise checking
+
+                  // do we need to do any checking?
+                  if (center_distance2 > r2projection_plus) {
+                      ++far_outside;
+//                    if (echo > 21) std::printf("# target block #%i at %s is far outside\n", icube, str(target_block_coords));
+                  } else { // d2 > r2projection_plus
+
 //                    if (echo > 9) std::printf("# target block #%i at %s gets corner check with image at %s Bohr, radius= %g Bohr\n", icube, str(target_block_coords), str(atom_pos), r_projection);
                       int nci{0}; // number of corners inside
 
+                      // do we need to do more precise checking?
                       if (center_distance2 <= r2projection_minus) {
-                          nci = 9; // 8 corners must be inside (without checking), indicate 9 to differentiate the stats from "fully inside with/without checking"
+                          nci = 9; // all 8 corners must be inside (no checking needed), indicate 9 to differentiate the stats from "fully inside with/without checking"
                           ++find_inside;
                       } else { // d2 <= r2projection_minus
 
-                          // check 8 corners
+                          // check all 8 corners
                           double d2xyz[3][2]; // squares of difference coordinates with the corners
                           for (int d{0}; d < 3; ++d) {
                               for (int ii{0}; ii < 2; ++ii) { // ii=0:  leftmost grid point (pos 0.5h)
@@ -356,14 +356,10 @@
                       } else { // nci
 //                        if (echo > 9) std::printf("# target block #%i at %s is outside\n", icube, str(target_block_coords));
                           // assert(0 == nci);
-                          assert(center_distance2 < r2block_circumscribing_sphere && "enlarge +green_function.projection.radius"); // a projection sphere fell between the corners
                       } // nci
                       ++nci_stats[nci];
 
-                  } else { // d2 < r2projection_plus
-                      ++far_outside;
-//                    if (echo > 21) std::printf("# target block #%i at %s is far outside\n", icube, str(target_block_coords));
-                  } // d2 < r2projection_plus
+                  } // d2 > r2projection_plus
               } // icube
 
               if (ntb > 0) {
