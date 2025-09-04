@@ -436,13 +436,17 @@ namespace atom_core {
               set(export_Zeff, g.n, rV_old.data(), -1.);
           } // export_Zeff
 
-          auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "Zeff", -1.);
-          if (0 != store_stat && nullptr != export_Zeff) {
-              warn("Z=%g failed to store self-consistent atom potential (status=%i) but passed in memory", Z, int(store_stat));
-              // ignore the store_stat
-          } else {
-              stat += store_stat;
-          }
+          #pragma omp critical (atom_core_store_Zeff)
+          {
+              auto const store_stat = store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "Zeff", -1.);
+              if (0 != store_stat && nullptr != export_Zeff) {
+                  warn("Z=%g failed to store self-consistent atom potential (status=%i) but passed in memory", Z, int(store_stat));
+                  // ignore the store_stat
+              } else {
+                  stat += store_stat;
+              }
+          } // critical
+
       } // converged?
 
       // dump_to_file("rV_converged.dat", g.n, rV_old, g.r);
