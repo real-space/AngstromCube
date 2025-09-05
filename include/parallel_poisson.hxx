@@ -15,7 +15,7 @@ namespace parallel_poisson {
         load_balancing_t() : nb_{0u, 0u, 0u} {} // default constructor
         load_balancing_t(
               real_space::grid_t const & g
-            , MPI_Comm const comm=MPI_COMM_WORLD // MPI communicator
+            , MPI_Comm const comm // MPI communicator
             , unsigned const n8=8 // number of grid points per cube edge
             , int const echo=0 // log-level
         ); // declaration only
@@ -28,6 +28,7 @@ namespace parallel_poisson {
         int32_t min_domain_[3];
         int32_t max_domain_[3];
         view3D<green_parallel::rank_int_t> owner_rank_;
+        std::vector<int64_t> global_ids_;
     public:
         uint32_t const * grid_cubes() const { return nb_; }
         view3D<green_parallel::rank_int_t> const & owner_rank() const { return owner_rank_; }
@@ -36,6 +37,7 @@ namespace parallel_poisson {
         int32_t const * max_domain() const { return max_domain_; }
         double load() const { return load_; }
         uint32_t n_local() const { return n_local_cubes_; }
+        std::vector<int64_t> const & global_ids() const { return global_ids_; }
     }; // class load_balancing_t
 
 

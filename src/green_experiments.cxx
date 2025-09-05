@@ -662,8 +662,9 @@ namespace green_experiments {
 
         auto const comm = mpi_parallel::comm(); // for tests
 
+        std::vector<int64_t> gids(0);
         action_plan_t p;
-        auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, comm, echo, Noco);
+        auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, comm, gids, echo, Noco);
         if (plan_stat) {
             warn("construct_Green_function failed with status=%d", int(plan_stat));
             return plan_stat;
@@ -699,7 +700,7 @@ namespace green_experiments {
             if (echo > 4) std::printf("# verbosity for second call to construct_Green_function is +green_experiments.overlap.echo=%d\n", echo_pS);
 
             action_plan_t pS; // plan for the overlap operator
-            auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, comm, echo_pS, Noco); // since the copy operator is deleted we have to do it again
+            auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, comm, gids, echo_pS, Noco); // since the copy operator is deleted we have to do it again
             if (plan_stat) {
                 warn("construct_Green_function failed with status=%d for the overlap operator", int(plan_stat));
                 return plan_stat;

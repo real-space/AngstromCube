@@ -93,6 +93,7 @@ public: // TODo: check which members could be private
 
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
+    std::vector<green_parallel::rank_int_t> owner_rank_; // load balancing, can be different from that of the dense grid
     green_parallel::RequestList_t potential_requests; // request list to exchange potential cubes
     green_parallel::RequestList_t matrices_requests;  // request list to exchange atomic matrices
 
@@ -107,6 +108,7 @@ public:
       , double const hg[3] // grid spacings
       , std::vector<double> const & xyzZinso // [natoms*8]
       , MPI_Comm const comm
+      , std::vector<int64_t> const & potential_gids
       , int const echo // =0 // log-level
       , int const Noco // =2
     ); // declaration only

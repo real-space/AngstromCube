@@ -28,6 +28,7 @@ namespace green_function {
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
         , MPI_Comm const comm //
+        , std::vector<int64_t> const & global_potential_indices
         , int const echo=0 // verbosity
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear
     ); // declaration only
@@ -35,7 +36,7 @@ namespace green_function {
     status_t update_potential(
           action_plan_t & p // modify
 //      , uint32_t const nb[3] // numbers of 4*4*4 grid cubes of the unit cell in with the potential is defined
-        , std::vector<double> const & Veff // effective potential[n_local*4*4*4]
+        , std::vector<double> const & Veff // effective potential[ncubes*4*4*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo=0 // verbosity
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear

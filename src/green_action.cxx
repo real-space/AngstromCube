@@ -183,8 +183,9 @@ namespace green_action {
       int const noco = control::get("green_function.benchmark.noco", 1.);
 
       auto const comm = mpi_parallel::comm(); // for tests
+      std::vector<int64_t> gids(0);
       action_plan_t p;
-      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, comm, echo, noco);
+      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, comm, gids, echo, noco);
 
       assert(1 == r1c2 || 2 == r1c2);
       assert(1 == noco || r1c2 == noco);
