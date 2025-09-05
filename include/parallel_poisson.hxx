@@ -41,7 +41,6 @@ namespace parallel_poisson {
     }; // class load_balancing_t
 
 
-
     class parallel_grid_t {
     public:
 //      parallel_grid_t() { set(nb_, 3, 0u); set(bc_, 3, int8_t(0)); nperiodic_ = 0; comm_ = MPI_COMM_NULL; set(h2_, 3, 1.); dVol_ = 1; } // default constructor, never used
@@ -79,6 +78,7 @@ namespace parallel_poisson {
         double dV() const { return dVol_; }
     }; // class parallel_grid_t
 
+
     template <typename real_t>
     status_t solve(
           real_t x[] // result to Laplace(x)/(-4*pi) == b, only rank-local cubes, data layout x[][8*8*8]
@@ -93,6 +93,7 @@ namespace parallel_poisson {
         , int restart=4096 // number of iterations before restart, 1:steepest descent
         , double *inner_xx_bb=nullptr // export the last inner product
     ); // declaration only
+
 
     template <typename real_t=double>
     status_t cube4x4x4_interpolation(

@@ -98,7 +98,8 @@ namespace parallel_poisson {
 
         double rank_center[4] = {0,0,0,  0};
 
-        load_ = load_balancer::get(nprocs, me, nb, nullptr, echo, rank_center, owner_rank_.data());
+        float const * const block_weights = nullptr;
+        load_ = load_balancer::get(nprocs, me, nb, block_weights, echo, rank_center, owner_rank_.data());
         n_local_cubes_ = rank_center[3]; // the 4th component contains the number of items
         if (echo > 7) std::printf("# rank#%i rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
 
@@ -201,7 +202,7 @@ namespace parallel_poisson {
         auto nb = nb_;
         set(nb, 3, lb.grid_cubes());
 
-        auto const n_all_cubes = nb[2]*size_t(nb[1])*size_t(nb[0]);
+        auto const n_all_cubes = (nb[2])*size_t(nb[1])*size_t(nb[0]);
 
         auto const bc = g.boundary_conditions();
         if (echo > 3) std::printf("# %s(nb= [%d %d %d], nall= %ld, bc=[%d %d %d], what=%s)\n", __func__,

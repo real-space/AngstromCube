@@ -10,6 +10,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "data_list.hxx" // data_list<T>
 #include "green_solver.hxx" // green_solver_t
+#include "green_parallel.hxx" // ::RequestList_t
 
 namespace energy_contour {
 
@@ -35,6 +36,7 @@ namespace energy_contour {
         // Integrator & operator=(Integrator && rhs) { // move assignment
         //     std::swap(this->solver_ , rhs.solver_);
         //     std::swap(this->plan_   , rhs.plan_  );
+        //     std::swap(this->req_    , rhs.req_   );
         //     std::swap(this->pg_     , rhs.pg_    );
         //     return *this;
         // } // move assignment
@@ -48,17 +50,18 @@ namespace energy_contour {
             , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
             , std::vector<int32_t> const & numax_prj
             , std::vector<double> const & sigma_prj
-         // , parallel_poisson::parallel_grid_t const & pg // ToDo: replace by comm and n_local
             , double const n_electrons=1 // required total number of electrons 
             , double const dV=1 // grid volume element
             , int const echo=0 // log level
             , int const check=0
+            , int const scf_iteration_number=0
         ); // declaration only
 
     // members
     public:
         action_plan_t *plan_ = nullptr; // ToDo: make this a private member
         parallel_poisson::parallel_grid_t *pg_ = nullptr; // ToDo: make this private
+        green_parallel::RequestList_t *req_ = nullptr;
     private:
         green_solver_t *solver_ = nullptr;
     }; // class Integrator

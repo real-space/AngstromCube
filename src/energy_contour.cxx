@@ -28,6 +28,8 @@
 #include "verify_benchmark.hxx" // ::verify
 #include "energy_mesh.hxx" // ::Complex, ::get_energy_mesh
 #include "simple_stats.hxx" // ::Stats<>
+#include "simple_timer.hxx" // SimpleTimer
+#include "green_parallel.hxx" // ::RequestList_t
 
 namespace energy_contour {
 
@@ -45,19 +47,34 @@ namespace energy_contour {
         auto const stat = green_function::construct_Green_function(*plan_, // result
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
                             xyzZinso, // atom info
-                            lb.comm(), lb.global_ids(), // communicator and global_ids of potential elements
+                            lb.comm(), // global_ids of potential elements
+                            lb.global_ids(), // global_ids of potential elements
                             echo);
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
-        if (echo > 2) { std::printf("\n# generate a parallel grid descriptor for the interpolation of densities\n"); }
-        // ToDo: let the load balancing found during the construction of *plan_ also enter here
-        pg_ = new parallel_poisson::parallel_grid_t(gc, lb, echo, "Interpolation");
-        if (echo > 0) { std::printf("\n# pg_.comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
-                            int64_t(pg_->comm()), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
+        // if the two distributions are not the same, we need to redistribute the 4x4x4 density cubes
+        if (true) { // just do it anyway, must also be correct if the distributions match
+            uint32_t const nb[] = {uint32_t(gc[0] >> 2), uint32_t(gc[1] >> 2), uint32_t(gc[2] >> 2)}; // divide grid by 4
+            if (echo > 5) { std::printf("# rank#%i plan to redistribute %ld 4x4x4 density cubes to %ld cubes\n",
+                mpi_parallel::rank(lb.comm()), plan_->global_source_indices.size(), lb.global_ids().size()); }
+            req_ = new green_parallel::RequestList_t(lb.global_ids() // requests
+                                      , plan_->global_source_indices // offerings
+                                      , plan_->owner_rank_.data() // where to find it, [nb[Z]*nb[Y]*nb[X]]
+                                      , nb // number of cubes
+                                      , lb.comm() // communicator
+                                      , echo // log-level
+                                      , "redistribute" // what
+                                    );
+        }
 
-        if (echo > 0) std::printf("# move green_solver_t\n");
+        if (echo > 2) { std::printf("# generate a parallel grid descriptor for the interpolation of densities\n"); }
+        pg_ = new parallel_poisson::parallel_grid_t(gc, lb, echo, "Interpolation");
+        if (echo > 8) { std::printf("\n# pg_.comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
+            int64_t(pg_->comm()), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
+
+        if (echo > 7) std::printf("# move green_solver_t\n");
         solver_ = new green_solver_t(plan_, echo, check);
-        if (echo > 0) std::printf("# constructed %s\n", __func__);
+        if (echo > 7) std::printf("# constructed %s\n", __func__);
     } // constructor
 
     Integrator::~Integrator() {
@@ -88,17 +105,17 @@ namespace energy_contour {
     } // maxval
 
     status_t Integrator::integrate(
-          double rho_888[] // resulting density in [ncubes][8*8*8] data layout
+          double *const rho_888 // resulting density in [ncubes*8*8*8] data layout
         , double & Fermi_level // Fermi level
         , std::vector<double> const & Vtot // input potential in [ncubes*4*4*4]
         , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
         , std::vector<int32_t> const & numax_prj
         , std::vector<double> const & sigma_prj
-     // , parallel_poisson::parallel_grid_t const & pg // ncubes == pg.n_local(), domain decomposition of the dense grid
         , double const n_electrons // =1 // required total number of electrons 
         , double const dV // =1 // grid volume element on dense grid
         , int const echo // =0 // log level
         , int const check // =0
+        , int const scf_iteration_number // =0
     ) {
         status_t stat(0);
         size_t constexpr n4x4x4 = 4*4*4;
@@ -107,10 +124,10 @@ namespace energy_contour {
 
         assert(nullptr != pg_);
         auto const comm = pg_->comm();
-        if (echo > 0) { std::printf("\n# energy_contour::integration comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
+        if (echo > 8) { std::printf("\n# energy_contour::integration comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
                                     int64_t(comm), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
         auto const me = mpi_parallel::rank(comm);
-        bool const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.)); // configure +energy_contour.integrate.mpi.sync=0 to measure the load imbalance
+        int const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.)); // set .sync=0 to measure load imbalance
 
         int const max_iterations = control::get("green_solver.iterations", 99.);
         if (echo > 0) std::printf("\n# energy_contour::integration(E_Fermi=%g %s, %g electrons, echo=%d) +check=%i\n", Fermi_level*eV, _eV, n_electrons, echo, check);
@@ -122,7 +139,7 @@ namespace energy_contour {
         plan.echo = echo >> 2; // lower internal verbosity
 
         auto const nrhs = plan.nCols; // number of 4x4x4 cubes treated by the Green function solver
-        if (echo > 1) { std::printf("# dense grid domain has %d cubes, Green solver works on %d cubes\n", ncubes, nrhs); }
+        if (echo > 1) { std::printf("# dense grid domain has %d cubes, Green solver works on %d RHS cubes\n", ncubes, nrhs); }
 
         int constexpr Noco = 1;
 
@@ -183,6 +200,9 @@ namespace energy_contour {
         view2D<Complex> rho_c(nrhs, n4x4x4, zero); // complex density
         view2D<Complex> res_c(nrhs, n4x4x4, zero); // complex response density
         Complex res_point{zero};
+
+        char timer_label[64]; std::snprintf(timer_label, 64, "Green solver in SCF-iteration#%i", scf_iteration_number);
+        SimpleTimer integrate_timer(strip_path(__FILE__), __LINE__, timer_label, 0); // start timer
 
         simple_stats::Stats<> iterations_needed_Ek;
         for (int iEpoint{0}; iEpoint < nEpoints; ++iEpoint) {
@@ -246,6 +266,18 @@ namespace energy_contour {
             } // last two
         } // iEpoint
 
+        auto const green_solver_took = integrate_timer.stop(); // stop timer
+        {
+            simple_stats::Stats<> green_time_stats;
+            green_time_stats.add(green_solver_took);
+            mpi_parallel::allreduce(green_time_stats, comm); // MPI synchronization point
+            if (0 == check && echo > 2) {
+                std::printf("# Green solver in SCF-iteration#%i took %s seconds (sync=%i)\n", 
+                    scf_iteration_number, green_time_stats.interval().c_str(), sync);
+            } // echo
+        }
+
+
         if (0 == check && echo > 3) {
             std::printf("# iterations needed %s\n", iterations_needed_Ek.interval().c_str()); std::fflush(stdout);
         } // check echo
@@ -263,17 +295,17 @@ namespace energy_contour {
             } // i444
         } // ib cube index
 
-        if (sync) {
+        {
             auto const rho_integral = mpi_parallel::sum(sum(rho_444[0], nrhs*n4x4x4), comm)*dVc; // MPI synchronization point
             if (echo + check > 3) std::printf("# solved density has %g electrons\n", rho_integral);
             if (echo > 4) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_444[0], nrhs*n4x4x4));
-        } // sync
+        }
 
-        if (sync) {
+        {
             auto const rho_integral = mpi_parallel::sum(sum(rho_res[0], nrhs*n4x4x4), comm)*dVc; // MPI synchronization point
             if (echo + check > 3) std::printf("# solved response density has %g electrons\n", rho_integral);
             // the response density should be positive semidefinite (i.e. integral >= 0) since higher Fermi --> more electrons
-        } // sync
+        }
 
 #ifdef    DEVEL
         int const verify = control::get("verify.benchmark", 0.);
@@ -287,19 +319,32 @@ namespace energy_contour {
 
         // ToDo: add response density until we match the Fermi level
 
-        if (sync) {
-            if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
-            // interpolate density from 4*4*4 to 8*8*8 cubes including MPI communication
-            parallel_poisson::cube4x4x4_interpolation(rho_888, rho_444[0], *pg_, echo, 1., "density");
+        
+        // check if we need to MPI-redistribute the density cubes
+        double const *rho_on444{nullptr};
+        std::vector<double> rho_red;
+        if (req_) {
+            // the domain decomposition of the 8x8x8 grid does not match the 4x4x4 grid
+            if (echo > 5) { std::printf("# rank#%i redistribute %d 4x4x4 density cubes to %d cubes\n", me, nrhs, ncubes); }
+            rho_red.resize(ncubes*n4x4x4, 0.0);
+            req_->exchange(rho_red.data(), rho_444[0], n4x4x4, echo, "redistribute density");
+            rho_on444 = rho_red.data();
         } else {
-            warn("Cannot interpolate without MPI synchronization", 0);
+            rho_on444 = rho_444[0]; // matching domain decompositions
         }
 
-        if (sync) {
+        // Idea: combine the redistribution above with the data exchange inside the interpolation to save some overheads
+        
+        if (echo > 3) std::printf("# interpolate density from 4x4x4 to 8x8x8\n");
+        // interpolate density from 4*4*4 to 8*8*8 cubes including MPI communication for 3x3x3 halos
+        assert(nullptr != pg_);
+        parallel_poisson::cube4x4x4_interpolation(rho_888, rho_on444, *pg_, echo, 1., "density");
+
+        {
             auto const rho_integral = mpi_parallel::sum(sum(rho_888, ncubes*n8x8x8), comm)*dV; // MPI synchronization point
             if (echo + check > 3) std::printf("# interpolated density has %g electrons\n", rho_integral);
             if (echo > 4) std::printf("# rank#%i maxval rho= %g a.u.\n", me, maxval(rho_888, ncubes*n8x8x8));
-        } // sync
+        }
 
         if (echo > 3) std::printf("# density integrated over %d energy points\n", nEpoints);
         return stat;

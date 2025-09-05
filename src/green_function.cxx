@@ -254,7 +254,28 @@ namespace green_function {
 
             // currently the load balancer assumes that each of the nb^3 source blocks is equally expensive, however,
             //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
-            auto const load = load_balancer::get(comm_size, comm_rank, nb, nullptr, echo, rank_center, owner_rank.data());
+            float const * block_weights{nullptr}; // data layout float[nb[Z]*nb[Y]*nb[X]]
+#ifdef    DEVEL
+            int const artificial_weights = control::get("artificial.weights", 0.);
+            std::vector<float> weights(nall, 0.f);
+            if (artificial_weights) {
+                double coeff[3]; control::get(coeff, "artificial.weights.polynomial", "abc", 0.0);
+                if (echo > 0) { std::printf("# artificial weights polynomial a + b*i + c*i*i with a=%g b=%g c=%g\n", coeff[0], coeff[1], coeff[2]); }
+                assert(nall > 0);
+                auto const by_nall = 1./nall;
+                double min_weight{9e99}, max_weight{-9e99}; 
+                for (size_t iall = 0; iall < nall; ++iall) {
+                    auto const x = iall*by_nall;
+                    auto const weight = coeff[0] + x*(coeff[1] + x*coeff[2]);
+                    min_weight = std::min(min_weight, weight);
+                    max_weight = std::max(max_weight, weight);
+                    weights[iall] = weight; // store as float
+                } // iall
+                if (echo > 0) { std::printf("# artificial weights in [%g, %g] interval\n", min_weight, max_weight); }
+                block_weights = weights.data();
+            } // artificial_weights
+#endif // DEVEL
+            auto const load = load_balancer::get(comm_size, comm_rank, nb, block_weights, echo, rank_center, owner_rank.data());
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }

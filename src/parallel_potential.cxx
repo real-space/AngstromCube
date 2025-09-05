@@ -851,6 +851,15 @@ namespace parallel_potential {
 
         int const check = control::get("check", 0.); // 0:run-mode, <>0:check-mode
 
+        char const *const basis_method = control::get("basis", "Green-function"); // {Green-function, Thomas-Fermi, none}
+        bool needs_integrator{false};
+        switch (*basis_method | 32) {
+            case 't': break; // Thomas-Fermi model
+            case 'g': needs_integrator = true; break; // Green-function model
+            case 'n': warn("with +basis=%s --> none no new valence density is created!", basis_method); break;
+            default : error("not implemented +basis=%s", basis_method);
+        } // switch
+
         // load geometry from +geometry.file=atoms.xyz
         real_space::grid_t g;    // entire grid descriptor, dense grid
         view2D<double> xyzZ_all; // coordinates for all atoms
@@ -1056,21 +1065,10 @@ namespace parallel_potential {
         data_list<double> atoms_vbar(nr2s, 0.0); // zero potentials on contributing atoms
         data_list<double> atoms_rhoc(nr2s, 0.0); // core densities  on contributing atoms
 
-
-
         std::vector<int32_t> numax_prj; // SHO basis size  of the PAW projectors on owned atoms
         std::vector<double>  sigma_prj; // Gaussian spread of the PAW projectors on owned atoms
 
         energy_contour::Integrator *integrator{nullptr};
-        char const *const basis_method = control::get("basis", "Green-function"); // {Green-function, Thomas-Fermi, none}
-        bool needs_integrator{false};
-        switch (*basis_method | 32) {
-            case 't': break; // Thomas-Fermi model
-            case 'g': needs_integrator = true; break; // Green-function model
-            case 'n': warn("with +basis=%s --> none no new valence density is created!", basis_method); break;
-            default : error("not implemented +basis=%s", basis_method);
-        } // switch
-
         if (needs_integrator) {
             if (echo > 0) std::printf("\n# Initialize energy contour integrator\n");
 
@@ -1417,23 +1415,13 @@ namespace parallel_potential {
 
                 // call energy-contour integration to find a new density
                 auto const stat_Gf = integrator->integrate(new_valence_density[0], E_Fermi, V_coarse, atom_mat, numax_prj, sigma_prj,
-                                                          // pg_Interpolation, 
-                                                          n_valence_electrons, g.dV(), echo, check);
+                                                           n_valence_electrons, g.dV(), echo, check, scf_iteration);
                 stat += stat_Gf;
-                if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
 
-                auto const green_function_took = green_timer.stop();
-                {
-                    simple_stats::Stats<> green_time_stats;
-                    green_time_stats.add(green_function_took);
-                    mpi_parallel::allreduce(green_time_stats,comm);
-                    if (0 == check && echo > 2) {
-                        std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
-                            scf_iteration, green_time_stats.interval().c_str());
-                    } // echo
-                    green_function_times.add(green_time_stats.max());
-                }
-                mpi_parallel::barrier(comm); // wait until other ranks have finished the Green function solution
+                mpi_parallel::barrier(comm);
+                green_function_times.add(green_timer.stop());
+
+                if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }
             break;
 
