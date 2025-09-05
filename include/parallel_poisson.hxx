@@ -12,7 +12,7 @@ namespace parallel_poisson {
 
     class load_balancing_t {
     public:
-        load_balancing_t() : nb_{0u, 0u, 0u} {} // default constructor
+     // load_balancing_t() : nb_{0u, 0u, 0u} {} // default constructor, never used
         load_balancing_t(
               real_space::grid_t const & g
             , MPI_Comm const comm // MPI communicator
@@ -44,7 +44,7 @@ namespace parallel_poisson {
 
     class parallel_grid_t {
     public:
-        parallel_grid_t() { set(nb_, 3, 0u); set(bc_, 3, int8_t(0)); nperiodic_ = 0; comm_ = MPI_COMM_NULL; set(h2_, 3, 1.); dVol_ = 1; } // default constructor
+//      parallel_grid_t() { set(nb_, 3, 0u); set(bc_, 3, int8_t(0)); nperiodic_ = 0; comm_ = MPI_COMM_NULL; set(h2_, 3, 1.); dVol_ = 1; } // default constructor, never used
         parallel_grid_t(
               real_space::grid_t const & g
             , load_balancing_t const & lb
