@@ -1543,7 +1543,7 @@ namespace parallel_potential {
 
         if (integrator) {
             if (echo > 4) { std::printf("# envoke Integrator-destructor\n"); }
-            integrator->~Integrator();
+            delete integrator;
         }
         
         stat += live_atom_update("memory cleanup", na);

@@ -64,21 +64,9 @@ namespace energy_contour {
 #ifdef    DEBUGGPU
         std::printf("\n# destruct %s\n", __func__);
 #endif // DEBUGGPU
-        if (solver_) {
-#ifdef    DEBUGGPU
-            std::printf("# destruct %s with solver=%p\n", __func__, (void*)solver_);
-#endif // DEBUGGPU
-            solver_->~green_solver_t();
-            delete solver_;
-        }
-        // if (pg_) {
-        //     pg_->~parallel_grid_t();
-        //     delete pg_;
-        // }
-        // if (plan_) {
-        //     plan_->~action_plan_t();
-        //     delete plan_;
-        // }
+        if (solver_) { delete solver_; }
+        if (plan_) { delete plan_; }
+        if (pg_) { delete pg_; }
     } // destructor
 
     template <typename real_t>

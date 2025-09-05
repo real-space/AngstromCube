@@ -17,7 +17,7 @@ namespace energy_contour {
 
     public: // constructors
 
-        Integrator() {} // default constructor
+        // Integrator() {} // default constructor
         Integrator(
               real_space::grid_t const & gc // coarse grid descriptor
             , std::vector<double> const & xyzZinso // all atoms
@@ -28,16 +28,16 @@ namespace energy_contour {
 
         ~Integrator(); // destructor, declaration only
 
-        Integrator(Integrator const &) = delete; // copy constructor
-        Integrator(Integrator &&)      = delete; // move constructor
-        Integrator & operator=(Integrator const &) = delete; // copy assignment
+        // Integrator(Integrator const &) = delete; // copy constructor
+        // Integrator(Integrator &&)      = delete; // move constructor
+        // Integrator & operator=(Integrator const &) = delete; // copy assignment
 
-        Integrator & operator=(Integrator && rhs) { // move assignment
-            std::swap(this->solver_ , rhs.solver_);
-            std::swap(this->plan_   , rhs.plan_  );
-            std::swap(this->pg_     , rhs.pg_    );
-            return *this;
-        } // move assignment
+        // Integrator & operator=(Integrator && rhs) { // move assignment
+        //     std::swap(this->solver_ , rhs.solver_);
+        //     std::swap(this->plan_   , rhs.plan_  );
+        //     std::swap(this->pg_     , rhs.pg_    );
+        //     return *this;
+        // } // move assignment
 
     public: // methods
 
