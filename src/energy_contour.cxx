@@ -47,13 +47,14 @@ namespace energy_contour {
         auto const stat = green_function::construct_Green_function(*plan_, // result
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
                             xyzZinso, // atom info
-                            lb.comm(), // global_ids of potential elements
-                            lb.global_ids(), // global_ids of potential elements
+                            lb.comm(),
+                            lb.global_ids(),
+                            lb.owner_rank().data(),
                             echo);
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
         // if the two distributions are not the same, we need to redistribute the 4x4x4 density cubes
-        if (true) { // just do it anyway, must also be correct if the distributions match
+        if (true) { // ToDo: check if we need redistribution at all
             uint32_t const nb[] = {uint32_t(gc[0] >> 2), uint32_t(gc[1] >> 2), uint32_t(gc[2] >> 2)}; // divide grid by 4
             if (echo > 5) { std::printf("# rank#%i plan to redistribute %ld 4x4x4 density cubes to %ld cubes\n",
                 mpi_parallel::rank(lb.comm()), plan_->global_source_indices.size(), lb.global_ids().size()); }
@@ -69,8 +70,8 @@ namespace energy_contour {
 
         if (echo > 2) { std::printf("# generate a parallel grid descriptor for the interpolation of densities\n"); }
         pg_ = new parallel_poisson::parallel_grid_t(gc, lb, echo, "Interpolation");
-        if (echo > 8) { std::printf("\n# pg_.comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
-            int64_t(pg_->comm()), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
+        // if (echo > 8) { std::printf("\n# pg_.comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
+        //     int64_t(pg_->comm()), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
 
         if (echo > 7) std::printf("# move green_solver_t\n");
         solver_ = new green_solver_t(plan_, echo, check);
@@ -124,8 +125,8 @@ namespace energy_contour {
 
         assert(nullptr != pg_);
         auto const comm = pg_->comm();
-        if (echo > 8) { std::printf("\n# energy_contour::integration comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
-                                    int64_t(comm), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
+        // if (echo > 8) { std::printf("\n# energy_contour::integration comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
+        //                             int64_t(comm), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
         auto const me = mpi_parallel::rank(comm);
         int const sync = (0 != control::get("energy_contour.integrate.mpi.sync", 1.)); // set .sync=0 to measure load imbalance
 

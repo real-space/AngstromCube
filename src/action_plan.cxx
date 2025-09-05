@@ -27,11 +27,12 @@
       , std::vector<double> const & xyzZinso // [natoms*8]
       , MPI_Comm const comm
       , std::vector<int64_t> const & potential_gids
+      , load_balancer::rank_int_t const* const owner_ranks
       , int const echo // =0 // log-level
       , int const Noco // =2
     ) {
         if (echo > 0) std::printf("# constructor for %s --> green_function::construct_Green_function\n", __func__);
-        green_function::construct_Green_function(*this, ng, bc, hg, xyzZinso, comm, potential_gids, echo, Noco);
+        green_function::construct_Green_function(*this, ng, bc, hg, xyzZinso, comm, potential_gids, owner_ranks, echo, Noco);
     } // constructor
 
     action_plan_t::~action_plan_t() { // destructor

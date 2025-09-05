@@ -27,6 +27,7 @@
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm
+#include "load_balancer.hxx" // ::rank_int_t
 
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
@@ -272,6 +273,7 @@ namespace green_function {
                     weights[iall] = weight; // store as float
                 } // iall
                 if (echo > 0) { std::printf("# artificial weights in [%g, %g] interval\n", min_weight, max_weight); }
+                if (min_weight <= 0) { warn("all weights should be positive", 0); }
                 block_weights = weights.data();
             } // artificial_weights
 #endif // DEVEL
@@ -279,7 +281,7 @@ namespace green_function {
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
-            auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
+            auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight (weights may not be zero!)
             if (echo > 5) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs);
             {
                 simple_stats::Stats<> nt; // number of tasks
@@ -304,7 +306,7 @@ namespace green_function {
                         int32_t const iy = (iall - iz*nbX*nbY)/nbX;
                         int32_t const ix = iall - ((iz*nbY) + iy)*nbX;
                         assert(iall == (iz*nbY + iy)*nbX + ix);
-                        global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
+                        global_source_indices.at(irhs) = global_coordinates::get(ix, iy, iz);
                         ++irhs;
                     } // owned
                 } // iall
@@ -367,6 +369,7 @@ namespace green_function {
         , std::vector<double> const & xyzZinso // [natoms*8]
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , std::vector<int64_t> const & global_potential_indices
+        , load_balancer::rank_int_t const *const potential_owner_ranks
         , int const echo // =0 // log-level
         , int const Noco // =1
     ) {
@@ -1026,7 +1029,7 @@ namespace green_function {
         if (pot_exchange) {
             p.potential_requests = green_parallel::RequestList_t(p.global_target_indices, // requests
                                                                  global_potential_indices, // offerings
-                                                                 p.owner_rank_.data(), n_blocks, comm, echo, "potential");
+                                                                 potential_owner_ranks, n_blocks, comm, echo, "potential");
         } else {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         }
@@ -1141,7 +1144,7 @@ namespace green_function {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
             if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
             action_plan_t p;
-            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, comm, gids, echo/8, Noco);
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, comm, gids, nullptr, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
         return stat;

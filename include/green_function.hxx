@@ -10,6 +10,7 @@
 #include "green_parallel.hxx" // ::RequestList_t
 #include "data_view.hxx" // view3D<T>
 #include "mpi_parallel.hxx" // MPI_Comm
+#include "load_balancer.hxx" // ::rank_int_t
 
  /*
   *  Future plan:
@@ -29,6 +30,7 @@ namespace green_function {
         , std::vector<double> const & xyzZinso // [natoms*8]
         , MPI_Comm const comm //
         , std::vector<int64_t> const & global_potential_indices
+        , load_balancer::rank_int_t const *const potential_owner_ranks
         , int const echo=0 // verbosity
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear
     ); // declaration only

@@ -29,6 +29,7 @@
 #include "kinetic_plan.hxx" // kinetic_plan_t
 #include "dyadic_plan.hxx" // dyadic_plan_t
 #include "green_parallel.hxx" // ::RequestList_t
+#include "load_balancer.hxx" // ::rank_int_t
 
 class action_plan_t {
 public: // TODo: check which members could be private
@@ -109,6 +110,7 @@ public:
       , std::vector<double> const & xyzZinso // [natoms*8]
       , MPI_Comm const comm
       , std::vector<int64_t> const & potential_gids
+      , load_balancer::rank_int_t const* const owner_ranks
       , int const echo // =0 // log-level
       , int const Noco // =2
     ); // declaration only

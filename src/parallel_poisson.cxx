@@ -194,8 +194,8 @@ namespace parallel_poisson {
     ) { // constructor
 
         comm_ = lb.comm(); // copy the communicator
-        if (echo > 0) { std::printf("\n# parallel_grid_t copy comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
-                            int64_t(comm_), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
+        // if (echo > 0) { std::printf("\n# parallel_grid_t copy comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
+        //                     int64_t(comm_), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
 
         auto const nprocs = mpi_parallel::size(comm_);
         int32_t const me  = mpi_parallel::rank(comm_, nprocs);
