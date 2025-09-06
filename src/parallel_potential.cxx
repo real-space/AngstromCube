@@ -1362,7 +1362,7 @@ namespace parallel_potential {
             case 'g':
             {
                 std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
-                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
+                //SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
 
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
                 view2D<double> V_coarse(n_cubes, 4*4*4, 0.0);
@@ -1418,8 +1418,9 @@ namespace parallel_potential {
                 stat += stat_Gf;
                 if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
 
-                auto const green_function_took = green_timer.stop();
+                //auto const green_function_took = green_timer.stop();
                 {
+                    /*
                     simple_stats::Stats<> green_time_stats;
                     green_time_stats.add(green_function_took);
                     mpi_parallel::allreduce(green_time_stats,comm);
@@ -1428,6 +1429,7 @@ namespace parallel_potential {
                             scf_iteration, green_time_stats.interval().c_str());
                     } // echo
                     green_function_times.add(green_time_stats.max());
+                    */
                 }
                 mpi_parallel::barrier(comm); // wait until other ranks have finished the Green function solution
             }

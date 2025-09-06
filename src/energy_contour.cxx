@@ -203,7 +203,35 @@ namespace energy_contour {
 
                     view2D<Complex> rho_Ek(ncubes, n4x4x4, zero);
 
-                    stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
+                    //for i all MPI_RANKS/Number of GPUS
+                    //  MPI_Barrier
+                    double green_function_took = 0;
+
+                    for (size_t i = 0; i < 12; i++)
+                    {
+                        mpi_parallel::barrier(comm);
+                        if(mpi_parallel::rank(comm) / 4 == i){
+                            SimpleTimer green_timer(strip_path(__FILE__), __LINE__, "SCF-iteration#1", 0);
+                            stat += solver_->solve(rho_Ek[0], ncubes, max_iterations, echo);
+                            assert(green_function_took == 0);
+                            green_function_took = green_timer.stop();
+                        }
+                    }
+
+                    
+                    {
+                        simple_stats::Stats<> green_time_stats;
+                        green_time_stats.add(green_function_took);
+                        if (true || echo > 5){
+                            std::printf("# Rank %i Green function in SCF-iteration#1 took %f seconds\n", 
+                            mpi_parallel::rank(comm), green_time_stats.min());
+                        }
+                        mpi_parallel::allreduce(green_time_stats,comm);
+                        if (0 == check && echo > 2) {
+                            std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
+                                1, green_time_stats.interval().c_str());
+                        } // echo
+                    }
 
                     add_product(rho_E[0], ncubes*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
                     if (sync) {

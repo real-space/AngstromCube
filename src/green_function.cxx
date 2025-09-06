@@ -258,6 +258,7 @@ namespace green_function {
 
     std::vector<int64_t> get_right_hand_sides(
           uint32_t const nb[3] // number of blocks
+        , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , std::vector<green_parallel::rank_int_t> & owner_rank // result: who owns which RHS block
         , MPI_Comm const comm
         , int const echo=0
@@ -282,7 +283,16 @@ namespace green_function {
 
             // currently the load balancer assumes that each of the nb^3 source blocks is equally expensive, however,
             //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
-            auto const load = load_balancer::get(comm_size, comm_rank, nb, nullptr, echo, rank_center, owner_rank.data());
+            auto const load = load_balancer::get(comm_size, comm_rank, nb, block_weights, echo, rank_center, owner_rank.data());
+
+            if (true ||echo > 5)
+            {
+                for(uint32_t i = 0; i < owner_rank.size(); i++){
+                    if(owner_rank.at(i) == comm_rank){
+                        std::printf("# rank#%i weight used: %f", comm_rank, block_weights[i]);
+                    }
+                }
+            }
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
@@ -419,7 +429,69 @@ namespace green_function {
 
         // we assume that the source blocks lie compact in space and preferably close to each other
         std::vector<green_parallel::rank_int_t> owner_rank;
-        p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, comm, echo);
+
+        std::vector<float> weights;
+        weights.reserve(n_all_blocks);
+
+        double const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
+
+        for(size_t iz = 0; iz < n_blocks[Z]; iz++){
+            for(size_t iy = 0; iy < n_blocks[Y]; iy++){
+                for(size_t ix = 0; ix < n_blocks[X]; ix++){
+                    double const cube_center[3] = {ix + 0.5, iy + 0.5, iz + 0.5};
+                    float weight = 1;
+                    for (size_t ia = 0; ia < xyzZinso.size(); ia+=8)
+                    {
+                        auto const numax =   int(xyzZinso[ia + 5]); // SHO basis size
+                        auto const sigma = xyzZinso[ia + 6] ; // Gaussian spread
+
+                        double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
+                        double const r2projection = pow2(r_projection);
+
+                        constexpr float inhomogenousBaseCost = 3;
+                        constexpr float inhomogenousCostsPerBasisFunction = 0.2;
+
+                        // compute the distance of the cube center from the position of the atomic nucleus
+                        double dist2{0};
+                        for (int d{0}; d < 3; ++d) {
+                            dist2 += pow2(cube_center[d] - xyzZinso[ia + d]);
+                        } // d
+                        auto const center_distance2 = dist2;
+
+                        // TODO: include truncation
+                        if (center_distance2 <= r2projection){
+                            switch (numax)
+                            {
+                            case 0:
+                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction;
+                                break;
+                            case 1:
+                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 4;
+                                break;
+                            case 2:
+                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 10;
+                                break;
+                            case 3:
+                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 20;
+                                break;
+                            case 4:
+                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 35;
+                                break;
+                            
+                            default:
+                                assert(false);
+                                break;
+                            }
+                        }
+                    }
+                    weights.push_back(weight);
+                }
+            }
+        }
+
+        //weights.assign(n_all_blocks, 1);
+
+        p.global_source_indices = get_right_hand_sides(n_blocks, weights.data(), owner_rank, comm, echo);
         // now owner_rank[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
         if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
@@ -1118,7 +1190,7 @@ namespace green_function {
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 1.);
         uint32_t const nb[] = {uint32_t(bb[X]), uint32_t(bb[Y]), uint32_t(bb[Z])};
         std::vector<green_parallel::rank_int_t> owner_rank;
-        auto const rhs = get_right_hand_sides(nb, owner_rank, MPI_COMM_WORLD, echo);
+        auto const rhs = get_right_hand_sides(nb, nullptr, owner_rank, MPI_COMM_WORLD, echo);
         auto const nrhs = rhs.size();
         if (echo > 5) std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",
                                         __func__, nrhs, owner_rank.size(), nb[X]*nb[Y]*nb[Z]);
