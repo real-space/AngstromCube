@@ -14,7 +14,7 @@ namespace load_balancer {
         uint32_t const comm_size // number of MPI processes in this communicator
       , int32_t  const comm_rank // rank of this MPI process
       , uint32_t const nb[3] // number of cubes in X/Y/Z direction
-      , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
+      , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
       , int const echo=0 // log level
       , double rank_center[4]=nullptr // export the rank center [0/1/2] and number of items [3]
       , rank_int_t *owner_rank=nullptr // export the owner rank of each task, [nb[Z]*nb[Y]*nb[X]], needs an MPI_MAX

@@ -29,6 +29,7 @@
 #include "kinetic_plan.hxx" // kinetic_plan_t
 #include "dyadic_plan.hxx" // dyadic_plan_t
 #include "green_parallel.hxx" // ::RequestList_t
+#include "load_balancer.hxx" // ::rank_int_t
 
 class action_plan_t {
 public: // TODo: check which members could be private
@@ -93,6 +94,7 @@ public: // TODo: check which members could be private
 
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
+    std::vector<green_parallel::rank_int_t> owner_rank_; // load balancing, can be different from that of the dense grid
     green_parallel::RequestList_t potential_requests; // request list to exchange potential cubes
     green_parallel::RequestList_t matrices_requests;  // request list to exchange atomic matrices
 
@@ -107,6 +109,8 @@ public:
       , double const hg[3] // grid spacings
       , std::vector<double> const & xyzZinso // [natoms*8]
       , MPI_Comm const comm
+      , std::vector<int64_t> const & potential_gids
+      , load_balancer::rank_int_t const* const owner_ranks
       , int const echo // =0 // log-level
       , int const Noco // =2
     ); // declaration only

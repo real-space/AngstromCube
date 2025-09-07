@@ -27,6 +27,7 @@
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm
+#include "load_balancer.hxx" // ::rank_int_t
 
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
@@ -114,63 +115,35 @@ namespace green_function {
     // ToDo: make it a method of action_plan_t
     status_t update_potential(
           action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-      // , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
-        , std::vector<double> const & Veff // [nRHS*4*4*4]
+        , std::vector<double> const & Vtot // [ncubes*4*4*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
         , int const Noco // =1
     ) {
-        // auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
-        auto const n_grid_points = Veff.size();
-        int32_t const nrhs = p.nCols;
-        // auto const n_all_blocks = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
-
-        double const scale_V = control::get("hamiltonian.scale.potential", 1.);
-        if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
-
-        // if (n_grid_points == n_all_grid_points) {
-        //     if (echo > 0) std::printf("# copy all %.3f k grid blocks points\n", n_all_blocks*.001);
-        // } else {
-        if (echo > 0) std::printf("# copy only %.3f k grid blocks points, expect %d\n", n_grid_points/64000., nrhs);
-        assert(n_grid_points == 64*nrhs);
-        // }
-
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
-            auto const Vinp = new double[nrhs*Noco*Noco][4*4*4];
-            for (int32_t irhs{0}; irhs < nrhs; ++irhs) {
+
+            auto const n_grid_points = Vtot.size();
+            assert(0 == (n_grid_points & 63ull) && "the number of grid points must be a multiple of 64");
+            int32_t const ncubes = n_grid_points >> 6; // divide by 64
+    
+            int32_t const nrhs = p.nCols; // the number of right-hand-side 4x4x4 cubes treated in the Green function solver
+    
+            if (echo > 0) { std::printf("# copy only %.3f k grid blocks points, expect %d\n", ncubes*1e-3, nrhs); }
+
+            double const scale_V = control::get("hamiltonian.scale.potential", 1.);
+            if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
+
+            auto const Vinp = new double[ncubes*Noco*Noco][4*4*4];
+            for (int32_t icube{0}; icube < ncubes; ++icube) {
                 // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
 
-            // if (n_grid_points == n_all_grid_points) { // scope: restructure and communicate potential
-            //     // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
-
-            //     int32_t ib[3]; global_coordinates::get(ib, p.global_source_indices[irhs]);
-            //     for (int d = 0; d < 3; ++d) { assert(ib[d] >= 0); }
-
-            //     for (int i4z = 0; i4z < 4; ++i4z) { size_t const iz = ib[Z]*4 + i4z;
-            //     for (int i4y = 0; i4y < 4; ++i4y) { size_t const iy = ib[Y]*4 + i4y;
-            //     for (int i4x = 0; i4x < 4; ++i4x) { size_t const ix = ib[X]*4 + i4x;
-            //         auto const izyx = (iz*(nb[Y]*4) + iy)*(nb[X]*4) + ix; // global grid point index
-            //         assert(izyx < n_all_grid_points);
-            //         auto const i64 = (i4z*4 + i4y)*4 + i4x;
-            //         if (2 == Noco) {
-            //             Vinp[irhs*4 + 3][i64] = 0.0;  // set clear V_y
-            //             Vinp[irhs*4 + 2][i64] = 0.0;  // set clear V_x
-            //             Vinp[irhs*4 + 1][i64] = Veff[izyx]*scale_V; // set V_upup
-            //         } // non-collinear
-            //         Vinp[irhs*Noco*Noco][i64] = Veff[izyx]*scale_V; // copy potential value to V_dndn
-            //     }}} // i4x i4y i4z
-
-            // } else {
-
                 if (2 == Noco) {
-                    set(Vinp[irhs*4 + 3], 64, 0.0);  // set clear V_y
-                    set(Vinp[irhs*4 + 2], 64, 0.0);  // set clear V_x
-                    set(Vinp[irhs*4 + 1], 64, &Veff[irhs*64], scale_V); // set V_upup
+                    set(Vinp[icube*4 + 3], 64, 0.0);  // set clear V_y
+                    set(Vinp[icube*4 + 2], 64, 0.0);  // set clear V_x
+                    set(Vinp[icube*4 + 1], 64, &Vtot[icube*64], scale_V); // set V_upup
                 } // non-collinear
-                set(Vinp[irhs*Noco*Noco], 64, &Veff[irhs*64], scale_V); // set V_dndn
-
-            // } // n_grid_points == n_all_grid_points
+                set(Vinp[icube*Noco*Noco], 64, &Vtot[icube*64], scale_V); // set V_dndn
 
             } // irhs
 
@@ -187,7 +160,7 @@ namespace green_function {
             int constexpr mag = 0; // only for the Noco=1 case
             simple_stats::Stats<> pot;
             for (int iRow = 0; iRow < p.nRows; ++iRow) {
-                auto const *const V = p.Veff[mag][iRow];
+                auto const *const V = p.Veff[mag][iRow]; // analyze the potential elements in GPU memory
                 for (int i64 = 0; i64 < 64; ++i64) {
                     pot.add(V[i64]);
                 } // i64
@@ -285,18 +258,23 @@ namespace green_function {
             //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
             auto const load = load_balancer::get(comm_size, comm_rank, nb, block_weights, echo, rank_center, owner_rank.data());
 
-            if (true ||echo > 5)
+            if (true || echo > 5)
             {
+                simple_stats::Stats<float> weightStats;
                 for(uint32_t i = 0; i < owner_rank.size(); i++){
-                    if(owner_rank.at(i) == comm_rank){
-                        std::printf("# rank#%i weight used: %f", comm_rank, block_weights[i]);
+                    if(owner_rank[i] == comm_rank){
+                        weightStats.add(block_weights[i]);
                     }
                 }
+
+                std::printf("# rank#%i has total weight: %f and distribution %s \n", comm_rank,
+                    weightStats.sum(), weightStats.interval().c_str());
+                
             }
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
-            auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
+            auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight (weights may not be zero!)
             if (echo > 5) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs);
             {
                 simple_stats::Stats<> nt; // number of tasks
@@ -321,7 +299,7 @@ namespace green_function {
                         int32_t const iy = (iall - iz*nbX*nbY)/nbX;
                         int32_t const ix = iall - ((iz*nbY) + iy)*nbX;
                         assert(iall == (iz*nbY + iy)*nbX + ix);
-                        global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
+                        global_source_indices.at(irhs) = global_coordinates::get(ix, iy, iz);
                         ++irhs;
                     } // owned
                 } // iall
@@ -383,6 +361,8 @@ namespace green_function {
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
+        , std::vector<int64_t> const & global_potential_indices
+        , load_balancer::rank_int_t const *const potential_owner_ranks
         , int const echo // =0 // log-level
         , int const Noco // =1
     ) {
@@ -426,9 +406,6 @@ namespace green_function {
                 "# %7.3f M points, %11.3f k, average= %8.6f, volume= %8.1f %s^3\n\n",
                 ng[X]*1e-6*ng[Y]*ng[Z], n_all_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
         } // echo
-
-        // we assume that the source blocks lie compact in space and preferably close to each other
-        std::vector<green_parallel::rank_int_t> owner_rank;
 
         std::vector<float> weights;
         weights.reserve(n_all_blocks);
@@ -484,15 +461,19 @@ namespace green_function {
                             }
                         }
                     }
+                    if (echo > 1) std::printf("# Weight at X: %i Y: %i Z: %i is: %f\n", ix, iy, iz, weight);
                     weights.push_back(weight);
                 }
             }
         }
 
-        //weights.assign(n_all_blocks, 1);
+        assert(weights.size() == n_all_blocks);
 
-        p.global_source_indices = get_right_hand_sides(n_blocks, weights.data(), owner_rank, comm, echo);
-        // now owner_rank[] tells the MPI rank of the process responsible for a RHS block
+        weights.assign(n_all_blocks, 1);
+
+        // we assume that the source blocks lie compact in space and preferably close to each other
+        p.global_source_indices = get_right_hand_sides(n_blocks, weights.data(), p.owner_rank_, comm, echo);
+        // now p.owner_rank_[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
         if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
 
@@ -1052,7 +1033,7 @@ namespace green_function {
 
             { // scope: set up kinetic plans
                 auto const scale_T = control::get("hamiltonian.scale.kinetic", 1.);
-                if (1 != scale_T) warn("kinetic energy is scaled by factor +hamiltonian.scale.kinetic=%g", scale_T);
+                if (1 != scale_T) { warn("kinetic energy is scaled by factor +hamiltonian.scale.kinetic=%g", scale_T); }
 
                 auto const keyword = "green_kinetic.range";
                 int16_t const kinetic_nFD_default = control::get(keyword, 8.); // if possible use 16th order Laplace operator, range==8
@@ -1103,9 +1084,9 @@ namespace green_function {
         // prepare for the MPI exchange of potential blocks
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
-            p.potential_requests = green_parallel::RequestList_t(p.global_target_indices,  // requests
-                                                                 p.global_source_indices, // offerings
-                                                                 owner_rank.data(), n_blocks, comm, echo, "potential");
+            p.potential_requests = green_parallel::RequestList_t(p.global_target_indices, // requests
+                                                                 global_potential_indices, // offerings
+                                                                 potential_owner_ranks, n_blocks, comm, echo, "potential");
         } else {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         }
@@ -1211,6 +1192,7 @@ namespace green_function {
         uint32_t const ng[] = {4*uint32_t(bb[X]), 4*uint32_t(bb[Y]), 4*uint32_t(bb[Z])};
         double const grid_spacing[] = {1, 1, 1};
         std::vector<double> xyzZinso(0); // 0: no atoms
+        std::vector<int64_t> gids(0);
         int8_t const bc_test[4] = {Isolated_Boundary, Periodic_Boundary, Vacuum_Boundary, Repeat_Boundary};
         for (int Noco{1}; Noco <= 2; ++Noco) {
         for (int bcz{0}; bcz < 4; ++bcz) {
@@ -1219,7 +1201,7 @@ namespace green_function {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
             if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
             action_plan_t p;
-            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, comm, echo/8, Noco);
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, comm, gids, nullptr, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
         return stat;

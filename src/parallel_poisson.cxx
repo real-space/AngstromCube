@@ -74,13 +74,13 @@ namespace parallel_poisson {
     load_balancing_t::load_balancing_t(
         real_space::grid_t const & g // grid descriptor of the entire grid
       , MPI_Comm const comm // MPI communicator
-      , unsigned const n8 // number of grid points per cube edge
+      , unsigned const n8 // =8 number of grid points per cube edge
       , int const echo // =0 log-level
     ) { // constructor
 
         comm_ = comm; // copy the communicator
         int32_t const me = mpi_parallel::rank(comm);
-        uint32_t const np = control::get("parallel_poisson.nprocs", mpi_parallel::size(comm)*1.);
+        uint32_t const nprocs = control::get("parallel_poisson.nprocs", mpi_parallel::size(comm)*1.);
 
         auto nb = nb_;
         auto const ng = g.grid_points();
@@ -98,7 +98,8 @@ namespace parallel_poisson {
 
         double rank_center[4] = {0,0,0,  0};
 
-        load_ = load_balancer::get(np, me, nb, nullptr, echo, rank_center, owner_rank_.data());
+        float const * const block_weights = nullptr;
+        load_ = load_balancer::get(nprocs, me, nb, block_weights, echo, rank_center, owner_rank_.data());
         n_local_cubes_ = rank_center[3]; // the 4th component contains the number of items
         if (echo > 7) std::printf("# rank#%i rank center %g %g %g\n", me, rank_center[0], rank_center[1], rank_center[2]);
 
@@ -106,7 +107,7 @@ namespace parallel_poisson {
             simple_stats::Stats<double> load_stats(0);
             load_stats.add(load_);
             mpi_parallel::allreduce(load_stats, comm);
-            if (echo > 3) std::printf("# load_balancer distribution over %d ranks is %s\n", np, load_stats.interval().c_str());
+            if (echo > 3) std::printf("# load_balancer distribution over %d ranks is %s\n", nprocs, load_stats.interval().c_str());
         } // scope
 
         // load_balancer has the mission to produce coherent domains with not too lengthy extents in space
@@ -132,10 +133,12 @@ namespace parallel_poisson {
         } // not comm_null
         mpi_parallel::barrier(comm);
 
+        assert(nprocs > 0);
+        global_ids_.resize(0);
+        global_ids_.reserve((nall + nprocs - 1)/nprocs);
         set(min_domain_, 3, int32_t((1ull << 31) - 1)); 
         set(max_domain_, 3, -1);
         double dom_center[] = {0, 0, 0};
-        size_t nown{0};
         for (uint32_t iz = 0; iz < nb[2]; ++iz) {
         for (uint32_t iy = 0; iy < nb[1]; ++iy) {  // this triple loop does not scale well as it is the same range for all processes
         for (uint32_t ix = 0; ix < nb[0]; ++ix) {
@@ -149,15 +152,16 @@ namespace parallel_poisson {
                 error("rank#%i entry[ix=%d,iy=%d,iz=%d] has no owner rank", me, ix,iy,iz);
             } else
             if (me == owner_rank_xyz) {
-                ++nown;
                 int32_t const ixyz[] = {int32_t(ix), int32_t(iy), int32_t(iz)};
                 for (int d = 0; d < 3; ++d) {
                     min_domain_[d] = std::min(min_domain_[d], ixyz[d]);
                     max_domain_[d] = std::max(max_domain_[d], ixyz[d]);
                     dom_center[d] += (ixyz[d] + 0.5);
                 } // d
+                global_ids_.push_back(global_coordinates::get(ix, iy, iz));
             } // my
         }}} // iz iy ix
+        auto const nown = global_ids_.size();
         if (nown != n_local_cubes_) {
             warn("expected match between n_local_cubes= %d and count(owner_rank[]==me)= %ld", n_local_cubes_, nown);
             n_local_cubes_ = nown;
@@ -190,12 +194,15 @@ namespace parallel_poisson {
     ) { // constructor
 
         comm_ = lb.comm(); // copy the communicator
+        // if (echo > 0) { std::printf("\n# parallel_grid_t copy comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
+        //                     int64_t(comm_), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
+
         auto const nprocs = mpi_parallel::size(comm_);
         int32_t const me  = mpi_parallel::rank(comm_, nprocs);
         auto nb = nb_;
         set(nb, 3, lb.grid_cubes());
 
-        auto const n_all_cubes = nb[2]*size_t(nb[1])*size_t(nb[0]);
+        auto const n_all_cubes = (nb[2])*size_t(nb[1])*size_t(nb[0]);
 
         auto const bc = g.boundary_conditions();
         if (echo > 3) std::printf("# %s(nb= [%d %d %d], nall= %ld, bc=[%d %d %d], what=%s)\n", __func__,
@@ -341,10 +348,6 @@ namespace parallel_poisson {
             size_t vacuum_assigned{0}, inner_cells_found{0};
             // loop over domain again (3rd time), without halos (this could be replaced by a 1D loop over INSIDE blocks if we had stored their coordinates)
 
-            // for (int32_t iz{HALO}; iz < ndom[2] - HALO; ++iz) {
-            // for (int32_t iy{HALO}; iy < ndom[1] - HALO; ++iy) { // 3rd domain loop, could be parallel
-            // for (int32_t ix{HALO}; ix < ndom[0] - HALO; ++ix) {
-            //     int32_t const idom[] = {ix, iy, iz};
 
             for (int32_t ilb_{0}; ilb_ < n_local_cubes; ++ilb_) { // can be parallel
                 auto const * const idom = idom_inside[ilb_];
@@ -466,13 +469,19 @@ namespace parallel_poisson {
             std::printf(", %ld items\n", local_global_ids_.size());
         } // echo
 
-        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n", me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout); }
+        if (echo > 9) {
+            std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d\n",
+            me, strip_path(__FILE__), __LINE__, nb[0], nb[1], nb[2]); std::fflush(stdout);
+        } // echo
         mpi_parallel::barrier(comm_);
 
         requests_ = green_parallel::RequestList_t(remote_global_ids_, local_global_ids_, owner_rank.data(), nb, comm_, echo, what);
 
         if (echo > 8) {
-            std::vector<int32_t> owners; for (auto ow : requests_.owners()) { owners.emplace_back((green_parallel::no_owner == ow) ? -1 : ow); }
+            std::vector<int32_t> owners;
+            for (auto ow : requests_.owners()) {
+                owners.emplace_back((green_parallel::no_owner == ow) ? -1 : ow);
+            } // ow
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
             printf_vector(" %i", owners, "}");
             std::printf(", %ld items\n", requests_.owners().size());
@@ -488,7 +497,7 @@ namespace parallel_poisson {
 
     template <typename real_t>
     status_t data_exchange(
-          real_t *v // input and result array, data layout v[n_local_remote][count]
+          real_t *v // input and result array, data layout v[n_local+n_remote][count]
         , parallel_grid_t const & pg // descriptor
         , size_t const count // number of real_t per package
         , int const echo=0 // log-level
@@ -504,7 +513,7 @@ namespace parallel_poisson {
     template <typename real_t> // =double
     status_t cube4x4x4_interpolation(
           real_t       *const v888 // result array, data layout v888[n_local_cubes][8*8*8]
-        , real_t const *const v444 // input  array, data layout v444[n_local_cubes][4*4*4]
+        , real_t const *const v444 // input  array, data layout v444[n_local_rhs][4*4*4]
         , parallel_grid_t const & pg // descriptor, must be prepared with "3x3x3"
         , int const echo // =0 // log level
         , double const factor // =1
