@@ -189,10 +189,16 @@ namespace self_consistency {
 
 
       std::vector<double> sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
-      char const pawdata_from = (*control::get("pawdata.from", "auto")) | 32; // 'a': auto, 'f': pawxml_import
-      std::vector<int32_t> numax(na, ('f' == pawdata_from)?-9:-1); // -1: LivePAW, -9: load from pawxml files
       std::vector<int32_t> lmax_qlm(na, -1);
       std::vector<int32_t> lmax_vlm(na, -1);
+      std::vector<int32_t> numax(na);
+      {
+          char const pawdata_from = *control::get("pawdata.from", "auto"); // 'a': auto, 'f': pawxml_import
+          bool const pawdata_from_file = ('f' == (pawdata_from | 32));
+          for (int ia = 0; ia < na; ++ia) {
+              numax.at(ia) = pawdata_from_file ? -(ia + 1) : (ia + 1);
+          } // ia
+      }
 
       // initialize and get sigma, lmax for each atom
       stat += single_atom::set_version(echo);
