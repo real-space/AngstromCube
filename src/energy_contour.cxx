@@ -232,10 +232,16 @@ namespace energy_contour {
 
                     double green_function_took = 0;
 
+                    int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
+
                     for (size_t i = 0; i < 12; i++)
                     {
                         mpi_parallel::barrier(comm);
                         if(mpi_parallel::rank(comm) / 4 == i){
+                            if(gpuWarmUp){
+                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                            }
                             SimpleTimer green_timer(strip_path(__FILE__), __LINE__, "SCF-iteration#1", 0);
                             stat += solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
                             assert(green_function_took == 0);
