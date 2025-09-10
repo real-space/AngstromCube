@@ -261,15 +261,22 @@ namespace green_function {
             if (true || echo > 5)
             {
                 simple_stats::Stats<float> weightStats;
+                std::vector<uint32_t> taskIndex;
                 for(uint32_t i = 0; i < owner_rank.size(); i++){
                     if(owner_rank[i] == comm_rank){
                         weightStats.add(block_weights[i]);
+                        taskIndex.push_back(i);
                     }
                 }
 
-                std::printf("# rank#%i has total weight: %f and distribution %s \n", comm_rank,
-                    weightStats.sum(), weightStats.interval().c_str());
+                std::printf("# rank#%i had %i tasks, with a total weight: %f and distribution %s \n", comm_rank,
+                    weightStats.tim(), weightStats.sum(), weightStats.interval().c_str());
                 
+                std::string allTasks = "# rank#" + std::to_string(comm_rank) + " had tasks: ";
+                for(const uint32_t tID : taskIndex){
+                    allTasks += std::to_string(tID) + ", ";
+                }
+                std::printf("%s \n", allTasks.c_str());
             }
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
@@ -409,65 +416,6 @@ namespace green_function {
 
         std::vector<float> weights;
         weights.reserve(n_all_blocks);
-
-        double const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
-
-        for(size_t iz = 0; iz < n_blocks[Z]; iz++){
-            for(size_t iy = 0; iy < n_blocks[Y]; iy++){
-                for(size_t ix = 0; ix < n_blocks[X]; ix++){
-                    double const cube_center[3] = {ix + 0.5, iy + 0.5, iz + 0.5};
-                    float weight = 1;
-                    for (size_t ia = 0; ia < xyzZinso.size(); ia+=8)
-                    {
-                        auto const numax =   int(xyzZinso[ia + 5]); // SHO basis size
-                        auto const sigma = xyzZinso[ia + 6] ; // Gaussian spread
-
-                        double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
-                        double const r2projection = pow2(r_projection);
-
-                        constexpr float inhomogenousBaseCost = 3;
-                        constexpr float inhomogenousCostsPerBasisFunction = 0.2;
-
-                        // compute the distance of the cube center from the position of the atomic nucleus
-                        double dist2{0};
-                        for (int d{0}; d < 3; ++d) {
-                            dist2 += pow2(cube_center[d] - xyzZinso[ia + d]);
-                        } // d
-                        auto const center_distance2 = dist2;
-
-                        // TODO: include truncation
-                        if (center_distance2 <= r2projection){
-                            switch (numax)
-                            {
-                            case 0:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction;
-                                break;
-                            case 1:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 4;
-                                break;
-                            case 2:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 10;
-                                break;
-                            case 3:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 20;
-                                break;
-                            case 4:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 35;
-                                break;
-                            
-                            default:
-                                assert(false);
-                                break;
-                            }
-                        }
-                    }
-                    if (echo > 1) std::printf("# Weight at X: %i Y: %i Z: %i is: %f\n", ix, iy, iz, weight);
-                    weights.push_back(weight);
-                }
-            }
-        }
-
-        assert(weights.size() == n_all_blocks);
 
         weights.assign(n_all_blocks, 1);
 

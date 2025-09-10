@@ -333,7 +333,7 @@ if(HAS_CUDA)
     target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>)
     # GPU debugging information:
     # target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo -Xptxas -v --expt-relaxed-constexpr>)
-    target_link_libraries(green PUBLIC cuda curand)
+    target_link_libraries(green PUBLIC cudart cuda curand )
     # CUDA architectures 70=Volta, 80=Ampere, 90=Hopper
     set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80 90)
 else(HAS_CUDA)

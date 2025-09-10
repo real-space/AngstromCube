@@ -6,6 +6,8 @@
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>, ::real, ::imag
 #include <algorithm> // std::min, ::max
+#include <cuda_runtime.h> // cudaGetDevice
+#include <unistd.h> // gethostname
 
 #include "energy_contour.hxx"
 
@@ -233,17 +235,40 @@ namespace energy_contour {
                     double green_function_took = 0;
 
                     int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
+                    int const solverIterations = (control::get("energy_contour.solve.solver.iterations", 1.));
+                    int const totalNodes = (control::get("energy_contour.solve.solver.nodes", 1.));
+                    int const gpusPerNode = (control::get("energy_contour.solve.solver.gpusPerNode", 4.));
 
-                    for (size_t i = 0; i < 12; i++)
+                    int lockstepIterations = mpi_parallel::size(comm) / (totalNodes * gpusPerNode);
+                    int ranksPerNode = mpi_parallel::size(comm) / totalNodes;
+
+                    for (size_t li = 0; li < lockstepIterations; li++)
                     {
                         mpi_parallel::barrier(comm);
-                        if(mpi_parallel::rank(comm) / 4 == i){
-                            if(gpuWarmUp){
-                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                        if((mpi_parallel::rank(comm) % ranksPerNode) / gpusPerNode == li){
+
+                            char hostname[200];
+                            gethostname(hostname, 200);
+
+                            int device = -1;
+                            int PciBusID = -1;
+                            int PciDeviceID = -1;
+                            
+#ifndef    HAS_NO_CUDA
+                            cudaGetDevice(&device);
+                            cudaDeviceGetAttribute(&PciBusID, cudaDevAttrPciBusId , device);
+                            cudaDeviceGetAttribute(&PciDeviceID, cudaDevAttrPciDeviceId , device);
+#endif
+
+                            printf("# rank#%i was on Host: %s and used GPU: %i, PciBusID: %i, PciDeviceID: %i\n"
+                                ,mpi_parallel::rank(comm), hostname, device, PciBusID, PciDeviceID);
+                            for(int gi = 0; gi < gpuWarmUp; gi++){
                                 solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
                             }
                             SimpleTimer green_timer(strip_path(__FILE__), __LINE__, "SCF-iteration#1", 0);
-                            stat += solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                            for(uint32_t si = 0; si < solverIterations; si++){
+                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                            }
                             assert(green_function_took == 0);
                             green_function_took = green_timer.stop();
                         }
