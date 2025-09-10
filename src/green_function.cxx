@@ -230,9 +230,9 @@ namespace green_function {
 
 
     std::vector<int64_t> get_right_hand_sides(
-          uint32_t const nb[3] // number of blocks
+          std::vector<green_parallel::rank_int_t> & owner_rank // side result: who owns which RHS block
+        , uint32_t const nb[3] // number of blocks
         , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
-        , std::vector<green_parallel::rank_int_t> & owner_rank // result: who owns which RHS block
         , MPI_Comm const comm
         , int const echo=0
     ) {
@@ -258,16 +258,18 @@ namespace green_function {
             //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
             auto const load = load_balancer::get(comm_size, comm_rank, nb, block_weights, echo, rank_center, owner_rank.data());
 
-            if (true || echo > 5)
-            {
+            // TODO: Set when we test loadbalancing stuff, once it works can be removed
+            int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
+
+            if (gpuWarmUp || echo > 5) {
                 simple_stats::Stats<float> weightStats;
                 std::vector<uint32_t> taskIndex;
-                for(uint32_t i = 0; i < owner_rank.size(); i++){
-                    if(owner_rank[i] == comm_rank){
+                for (size_t i{0}; i < owner_rank.size(); ++i){
+                    if (owner_rank[i] == comm_rank){
                         weightStats.add(block_weights[i]);
                         taskIndex.push_back(i);
                     }
-                }
+                } // i
 
                 std::printf("# rank#%i had %i tasks, with a total weight: %f and distribution %s \n", comm_rank,
                     weightStats.tim(), weightStats.sum(), weightStats.interval().c_str());
@@ -277,7 +279,7 @@ namespace green_function {
                     allTasks += std::to_string(tID) + ", ";
                 }
                 std::printf("%s \n", allTasks.c_str());
-            }
+            } // echo
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
@@ -300,7 +302,7 @@ namespace green_function {
                 global_source_indices.resize(nrhs, global_coordinates::nonexistent);
                 uint32_t irhs{0};
                 int64_t const nbX = nb[X], nbY = nb[Y];
-                for (size_t iall = 0; iall < nall; ++iall) {
+                for (size_t iall{0}; iall < nall; ++iall) {
                     if (comm_rank == owner_rank[iall]) {
                         int32_t const iz = iall/(nbX*nbY);
                         int32_t const iy = (iall - iz*nbX*nbY)/nbX;
@@ -420,7 +422,7 @@ namespace green_function {
         weights.assign(n_all_blocks, 1);
 
         // we assume that the source blocks lie compact in space and preferably close to each other
-        p.global_source_indices = get_right_hand_sides(n_blocks, weights.data(), p.owner_rank_, comm, echo);
+        p.global_source_indices = get_right_hand_sides(p.owner_rank_, n_blocks, weights.data(), comm, echo);
         // now p.owner_rank_[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
         if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
@@ -1119,7 +1121,7 @@ namespace green_function {
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 1.);
         uint32_t const nb[] = {uint32_t(bb[X]), uint32_t(bb[Y]), uint32_t(bb[Z])};
         std::vector<green_parallel::rank_int_t> owner_rank;
-        auto const rhs = get_right_hand_sides(nb, nullptr, owner_rank, MPI_COMM_WORLD, echo);
+        auto const rhs = get_right_hand_sides(owner_rank, nb, nullptr, MPI_COMM_WORLD, echo);
         auto const nrhs = rhs.size();
         if (echo > 5) std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",
                                         __func__, nrhs, owner_rank.size(), nb[X]*nb[Y]*nb[Z]);

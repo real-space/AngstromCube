@@ -211,7 +211,7 @@
 
       auto const radius = r_trunc + max_distance_from_center + 2*max_sigma*r_proj + 2*r_block_circumscribing_sphere;
       if (echo > 3) std::printf("# search radius is %g %s\n", radius*Ang, _Ang);
-      auto const r2block_circumscribing_sphere = pow2(r_block_circumscribing_sphere);
+//    auto const r2block_circumscribing_sphere = pow2(r_block_circumscribing_sphere);
 
       int iimages[3] = {0, 0, 0}; // number of images replications of the unit cell to each side (for Periodic_Boundary conditions)
       int icopies[3] = {0, 0, 0}; // number of copied atoms .................... (for Wrap_Boundary and Repeat_Boundary conditions)

@@ -1099,7 +1099,7 @@ namespace parallel_potential {
                     xyzZinso[gid*8ull + 4] = gid; // global atom id
                     xyzZinso[gid*8ull + 5] = numax_sigma(gid,0); // numax
                     xyzZinso[gid*8ull + 6] = numax_sigma(gid,1); // sigma
-                    xyzZinso[gid*8ull + 7] = 0; // spare
+                    xyzZinso[gid*8ull + 7] = 0; // unused
                 } // gid
             } // scope
 
