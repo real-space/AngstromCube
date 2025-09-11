@@ -46,13 +46,15 @@ namespace energy_contour {
     ) {
         if (echo > 0) std::printf("# construct %s with grid=[%d %d %d]\n", __func__, gc[0], gc[1], gc[2]);
         plan_ = new action_plan_t(); // CPU memory for the plan
-        auto const stat = green_function::construct_Green_function(*plan_, // result
+        auto stat = green_function::construct_Green_function(*plan_, // result
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
                             xyzZinso, // atom info
+                            nullptr, // weigth info
                             lb.comm(),
                             lb.global_ids(),
                             lb.owner_rank().data(),
                             echo);
+                            
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
         // if the two distributions are not the same, we need to redistribute the 4x4x4 density cubes
@@ -253,7 +255,7 @@ namespace energy_contour {
                             int device = -1;
                             int PciBusID = -1;
                             int PciDeviceID = -1;
-                            
+
 #ifndef    HAS_NO_CUDA
                             cudaGetDevice(&device);
                             cudaDeviceGetAttribute(&PciBusID, cudaDevAttrPciBusId , device);
@@ -278,7 +280,9 @@ namespace energy_contour {
                     {
                         simple_stats::Stats<> green_time_stats;
                         green_time_stats.add(green_function_took);
-                        if (true || echo > 5){
+
+                        // TODO: Print stats when we test load balancer, can be removed afterwards
+                        if (gpuWarmUp || echo > 5){
                             std::printf("# rank#%i Green function in SCF-iteration#1 took %f seconds\n", 
                             mpi_parallel::rank(comm), green_time_stats.min());
                         }

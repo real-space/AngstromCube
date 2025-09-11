@@ -261,7 +261,7 @@ namespace green_function {
             // TODO: Set when we test loadbalancing stuff, once it works can be removed
             int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
 
-            if (gpuWarmUp || echo > 5) {
+            if (block_weights && (gpuWarmUp || echo > 5)) {
                 simple_stats::Stats<float> weightStats;
                 std::vector<uint32_t> taskIndex;
                 for (size_t i{0}; i < owner_rank.size(); ++i){
@@ -369,6 +369,7 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
+        , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , std::vector<int64_t> const & global_potential_indices
         , load_balancer::rank_int_t const *const potential_owner_ranks
@@ -416,13 +417,8 @@ namespace green_function {
                 ng[X]*1e-6*ng[Y]*ng[Z], n_all_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
         } // echo
 
-        std::vector<float> weights;
-        weights.reserve(n_all_blocks);
-
-        weights.assign(n_all_blocks, 1);
-
         // we assume that the source blocks lie compact in space and preferably close to each other
-        p.global_source_indices = get_right_hand_sides(p.owner_rank_, n_blocks, weights.data(), comm, echo);
+        p.global_source_indices = get_right_hand_sides(p.owner_rank_, n_blocks, block_weights, comm, echo);
         // now p.owner_rank_[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
         if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
@@ -1151,7 +1147,7 @@ namespace green_function {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
             if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
             action_plan_t p;
-            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, comm, gids, nullptr, echo/8, Noco);
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, nullptr, comm, gids, nullptr, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
         return stat;

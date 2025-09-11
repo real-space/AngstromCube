@@ -32,7 +32,7 @@
       , int const Noco // =2
     ) {
         if (echo > 0) std::printf("# constructor for %s --> green_function::construct_Green_function\n", __func__);
-        green_function::construct_Green_function(*this, ng, bc, hg, xyzZinso, comm, potential_gids, owner_ranks, echo, Noco);
+        green_function::construct_Green_function(*this, ng, bc, hg, xyzZinso, nullptr, comm, potential_gids, owner_ranks, echo, Noco);
     } // constructor
 
     action_plan_t::~action_plan_t() { // destructor
