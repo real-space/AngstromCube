@@ -55,10 +55,27 @@ namespace energy_contour {
                             lb.owner_rank().data(),
                             echo);
                             
+        
+        // TODO: Implement calculate_Weights and use it here
+        std::vector<float> weights; //= calculate_Weights(plan);
+        weights.assign(plan_->owner_rank_.size() ,1);
+
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
         // if the two distributions are not the same, we need to redistribute the 4x4x4 density cubes
-        if (true) { // ToDo: check if we need redistribution at all
+        if (!weights.empty()) { // ToDo: check if we need redistribution at all
+
+            delete plan_;
+            plan_ = new action_plan_t();
+            auto stat = green_function::construct_Green_function(*plan_, // result
+                            gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
+                            xyzZinso, // atom info
+                            weights.data(), // weigth info
+                            lb.comm(),
+                            lb.global_ids(),
+                            lb.owner_rank().data(),
+                            echo);
+
             uint32_t const nb[] = {uint32_t(gc[0] >> 2), uint32_t(gc[1] >> 2), uint32_t(gc[2] >> 2)}; // divide grid by 4
             if (echo > 5) { std::printf("# rank#%i plan to redistribute %ld 4x4x4 density cubes to %ld cubes\n",
                 mpi_parallel::rank(lb.comm()), plan_->global_source_indices.size(), lb.global_ids().size()); }
