@@ -258,15 +258,27 @@ namespace green_function {
             //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
             auto const load = load_balancer::get(comm_size, comm_rank, nb, block_weights, echo, rank_center, owner_rank.data());
 
-            if (echo > 5) {
+            // TODO: Set when we test loadbalancing stuff, once it works can be removed
+            int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
+
+            if (block_weights && (gpuWarmUp || echo > 5)) {
                 simple_stats::Stats<float> weightStats;
+                std::vector<uint32_t> taskIndex;
                 for (size_t i{0}; i < owner_rank.size(); ++i){
                     if (owner_rank[i] == comm_rank){
                         weightStats.add(block_weights[i]);
+                        taskIndex.push_back(i);
                     }
                 } // i
-                std::printf("# rank#%i has total weight: %f and distribution %s \n", comm_rank,
-                    weightStats.sum(), weightStats.interval().c_str());
+
+                std::printf("# rank#%i had %i tasks, with a total weight: %f and distribution %s \n", comm_rank,
+                    weightStats.tim(), weightStats.sum(), weightStats.interval().c_str());
+                
+                std::string allTasks = "# rank#" + std::to_string(comm_rank) + " had tasks: ";
+                for(const uint32_t tID : taskIndex){
+                    allTasks += std::to_string(tID) + ", ";
+                }
+                std::printf("%s \n", allTasks.c_str());
             } // echo
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
@@ -357,6 +369,7 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
+        , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , std::vector<int64_t> const & global_potential_indices
         , load_balancer::rank_int_t const *const potential_owner_ranks
@@ -404,72 +417,8 @@ namespace green_function {
                 ng[X]*1e-6*ng[Y]*ng[Z], n_all_blocks*1e-3, average_grid_spacing*Ang, cell_volume*pow3(Ang), _Ang);
         } // echo
 
-        std::vector<float> weights;
-        weights.reserve(n_all_blocks);
-
-        auto const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
-
-        size_t const natoms = xyzZinso.size() / 8;
-        // Caution: these loops run over the entire simulation cell, i.e. the work is not parallelized
-        for(size_t iz = 0; iz < n_blocks[Z]; ++iz){
-            for(size_t iy = 0; iy < n_blocks[Y]; ++iy){
-                for(size_t ix = 0; ix < n_blocks[X]; ++ix){
-                    double const cube_center[3] = {ix + 0.5, iy + 0.5, iz + 0.5};
-                    double weight{1};
-                    for (size_t ia{0}; ia < natoms; ++ia) {
-                        auto const numax = int(xyzZinso[ia*8 + 5]); // SHO basis size
-                        auto const sigma =     xyzZinso[ia*8 + 6] ; // Gaussian spread
-
-                        auto const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
-                        auto const r2projection = pow2(r_projection);
-
-                        constexpr float inhomogenousBaseCost = 3;
-                        constexpr float inhomogenousCostsPerBasisFunction = 0.2;
-
-                        // compute the distance of the cube center from the position of the atomic nucleus
-                        double dist2{0};
-                        for (int d{0}; d < 3; ++d) {
-                            dist2 += pow2(cube_center[d] - xyzZinso[ia*8 + d]);
-                        } // d
-                        auto const center_distance2 = dist2;
-
-                        // TODO: include truncation
-                        if (center_distance2 <= r2projection){
-                            switch (numax)
-                            {
-                            case 0:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction;
-                                break;
-                            case 1:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 4;
-                                break;
-                            case 2:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 10;
-                                break;
-                            case 3:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 20;
-                                break;
-                            case 4:
-                                weight += inhomogenousBaseCost + inhomogenousCostsPerBasisFunction * 35;
-                                break;
-                            
-                            default:
-                                assert(false);
-                                break;
-                            } // switch
-                        }
-                    } // ia
-                    if (echo > 1) std::printf("# Weight at X: %li Y: %li Z: %li is: %g\n", ix, iy, iz, weight);
-                    weights.push_back(weight);
-                } // ix
-            } // iy
-        } // iz
-        assert(weights.size() == n_all_blocks);
-
-        weights.assign(n_all_blocks, 1);
-
         // we assume that the source blocks lie compact in space and preferably close to each other
-        p.global_source_indices = get_right_hand_sides(p.owner_rank_, n_blocks, weights.data(), comm, echo);
+        p.global_source_indices = get_right_hand_sides(p.owner_rank_, n_blocks, block_weights, comm, echo);
         // now p.owner_rank_[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
         if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
@@ -1198,7 +1147,7 @@ namespace green_function {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
             if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
             action_plan_t p;
-            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, comm, gids, nullptr, echo/8, Noco);
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, nullptr, comm, gids, nullptr, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
         return stat;

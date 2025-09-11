@@ -6,6 +6,8 @@
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>, ::real, ::imag
 #include <algorithm> // std::min, ::max
+#include <cuda_runtime.h> // cudaGetDevice
+#include <unistd.h> // gethostname
 
 #include "energy_contour.hxx"
 
@@ -44,17 +46,35 @@ namespace energy_contour {
     ) {
         if (echo > 0) std::printf("# construct %s with grid=[%d %d %d]\n", __func__, gc[0], gc[1], gc[2]);
         plan_ = new action_plan_t(); // CPU memory for the plan
-        auto const stat = green_function::construct_Green_function(*plan_, // result
+        auto stat = green_function::construct_Green_function(*plan_, // result
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
                             xyzZinso, // atom info
+                            nullptr, // weigth info
                             lb.comm(),
                             lb.global_ids(),
                             lb.owner_rank().data(),
                             echo);
+                            
+        
+        // TODO: Implement calculate_Weights and use it here
+        std::vector<float> weights; //= calculate_Weights(plan);
+        weights.assign(plan_->owner_rank_.size() ,1);
+
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
         // if the two distributions are not the same, we need to redistribute the 4x4x4 density cubes
-        if (true) { // ToDo: check if we need redistribution at all
+        if (!weights.empty()) { // ToDo: check if we need redistribution at all
+
+            delete plan_;
+            plan_ = new action_plan_t();
+            auto stat = green_function::construct_Green_function(*plan_, // result
+                            gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
+                            xyzZinso, // atom info
+                            weights.data(), // weigth info
+                            lb.comm(),
+                            lb.global_ids(),
+                            lb.owner_rank().data(),
+                            echo);
 
             uint32_t const nb[] = {uint32_t(gc[0] >> 2), uint32_t(gc[1] >> 2), uint32_t(gc[2] >> 2)}; // divide grid by 4
             if (echo > 5) { std::printf("# rank#%i plan to redistribute %ld 4x4x4 density cubes to %ld cubes\n",
@@ -232,12 +252,41 @@ namespace energy_contour {
 
                     double green_function_took = 0;
 
-                    for (size_t i = 0; i < 12; i++)
+                    int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
+                    int const solverIterations = (control::get("energy_contour.solve.solver.iterations", 1.));
+                    int const totalNodes = (control::get("energy_contour.solve.solver.nodes", 1.));
+                    int const gpusPerNode = (control::get("energy_contour.solve.solver.gpusPerNode", 4.));
+
+                    int lockstepIterations = mpi_parallel::size(comm) / (totalNodes * gpusPerNode);
+                    int ranksPerNode = mpi_parallel::size(comm) / totalNodes;
+
+                    for (size_t li = 0; li < lockstepIterations; li++)
                     {
                         mpi_parallel::barrier(comm);
-                        if(mpi_parallel::rank(comm) / 4 == i){
+                        if((mpi_parallel::rank(comm) % ranksPerNode) / gpusPerNode == li){
+
+                            char hostname[200];
+                            gethostname(hostname, 200);
+
+                            int device = -1;
+                            int PciBusID = -1;
+                            int PciDeviceID = -1;
+
+#ifndef    HAS_NO_CUDA
+                            cudaGetDevice(&device);
+                            cudaDeviceGetAttribute(&PciBusID, cudaDevAttrPciBusId , device);
+                            cudaDeviceGetAttribute(&PciDeviceID, cudaDevAttrPciDeviceId , device);
+#endif
+
+                            printf("# rank#%i was on Host: %s and used GPU: %i, PciBusID: %i, PciDeviceID: %i\n"
+                                ,mpi_parallel::rank(comm), hostname, device, PciBusID, PciDeviceID);
+                            for(int gi = 0; gi < gpuWarmUp; gi++){
+                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                            }
                             SimpleTimer green_timer(strip_path(__FILE__), __LINE__, "SCF-iteration#1", 0);
-                            stat += solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                            for(uint32_t si = 0; si < solverIterations; si++){
+                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                            }
                             assert(green_function_took == 0);
                             green_function_took = green_timer.stop();
                         }
@@ -247,7 +296,9 @@ namespace energy_contour {
                     {
                         simple_stats::Stats<> green_time_stats;
                         green_time_stats.add(green_function_took);
-                        if (true || echo > 5){
+
+                        // TODO: Print stats when we test load balancer, can be removed afterwards
+                        if (gpuWarmUp || echo > 5){
                             std::printf("# rank#%i Green function in SCF-iteration#1 took %f seconds\n", 
                             mpi_parallel::rank(comm), green_time_stats.min());
                         }

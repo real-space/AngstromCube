@@ -28,6 +28,7 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
+        , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , MPI_Comm const comm //
         , std::vector<int64_t> const & global_potential_indices
         , load_balancer::rank_int_t const *const potential_owner_ranks
