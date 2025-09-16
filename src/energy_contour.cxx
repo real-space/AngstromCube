@@ -103,7 +103,6 @@ namespace energy_contour {
         // if (echo > 8) { std::printf("\n# pg_.comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
         //     int64_t(pg_->comm()), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
 
-        if (echo > 7) std::printf("# move green_solver_t\n");
         solver_ = new green_solver_t(plan_, echo, check);
         if (echo > 7) std::printf("# constructed %s\n", __func__);
     } // constructor
