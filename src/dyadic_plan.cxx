@@ -216,7 +216,7 @@
       int iimages[3] = {0, 0, 0}; // number of images replications of the unit cell to each side (for Periodic_Boundary conditions)
       int icopies[3] = {0, 0, 0}; // number of copied atoms .................... (for Wrap_Boundary and Repeat_Boundary conditions)
       uint32_t nimages{1}, ncopies{1}; // init box products
-      for (int d{0}; d < 3; ++d) { // parallel
+      for (int d{0}; d < 3; ++d) {
           // what happens if there is a wrap_boundary but the non-local projection overlaps with two periodic ends of the sphere?
           // we may have to diffentiate between images and copies of atoms! Repeat_Boundary needs copies, Wrap_boundary needs copies
           int const nmx = std::max(0., std::ceil(radius/cell[d]));
@@ -562,7 +562,7 @@
       p.AtomStarts[0] = 0; // init prefetch sum
 
       size_t nc2_max{1}; // green_parallel::exchange does not work with count==0
-      for (uint32_t iac{0}; iac < nac; ++iac) { // parallel loop
+      for (uint32_t iac{0}; iac < nac; ++iac) { // parallel, reduction(max:nc2_max)
           auto const ia = p.global_atom_ids[iac]; // global atom index
           auto const numax = int(xyzZinso[ia*8 + 5]);
           p.AtomSigma[iac] =     xyzZinso[ia*8 + 6];
