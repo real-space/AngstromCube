@@ -2,6 +2,7 @@
 
 #include <cstdio> // std::printf, FILE, ::fprintf
 #include <cassert> // assert
+#include <set> // std::set
 
 // #define DEBUG
 
@@ -19,6 +20,7 @@
 #include "mpi_parallel.hxx" // ::max, MPI_COMM_WORLD
 #include "data_view.hxx" // view2D<T>
 #include "debug_output.hxx" // here
+
 
 #if 0
   // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
@@ -78,6 +80,7 @@
         std::swap(this->sparse_SHOsum       , rhs.sparse_SHOsum       );
         std::swap(this->global_atom_ids     , rhs.global_atom_ids     );
         std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
+        std::swap(this->weight_infos        , rhs.weight_infos        );
         this->update_flop_counts();
         return *this;
     } // move assignment
@@ -182,6 +185,10 @@
       auto const me = mpi_parallel::rank(MPI_COMM_WORLD);
 
       p.nrhs = nrhs;
+      p.weight_infos.resize(nrhs);
+
+      // Needed to calculate weightContribution later on
+      std::vector<std::vector<std::vector<uint32_t>>> numberOfCornersInBlock; // Atom, Row, Rhs
 
       int constexpr X=0, Y=1, Z=2;
 
@@ -289,6 +296,9 @@
 
               // check all target blocks if they are inside the projection radius
               uint32_t ntb{0}; // number of hit target blocks for this image
+
+            
+            numberOfCornersInBlock.push_back(std::vector<std::vector<uint32_t>> (nRowsGreen, std::vector<uint32_t>(nrhs)));
               for (uint32_t icube{0}; icube < nRowsGreen; ++icube) { // loop over blocks
                   auto const *const target_block_coords = rowCubePos[icube];
 
@@ -349,6 +359,13 @@
                           ++ntb;
                           assert(cubes[iai].size() == ntb);
                           int const nrhs_icube = rowStartGreen[icube + 1] - rowStartGreen[icube];
+
+                          for (auto inzb = rowStartGreen[icube]; inzb < rowStartGreen[icube + 1]; ++inzb) {
+                            auto const irhs = colIndexGreen[inzb];
+                            assert(irhs < nrhs);
+                            numberOfCornersInBlock[iai][icube][irhs] = nci == 9 ? 8 : nci;
+                          } // inzb
+
                           sparse += nrhs_icube;
                           dense  += p.nrhs; // all columns
 
@@ -445,19 +462,29 @@
           SHOprj[irhs].resize(nai);
       } // irhs
 
-      for (uint32_t iai{0}; iai < p.nAtomImages; ++iai) {
-          for (uint32_t itb{0}; itb < cubes[iai].size(); ++itb) {
-              auto const iRow = cubes[iai][itb];
-              for (auto inzb = rowStartGreen[iRow]; inzb < rowStartGreen[iRow + 1]; ++inzb) {
-                  auto const irhs = colIndexGreen[inzb];
-                  assert(irhs < nrhs);
-                  SHOprj[irhs][iai].push_back(inzb);
-                  SHOadd[inzb].push_back(iai);
-              } // inzb
-          } // itb
-      } // iai
-      assert(cubes.size() == p.nAtomImages);
-      cubes.resize(0); // release host memory
+      for (uint32_t icube{0}; icube < nRowsGreen; ++icube) {
+        for (auto inzb = rowStartGreen[icube]; inzb < rowStartGreen[icube + 1]; ++inzb) {
+            auto const irhs = colIndexGreen[inzb];
+            assert(irhs < nrhs);
+            p.weight_infos[irhs].weightContributionForKinetic++;
+        } // inzb
+      } // icube
+
+    for (uint32_t iai{0}; iai < p.nAtomImages; ++iai) {
+        for (uint32_t itb{0}; itb < cubes[iai].size(); ++itb) {
+            auto const iRow = cubes[iai][itb];
+            for (auto inzb = rowStartGreen[iRow]; inzb < rowStartGreen[iRow + 1]; ++inzb) {
+                auto const irhs = colIndexGreen[inzb];
+                assert(irhs < nrhs);
+                SHOprj[irhs][iai].push_back(inzb);
+                p.weight_infos[irhs].weightContributionForSHOprj += 8 * numberOfCornersInBlock[iai][iRow][irhs];
+                SHOadd[inzb].push_back(iai);
+                p.weight_infos[irhs].weightContributionForSHOadd += sho_tools::nSHO(xyzZinso[8*atom_data[iai].ia + 5]);
+            } // inzb
+        } // itb
+    } // iai
+    assert(cubes.size() == p.nAtomImages);
+    cubes.resize(0); // release host memory
 
       here;
 

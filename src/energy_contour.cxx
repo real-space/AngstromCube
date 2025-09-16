@@ -54,11 +54,20 @@ namespace energy_contour {
                             lb.global_ids(),
                             lb.owner_rank().data(),
                             echo);
-                            
         
-        // TODO: Implement calculate_Weights and use it here
-        std::vector<float> weights; //= calculate_Weights(plan);
-        weights.assign(plan_->owner_rank_.size() ,1);
+        
+        
+        std::vector<float> weights = load_balancer::calculate_weights(plan_->global_source_indices, plan_->dyadic_plan.weight_infos, plan_->owner_rank_.size());
+        mpi_parallel::max(weights.data(), MPI_COMM_WORLD, weights.size()); // MPI_Allreduce(MPI_Max)
+
+        for(uint32_t wi = 0; wi < weights.size(); wi++){
+            const auto w = weights[wi];
+            //assert(w);
+            if(!w){
+                std::printf("# rank#%i has 0 weight at global index: %i check: %f\n",
+                    mpi_parallel::rank(lb.comm()), wi, w);
+            }
+        }
 
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 

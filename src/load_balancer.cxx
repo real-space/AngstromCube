@@ -45,6 +45,33 @@ namespace load_balancer {
 
     int constexpr X=0, Y=1, Z=2, W=3;
 
+    std::vector<float> calculate_weights(std::vector<int64_t>& global_source_indices, std::vector<load_balancer::WeightInfo>& weight_infos, size_t grid_size){
+        
+        std::vector<float> result(grid_size,1.f);
+
+        float weightMultiplierForKinetic = (control::get("load_balancer.weight.kinetic", 0.4));
+        float weightMultiplierForSHOadd  = (control::get("load_balancer.weight.SHOadd", 0.025));
+        float weightMultiplierForSHOprj  = (control::get("load_balancer.weight.SHOprj", 0.05));
+        
+        for(int wi = 0; wi < weight_infos.size(); wi++){
+            size_t globalIndex = global_source_indices[wi];
+            assert(globalIndex < grid_size);
+
+            const auto& weightInfo = weight_infos[wi];
+
+            // We have at least homogeneous costs
+            assert(weightInfo.weightContributionForKinetic);
+
+            float weight = weightMultiplierForKinetic * weightInfo.weightContributionForKinetic +
+                            weightMultiplierForSHOadd * weightInfo.weightContributionForSHOadd +
+                            weightMultiplierForSHOprj * weightInfo.weightContributionForSHOprj;
+
+            result[globalIndex] = weight;
+        }
+
+        return result;
+    }
+
     template <typename real_t>
     double center_of_weight(
           double cow[4] // result: center of weight [0/1/2] and number of contributors [3]
