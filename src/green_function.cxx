@@ -265,17 +265,17 @@ namespace green_function {
                 simple_stats::Stats<float> weightStats;
                 std::vector<uint32_t> taskIndex;
                 for (size_t i{0}; i < owner_rank.size(); ++i){
-                    if (owner_rank[i] == comm_rank){
+                    if (owner_rank[i] == comm_rank) {
                         weightStats.add(block_weights[i]);
                         taskIndex.push_back(i);
                     }
                 } // i
 
-                std::printf("# rank#%i had %i tasks, with a total weight: %f and distribution %s \n", comm_rank,
+                std::printf("# rank#%i had %li tasks, with a total weight: %f and distribution %s \n", comm_rank,
                     weightStats.tim(), weightStats.sum(), weightStats.interval().c_str());
-                
+
                 std::string allTasks = "# rank#" + std::to_string(comm_rank) + " had tasks: ";
-                for(const uint32_t tID : taskIndex){
+                for (auto const tID : taskIndex) {
                     allTasks += std::to_string(tID) + ", ";
                 }
                 std::printf("%s \n", allTasks.c_str());
