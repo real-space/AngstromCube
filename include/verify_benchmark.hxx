@@ -12,7 +12,7 @@
 #include "control.hxx" // ::get
 #include "recorded_warnings.hxx" // warn
 #include "data_view.hxx" // view2D<T>
-#include "mpi_parallel.hxx" // ::allreduce, ::sum, ::min, ::max
+#include "mpi_parallel.hxx" // ::allreduce, ::sum, ::min, ::max, MPI_COMM_WORLD
 #include "global_coordinates.hxx" // ::get
 
 namespace verify_benchmark {
@@ -61,7 +61,7 @@ namespace verify_benchmark {
         } // scope
 
         for (int i40{0}; i40 < n; ++i40) {
-            mpi_parallel::allreduce(st.at(i40),comm); // usues MPI_COMM_WORLD
+            mpi_parallel::allreduce(st.at(i40), comm); // usues MPI_COMM_WORLD
         } // i40
 
         double maxdev{0}, totalsum{0}, totaltim{0};

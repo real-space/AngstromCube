@@ -30,7 +30,7 @@ namespace geometry_input {
         , char const *const filename // ="atoms.xyz"
         , int const echo // =5 log-level
     ) {
-        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
+        auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
         assert(cell);
         assert(bc);

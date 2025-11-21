@@ -265,7 +265,7 @@ namespace green_function {
                 simple_stats::Stats<float> weightStats;
                 std::vector<uint32_t> taskIndex;
                 for (size_t i{0}; i < owner_rank.size(); ++i){
-                    if (owner_rank[i] == comm_rank) {
+                    if (comm_rank == owner_rank[i]) {
                         weightStats.add(block_weights[i]);
                         taskIndex.push_back(i);
                     }
@@ -274,11 +274,11 @@ namespace green_function {
                 std::printf("# rank#%i had %li tasks, with a total weight: %f and distribution %s \n", comm_rank,
                     weightStats.tim(), weightStats.sum(), weightStats.interval().c_str());
 
-                std::string allTasks = "# rank#" + std::to_string(comm_rank) + " had tasks: ";
+                std::string allTasks = "";
                 for (auto const tID : taskIndex) {
                     allTasks += std::to_string(tID) + ", ";
-                }
-                std::printf("%s \n", allTasks.c_str());
+                } // tID
+                std::printf("# rank#%i had tasks %s\n", comm_rank, allTasks.c_str());
             } // echo
 
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)

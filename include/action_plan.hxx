@@ -110,7 +110,7 @@ public:
       , std::vector<double> const & xyzZinso // [natoms*8]
       , MPI_Comm const comm
       , std::vector<int64_t> const & potential_gids
-      , load_balancer::rank_int_t const* const owner_ranks
+      , load_balancer::rank_int_t const * const owner_ranks
       , int const echo // =0 // log-level
       , int const Noco // =2
     ); // declaration only

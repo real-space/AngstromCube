@@ -64,7 +64,7 @@ namespace parallel_poisson {
     double scalar_product(real_t const v[], real_t const w[], size_t const n, MPI_Comm const comm) {
         double dot{0};
         for (size_t i = 0; i < n; ++i) {
-            dot += double(v[i])*double(w[i]); // conversion to double is different from dot_product define in inline_math.hxx
+            dot += double(v[i])*double(w[i]); // conversion to double is different from dot_product defined in inline_math.hxx
         } // i
         dot = mpi_parallel::sum(dot, comm);
         return dot;
