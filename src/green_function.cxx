@@ -232,7 +232,7 @@ namespace green_function {
     std::vector<int64_t> get_right_hand_sides(
           std::vector<green_parallel::rank_int_t> & owner_rank // side result: who owns which RHS block
         , uint32_t const nb[3] // number of blocks
-        , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
+        , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , MPI_Comm const comm
         , int const echo=0
     ) {
@@ -369,7 +369,7 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
-        , float *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
+        , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , std::vector<int64_t> const & global_potential_indices
         , load_balancer::rank_int_t const *const potential_owner_ranks

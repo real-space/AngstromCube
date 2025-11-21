@@ -12,14 +12,17 @@ namespace load_balancer {
   typedef uint16_t rank_int_t;
   rank_int_t constexpr no_owner = (1ull << 16) - 1; // 65535
 
-  struct WeightInfo
-  {
+  struct WeightInfo {
     uint32_t weightContributionForKinetic = 0; // Homogeneous
     uint32_t weightContributionForSHOadd  = 0; // Basisfunctions
     uint32_t weightContributionForSHOprj  = 0; // AtomImages * number of corners * 8, Note map 9 to 8
-  };
+  }; // struct WeightInfo
 
-  std::vector<float> calculate_weights(std::vector<int64_t>& global_source_indices, std::vector<load_balancer::WeightInfo>& weight_infos, size_t grid_size);
+  std::vector<float> calculate_weights(
+        std::vector<int64_t> const & global_source_indices
+      , std::vector<load_balancer::WeightInfo> const & weight_infos
+      , size_t const grid_size
+  ); // declaration only
 
   double get(
         uint32_t const comm_size // number of MPI processes in this communicator

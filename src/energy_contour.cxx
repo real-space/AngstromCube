@@ -6,10 +6,6 @@
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>, ::real, ::imag
 #include <algorithm> // std::min, ::max
-#ifdef    HAS_CUDA_RUNTIME
-    #include <cuda_runtime.h> // cudaGetDevice
-    #include <unistd.h> // gethostname
-#endif // HAS_CUDA_RUNTIME
 
 #include "energy_contour.hxx"
 
@@ -51,27 +47,22 @@ namespace energy_contour {
         auto stat = green_function::construct_Green_function(*plan_, // result
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
                             xyzZinso, // atom info
-                            nullptr, // weigth info
+                            nullptr, // neutral weigth info, equivalent to all weights==1
                             lb.comm(),
                             lb.global_ids(),
                             lb.owner_rank().data(),
                             echo);
-        
-        
-        
-        std::vector<float> weights = load_balancer::calculate_weights(plan_->global_source_indices, plan_->dyadic_plan.weight_infos, plan_->owner_rank_.size());
-        mpi_parallel::max(weights.data(), MPI_COMM_WORLD, weights.size()); // MPI_Allreduce(MPI_Max)
-
-        for(uint32_t wi = 0; wi < weights.size(); wi++){
-            const auto w = weights[wi];
-            //assert(w);
-            if(!w){
-                std::printf("# rank#%i has 0 weight at global index: %i check: %f\n",
-                    mpi_parallel::rank(lb.comm()), wi, w);
-            }
-        }
-
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
+
+        std::vector<float> weights = load_balancer::calculate_weights(plan_->global_source_indices, plan_->dyadic_plan.weight_infos, plan_->owner_rank_.size());
+        mpi_parallel::max(weights.data(), lb.comm(), weights.size()); // MPI_Allreduce(MPI_Max)
+
+        for (size_t wi = 0; wi < weights.size(); ++wi) {
+            auto const w = weights[wi];
+            if (w <= 0) {
+                std::printf("# rank#%i has 0 or negative weight at global index: %li check: %f\n", mpi_parallel::rank(lb.comm()), wi, w);
+            }
+        } // wi
 
         // if the two distributions are not the same, we need to redistribute the 4x4x4 density cubes
         if (!weights.empty()) { // ToDo: check if we need redistribution at all
@@ -86,6 +77,7 @@ namespace energy_contour {
                             lb.global_ids(),
                             lb.owner_rank().data(),
                             echo);
+            if (stat) warn("2nd construct_Green_function returned status= %i", int(stat));
 
             uint32_t const nb[] = {uint32_t(gc[0] >> 2), uint32_t(gc[1] >> 2), uint32_t(gc[2] >> 2)}; // divide grid by 4
             if (echo > 5) { std::printf("# rank#%i plan to redistribute %ld 4x4x4 density cubes to %ld cubes\n",
@@ -98,12 +90,10 @@ namespace energy_contour {
                                       , echo // log-level
                                       , "redistribute" // what
                                     );
-        }
+        } // weights empty
 
         if (echo > 2) { std::printf("# generate a parallel grid descriptor for the interpolation of densities\n"); }
         pg_ = new parallel_poisson::parallel_grid_t(gc, lb, echo, "Interpolation");
-        // if (echo > 8) { std::printf("\n# pg_.comm= %ld, MPI_COMM_WORLD= %ld, MPI_COMM_NULL= %ld\n", 
-        //     int64_t(pg_->comm()), int64_t(MPI_COMM_WORLD), int64_t(MPI_COMM_NULL)); std::fflush(stdout); }
 
         solver_ = new green_solver_t(plan_, echo, check);
         if (echo > 7) std::printf("# constructed %s\n", __func__);
@@ -261,62 +251,14 @@ namespace energy_contour {
 
                     view2D<Complex> rho_Ek(nrhs, n4x4x4, zero);
 
-                    double green_function_took = 0;
+                    // ******************************
+                    // *** Core solver invokation ***
+                    // ******************************
+                    
+                    solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
 
-                    int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
-                    int const solverIterations = (control::get("energy_contour.solve.solver.iterations", 1.));
-                    int const totalNodes = (control::get("energy_contour.solve.solver.nodes", 1.));
-                    int const gpusPerNode = (control::get("energy_contour.solve.solver.gpusPerNode", 4.));
+                    // ******************************
 
-                    int lockstepIterations = mpi_parallel::size(comm) / (totalNodes * gpusPerNode);
-                    int ranksPerNode = mpi_parallel::size(comm) / totalNodes;
-
-                    for (size_t li{0}; li < lockstepIterations; ++li) {
-                        mpi_parallel::barrier(comm);
-                        if ((mpi_parallel::rank(comm) % ranksPerNode) / gpusPerNode == li) {
-
-                            int device = -1;
-                            int PciBusID = -1;
-                            int PciDeviceID = -1;
-                            char hostname[200] = "<hostname>";
-#ifdef     HAS_CUDA_RUNTIME
-                            gethostname(hostname, 200);
-#ifndef    HAS_NO_CUDA
-                            cudaGetDevice(&device);
-                            cudaDeviceGetAttribute(&PciBusID, cudaDevAttrPciBusId , device);
-                            cudaDeviceGetAttribute(&PciDeviceID, cudaDevAttrPciDeviceId , device);
-#endif // HAS_NO_CUDA
-#endif // HAS_CUDA_RUNTIME
-
-                            std::printf("# rank#%i was on Host: %s and used GPU: %i, PciBusID: %i, PciDeviceID: %i\n",
-                                             mpi_parallel::rank(comm), hostname, device, PciBusID, PciDeviceID);
-                            for (int gi{0}; gi < gpuWarmUp; ++gi){
-                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
-                            } // gi
-                            SimpleTimer green_timer(strip_path(__FILE__), __LINE__, "SCF-iteration#1", 0);
-                            for (uint32_t si{0}; si < solverIterations; ++si){
-                                solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
-                            } // si
-                            assert(green_function_took == 0);
-                            green_function_took = green_timer.stop();
-                        }
-                    } // li
-
-                    {
-                        simple_stats::Stats<> green_time_stats;
-                        green_time_stats.add(green_function_took);
-
-                        // TODO: Print stats when we test load balancer, can be removed afterwards
-                        if (gpuWarmUp || echo > 5){
-                            std::printf("# rank#%i Green function in SCF-iteration#1 took %f seconds\n", 
-                            mpi_parallel::rank(comm), green_time_stats.min());
-                        }
-                        mpi_parallel::allreduce(green_time_stats,comm);
-                        if (0 == check && echo > 2) {
-                            std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
-                                1, green_time_stats.interval().c_str());
-                        } // echo
-                    }
 
                     add_product(rho_E[0], nrhs*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
                     if (sync) {
