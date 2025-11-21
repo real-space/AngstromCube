@@ -130,9 +130,10 @@ status_t run_unit_tests(char const *unit_name, int const echo=0) {
             status += std::abs(int(stat));
             nonzero_status += (0 != stat);
         } // result
-        auto const me = mpi_parallel::rank();
-        status = mpi_parallel::max(status);
-        auto const non0status = mpi_parallel::max(nonzero_status);
+        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
+        auto const me = mpi_parallel::rank(comm);
+        status = mpi_parallel::max(status,comm);
+        auto const non0status = mpi_parallel::max(nonzero_status, comm);
         if (show) {
             if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
             if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);
@@ -300,7 +301,7 @@ int main(int const argc, char *argv[]) {
     }
 
     { // scope: show the GPU memory high water mark
-        simple_stats::Stats<> m; m.add(green_memory::high_water_mark()); mpi_parallel::allreduce(m); // MPI_COMM_WORLD
+        simple_stats::Stats<> m; m.add(green_memory::high_water_mark()); mpi_parallel::allreduce(m, comm); // MPI_COMM_WORLD
         if (echo > 1) std::printf("# GPU memory high water mark [%g, %.3f +/- %g, %g] %s, %g %s total\n",
                     m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
     } // scope
@@ -314,7 +315,7 @@ int main(int const argc, char *argv[]) {
 
     if (echo > 0) recorded_warnings::show_warnings(3);
     recorded_warnings::clear_warnings(1);
-    mpi_parallel::allreduce(&stat); // make sure all processes return the same status
+    mpi_parallel::allreduce(&stat, comm); // make sure all processes return the same status
     mpi_parallel::finalize();
 
     return int(stat);

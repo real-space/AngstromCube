@@ -851,8 +851,8 @@ namespace parallel_potential {
 
         int const check = control::get("check", 0.); // 0:run-mode, <>0:check-mode
 
-        bool needs_integrator{false};
         char const *const basis_method = control::get("basis", "Green-function"); // {Green-function, Thomas-Fermi, none}
+        bool needs_integrator{false};
         switch (*basis_method | 32) {
             case 't': break; // Thomas-Fermi model
             case 'g': needs_integrator = true; break; // Green-function model
@@ -907,8 +907,8 @@ namespace parallel_potential {
         // create a communication infrastructure for the application of a Laplacian operator on the parallelized grid
         parallel_poisson::parallel_grid_t const pg(g, lb, echo, "grid distribution");
 
-        // create a communication infrastructure for the application of an interpolation operator on the parallelized grid
-        parallel_poisson::parallel_grid_t const pg_Interpolation(g, lb, echo, "Interpolation");
+        // // create a communication infrastructure for the application of an interpolation operator on the parallelized grid
+        // parallel_poisson::parallel_grid_t const pg_Interpolation(g, lb, echo, "Interpolation");
 
 
         // distribute the atom ownership:
@@ -1065,11 +1065,10 @@ namespace parallel_potential {
         data_list<double> atoms_vbar(nr2s, 0.0); // zero potentials on contributing atoms
         data_list<double> atoms_rhoc(nr2s, 0.0); // core densities  on contributing atoms
 
-
-
         std::vector<int32_t> numax_prj; // SHO basis size  of the PAW projectors on owned atoms
         std::vector<double>  sigma_prj; // Gaussian spread of the PAW projectors on owned atoms
-        energy_contour::Integrator integrator;
+
+        energy_contour::Integrator *integrator{nullptr};
         if (needs_integrator) {
             if (echo > 0) std::printf("\n# Initialize energy contour integrator\n");
 
@@ -1091,7 +1090,7 @@ namespace parallel_potential {
                     numax_sigma(gid,1) = sigma_prj.at(ia);
                 } // ia
 
-                mpi_parallel::max(numax_sigma[0], n_all_atoms*2, comm); // this is potentially slow
+                mpi_parallel::max(numax_sigma[0], comm, n_all_atoms*2); // this is potentially slow
 
                 xyzZinso.resize(n_all_atoms*8ull);
                 #pragma omp parallel for
@@ -1100,15 +1099,15 @@ namespace parallel_potential {
                     xyzZinso[gid*8ull + 4] = gid; // global atom id
                     xyzZinso[gid*8ull + 5] = numax_sigma(gid,0); // numax
                     xyzZinso[gid*8ull + 6] = numax_sigma(gid,1); // sigma
-                    xyzZinso[gid*8ull + 7] = 0; // spare
+                    xyzZinso[gid*8ull + 7] = 0; // unused
                 } // gid
             } // scope
 
             // construct the energy_contour::Integrator
-            integrator = energy_contour::Integrator(gc, xyzZinso, echo, check);
+            integrator = new energy_contour::Integrator(gc, xyzZinso, lb, echo, check);
 
             // setup communication infrastructure for atom_mat
-            auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
+            auto const & target_global_atom_ids = integrator->plan_->dyadic_plan.global_atom_ids;
             std::vector<int64_t> owned_global_atom_ids(na);
             #pragma omp parallel for
             for (int32_t ia = 0; ia < na; ++ia) {
@@ -1122,7 +1121,7 @@ namespace parallel_potential {
                 atom_owner_rank[gid] = gid % nprocs;
             } // gid
             uint32_t const nb[] = {n_all_atoms, 0, 0};
-            integrator.plan_->matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
+            integrator->plan_->matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
                 owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
             if (echo > 1) std::printf("\n");
         } // needs_integrator
@@ -1361,13 +1360,17 @@ namespace parallel_potential {
 
             case 'g':
             {
+                std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
+                //SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
 
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
-                view2D<double> V_coarse(n_cubes, 4*4*4, 0.0);
+                assert(nullptr != integrator && "the energy_contour::Integrator needs to be initialized!");
+
+                std::vector<double> V_coarse(n_cubes*4*4*4, 0.0);
                 for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // parallel loop over local cubes
-                    cube_average(V_coarse[ilb], V_effective[ilb]);
+                    cube_average(&V_coarse[ilb*4*4*4], V_effective[ilb]);
                 } // ilb
-                print_stats(V_coarse[0], n_cubes*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
+                print_stats(V_coarse.data(), n_cubes*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
 
                 double band_bottom{-1.};
                 { // scope: extract the highest core state energy and an estimate for the lowest valence state energy
@@ -1410,27 +1413,27 @@ namespace parallel_potential {
                     control::set("energy_contour.band.bottom", band_bottom); // avoid changing the interface for now
                 } // scope
 
-                std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
-                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
-
                 // call energy-contour integration to find a new density
-                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
-                                                          pg_Interpolation, n_valence_electrons, g.dV(), echo, check);
+                auto const stat_Gf = integrator->integrate(new_valence_density[0], E_Fermi, V_coarse, atom_mat, numax_prj, sigma_prj,
+                                                           n_valence_electrons, g.dV(), echo, check, scf_iteration);
                 stat += stat_Gf;
-                if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
 
-                auto const green_function_took = green_timer.stop();
+                //auto const green_function_took = green_timer.stop();
                 {
+                    /*
                     simple_stats::Stats<> green_time_stats;
                     green_time_stats.add(green_function_took);
-                    mpi_parallel::allreduce(green_time_stats);
+                    mpi_parallel::allreduce(green_time_stats,comm);
                     if (0 == check && echo > 2) {
                         std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
                             scf_iteration, green_time_stats.interval().c_str());
                     } // echo
                     green_function_times.add(green_time_stats.max());
+                    */
                 }
                 mpi_parallel::barrier(comm); // wait until other ranks have finished the Green function solution
+
+                if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }
             break;
 
@@ -1475,7 +1478,7 @@ namespace parallel_potential {
                 for (int32_t ia{0}; ia < na; ++ia) {
                     add_product(Ea.data(), nE, atom_contrib[ia], 1.); // all atomic weight factors are 1.0
                 } // ia
-                mpi_parallel::sum(Ea.data(), nE, comm);
+                mpi_parallel::sum(Ea.data(), comm, nE);
                 if (echo > 7) std::printf("\n# sum of atomic energy contributions without grid contributions:\n");
                 energy_contribution::show(Ea.data(), echo - 7, eV, _eV);
                 // now add grid contributions
@@ -1538,6 +1541,11 @@ namespace parallel_potential {
                     me, green_memory::total_memory_now()*1e-9, green_memory::high_water_mark()*1e-9);
         } // scope
 
+        if (integrator) {
+            if (echo > 4) { std::printf("# envoke Integrator-destructor\n"); }
+            delete integrator;
+        }
+        
         stat += live_atom_update("memory cleanup", na);
         return stat;
     } // SCF

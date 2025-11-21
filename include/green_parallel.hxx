@@ -7,7 +7,7 @@
 
 #include "status.hxx" // status_t
 #include "simple_stats.hxx" // ::Stats<>
-#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
+#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_NULL
 #include "load_balancer.hxx" // rank_int_t
 
 
@@ -20,13 +20,13 @@ namespace green_parallel {
     class RequestList_t {
     public:
 
-        RequestList_t() : comm_{MPI_COMM_WORLD} {} // default constructor
+        RequestList_t() : comm_{MPI_COMM_NULL} {} // default constructor
         RequestList_t( // constructor
               std::vector<int64_t> const & requests
             , std::vector<int64_t> const & offerings
             , rank_int_t const owner_rank[] // where to find it, [nb[Z]*nb[Y]*nb[X]]
             , uint32_t const nb[3] // global bounding box or {natoms,0,0}
-            , MPI_Comm const comm=MPI_COMM_WORLD
+            , MPI_Comm const comm // no default communicator
             , int const echo=0 // log-level
             , char const *const what="?"
         ); // declaration only

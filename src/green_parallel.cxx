@@ -58,7 +58,7 @@ namespace green_parallel {
         auto const nprocs = mpi_parallel::size(comm);
         auto const me     = mpi_parallel::rank(comm, nprocs);
 
-        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=%s\n",
+        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=\'%s\'\n",
                         me, __FILE__, __LINE__, nb[0], nb[1], nb[2], what); std::fflush(stdout); }
         mpi_parallel::barrier(comm);
 
@@ -82,7 +82,7 @@ namespace green_parallel {
         // create a debug aid: nloc_rank
         std::vector<uint32_t> nloc_rank(nprocs, 0); // init all entries as zero
         nloc_rank.at(me) = nown;
-        mpi_parallel::sum(nloc_rank.data(), nprocs, comm);
+        mpi_parallel::sum(nloc_rank.data(), comm, nprocs);
         assert(nown == nloc_rank[me] && "no other rank may add to my contribution!");
 
 #ifndef   HAS_NO_MPI
@@ -113,7 +113,7 @@ namespace green_parallel {
                 assert(local_check[iall] <= 1 && "duplicates found");
             } // iall
 
-            auto const stat = mpi_parallel::sum(local_check.data(), nall, comm);
+            auto const stat = mpi_parallel::sum(local_check.data(), comm, nall);
             if (stat) warn("MPI_Allreduce(local_check) failed with status= %i", int(stat));
 
             if (echo > 7) { std::printf("# rank#%i local_check after  ", me); printf_vector("%i", local_check); }
@@ -123,7 +123,7 @@ namespace green_parallel {
             local_check.resize(0);
 
             std::vector<rank_int_t> owner_check(nall, 0);
-            mpi_parallel::allreduce(owner_check.data(), MPI_MAX, comm, nall, owner_rank);
+            mpi_parallel::allreduce(owner_check.data(), comm, MPI_MAX, nall, owner_rank);
             if (stat) warn("MPI_Allmax(owner_rank) failed with status= %i", int(stat));
             for (size_t iall = 0; iall < nall; ++iall) {
                 if (owner_check[iall] != owner_rank[iall]) {
@@ -132,7 +132,7 @@ namespace green_parallel {
                 }
                 assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MAX");
             } // iall
-            mpi_parallel::allreduce(owner_check.data(), MPI_MIN, comm, nall, owner_rank);
+            mpi_parallel::allreduce(owner_check.data(), comm, MPI_MIN, nall, owner_rank);
             for (size_t iall = 0; iall < nall; ++iall) {
                 if (owner_check[iall] != owner_rank[iall]) {
                     error("rank#%i owner_rank[%li] differs: MPI-minimum is %d but expected %d",
@@ -145,7 +145,7 @@ namespace green_parallel {
         // get a global list of which local index is where
         {
             // auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_index.data(), nall, MPI_UINT32_T, MPI_MAX, comm);
-            auto const stat = mpi_parallel::allreduce(local_index.data(), MPI_MAX, comm, nall);
+            auto const stat = mpi_parallel::allreduce(local_index.data(), comm, MPI_MAX, nall);
             if (stat) warn("MPI_Allreduce(local_index) failed with status= %i", int(stat));
         }
         // if this is too expensive see ALTERNATIVE
@@ -433,7 +433,7 @@ namespace green_parallel {
 
         for (int i3{0}; i3 < 3; ++i3) { assert(stats[i3] == new_stats[i3]); }
 
-        mpi_parallel::sum(stats, 3, comm);
+        mpi_parallel::sum(stats, comm, 3);
         if (echo > 5) { std::printf( "# total  \tRequestList_t expect %.3f k clear, %.3f k copies, %.3f k exchanges\n",
                                               stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3); std::fflush(stdout); }
 
@@ -460,7 +460,7 @@ namespace green_parallel {
         auto const me = mpi_parallel::rank(comm, nprocs);
 
         // The number of local atoms is limited to 2^16 == 65536
-        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
+        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
                                                                                   count, count*sizeof(real_t)*.001, what);
         auto const nreq = this->size(); // number of requests
         auto const nwin = this->window(); // number of offerings
@@ -539,7 +539,7 @@ namespace green_parallel {
             return this->exchange_onesided(data_out, data_inp, count, echo, what);
         } // use one-sided MPI communication routines
 #endif // HAS_ONESIDED_MPI
-        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte %s\n",
+        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
                                                                                   count, count*sizeof(real_t)*.001, what);
         status_t status(0);
 
@@ -704,7 +704,7 @@ namespace green_parallel {
         std::vector<int64_t> requests = {0,7,6,1,5,2,4,3}; // every process requests all 8 of these ids
 
         auto const nrows = requests.size();
-        auto const comm = mpi_parallel::comm();
+        auto const comm = mpi_parallel::comm(); // for tests
         auto const nprocs = mpi_parallel::size(comm);       assert(nprocs > 0);
         auto const me = mpi_parallel::rank(comm, nprocs);
 

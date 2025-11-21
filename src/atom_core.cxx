@@ -140,19 +140,23 @@ namespace atom_core {
             , int const echo=0 // log output level
             , char const *prefix="" // ="" // logging prefix
     ) {
+        status_t stat(0);
         char filename[512]; get_Zeff_file_name(filename, basename, Z, 512);
         if (echo > 3) std::printf("# %s %s  Z=%g  try to write file \'%s\'\n", prefix, __func__, Z, filename);
-        std::ofstream outfile(filename);
-        if (outfile.is_open()) {
-            outfile << std::setprecision(15);
-            for (int ir = 0; ir < nr; ++ir) {
-                outfile << r[ir] << " " << Zeff[ir]*factor << "\n";
-            } // write to file
-            return 0; // success
-        } else {
-            warn("%s Z=%g failed to open file \'%s\' for writing", prefix, Z, filename);
-            return 1; // failure
-        } // is_open
+        #pragma omp critical (atom_core_store_Zeff)
+        {
+            std::ofstream outfile(filename);
+            if (outfile.is_open()) {
+                outfile << std::setprecision(15);
+                for (int ir = 0; ir < nr; ++ir) {
+                    outfile << r[ir] << " " << Zeff[ir]*factor << "\n";
+                } // write to file
+            } else {
+                warn("%s Z=%g failed to open file \'%s\' for writing", prefix, Z, filename);
+                stat = 1; // failure
+            } // is_open
+        } // critcal
+        return stat;
     } // store_Zeff_to_file
 
 
@@ -443,6 +447,7 @@ namespace atom_core {
           } else {
               stat += store_stat;
           }
+
       } // converged?
 
       // dump_to_file("rV_converged.dat", g.n, rV_old, g.r);

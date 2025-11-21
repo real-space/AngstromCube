@@ -26,7 +26,7 @@
   #include "display_units.h" // GByte, _GByte
   #include "green_input.hxx" // ::load_Hamiltonian
   #include "green_function.hxx" // ::construct_Green_function
-  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
+  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm, MPI_COMM_WORLD
 
   #ifdef    HAS_TFQMRGPU
 
@@ -98,7 +98,7 @@ namespace green_action {
           tfqmrgpu::solve(action); // compute GPU memory requirements
 
           {
-              simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem); // uses MPI_COMM_WORLD
+              simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem, MPI_COMM_WORLD);
               if (echo > 5) std::printf("# tfQMRgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                 mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
           }
@@ -182,8 +182,10 @@ namespace green_action {
       int const r1c2 = control::get("green_function.benchmark.complex", 1.) + 1;
       int const noco = control::get("green_function.benchmark.noco", 1.);
 
+      auto const comm = mpi_parallel::comm(); // for tests
+      std::vector<int64_t> gids(0);
       action_plan_t p;
-      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, noco);
+      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo, noco);
 
       assert(1 == r1c2 || 2 == r1c2);
       assert(1 == noco || r1c2 == noco);
