@@ -3,6 +3,7 @@
 #include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <string> // std::string
+#include <cstdint> // uint32_t
 #include <cstdlib> // std::atof
 #include <map> // std::map<T1,T2>
 #include <tuple> // std::tuple<T1,...,Tn>, ::get
