@@ -2,6 +2,8 @@
 
 #include <cstdint> // int32_t
 
+#include "control.hxx" // ::set
+
 extern "C" {
     #include "single_atom.h"
 

@@ -451,7 +451,7 @@ namespace sho_tools {
               for (int ell = 0; ell <= numax - 2*nrn; ++ell) {
                   {
                       int const k = nlm_index(numax, nrn, ell, -ell);
-                      if (echo > 7) std::printf("# nlm_index<%i>(nrn=%i, ell=%i, emm=-ell) == %i %i diff=%i\n", numax, nrn, ell, nlm, k, nlm - k);
+                      if (echo > 17 || k != nlm) std::printf("# nlm_index<%i>(nrn=%i, ell=%i, emm=-ell) == %i %i diff=%i\n", numax, nrn, ell, nlm, k, nlm - k);
                       assert(k == nlm);
                       nerrors += (k != nlm)*(2*ell + 1);
                       nlm += (2*ell + 1); // forward one ell-shell emm=-ell...ell
@@ -479,7 +479,7 @@ namespace sho_tools {
               for (int ny = 0; ny <= numax - nz; ++ny) {
                   for (int nx = 0; nx <= numax - nz - ny; ++nx) {
                       int const k = zyx_index(numax, nx, ny, nz);
-                      if (echo > 8) std::printf("# zyx_index<%i>(nx=%i, ny=%i, nz=%i) == %i %i diff=%i\n", numax, nx, ny, nz, zyx, k, k - zyx);
+                      if (echo > 18 || k != zyx) std::printf("# zyx_index<%i>(nx=%i, ny=%i, nz=%i) == %i %i diff=%i\n", numax, nx, ny, nz, zyx, k, k - zyx);
                       assert(k == zyx);
                       nerrors += (k != zyx);
                       ++zyx;
@@ -505,7 +505,7 @@ namespace sho_tools {
               for (int nx = 0; nx <= nu - nz; ++nx) {
                   int const ny = nu - nz - nx;
                   int const k = Ezyx_index(nx, ny, nz);
-                  if ((echo > 6) && (k != nzyx))
+                  if (echo > 16 || k != nzyx)
                       std::printf("# Ezyx_index<nu=%i>(nx=%i, ny=%i, nz=%i) == %i %i diff=%i  xyz=%i %i\n",
                              nu, nx, ny, nz, nzyx, k, k - nzyx, xyz,  nx + (nz*((2+nu)*2-(nz + 1)))/2 );
                   assert(k == nzyx);
@@ -522,12 +522,12 @@ namespace sho_tools {
           for (int ell = nu%2; ell <= nu; ell+=2) {
               int const nrn = (nu - ell)/2;
               int const k = Enl_index(nrn, ell);
-              if (echo > 9) std::printf("# Enl_index<nu=%i>(nrn=%i, ell=%i) == %i %i\n", nu, nrn, ell, nln, k);
+              if (echo > 13) std::printf("# Enl_index<nu=%i>(nrn=%i, ell=%i) == %i %i\n", nu, nrn, ell, nln, k);
               assert(k == nln);
               ++nln;
               for (int emm = -ell; emm <= ell; ++emm) {
                   int const k = Elnm_index(ell, nrn, emm);
-                  if (echo > 9) std::printf("# Elnm_index<nu=%i>(ell=%i, nrn=%i, emm=%i) == %i\n", nu, ell, nrn, emm, nlnm);
+                  if (echo > 15) std::printf("# Elnm_index<nu=%i>(ell=%i, nrn=%i, emm=%i) == %i\n", nu, ell, nrn, emm, nlnm);
                   assert(k == nlnm);
                   nerrors += (k != nlnm);
                   assert(nu == get_nu(nlnm));

@@ -29,6 +29,7 @@ OBJATOM = $(addprefix $(OBJDIR)/, \
 	atom_core.o \
 	sho_unitary.o \
 	angular_grid.o \
+	unit_system.o \
 	single_atom.o )
 
 OBJ = $(addprefix $(OBJDIR)/, \
@@ -38,6 +39,7 @@ OBJ = $(addprefix $(OBJDIR)/, \
 	kinetic_plan.o \
 	geometry_input.o \
 	geometry_analysis.o \
+	finite_difference.o \
 	self_consistency.o \
 	iterative_poisson.o \
 	inline_math.o \
@@ -106,16 +108,17 @@ FEAFLAGS += -DHAS_NO_OMP
 FEAFLAGS += -DHAS_NO_CUDA
 FEAFLAGS += -DHAS_BITMAP_EXPORT
 FEAFLAGS += -DHAS_SINGLE_ATOM
+FEAFLAGS += -DENERGY_MESH_SVG_EXPORT
+FEAFLAGS += -DGREEN_FUNCTION_SVG_EXPORT
 # FEAFLAGS += -DUSE_SIMPLE_RANGE_TRUNCATION
 # FEAFLAGS += -DUSE_RECIPROCAL_RADIAL_GRID
 # FEAFLAGS += -DLARGE_ANGULAR_GRIDS
-# FEAFLAGS += -DGENERAL_CELL
+FEAFLAGS += -DGENERAL_CELL
 FEAFLAGS += -DHAS_TFQMRGPU
 INC += -I/Users/pbaum/tfQMRgpu/include
 
 FEAFLAGS += -DHAS_RAPIDXML
 FEAFLAGS += -DHAS_RAPIDJSON
-FEAFLAGS += -DHAS_ONESIDED_MPI
 # FEAFLAGS += -DHAS_NO_LAPACK
 # FEAFLAGS += -DHAS_NO_BLAS
 
@@ -179,22 +182,28 @@ FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 
 CXXFLAGS = -std=c++11 ${FLAGS}
 
-
+# the collection of all dependencies
 DEP=$(OBJ:%.o=%.d) $(OBJATOM:%.o=%.d)
 
+# target to build executable a43: requirements *.o, envokes the linker
 ${EXECUTABLE}: ${OBJATOM} ${OBJ}
-		${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
+		${CXX} ${CXXFLAGS} $^ ${LDFLAGS} -o $@
 
+# target to build the static library libliveatom.a 
 libliveatom.a: ${OBJATOM} $(OBJDIR)/library_kind_static.o
 		ar rcsv $@ $^
 
+# target to build the shared object library libliveatom.so
 libliveatom.so: ${OBJATOM} $(OBJDIR)/library_kind_dynamic.o
 		${CXX} ${CXXFLAGS} -fPIC -shared $^ ${LDFLAGS} -o $@
 
+# rule how to compile a *.cxx-source file into an *.o-object file
 $(OBJDIR)/%.o:%.cxx $(OBJDIR)/%.d
 		${CXX} ${CXXFLAGS} ${INC} -c $< -o $@
 
+# rule to generate *.d-dependency files, uses the compiler with all preprocessor flags
 $(OBJDIR)/%.d:%.cxx
 		${CXX} ${CXXFLAGS} ${INC} -MM $^ -MT $(patsubst %.d,%.o,$@) -MF $@ 
 
+# include dependencies here to know which parts need to be recompiled on change
 -include ${DEP}

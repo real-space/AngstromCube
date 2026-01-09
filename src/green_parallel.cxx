@@ -58,7 +58,7 @@ namespace green_parallel {
         auto const nprocs = mpi_parallel::size(comm);
         auto const me     = mpi_parallel::rank(comm, nprocs);
 
-        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=%s\n",
+        if (echo > 9) { std::printf("# rank#%i waits in barrier at %s:%d nb=%d %d %d, what=\'%s\'\n",
                         me, __FILE__, __LINE__, nb[0], nb[1], nb[2], what); std::fflush(stdout); }
         mpi_parallel::barrier(comm);
 
@@ -82,7 +82,7 @@ namespace green_parallel {
         // create a debug aid: nloc_rank
         std::vector<uint32_t> nloc_rank(nprocs, 0); // init all entries as zero
         nloc_rank.at(me) = nown;
-        mpi_parallel::sum(nloc_rank.data(), nprocs, comm);
+        mpi_parallel::sum(nloc_rank.data(), comm, nprocs);
         assert(nown == nloc_rank[me] && "no other rank may add to my contribution!");
 
 #ifndef   HAS_NO_MPI
@@ -113,7 +113,7 @@ namespace green_parallel {
                 assert(local_check[iall] <= 1 && "duplicates found");
             } // iall
 
-            auto const stat = mpi_parallel::sum(local_check.data(), nall, comm);
+            auto const stat = mpi_parallel::sum(local_check.data(), comm, nall);
             if (stat) warn("MPI_Allreduce(local_check) failed with status= %i", int(stat));
 
             if (echo > 7) { std::printf("# rank#%i local_check after  ", me); printf_vector("%i", local_check); }
@@ -123,7 +123,7 @@ namespace green_parallel {
             local_check.resize(0);
 
             std::vector<rank_int_t> owner_check(nall, 0);
-            mpi_parallel::allreduce(owner_check.data(), MPI_MAX, comm, nall, owner_rank);
+            mpi_parallel::allreduce(owner_check.data(), comm, MPI_MAX, nall, owner_rank);
             if (stat) warn("MPI_Allmax(owner_rank) failed with status= %i", int(stat));
             for (size_t iall = 0; iall < nall; ++iall) {
                 if (owner_check[iall] != owner_rank[iall]) {
@@ -132,7 +132,7 @@ namespace green_parallel {
                 }
                 assert(owner_check[iall] == owner_rank[iall] && "owner differs after MPI_MAX");
             } // iall
-            mpi_parallel::allreduce(owner_check.data(), MPI_MIN, comm, nall, owner_rank);
+            mpi_parallel::allreduce(owner_check.data(), comm, MPI_MIN, nall, owner_rank);
             for (size_t iall = 0; iall < nall; ++iall) {
                 if (owner_check[iall] != owner_rank[iall]) {
                     error("rank#%i owner_rank[%li] differs: MPI-minimum is %d but expected %d",
@@ -145,7 +145,7 @@ namespace green_parallel {
         // get a global list of which local index is where
         {
             // auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_index.data(), nall, MPI_UINT32_T, MPI_MAX, comm);
-            auto const stat = mpi_parallel::allreduce(local_index.data(), MPI_MAX, comm, nall);
+            auto const stat = mpi_parallel::allreduce(local_index.data(), comm, MPI_MAX, nall);
             if (stat) warn("MPI_Allreduce(local_index) failed with status= %i", int(stat));
         }
         // if this is too expensive see ALTERNATIVE
@@ -161,7 +161,7 @@ namespace green_parallel {
         this->owner = std::vector<int32_t>(nreq, 0); // initialize with master rank for the serial version
         this->local_indices = std::vector<int32_t>(nreq, -1);
         this->requested_id = requests; // deep copy
-        this->offered_id = offerings; // deep copy
+        this->offered_id  = offerings; // deep copy
         this->window_size = nown; // number of owned data items
 
         size_t not_found{0};
@@ -214,7 +214,11 @@ namespace green_parallel {
         } // ireq
 
         if (not_found > 0) {
+#ifndef   HAS_NO_MPI
             bool const not_found_is_error = (0 == control::get("mpi.fake.size", 0.));
+#else  // HAS_NO_MPI
+            auto constexpr not_found_is_error = true;
+#endif // HAS_NO_MPI
             if (not_found_is_error) {
                 error("rank #%i failed to find %ld global_ids in offerings of \'%s\', 1st id= %li, last id= %li",
                              me, not_found, what, id_not_found_1st, id_not_found_last);
@@ -284,7 +288,7 @@ namespace green_parallel {
         if (echo > 3) { std::printf( "# rank#%i receives from %d other ranks in 2-sided MPI communication\n", me, n_recv_partners); }
         if (echo > 7) { std::printf( "# rank#%i receives from these %d ranks: ", me, n_recv_partners); printf_vector(" %i", this->recv_packages_from_ranks); }
         for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
-            if (echo > 3) { std::printf( "# rank#%i receives these %d local elements from rank#%i : ", me, n_packages_to_recv.at(ri),
+            if (echo > 8) { std::printf( "# rank#%i receives these %d local elements from rank#%i : ", me, n_packages_to_recv.at(ri),
                 this->recv_packages_from_ranks.at(ri)); printf_vector(" %i", this->recv_package_index.at(ri)); std::fflush(stdout); }
             // consistency check
             assert(this->recv_package_index.at(ri).size() == n_packages_to_recv.at(ri));
@@ -326,42 +330,45 @@ namespace green_parallel {
         { // scope: exchange indices, slightly confusing in terms of naming ....
             //  ... but yes, we send the list of indices that we want to receive ...
             //  ... and we receive the list of indices we need to send.
-            int const tag = __LINE__;
             auto const nr = n_recv_partners + n_send_partners;
             std::vector<MPI_Request> mpi_req(nr);
 
-            for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
-                auto const rank = recv_packages_from_ranks.at(ri);
-                MPI_Isend(this->recv_package_index.at(ri).data(), this->recv_package_index.at(ri).size(), 
-                            MPI_UINT32_T, rank, tag, comm, &mpi_req.at(ri));
-            } // ri
+            {
+                int const tag = __LINE__;
+                for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
+                    auto const rank = recv_packages_from_ranks.at(ri);
+                    MPI_Isend(this->recv_package_index.at(ri).data(), this->recv_package_index.at(ri).size(), 
+                                MPI_UINT32_T, rank, tag, comm, &mpi_req.at(ri));
+                } // ri
 
-            for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
-                auto const rank = send_packages_to_ranks.at(rj);
-                MPI_Irecv(this->send_package_index.at(rj).data(), this->send_package_index.at(rj).size(),
-                            MPI_UINT32_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
-            } // rj
+                for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
+                    auto const rank = send_packages_to_ranks.at(rj);
+                    MPI_Irecv(this->send_package_index.at(rj).data(), this->send_package_index.at(rj).size(),
+                                MPI_UINT32_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
+                } // rj
+            } // scope
 
             MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
-
 
             // now also communicate the global indices
+            {
+                int const tag = __LINE__;
+                for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
+                    auto const rank = recv_packages_from_ranks.at(ri);
+                    MPI_Isend(recv_package_global_id.at(ri).data(), recv_package_global_id.at(ri).size(), 
+                                MPI_INT64_T, rank, tag, comm, &mpi_req.at(ri));
+                } // ri
 
-            for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
-                auto const rank = recv_packages_from_ranks.at(ri);
-                MPI_Isend(recv_package_global_id.at(ri).data(), recv_package_global_id.at(ri).size(), 
-                            MPI_INT64_T, rank, tag, comm, &mpi_req.at(ri));
-            } // ri
-
-            for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
-                auto const rank = send_packages_to_ranks.at(rj);
-                MPI_Irecv(send_package_global_id.at(rj).data(), send_package_global_id.at(rj).size(),
-                            MPI_INT64_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
-            } // rj
+                for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
+                    auto const rank = send_packages_to_ranks.at(rj);
+                    MPI_Irecv(send_package_global_id.at(rj).data(), send_package_global_id.at(rj).size(),
+                                MPI_INT64_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
+                } // rj
+            } // scope
 
             MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
 
-            // check that all requested global_ids are owned locally
+            // check that all global_ids requested from this rank are owned locally
             for (uint32_t rj{0}; rj < n_send_partners; ++rj) {
                 auto const n_packages = send_package_global_id.at(rj).size();
                 for (uint32_t ip{0}; ip < n_packages; ++ip) {
@@ -377,8 +384,8 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
 
         assert(me == rank_int_t(me));
-        ri_index = std::vector<rank_int_t>(nreq, rank_int_t(me)); // if the request is remote, in which recv-buffer is it?
-        ibuf_index.resize(nreq, 0) ; // if the request is remote, where in the recv-buffer is it?
+        this->recv_buffer_index = std::vector<rank_int_t>(nreq, rank_int_t(me)); // if the request is remote, in which recv-buffer is it?
+        this->index_in_recv_buffer.resize(nreq, 0) ; // if the request is remote, where in the recv-buffer is it?
 
         size_t new_stats[] = {0, 0, 0}; // get element from {0:clear, 1:local 2:remote, 2:clear}
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
@@ -416,8 +423,8 @@ namespace green_parallel {
                 } // not found
                 if (echo > 27) { std::printf("# rank#%i found item#%lli in buffer[%i] from rank#%i\n",
                                                 me, global_id, ibuf, rank); std::fflush(stdout); }
-                ibuf_index.at(ireq) = ibuf;
-                ri_index.at(ireq) = ri;
+                index_in_recv_buffer.at(ireq) = ibuf;
+                recv_buffer_index.at(ireq) = ri;
 #else  // HAS_NO_MPI
                 error("Without MPI all entries must reside in the same process, me=%i, owner=%i", me, rank);
 #endif // HAS_NO_MPI
@@ -426,7 +433,7 @@ namespace green_parallel {
 
         for (int i3{0}; i3 < 3; ++i3) { assert(stats[i3] == new_stats[i3]); }
 
-        mpi_parallel::sum(stats, 3, comm);
+        mpi_parallel::sum(stats, comm, 3);
         if (echo > 5) { std::printf( "# total  \tRequestList_t expect %.3f k clear, %.3f k copies, %.3f k exchanges\n",
                                               stats[0]*1e-3, stats[1]*1e-3, stats[2]*1e-3); std::fflush(stdout); }
 
@@ -453,7 +460,7 @@ namespace green_parallel {
         auto const me = mpi_parallel::rank(comm, nprocs);
 
         // The number of local atoms is limited to 2^16 == 65536
-        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte %s\n",
+        if (echo > 5) std::printf("# exchange using MPI one-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
                                                                                   count, count*sizeof(real_t)*.001, what);
         auto const nreq = this->size(); // number of requests
         auto const nwin = this->window(); // number of offerings
@@ -532,7 +539,7 @@ namespace green_parallel {
             return this->exchange_onesided(data_out, data_inp, count, echo, what);
         } // use one-sided MPI communication routines
 #endif // HAS_ONESIDED_MPI
-        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte %s\n",
+        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
                                                                                   count, count*sizeof(real_t)*.001, what);
         status_t status(0);
 
@@ -587,11 +594,11 @@ namespace green_parallel {
                 assert(iloc < nwin);
                 set(&data_out[ireq*count], count, &data_inp[iloc*count]); // copy package
             } else { // me == rank
-                auto const ibuf = this->ibuf_index.at(ireq);
+                auto const ibuf = this->index_in_recv_buffer.at(ireq);
                 if (echo > 17) std::printf("# exchange: rank#%i get data of item#%lli from rank#%i buffer[%i]\n", me, this->requested_id.at(ireq), rank, ibuf);
 #ifndef   HAS_NO_MPI
                 assert(0 <= rank); assert(rank < nprocs);
-                auto const ri = this->ri_index.at(ireq);
+                auto const ri = this->recv_buffer_index.at(ireq);
                 assert(ri >= 0 && "did not expect elements from this rank, error in RequestList_t constructor");
                 auto const & buffer = recv_buff.at(ri);
                 set(&data_out[ireq*count], count, &buffer[ibuf*count]); // copy package from receive buffer
@@ -600,9 +607,11 @@ namespace green_parallel {
 #endif // HAS_NO_MPI
             } // me == rank
         } // ireq
+
         mpi_parallel::barrier(comm); // synchronize processes
         return status;
     } // RequestList_t::exchange
+
 
     status_t RequestList_t::potential_exchange(
           double    (*const Veff[4])[64]  // output effective potentials,  data layout Veff[Noco*Noco][nreq][64]
@@ -624,7 +633,7 @@ namespace green_parallel {
 
         auto const status = this->exchange(Vout.data(), Vinp[0], Noco*Noco*64, echo, "potential");
 
-        // convert Vout into special data layout of Veff (GPU memory) 
+        // convert Vout[nreq][Noco*Noco][64] into special data layout of Veff[Noco*Noco][nreq][64] (in GPU memory) 
         for (size_t ireq = 0; ireq < nreq; ++ireq) {
             for (int spin = 0; spin < Noco*Noco; ++spin) {
                 set(Veff[spin][ireq], 64, Vout(ireq,spin)); // copy blocks of 4*4*4 grid points
@@ -639,7 +648,7 @@ namespace green_parallel {
         // sanity check routine testing exchange with 1 global_id per package
         uint32_t const nr = this->size();   // number of requested elements
         uint32_t const ns = this->window(); // number of offered elements
-        typedef float real_t; // if real_t == float, this makes the explicit template instantiation above redundant
+        typedef float real_t; // if real_t == float, this makes the explicit template instantiation below redundant
         std::vector<real_t> inp(ns, real_t(0));
         for (uint32_t is{0}; is < ns; ++is) {
             inp.at(is) = real_t(this->offered_id.at(is)); // input are the global ids offered, converted to real_t
@@ -672,6 +681,19 @@ namespace green_parallel {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 #ifdef    NO_UNIT_TESTS
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
@@ -682,7 +704,7 @@ namespace green_parallel {
         std::vector<int64_t> requests = {0,7,6,1,5,2,4,3}; // every process requests all 8 of these ids
 
         auto const nrows = requests.size();
-        auto const comm = mpi_parallel::comm();
+        auto const comm = mpi_parallel::comm(); // for tests
         auto const nprocs = mpi_parallel::size(comm);       assert(nprocs > 0);
         auto const me = mpi_parallel::rank(comm, nprocs);
 

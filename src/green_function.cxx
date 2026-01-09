@@ -27,16 +27,18 @@
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm
+#include "load_balancer.hxx" // ::rank_int_t
 
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 #include "load_balancer.hxx" // ::get
 
+//#define HAS_BITMAP_EXPORT
 #ifdef    HAS_BITMAP_EXPORT
   #include "bitmap.hxx" // ::write_bmp_file
 #endif // HAS_BITMAP_EXPORT
 
-#define   GREEN_FUNCTION_SVG_EXPORT
+// #define   GREEN_FUNCTION_SVG_EXPORT
 
  /*
   *  Future plan:
@@ -113,75 +115,52 @@ namespace green_function {
     // ToDo: make it a method of action_plan_t
     status_t update_potential(
           action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-        , uint32_t const nb[3] // numbers of 4*4*4 grid blocks of the unit cell in with the potential is defined
-        , std::vector<double> const & Veff // [nb[2]*4 * nb[1]*4 * nb[0]*4]
+        , std::vector<double> const & Vtot // [ncubes*4*4*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
         , int const Noco // =1
     ) {
-        auto const n_all_grid_points = size_t(nb[Z]*4)*size_t(nb[Y]*4)*size_t(nb[X]*4);
-        auto const n_grid_points = Veff.size();
-        auto const nrhs = p.nCols;
-        auto const n_all_blocks = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
-
-        double const scale_V = control::get("hamiltonian.scale.potential", 1.);
-        if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
-
-        if (n_grid_points == n_all_grid_points) {
-            if (echo > 0) std::printf("# copy all %.3f k grid blocks points\n", n_all_blocks*.001);
-        } else {
-            if (echo > 0) std::printf("# copy only %.3f k grid blocks points, expect %d\n", n_grid_points/64000., nrhs);
-            assert(n_grid_points == 64*nrhs);
-        }
-
-        auto const Vinp = new double[nrhs*Noco*Noco][4*4*4];
-        // reorder Veff[ng[Z]*ng[Y]*ng[X]] into block-structured Vinp
-        for (uint16_t irhs{0}; irhs < nrhs; ++irhs) {
-            // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
-
-            if (n_grid_points == n_all_grid_points) { // scope: restructure and communicate potential
-
-                int32_t ib[3]; global_coordinates::get(ib, p.global_source_indices[irhs]);
-                for (int d = 0; d < 3; ++d) { assert(ib[d] >= 0); }
-
-                for (int i4z = 0; i4z < 4; ++i4z) { size_t const iz = ib[Z]*4 + i4z;
-                for (int i4y = 0; i4y < 4; ++i4y) { size_t const iy = ib[Y]*4 + i4y;
-                for (int i4x = 0; i4x < 4; ++i4x) { size_t const ix = ib[X]*4 + i4x;
-                    auto const izyx = (iz*(nb[Y]*4) + iy)*(nb[X]*4) + ix; // global grid point index
-                    assert(izyx < n_all_grid_points);
-                    auto const i64 = (i4z*4 + i4y)*4 + i4x;
-                    if (2 == Noco) {
-                        Vinp[irhs*4 + 3][i64] = 0.0;  // set clear V_y
-                        Vinp[irhs*4 + 2][i64] = 0.0;  // set clear V_x
-                        Vinp[irhs*4 + 1][i64] = Veff[izyx]*scale_V; // set V_upup
-                    } // non-collinear
-                    Vinp[irhs*Noco*Noco][i64] = Veff[izyx]*scale_V; // copy potential value to V_dndn
-                }}} // i4x i4y i4z
-
-            } else {
-                if (2 == Noco) {
-                    set(Vinp[irhs*4 + 3], 64, 0.0);  // set clear V_y
-                    set(Vinp[irhs*4 + 2], 64, 0.0);  // set clear V_x
-                    set(Vinp[irhs*4 + 1], 64, &Veff[irhs*64], scale_V); // set V_upup
-                } // non-collinear
-                set(Vinp[irhs*Noco*Noco], 64, &Veff[irhs*64], scale_V); // set V_dndn
-            }
-        } // irhs
-
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
+
+            auto const n_grid_points = Vtot.size();
+            assert(0 == (n_grid_points & 63ull) && "the number of grid points must be a multiple of 64");
+            int32_t const ncubes = n_grid_points >> 6; // divide by 64
+    
+            int32_t const nrhs = p.nCols; // the number of right-hand-side 4x4x4 cubes treated in the Green function solver
+    
+            if (echo > 0) { std::printf("# copy only %.3f k grid blocks points, expect %d\n", ncubes*1e-3, nrhs); }
+
+            double const scale_V = control::get("hamiltonian.scale.potential", 1.);
+            if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
+
+            auto const Vinp = new double[ncubes*Noco*Noco][4*4*4];
+            for (int32_t icube{0}; icube < ncubes; ++icube) {
+                // assume that in this MPI rank the potential values of the right-hand-sides that are to be determined are known
+
+                if (2 == Noco) {
+                    set(Vinp[icube*4 + 3], 64, 0.0);  // set clear V_y
+                    set(Vinp[icube*4 + 2], 64, 0.0);  // set clear V_x
+                    set(Vinp[icube*4 + 1], 64, &Vtot[icube*64], scale_V); // set V_upup
+                } // non-collinear
+                set(Vinp[icube*Noco*Noco], 64, &Vtot[icube*64], scale_V); // set V_dndn
+
+            } // irhs
+
+            // MPI exchange potential elements
             p.potential_requests.potential_exchange(p.Veff, Vinp, Noco, echo);
+
+            delete[] Vinp;
         } else {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         } // needs exchange
 
-        delete[] Vinp;
 
         if (echo > 4) {
             int constexpr mag = 0; // only for the Noco=1 case
             simple_stats::Stats<> pot;
             for (int iRow = 0; iRow < p.nRows; ++iRow) {
-                auto const *const V = p.Veff[mag][iRow];
+                auto const *const V = p.Veff[mag][iRow]; // analyze the potential elements in GPU memory
                 for (int i64 = 0; i64 < 64; ++i64) {
                     pot.add(V[i64]);
                 } // i64
@@ -232,7 +211,7 @@ namespace green_function {
         } // d
 
         auto & dp = p.dyadic_plan;
-        assert(dp.AtomImagePhase && "AtomImagePhase must already be allocated");
+        if (dp.nAtomImages > 0) assert(dp.AtomImagePhase && "AtomImagePhase must already be allocated");
         for (uint32_t iai = 0; iai < dp.nAtomImages; ++iai) { // parallel
             std::complex<double> ph(1, 0);
             for (int d = 0; d < 3; ++d) {
@@ -251,52 +230,85 @@ namespace green_function {
 
 
     std::vector<int64_t> get_right_hand_sides(
-          uint32_t const nb[3] // number of blocks
-        , std::vector<green_parallel::rank_int_t> & owner_rank // result: who owns which RHS block
+          std::vector<green_parallel::rank_int_t> & owner_rank // side result: who owns which RHS block
+        , uint32_t const nb[3] // number of blocks
+        , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
+        , MPI_Comm const comm
         , int const echo=0
     ) {
         std::vector<int64_t> global_source_indices; // result array
-
-        auto const comm = mpi_parallel::comm();
-        auto const true_comm_size = mpi_parallel::size(comm);
-        auto const true_comm_rank = mpi_parallel::rank(comm, true_comm_size);
-        unsigned const fake_comm = (true_comm_size > 1) ? 0 : control::get("mpi.fake.size", 0.);
-        auto const comm_size = (fake_comm > 0) ? fake_comm : true_comm_size;
+#ifndef   HAS_NO_MPI
+        auto const comm_size = mpi_parallel::size(comm);
+        auto const comm_rank = mpi_parallel::rank(comm, comm_size);
+#else  // HAS_NO_MPI
+        unsigned const comm_size =          std::max(1.,    control::get("mpi.fake.size", 1.));
+        int      const comm_rank = std::min(std::max(0, int(control::get("mpi.fake.rank", comm_size - 1.))), int(comm_size - 1));
+#endif // HAS_NO_MPI
         owner_rank.resize(0);
         auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         if (comm_size > 1) {
 
             if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
             assert(nall > 0);
-            int const comm_rank = (fake_comm > 0) ? control::get("mpi.fake.rank", fake_comm - 1.) : true_comm_rank;
             double rank_center[4]; // rank_center[0/1/2] are the coordinates of the center of weight of the RHSs assigned to this rank
                                     // rank_center[3] is the number of tasks with nonzero weight
             owner_rank.resize(nall, load_balancer::no_owner);
 
-            load_balancer::get(comm_size, comm_rank, nb, echo, rank_center, owner_rank.data());
+            // currently the load balancer assumes that each of the nb^3 source blocks is equally expensive, however,
+            //          this is not the case close to isolated boundary conditions or higher concentrations of atoms.
+            auto const load = load_balancer::get(comm_size, comm_rank, nb, block_weights, echo, rank_center, owner_rank.data());
 
-            mpi_parallel::min(owner_rank.data(), nall, comm); // MPI_Allreduce(MPI_MIN)
+            // TODO: Set when we test loadbalancing stuff, once it works can be removed
+            int const gpuWarmUp = (control::get("energy_contour.solve.gpu.warmup", 0.));
+
+            if (block_weights && (gpuWarmUp || echo > 5)) {
+                simple_stats::Stats<float> weightStats;
+                std::vector<uint32_t> taskIndex;
+                for (size_t i{0}; i < owner_rank.size(); ++i){
+                    if (comm_rank == owner_rank[i]) {
+                        weightStats.add(block_weights[i]);
+                        taskIndex.push_back(i);
+                    }
+                } // i
+
+                std::printf("# rank#%i had %li tasks, with a total weight: %f and distribution %s \n", comm_rank,
+                    weightStats.tim(), weightStats.sum(), weightStats.interval().c_str());
+
+                std::string allTasks = "";
+                for (auto const tID : taskIndex) {
+                    allTasks += std::to_string(tID) + ", ";
+                } // tID
+                std::printf("# rank#%i had tasks %s\n", comm_rank, allTasks.c_str());
+            } // echo
+
+            mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
-            auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight
+            auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight (weights may not be zero!)
             if (echo > 5) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs);
             {
                 simple_stats::Stats<> nt; // number of tasks
                 nt.add(nrhs);
                 mpi_parallel::allreduce(nt, comm);
-                if (echo > 4) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
+                if (echo > 2) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
+            }
+            {
+                simple_stats::Stats<> nt; // load of tasks
+                nt.add(load);
+                mpi_parallel::allreduce(nt, comm);
+                if (echo > 1) std::printf("# load per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
             }
 
             {
-                global_source_indices.resize(nrhs, -1);
+                global_source_indices.resize(nrhs, global_coordinates::nonexistent);
                 uint32_t irhs{0};
                 int64_t const nbX = nb[X], nbY = nb[Y];
-                for (size_t iall = 0; iall < nall; ++iall) {
+                for (size_t iall{0}; iall < nall; ++iall) {
                     if (comm_rank == owner_rank[iall]) {
                         int32_t const iz = iall/(nbX*nbY);
                         int32_t const iy = (iall - iz*nbX*nbY)/nbX;
                         int32_t const ix = iall - ((iz*nbY) + iy)*nbX;
                         assert(iall == (iz*nbY + iy)*nbX + ix);
-                        global_source_indices[irhs] = global_coordinates::get(ix, iy, iz);
+                        global_source_indices.at(irhs) = global_coordinates::get(ix, iy, iz);
                         ++irhs;
                     } // owned
                 } // iall
@@ -305,13 +317,15 @@ namespace green_function {
             }
 
         } else { // comm_size > 1
+            // not MPI parallel or test functionality (emulate to compute a 3D window of sources)
+
             owner_rank.resize(nall, 0); // all potential elements are owned by the MPI master, i.e. rank#0
 
             // generate a box of source points
             double nsb[3] = {0, 0, 0}; // number of source blocks
-            int32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", -1.);
-            int32_t n_source_blocks[] = {int(nsb[X]), int(nsb[Y]), int(nsb[Z])};
-            int32_t off[3];
+            int32_t const source_cube = control::get(nsb, "green_function.sources", "xyz", -1.); // -1: all sources
+            int32_t n_source_blocks[] = {int32_t(nsb[X]), int32_t(nsb[Y]), int32_t(nsb[Z])};
+            int32_t off[3]; // coordinate offset from origin
             for (int d = 0; d < 3; ++d) {
                 n_source_blocks[d] = (n_source_blocks[d] < 0) ? nb[d] : // "green_function.sources" negative means all
                         std::min(std::max(1, n_source_blocks[d]), int32_t(nb[d])); // clamp
@@ -327,7 +341,7 @@ namespace green_function {
 
             if (echo > 5) std::printf("# offset source blocks %s\n", str(off, 1, " "));
 
-            global_source_indices.resize(nrhs, -1);
+            global_source_indices.resize(nrhs, global_coordinates::nonexistent);
             uint32_t irhs{0};
             for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
             for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {
@@ -343,7 +357,7 @@ namespace green_function {
         } // comm_size > 1
 
         if (echo > 5) std::printf("# total number of source blocks is %ld\n", global_source_indices.size());
-        assert(global_source_indices.size() <= 65536 && "column indices are uint16_t");
+        assert(global_source_indices.size() <= (1ull << 16) && "column indices are uint16_t");
         return global_source_indices;
     } // get_right_hand_sides
 
@@ -355,10 +369,15 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8]
+        , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
+        , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
+        , std::vector<int64_t> const & global_potential_indices
+        , load_balancer::rank_int_t const *const potential_owner_ranks
         , int const echo // =0 // log-level
         , int const Noco // =1
     ) {
-        auto const me = mpi_parallel::rank(); // MPI_COMM_WORLD
+        auto const nprocs = mpi_parallel::size(comm);
+        auto const me = mpi_parallel::rank(comm, nprocs);
 
         if (echo > 1) std::printf("\n#\n# %s(grid=[%s])\n#\n\n", __func__, str(ng, 1, " "));
 
@@ -399,9 +418,8 @@ namespace green_function {
         } // echo
 
         // we assume that the source blocks lie compact in space and preferably close to each other
-        std::vector<green_parallel::rank_int_t> owner_rank(0);
-        p.global_source_indices = get_right_hand_sides(n_blocks, owner_rank, echo);
-        // now owner_rank[] tells the MPI rank of the process responsible for a RHS block
+        p.global_source_indices = get_right_hand_sides(p.owner_rank_, n_blocks, block_weights, comm, echo);
+        // now p.owner_rank_[] tells the MPI rank of the process responsible for a RHS block
         uint32_t const nrhs = p.global_source_indices.size();
         if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
 
@@ -628,7 +646,7 @@ namespace green_function {
                     if (d2 < r2trunc_plus) { // potentially inside, check all 8 or 27 corner cases
 #ifdef    USE_SIMPLE_RANGE_TRUNCATION
                         if (d2 <= r2trunc) { nci = max_nci; } // similar to tfqmrgpu_generate_FD_example.cxx
-                                                                // skip the 8- or 27-corners test for inner blocks
+                                                              // skip the 8- or 27-corners test for inner blocks
 #else  // USE_SIMPLE_RANGE_TRUNCATION
                         int const far = (d2 > r2block_circum); // far in {0, 1}
                         // i = i4 - j4 --> i in [-3, 3],
@@ -725,7 +743,7 @@ namespace green_function {
             if (echo > 3) {
                 char const inout_class[][8] = {"inside", "partial", "outside",  "checked"};
                 for (int i{0}; i < 4; ++i) {
-                    std::printf("# RHSs have [%7g,%9.1f +/-%5.1f, %7g] blocks %s\n",
+                    std::printf("# RHSs have [%7g, %9.1f +/- %5.1f, %7g] blocks %s\n",
                         inout[i].min(), inout[i].mean(), inout[i].dev(), inout[i].max(), inout_class[i]);
                 } // i
             } // echo
@@ -776,8 +794,7 @@ namespace green_function {
                     for (int ix{0}; ix < nx; ++ix) {
                         for (int rgba{0}; rgba < 4; ++rgba) {
                             auto & f = image(iy,ix,rgba);
-                            // apply non-linear transforms here, e.g. sqrt to pronounce the smaller values
-                            f = std::sqrt(f);
+                            f = std::sqrt(f); // apply non-linear transforms here, e.g. sqrt to pronounce the smaller values
                             maxval = std::max(maxval, f);
                         } // rgba
                     } // ix
@@ -790,8 +807,8 @@ namespace green_function {
             assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
 
             // resize BSR tables: (Block-compressed Sparse Row format)
-            if (echo > 3) std::printf("# memory of a complex Green function is %.6f (float) and %.6f %s (double), Noco=%d\n",
-                  nnzb*2.*pow2(Noco*64)*sizeof(float)*GByte,  nnzb*2.*pow2(Noco*64)*sizeof(double)*GByte, _GByte, Noco);
+            if (echo > 3) std::printf("# memory of a complex Green function is %.6f %s (float) and %.6f %s (double), Noco=%d\n",
+                  nnzb*2.*pow2(Noco*64)*sizeof(float)*GByte, _GByte,  nnzb*2.*pow2(Noco*64)*sizeof(double)*GByte, _GByte, Noco);
             p.colindx.resize(nnzb);
             p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
             p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
@@ -894,22 +911,23 @@ namespace green_function {
                             int32_t mod[3];
                             bool potential_given{true};
                             for (int d{0}; d < 3; ++d) {
-                                mod[d] = global_target_coords[d]; // global target coordinates may be negative
+                                mod[d] = global_target_coords[d]; // global target coordinates may be negative for Repeat_Boundary and Vacuum_Boundary
                                 if (Vacuum_Boundary == bc[d] || Isolated_Boundary == bc[d]) {
                                     // potential element is only given if inside the unit cell
                                     potential_given = potential_given && (mod[d] >= 0 && mod[d] < n_blocks[d]);
                                 } else {
                                     assert(Periodic_Boundary == bc[d] || Wrap_Boundary == bc[d] || Repeat_Boundary == bc[d]);
+                                    // potential element is given
                                 } // bc
                                 mod[d] = global_target_coords[d] % int32_t(n_blocks[d]); // we have to convert to int32_t since int32_t % uint32_t behaves wrong for negative coords
                                 mod[d] += (mod[d] < 0)*n_blocks[d]; // cast into range [0, n_blocks[d] - 1]
                             } // d
                             if (potential_given) {
                                 for (int d{0}; d < 3; ++d) { assert(mod[d] >= 0 && mod[d] < n_blocks[d]); }
-                                auto const iloc = index3D(n_blocks, mod);
-                                p.global_target_indices[iRow] = global_coordinates::get(mod);
                                 // global_target_indices are needed to gather the local potential data from other MPI processes
-                                veff_index = iloc; assert(iloc == veff_index && "safe assign");
+                                p.global_target_indices[iRow] = global_coordinates::get(mod);
+                                // auto const iloc = index3D(n_blocks, mod); // deactivated, ToDo: check if Repeat_Boundary is still correct when executed with MPI
+                                veff_index = iRow; assert(iRow == veff_index && "safe assign");
                             } else { // potential_given
                                 assert(Vacuum_Boundary == bc[X] || Vacuum_Boundary == bc[Y] || Vacuum_Boundary == bc[Z]);
                                 veff_index = -1; // outside of the unit cell due to Vacuum_Boundary
@@ -923,8 +941,8 @@ namespace green_function {
                                 // ToDo: if we change green_potential.hxx from target_minus_source to rowCubePos - colCubePos we can delete target_minus_source
                                 // auto const diff = int32_t(p.target_coords[iRow][d]) - p.source_coords[iCol][d];
                                 auto const diff = double(p.rowCubePos[iRow][d]) - double(p.colCubePos[iCol][d]);
-                                p.target_minus_source[inz][d] = diff; // assert(diff == p.target_minus_source[inz][d] && "safe assign");
                                 assert(diff == int(diff)); // both, rowCubePos and colCubePos may be half-integer but their difference must be integer exactly
+                                p.target_minus_source[inz][d] = diff; assert(diff == p.target_minus_source[inz][d] && "safe assign");
                             } // d
                             p.target_minus_source[inz][3] = 0; // component #3 not used
                             p.rowindx[inz] = iRow;
@@ -961,24 +979,29 @@ namespace green_function {
 
             { // scope: set up kinetic plans
                 auto const scale_T = control::get("hamiltonian.scale.kinetic", 1.);
-                if (1 != scale_T) warn("kinetic energy is scaled by factor +hamiltonian.scale.kinetic=%g", scale_T);
+                if (1 != scale_T) { warn("kinetic energy is scaled by factor +hamiltonian.scale.kinetic=%g", scale_T); }
 
                 auto const keyword = "green_kinetic.range";
-                int16_t const kinetic_nFD_default = control::get(keyword, 8.); // if possible use 16th order Laplace operator
+                int16_t const kinetic_nFD_default = control::get(keyword, 8.); // if possible use 16th order Laplace operator, range==8
                 for (int dd{0}; dd < 3; ++dd) { // derivate direction
                     int16_t kinetic_nFD_dd{kinetic_nFD_default}; // suggestion for this direction
                     char keyword_dd[32]; std::snprintf(keyword_dd, 32, "%s.%c", keyword, 'x' + dd);
 
                     // create lists for the finite-difference derivatives
-                    p.kinetic[dd] = kinetic_plan_t(kinetic_nFD_dd // results
-                        , dd
+                    p.kinetic[dd] = kinetic_plan_t(kinetic_nFD_dd // results, kinetic_nFD_dd may be modified
+                        , dd // derivative direction in {0, 1, 2}
                         , (Periodic_Boundary == bc[dd])*n_blocks[dd] // derivative direction is periodic? (not wrapped)
-                        , target_axes
-                        , p.RowStart, p.colindx.data()
+                        , target_axes // mappings from [0, num_target_coords) --> global coordinates in [0, n_blocks) or -1
+                        , p.RowStart
+                        , p.colindx.data()
                         , iRow_of_coords
                         , sparsity_pattern
                         , echo);
-                    p.kinetic[dd].FD_range_ = control::get(keyword_dd, double(kinetic_nFD_dd));
+                    int16_t const max_range = (Periodic_Boundary == bc[dd]) ? 4 : 8;
+                    double  const env_range = control::get(keyword_dd, kinetic_nFD_dd*1.);
+                    int16_t const use_range = std::min(max_range, int16_t(env_range));
+                    if (env_range != use_range) { control::set(keyword_dd, use_range*1.); }
+                    p.kinetic[dd].FD_range_ = use_range;
                     p.kinetic[dd].set(dd, hg[dd], nnzb, echo, scale_T);
 
                 } // dd derivate direction
@@ -994,10 +1017,12 @@ namespace green_function {
 
         } // scope
 
+        // allocate GPU memory for the local potential elements
         p.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
         for (int mag{0}; mag < 4; ++mag) { p.Veff[mag] = nullptr; }
 
         for (int mag{0}; mag < Noco*Noco; ++mag) {
+            // these arrays could be smaller for Repeat_Boundary and Vacuum_Boundary, however, we focus onto the default cases
             p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
             set(p.Veff[mag][0], p.nRows*64, 0.0);
         } // mag
@@ -1005,10 +1030,9 @@ namespace green_function {
         // prepare for the MPI exchange of potential blocks
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
-            auto const comm = mpi_parallel::comm();
-            p.potential_requests = green_parallel::RequestList_t(p.global_target_indices,  // requests
-                                                                 p.global_source_indices, // offerings
-                                                                 owner_rank.data(), n_blocks, comm, echo, "potential");
+            p.potential_requests = green_parallel::RequestList_t(p.global_target_indices, // requests
+                                                                 global_potential_indices, // offerings
+                                                                 potential_owner_ranks, n_blocks, comm, echo, "potential");
         } else {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         }
@@ -1041,7 +1065,7 @@ namespace green_function {
                 std::fprintf(svg, "  <rect x=\"%g\" y=\"%g\" width=\"%d\" height=\"%d\" fill=\"none\" stroke=\"grey\" />\n", v[X]*4, v[Y]*4, 4, 4);
             } // iCol
             auto const h = p.grid_spacing_trunc; // show a 4 truncation spheres around each source block
-            if (h[X] > 0 && h[Y] > 0) {                         auto const rx = p.r_truncation/h[X], ry = p.r_truncation/h[Y];
+            if (h[X] > 0 && h[Y] > 0) {                            auto const rx = p.r_truncation/h[X], ry = p.r_truncation/h[Y];
                 for (uint32_t iCol = 0; iCol < p.nCols; ++iCol) {  auto const *const v = p.colCubePos[iCol];
                     std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+0.5, v[Y]*4+0.5, rx, ry);
                     std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"green\" />\n", v[X]*4+3.5, v[Y]*4+0.5, rx, ry);
@@ -1091,9 +1115,9 @@ namespace green_function {
     status_t test_get_right_hand_sides(int const echo=0) {
         status_t stat(0);
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 1.);
-        uint32_t const nb[] = {unsigned(bb[X]), unsigned(bb[Y]), unsigned(bb[Z])};
+        uint32_t const nb[] = {uint32_t(bb[X]), uint32_t(bb[Y]), uint32_t(bb[Z])};
         std::vector<green_parallel::rank_int_t> owner_rank;
-        auto const rhs = get_right_hand_sides(nb, owner_rank, echo);
+        auto const rhs = get_right_hand_sides(owner_rank, nb, nullptr, MPI_COMM_WORLD, echo);
         auto const nrhs = rhs.size();
         if (echo > 5) std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",
                                         __func__, nrhs, owner_rank.size(), nb[X]*nb[Y]*nb[Z]);
@@ -1109,19 +1133,21 @@ namespace green_function {
 
     status_t test_construct_Green_function(int const echo=0) {
         status_t stat(0);
+        auto const comm = mpi_parallel::comm(); // for tests
         double bb[3]; control::get(bb, "green_function.test.nblocks", "xyz", 6.);
-        uint32_t const ng[] = {4*unsigned(bb[X]), 4*unsigned(bb[Y]), 4*unsigned(bb[Z])};
+        uint32_t const ng[] = {4*uint32_t(bb[X]), 4*uint32_t(bb[Y]), 4*uint32_t(bb[Z])};
         double const grid_spacing[] = {1, 1, 1};
         std::vector<double> xyzZinso(0); // 0: no atoms
+        std::vector<int64_t> gids(0);
         int8_t const bc_test[4] = {Isolated_Boundary, Periodic_Boundary, Vacuum_Boundary, Repeat_Boundary};
         for (int Noco{1}; Noco <= 2; ++Noco) {
         for (int bcz{0}; bcz < 4; ++bcz) {
         for (int bcy{0}; bcy < 4; ++bcy) {
         for (int bcx{0}; bcx < 4; ++bcx) {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
-            if (echo > 3) std::printf("\n# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
+            if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
             action_plan_t p;
-            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, echo, Noco);
+            stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, nullptr, comm, gids, nullptr, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
         return stat;

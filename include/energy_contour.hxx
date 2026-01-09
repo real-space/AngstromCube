@@ -4,12 +4,13 @@
 #include <algorithm> // std::swap
 
 #include "status.hxx" // status_t
-#include "mpi_parallel.hxx" // MPI_Comm, MPI_COMM_WORLD
+#include "mpi_parallel.hxx" // MPI_Comm
 #include "parallel_poisson.hxx" // ::parallel_grid_t
 #include "action_plan.hxx" // action_plan_t
 #include "real_space.hxx" // ::grid_t
 #include "data_list.hxx" // data_list<T>
 #include "green_solver.hxx" // green_solver_t
+#include "green_parallel.hxx" // ::RequestList_t
 
 namespace energy_contour {
 
@@ -17,48 +18,52 @@ namespace energy_contour {
 
     public: // constructors
 
-        Integrator() {} // default constructor
+        // Integrator() {} // default constructor
         Integrator(
               real_space::grid_t const & gc // coarse grid descriptor
             , std::vector<double> const & xyzZinso // all atoms
+            , parallel_poisson::load_balancing_t const & lb
             , int const echo=0 // verbosity
             , int const check=0
         ); // constructor, declaration only
 
         ~Integrator(); // destructor, declaration only
 
-        Integrator(Integrator const &) = delete; // copy constructor
-        Integrator(Integrator &&)      = delete; // move constructor
-        Integrator & operator=(Integrator const &) = delete; // copy assignment
+        // Integrator(Integrator const &) = delete; // copy constructor
+        // Integrator(Integrator &&)      = delete; // move constructor
+        // Integrator & operator=(Integrator const &) = delete; // copy assignment
 
-        Integrator & operator=(Integrator && rhs) { // move assignment
-            std::swap(this->solver_ , rhs.solver_);
-            std::swap(this->plan_   , rhs.plan_  );
-            return *this;
-        } // move assignment
+        // Integrator & operator=(Integrator && rhs) { // move assignment
+        //     std::swap(this->solver_ , rhs.solver_);
+        //     std::swap(this->plan_   , rhs.plan_  );
+        //     std::swap(this->req_    , rhs.req_   );
+        //     std::swap(this->pg_     , rhs.pg_    );
+        //     return *this;
+        // } // move assignment
 
     public: // methods
 
         status_t integrate(
               double rho_new[] // result density in [ncubes][8*8*8] data layout
             , double & Fermi_level // Fermi level
-            , double const Vtot[] // input potential in [ncubes][4*4*4], coarsening could be performed here...
+            , std::vector<double> const & Vtot // input potential in [ncubes*4*4*4]
             , data_list<double> const & atom_mat // atomic_Hamiltonian elements, only in atom owner ranks
             , std::vector<int32_t> const & numax_prj
             , std::vector<double> const & sigma_prj
-            , parallel_poisson::parallel_grid_t const & pg
             , double const n_electrons=1 // required total number of electrons 
             , double const dV=1 // grid volume element
             , int const echo=0 // log level
             , int const check=0
+            , int const scf_iteration_number=0
         ); // declaration only
 
     // members
     public:
         action_plan_t *plan_ = nullptr; // ToDo: make this a private member
+        parallel_poisson::parallel_grid_t *pg_ = nullptr; // ToDo: make this private
+        green_parallel::RequestList_t *req_ = nullptr;
     private:
         green_solver_t *solver_ = nullptr;
-
     }; // class Integrator
 
     status_t all_tests(int const echo=0); // declaration only

@@ -36,7 +36,7 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	green_memory.o \
 	green_parallel.o \
 	green_potential.o \
-  green_solver.o \
+	green_solver.o \
 	green_sparse.o \
 	green_tests.o \
 	kinetic_plan.o \
@@ -46,6 +46,7 @@ OBJECTS = $(addprefix $(OBJDIR)/, \
 	parallel_potential.o \
 	recorded_warnings.o \
 	sho_unitary.o \
+	unit_system.o \
 	green_main.o)
 
 
@@ -59,7 +60,8 @@ allclean: clean
 CU    ?= nvcc
 CC    ?= gcc
 FEAFLAGS ?=
-FEAFLAGS += -DHAS_LIVE_ATOM
+# FEAFLAGS += -DHAS_LIVE_ATOM
+FEAFLAGS += -DHAS_SINGLE_ATOM
 INC ?=
 LDFLAGS ?=
 ERRFLAGS ?=
@@ -94,10 +96,9 @@ FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 FEAFLAGS += -DHAS_RAPIDXML
 FEAFLAGS += -DHAS_RAPIDJSON
 FEAFLAGS += -DHAS_BITMAP_EXPORT
-FEAFLAGS += -DUSE_SIMPLE_RANGE_TRUNCATION
+# FEAFLAGS += -DUSE_SIMPLE_RANGE_TRUNCATION
 # FEAFLAGS += -DHAS_NO_LAPACK
 # FEAFLAGS += -DHAS_NO_BLAS
-FEAFLAGS += -DHAS_ONESIDED_MPI
 
 ## use the tfQMRgpu library to invert the shifted Hamiltonian
 FEAFLAGS += -DHAS_TFQMRGPU

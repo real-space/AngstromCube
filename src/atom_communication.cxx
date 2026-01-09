@@ -24,6 +24,7 @@
 
 namespace atom_communication {
 
+    // a simple atom parallelization strategy
     uint32_t get_global_atom_id(
           uint32_t const atom_owner_rank
         , uint32_t const local_atom_index
@@ -155,7 +156,7 @@ namespace atom_communication {
                 set(atom_data[iatom], count, owner_data[ia]); // local copy
             } else {
 #ifdef    HAS_NO_MPI
-                if (remote_atom_is_error) error("cannot operate remote atoms without MPI, iatom= %i", iatom);
+                if (remote_atom_is_error) error("cannot operate remote atoms without MPI, iatom= %i, id= %i", iatom, global_atom_id);
 #else  // HAS_NO_MPI
                 if (echo > 11) std::printf("# rank#%i %s: recv %s, %d doubles for owned atom#%i from owner rank#%i to contributing atom#%i, global#%i\n",
                                                    me_, __func__, what, count, ia, atom_owner, iatom, global_atom_id);
@@ -178,7 +179,7 @@ namespace atom_communication {
     } // AtomCommList_t::broadcast
 
 
-    status_t AtomCommList_t::allreduce(
+    status_t AtomCommList_t::reduce(
           data_list<double> & owner_data // result [na], only correct in atom owner rank
         , data_list<double> const & atom_data // input [natoms]
         , char const *const what
@@ -222,9 +223,8 @@ namespace atom_communication {
             }
         } // iatom
 
-        // atom owners receive and collect the data
 #ifndef   HAS_NO_MPI
-        std::vector<MPI_Request> recv_requests(1);
+        // atom owners receive and collect the data
         assert(na == list_.size());
         for (int ia{0}; ia < na; ++ia) { // loop over owned atoms
             auto const & list_ia = list_.at(ia);
@@ -247,7 +247,7 @@ namespace atom_communication {
 
         if (stat) warn("failed with status= %i", int(stat));
         return stat;
-    } // AtomCommList_t::allreduce
+    } // AtomCommList_t::reduce
 
 
 
@@ -262,7 +262,7 @@ namespace atom_communication {
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-    status_t test_creation_broadcast_allreduce(int const echo) {
+    status_t test_creation_broadcast_reduce(int const echo) {
         status_t stat(0);
 
         // prepare
@@ -278,10 +278,10 @@ namespace atom_communication {
         std::vector<uint32_t> gids(natoms); // global ids of atoms this rank contributes to
         for (uint32_t iatom{0}; iatom < natoms; ++iatom) { gids[iatom] = (me + iatom) % n_all_atoms; } // some pattern
 
-        // construct
-        AtomCommList_t acomm(n_all_atoms, gids, comm, echo);
+        // constructor
+        AtomCommList_t const acomm(n_all_atoms, gids, comm, echo);
 
-        { // scope: test broadcast and allreduce
+        { // scope: test broadcast and reduce
             std::vector<uint8_t> mo(na, 2), mc(natoms, 2); // all entries in both vectors are 2
             data_list<double> owner_data(mo), atom_data(mc);
             for (int ia{0}; ia < na; ++ia) {
@@ -289,7 +289,7 @@ namespace atom_communication {
                 owner_data[ia][1] = 1;
             } // ia
             stat += acomm.broadcast(atom_data, owner_data, "TEST broadcast", echo);
-            stat += acomm.allreduce(owner_data, atom_data, "TEST allreduce", 1., echo);
+            stat += acomm.reduce(owner_data, atom_data, "TEST reduce", 1., echo);
             mpi_parallel::barrier(comm);
             for (int ia{0}; ia < na; ++ia) {
                 auto const expected = owner_data[ia][1]*(ia + .25);
@@ -303,12 +303,13 @@ namespace atom_communication {
         // destruction happens about here
 
         return stat;
-    } // test_creation_broadcast_allreduce
+    } // test_creation_broadcast_reduce
+
 
     status_t all_tests(int const echo) {
         status_t stat(0);
         auto const already_initialized = mpi_parallel::init();
-        stat += test_creation_broadcast_allreduce(echo);
+        stat += test_creation_broadcast_reduce(echo);
         if (!already_initialized) mpi_parallel::finalize();
         return stat;
     } // all_tests

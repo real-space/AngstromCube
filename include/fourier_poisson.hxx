@@ -114,14 +114,15 @@ namespace fourier_poisson {
                         int const i = (z*ng[1] + y)*ng[0] + x;
                         rho[i] = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2) - charge;
                         q += rho[i];
-                        if (i01 && (echo > 6)) std::printf("%g %g %g\n", std::sqrt(r2), rho[i], V[i]); // point cloud
+                        if (i01 && (echo > 8)) std::printf("%g %g %g\n", std::sqrt(r2), rho[i], V[i]); // point cloud
             }}} // zyx
             if (0 == i01) {
                 stat += solve(V.data(), rho.data(), ng, mat);
-                charge = q/ngall;
+                charge = q/ngall; // compute the neutralizing charge
             } // first time
             if (echo > 2) std::printf("# charge in cell %g %g\n", q, charge);
         } // i01
+
         if (echo > 4) std::printf("\n# radial density and 1/r Coulomb potential\n");
         double const dr = 1./8., pi4dr = 4*pi*dr;
         double V_rad{0};

@@ -353,12 +353,14 @@ namespace potential_generator {
                                                     _eV, (na > 0) ? "atom #0" : "the cell center");
                   poisson_solver::print_direct_projection(Vtot, g, eV, (na > 0) ? center[0] : nullptr);
               } // control
-          } else warn("no coordinates passed for na=%d atoms, center_ptr==nullptr", na);
+          } else { warn("no coordinates passed for na=%d atoms, center_ptr==nullptr", na); }
       } // echo
 
       { // scope: export total potential to ASCII file
-          auto const Vtot_out_filename = control::get("total.potential.to.file", "vtot.dat");
-          if (*Vtot_out_filename) stat += write_array_to_file(Vtot_out_filename, Vtot, g[0], g[1], g[2], echo);
+          auto const Vtot_out_filename = control::get("total.potential.to.file", "");
+          if (nullptr != Vtot_out_filename && *Vtot_out_filename) {
+              stat += write_array_to_file(Vtot_out_filename, Vtot, g[0], g[1], g[2], echo);
+          }
       } // scope
 
       return stat;

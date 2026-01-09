@@ -34,20 +34,21 @@ namespace spherical_harmonics {
       real_t constexpr small = 1e-12;
 
 
-      // check whether  or not normalizations are needed
+      // check whether or not normalizations are needed
       static std::vector<real_t> ynorm;
       static int ellmaxd = -1; // -1:not_initalized
 
+    #pragma omp critical (spherical_harmonics_Ylm)
+    {
       if (ellmax > ellmaxd) {
 #ifdef    DEBUG
-           std::printf("# %s: resize table of normalization constants from %d to %d\n",
-              __func__, pow2(1 + ellmaxd), pow2(1 + ellmax));
+          std::printf("# %s: resize table of normalization constants from %d to %d\n",
+                          __func__, pow2(1 + ellmaxd), pow2(1 + ellmax));
 #endif // DEBUG
           ynorm.resize(pow2(1 + ellmax));
 
 // !********************************************************************
-// !     normalization constants for ylm (internal subroutine has access
-// !     to ellmax and ynorm from above)
+// !     normalization constants for Ylm (internal subroutine has access to ellmaxd and ynorm from above)
 // !********************************************************************
           { // scope to fill ynorm with values
               double const fpi = 4*constants::pi; // 4*pi
@@ -67,9 +68,11 @@ namespace spherical_harmonics {
           } // scope
           ellmaxd = ellmax; // set static variable
       } else if (ellmax < 0) {
-          ellmaxd = -1; // set static variable
           ynorm.resize(0); // cleanup
+          ellmaxd = -1; // set static variable
       }
+    } // critical
+
       if (ellmax < 0) return;
 
       // calculate sin and cos of theta and phi

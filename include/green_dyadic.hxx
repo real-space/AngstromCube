@@ -118,12 +118,12 @@ namespace green_dyadic {
 #endif // HAS_NO_CUDA
           real_t         (*const __restrict__ Cpr)[R1C2][Noco   ][Noco*64] // result: projection coefficients, layout[natomcoeffs*nrhs][R1C2][Noco   ][Noco*64]
         , real_t   const (*const __restrict__ Psi)[R1C2][Noco*64][Noco*64] // input:  Green function,               layout[ncubes*nrhs][R1C2][Noco*64][Noco*64]
-        , green_sparse::sparse_t<> const (*const __restrict__ sparse)
+        , green_sparse::sparse_t<> const (*const __restrict__ sparse) // sparse[nrhs], each sparse_t has natoms rows
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], sigma^{-1/2} [3]
-        , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [iatom]
+        , int8_t   const (*const __restrict__ AtomLmax) // SHO basis size [natoms]
         , uint32_t const (*const __restrict__ AtomStarts) // prefix sum over nSHO(AtomLmax[:])
-        , uint32_t const (*const __restrict__ irow_of_inzb) // row index of the Green function as a function of the non-zero index
-        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used, CubePos[irow][0:3]
+        , uint32_t const (*const __restrict__ irow_of_inzb) // row index of the Green function as a function of the non-zero index [nnzb]
+        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used, CubePos[irow][0:3], [nrows][3+1]
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
     )
       // Compute the projection coefficients of wave/Green functions with atom-centered SHO-bases
@@ -181,8 +181,8 @@ namespace green_dyadic {
 #endif // HAS_NO_CUDA
         { // thread loops
 
-        // register need: 0 3 9 19 34 55 83 119 164 219 285     (L+1)*(L^2 + 8*L + 18)/6
-        // for Lmax=     -1 0 1 2  3  4  5  6   7   8   9           L
+        // GPU register need: 0 3 9 19 34 55 83 119 164 219 285     (L+1)*(L^2 + 8*L + 18)/6
+        //     for Lmax=     -1 0 1 2  3  4  5  6   7   8   9         (any L)
 
         real_t czyx[sho_tools::nSHO(Lmax)]; // get nSHO accumulator registers
         for (int sho = 0; sho < sho_tools::nSHO(Lmax); ++sho) {
@@ -201,10 +201,10 @@ namespace green_dyadic {
 
             __shared__ float R2_proj;
 #ifndef   HAS_NO_CUDA
-            if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[irow][threadIdx.x]; // load into shared memory
+            if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[irow][threadIdx.x]; // load cube position into shared memory
             __syncthreads();
 
-            // generate Hx, Hy, Hz up to lmax inside the 4^3 cube
+            // generate Hx, Hy, Hz up to lmax for the 4^3 cube
 
             if (0 == threadIdx.y && 0 == threadIdx.z) { // sufficient to be executed by the first 12 threads of a block
                 R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid);
@@ -244,7 +244,7 @@ namespace green_dyadic {
                                 auto const d2xyz = xi_squared[X][x] + d2yz;
                                 if (d2xyz < 0) {
                                     int const xyz = (z*4 + y)*4 + x;
-                                    real_t const ps = Psi[inzb][reim][spin*64 + xyz][j]; // load from global memory
+                                    real_t const ps = Psi[inzb][reim][spin*64 + xyz][j]; // load load R1C2*Noco*(Noco*64) real_t from global memory
                                     for (int ix = 0; ix <= lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
                                         auto const Hx = H1D[ix][X][x]; // load Hx from shared memory
                                         ax[ix] += ps * Hx; // FMA: 2 flop * 4**3 * (L+1)
@@ -286,12 +286,15 @@ namespace green_dyadic {
             auto const a0 = AtomStarts[iatom];
             for (int sho = 0; sho < sho_tools::nSHO(lmax); ++sho) {
                 Cpr[(a0 + sho)*nrhs + irhs][reim][spin][j] = czyx[sho]; // 0 flop
+                // store R1C2*Noco*(Noco*64) real_t to global memory
+                // Is this fire-and-forget or is this a load-store operation?
             } // sho
         } // scope
 
         }} // thread loops and block loops
 
     } // SHOprj
+
 
     template <typename real_t, int R1C2=2, int Noco=1>
     int __host__ SHOprj_driver(
@@ -317,7 +320,7 @@ namespace green_dyadic {
             for (uint32_t iatom{0}; iatom < natoms; ++iatom) {
                 maxLmax = std::max(maxLmax, int(AtomLmax[iatom])); // works with ManagedMemory
             } // iatom
-            if (echo > 1) std::printf("# %s maxLmax= %d\n", __func__, maxLmax);
+            if (echo > 3) std::printf("# %s maxLmax= %d\n", __func__, maxLmax);
         }
         if (maxLmax < 4) {
             SHOprj<real_t,R1C2,Noco,3> CUDA_ARGS(gridDim, blockDim, 0, 0, Cpr, Psi, sparse, AtomPos, AtomLmax, AtomStarts, RowIndexCube, CubePos, hGrid);
@@ -348,7 +351,7 @@ namespace green_dyadic {
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius [3]
         , int      const nrhs // number of cube columns in the Green function
     )
-      // Add linear combinations of SHO-basis function to wave/Green functions
+      // Add linear combinations of SHO-basis function to Green functions
     {
         assert(1       ==  gridDim.y);
         assert(1       ==  gridDim.z);
@@ -459,7 +462,7 @@ namespace green_dyadic {
                     real_t ax[4] = {0, 0, 0, 0}; // get 4 accumulator registers --> 8 32bit GPU registers if double
 
                     for (int ix = 0; ix <= lmax - iz - iy; ++ix) { // executes (L+1)*(L+2)*(L+3)/6 times
-                        real_t const ca = Cad[(a0 + sho)*nrhs + irhs][reim][spin][j]; // load Noco*64 numbers from global memory
+                        real_t const ca = Cad[(a0 + sho)*nrhs + irhs][reim][spin][j]; // load R1C2*Noco*(Noco*64) real_t from global memory
                         ++sho;
                         // __unroll__
                         for (int x = 0; x < 4; ++x) {
@@ -517,8 +520,9 @@ namespace green_dyadic {
                     for (int x = 0; x < 4; ++x) {
                         int const xyz = (z*4 + y)*4 + x;
                         if ((mask_all >> xyz) & 0x1) { // probe the rightmost bit
+                            // load and store R1C2*Noco*(Noco*64) real_t from/to global memory
                             Psi[inzb][reim][spin*64 + xyz][j] += czyx[z][y][x]; // up to 64 negligible flop
-                            // possibility to use atomic add here
+                            // possibility to use atomicAdd here, however, not necessary as there is no race condition by construction
                         } // mask
                     } // x
                 } // y

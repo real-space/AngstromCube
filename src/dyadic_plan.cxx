@@ -2,6 +2,7 @@
 
 #include <cstdio> // std::printf, FILE, ::fprintf
 #include <cassert> // assert
+#include <set> // std::set
 
 // #define DEBUG
 
@@ -19,6 +20,7 @@
 #include "mpi_parallel.hxx" // ::max, MPI_COMM_WORLD
 #include "data_view.hxx" // view2D<T>
 #include "debug_output.hxx" // here
+
 
 #if 0
   // Suggestion: this could replace AtomPos + AtomLmax in the long run --> ToDo
@@ -78,6 +80,7 @@
         std::swap(this->sparse_SHOsum       , rhs.sparse_SHOsum       );
         std::swap(this->global_atom_ids     , rhs.global_atom_ids     );
         std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
+        std::swap(this->weight_infos        , rhs.weight_infos        );
         this->update_flop_counts();
         return *this;
     } // move assignment
@@ -182,6 +185,10 @@
       auto const me = mpi_parallel::rank(MPI_COMM_WORLD);
 
       p.nrhs = nrhs;
+      p.weight_infos.resize(nrhs);
+
+      // Needed to calculate weightContribution later on
+      std::vector<std::vector<std::vector<uint32_t>>> numberOfCornersInBlock; // Atom, Row, Rhs
 
       int constexpr X=0, Y=1, Z=2;
 
@@ -209,19 +216,14 @@
       if (echo > 3) std::printf("# projection radii are between %g and %g %s\n", min_sigma*r_proj*Ang, max_sigma*r_proj*Ang, _Ang);
       if (echo > 6) std::printf("# cubes have a circumscribing radius of %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
 
-      if (min_sigma*r_proj <= r_block_circumscribing_sphere) {
-          warn("a small projection radius (%g %s) could fall between cube corners (diagonal %g %s), enlarge +green_function.projection.radius=%.1f",
-              min_sigma*r_proj*Ang, _Ang, r_block_circumscribing_sphere*Ang, _Ang, r_block_circumscribing_sphere/std::max(.01, min_sigma) + .1);
-      }
-
       auto const radius = r_trunc + max_distance_from_center + 2*max_sigma*r_proj + 2*r_block_circumscribing_sphere;
       if (echo > 3) std::printf("# search radius is %g %s\n", radius*Ang, _Ang);
-      auto const r2block_circumscribing_sphere = pow2(r_block_circumscribing_sphere);
+//    auto const r2block_circumscribing_sphere = pow2(r_block_circumscribing_sphere);
 
       int iimages[3] = {0, 0, 0}; // number of images replications of the unit cell to each side (for Periodic_Boundary conditions)
       int icopies[3] = {0, 0, 0}; // number of copied atoms .................... (for Wrap_Boundary and Repeat_Boundary conditions)
       uint32_t nimages{1}, ncopies{1}; // init box products
-      for (int d{0}; d < 3; ++d) { // parallel
+      for (int d{0}; d < 3; ++d) {
           // what happens if there is a wrap_boundary but the non-local projection overlaps with two periodic ends of the sphere?
           // we may have to diffentiate between images and copies of atoms! Repeat_Boundary needs copies, Wrap_boundary needs copies
           int const nmx = std::max(0., std::ceil(radius/cell[d]));
@@ -258,8 +260,8 @@
 
       here;
 
-      std::vector<size_t> nci_stats(65, size_t(0));
-      size_t far_outside{0};
+      std::vector<size_t> nci_stats(10, size_t(0));
+      size_t far_outside{0}, find_inside{0};
       size_t iai{0}; // counter for relevant atomic images
 {   SimpleTimer timer(strip_path(__FILE__), __LINE__, "computing distances with all atoms", echo/2);
 
@@ -272,12 +274,13 @@
           size_t iaa{0};
           for (int ia{0}; ia < natoms; ++ia) { // loop over original atoms in the unit cell, serial
               auto const gid = int32_t(xyzZinso[ia*8 + 4]); // global_atom_id
-              auto const numax =   int(xyzZinso[ia*8 + 5]);
-              auto const sigma =       xyzZinso[ia*8 + 6] ;
+              auto const numax =   int(xyzZinso[ia*8 + 5]); // SHO basis size
+              auto const sigma =       xyzZinso[ia*8 + 6] ; // Gaussian spread
 
               double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
               double const r2projection = pow2(r_projection);
               double const r2projection_plus = pow2(r_projection + r_block_circumscribing_sphere);
+              double const r2projection_minus = pow2(std::max(0., r_projection - r_block_circumscribing_sphere));
 
               size_t i_copies{0};
           for (int zc = -icopies[Z]; zc <= icopies[Z]; ++zc) { // serial
@@ -293,34 +296,55 @@
 
               // check all target blocks if they are inside the projection radius
               uint32_t ntb{0}; // number of hit target blocks for this image
+
+            
+            numberOfCornersInBlock.push_back(std::vector<std::vector<uint32_t>> (nRowsGreen, std::vector<uint32_t>(nrhs)));
               for (uint32_t icube{0}; icube < nRowsGreen; ++icube) { // loop over blocks
                   auto const *const target_block_coords = rowCubePos[icube];
-                  // do we need to do precise checking?
-                  double center_distance2{0};
+
+                  // compute the distance of the cube center from the position of the atomic nucleus
+                  double dist2{0};
                   for (int d{0}; d < 3; ++d) {
-                      double const cube_center = (target_block_coords[d]*4.f + 2.0)*grid_spacing[d];
-                      center_distance2 += pow2(cube_center - atom_pos[d]);
+                      double const cube_center = (target_block_coords[d]*4. + 2.)*grid_spacing[d];
+                      dist2 += pow2(cube_center - atom_pos[d]);
                   } // d
-                  if (center_distance2 <= r2projection_plus) { // do more precise checking
+                  auto const center_distance2 = dist2;
+
+                  // do we need to do any checking?
+                  if (center_distance2 > r2projection_plus) {
+                      ++far_outside;
+//                    if (echo > 21) std::printf("# target block #%i at %s is far outside\n", icube, str(target_block_coords));
+                  } else { // d2 > r2projection_plus
+
 //                    if (echo > 9) std::printf("# target block #%i at %s gets corner check with image at %s Bohr, radius= %g Bohr\n", icube, str(target_block_coords), str(atom_pos), r_projection);
                       int nci{0}; // number of corners inside
-                      { // scope: check 8 corners
-                        double d2xyz[3][2]; // squares of difference coordinates with the corners
-                        for (int d{0}; d < 3; ++d) {
-                            for (int ii{0}; ii < 2; ++ii) { // ii=0:  leftmost grid point (pos 0.5h)
-                                                            // ii=1: rightmost grid point (pos 3.5h)
-                                double const grid_point = (target_block_coords[d]*4.0 + ii*3 + 0.5)*grid_spacing[d];
-                                d2xyz[d][ii] = pow2(grid_point - atom_pos[d]);
-                            } // ii
-                        } // d
-                        for (int i8{0}; i8 < 8; ++i8) { // parallel over 8 corners, reduction on nci
-                            auto const d2i = d2xyz[X][i8 & 1] + d2xyz[Y][(i8 & 2) >> 1] + d2xyz[Z][i8 >> 2];
-                            if (d2i < r2projection) {
-                                ++nci; // at least one corner of the block is inside the projection radius of this atom
-                            } // inside the projection radius
-                        } // i8
-                      } // scope
-                      // three different cases: 0, 1...7, 8, i.e. none, partial, full
+
+                      // do we need to do more precise checking?
+                      if (center_distance2 <= r2projection_minus) {
+                          nci = 9; // all 8 corners must be inside (no checking needed), indicate 9 to differentiate the stats from "fully inside with/without checking"
+                          ++find_inside;
+                      } else { // d2 <= r2projection_minus
+
+                          // check all 8 corners
+                          double d2xyz[3][2]; // squares of difference coordinates with the corners
+                          for (int d{0}; d < 3; ++d) {
+                              for (int ii{0}; ii < 2; ++ii) { // ii=0:  leftmost grid point (pos 0.5h)
+                                                              // ii=1: rightmost grid point (pos 3.5h)
+                                  double const grid_point = (target_block_coords[d]*4.0 + ii*3 + 0.5)*grid_spacing[d];
+                                  d2xyz[d][ii] = pow2(grid_point - atom_pos[d]);
+                              } // ii
+                          } // d
+                          for (int i8{0}; i8 < 8; ++i8) { // parallel over 8 corners, reduction on nci
+                              // the three bits of i8 are interpreted as 0s and 1s
+                              auto const d2i = d2xyz[X][i8 & 1] + d2xyz[Y][(i8 & 2) >> 1] + d2xyz[Z][i8 >> 2];
+                              if (d2i < r2projection) {
+                                  ++nci; // at least one corner of the block is inside the projection radius of this atom
+                              } // inside the projection radius
+                          } // i8
+
+                      } // d2 <= r2projection_minus
+
+                      // three different cases: 0, 1...7, 8, i.e. none, partial, full, 9: full without corner checking
                       if (nci > 0) {
                           // atom image contributes
                           if (0 == ntb) {
@@ -335,6 +359,13 @@
                           ++ntb;
                           assert(cubes[iai].size() == ntb);
                           int const nrhs_icube = rowStartGreen[icube + 1] - rowStartGreen[icube];
+
+                          for (auto inzb = rowStartGreen[icube]; inzb < rowStartGreen[icube + 1]; ++inzb) {
+                            auto const irhs = colIndexGreen[inzb];
+                            assert(irhs < nrhs);
+                            numberOfCornersInBlock[iai][icube][irhs] = nci == 9 ? 8 : nci;
+                          } // inzb
+
                           sparse += nrhs_icube;
                           dense  += p.nrhs; // all columns
 
@@ -342,14 +373,10 @@
                       } else { // nci
 //                        if (echo > 9) std::printf("# target block #%i at %s is outside\n", icube, str(target_block_coords));
                           // assert(0 == nci);
-                          assert(center_distance2 > r2block_circumscribing_sphere && "enlarge +green_function.projection.radius"); // a projection sphere fell between the corners
                       } // nci
                       ++nci_stats[nci];
 
-                  } else { // d2 < r2projection_plus
-                      ++far_outside;
-//                    if (echo > 21) std::printf("# target block #%i at %s is far outside\n", icube, str(target_block_coords));
-                  } // d2 < r2projection_plus
+                  } // d2 > r2projection_plus
               } // icube
 
               if (ntb > 0) {
@@ -401,8 +428,8 @@
 } // timer
 
       if (echo > 3) {   auto const *const s = nci_stats.data();
-          std::printf("# nci_stats %.3f k  %ld %ld %ld %ld %ld %ld %ld  %ld\n", s[0]*.001, s[1],s[2],s[3],s[4],s[5],s[6],s[7], s[8]);
-          std::printf("# %.6f M cube-atom-image pairs do not require corner checking\n", far_outside*1e-6);
+          std::printf("# nci_stats %.3f k  %ld %ld %ld %ld %ld %ld %ld  %ld  %ld\n", s[0]*.001, s[1],s[2],s[3],s[4],s[5],s[6],s[7], s[8], s[9]);
+          std::printf("# %.6f M cube-atom-image pairs do not require corner checking, %.3f k inside\n", far_outside*1e-6, find_inside*1e-3);
       } // echo
 
       here;
@@ -435,19 +462,29 @@
           SHOprj[irhs].resize(nai);
       } // irhs
 
-      for (uint32_t iai{0}; iai < p.nAtomImages; ++iai) {
-          for (uint32_t itb{0}; itb < cubes[iai].size(); ++itb) {
-              auto const iRow = cubes[iai][itb];
-              for (auto inzb = rowStartGreen[iRow]; inzb < rowStartGreen[iRow + 1]; ++inzb) {
-                  auto const irhs = colIndexGreen[inzb];
-                  assert(irhs < nrhs);
-                  SHOprj[irhs][iai].push_back(inzb);
-                  SHOadd[inzb].push_back(iai);
-              } // inzb
-          } // itb
-      } // iai
-      assert(cubes.size() == p.nAtomImages);
-      cubes.resize(0); // release host memory
+      for (uint32_t icube{0}; icube < nRowsGreen; ++icube) {
+        for (auto inzb = rowStartGreen[icube]; inzb < rowStartGreen[icube + 1]; ++inzb) {
+            auto const irhs = colIndexGreen[inzb];
+            assert(irhs < nrhs);
+            p.weight_infos[irhs].weightContributionForKinetic++;
+        } // inzb
+      } // icube
+
+    for (uint32_t iai{0}; iai < p.nAtomImages; ++iai) {
+        for (uint32_t itb{0}; itb < cubes[iai].size(); ++itb) {
+            auto const iRow = cubes[iai][itb];
+            for (auto inzb = rowStartGreen[iRow]; inzb < rowStartGreen[iRow + 1]; ++inzb) {
+                auto const irhs = colIndexGreen[inzb];
+                assert(irhs < nrhs);
+                SHOprj[irhs][iai].push_back(inzb);
+                p.weight_infos[irhs].weightContributionForSHOprj += 8 * numberOfCornersInBlock[iai][iRow][irhs];
+                SHOadd[inzb].push_back(iai);
+                p.weight_infos[irhs].weightContributionForSHOadd += sho_tools::nSHO(xyzZinso[8*atom_data[iai].ia + 5]);
+            } // inzb
+        } // itb
+    } // iai
+    assert(cubes.size() == p.nAtomImages);
+    cubes.resize(0); // release host memory
 
       here;
 
@@ -552,7 +589,7 @@
       p.AtomStarts[0] = 0; // init prefetch sum
 
       size_t nc2_max{1}; // green_parallel::exchange does not work with count==0
-      for (uint32_t iac{0}; iac < nac; ++iac) { // parallel loop
+      for (uint32_t iac{0}; iac < nac; ++iac) { // parallel, reduction(max:nc2_max)
           auto const ia = p.global_atom_ids[iac]; // global atom index
           auto const numax = int(xyzZinso[ia*8 + 5]);
           p.AtomSigma[iac] =     xyzZinso[ia*8 + 6];

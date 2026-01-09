@@ -550,16 +550,17 @@ namespace radial_integrator {
   status_t test_hydrogen_atom(int const echo=0, double const Z=1) {
       // this plots the kink and number of nodes as a function of energy, see doc/fig/20190313_kink_of_energy.*
       auto g = radial_grid::create_radial_grid(256);
-      std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
+      std::vector<double> rV(g.n, -Z); // unscreened hydrogen-like potential: fill all potential values with r*V(r) == -Z
       int nnn_prev{-1};
-      if (echo > 6) std::printf("\n## -Energy(Ha) kink numberOfNodes:\n"); // shows that the kink is a falling function of E 
+      int const mask = (1 << std::max(0, 13 - echo)) - 1; // echo==7 --> plot every 64th, echo==10 --> every 8th, echo==13 --> every number
+      if (echo > 6) std::printf("\n## -Energy(Ha) kink numberOfNodes: (plot every %dth number)\n", mask + 1); // shows that the kink is a falling function of E 
       for (int iE = 1; iE < 10000; ++iE) {
           auto const E = -.75e-9*pow2(iE*Z);
           int nnn, ell{0};
           auto const kink = shoot(0, g, rV.data(), ell, E, nnn);
           if (echo > 6) {
               if (nnn_prev != nnn) std::printf("\n"); // branch separation
-              std::printf("%g %g %d\n", -E, kink, nnn); // shows that the kink is a falling function of E
+              if (0 == (iE & mask)) std::printf("%g %g %d\n", -E, kink, nnn); // shows that the kink is a falling function of E
           } // echo
           // with poles at the energies where the number of nodes changes, we plot -E for log axis
           nnn_prev = nnn; // for the next iteration
@@ -570,10 +571,10 @@ namespace radial_integrator {
 
   status_t test_hydrogen_wave_functions(int const echo=0, double const Z=1) {
       auto g = radial_grid::create_radial_grid(2610);
-      std::vector<double> rf(g.n), rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
+      std::vector<double> rf(g.n), rV(g.n, -Z); // unscreened hydrogen-like potential: fill all potential values with r*V(r) == -Z
       int nnn{0};
       auto const kink = shoot(0, g, rV.data(), 0, -0.5, nnn, rf.data());
-      if (echo > 6) debug(dump_to_file("H1s_radial_wave_function.dat", g.n, rf.data(), g.r));
+      if (echo > 6) { debug(dump_to_file("H1s_radial_wave_function.dat", g.n, rf.data(), g.r)); }
       radial_grid::destroy_radial_grid(g);
       if (echo > 3) std::printf("# %s kink= %.2e\n", __func__, kink);
       return (std::abs(kink) > 1e-3); // error if kink is too large
@@ -581,6 +582,7 @@ namespace radial_integrator {
   
   status_t test_Bessel_functions(int const echo=0) {
       // unit test for the outwards integration
+      int const ir_increment = std::max(1, 12 - echo); // echo=7 --> every 5th point, echo=11 --> every point
       auto g = radial_grid::create_radial_grid(512); // radial grid descriptor
       std::vector<double> gg(g.n), ff(g.n), rV(g.n, 0.0); // fill all potential values with r*V(r) == 0 everywhere
       // j_0(x) = sin(x)/x, j_1(x) = (sin(x) - x*cos(x))/x^2
@@ -600,7 +602,7 @@ namespace radial_integrator {
           if (echo > 6) {
               auto const f = std::sqrt(norm2j/norm2f); // adjust scaling
               std::printf("\n## %s: x, x*j_%i(x), f(x):\n", __func__, ell);
-              for (int ir = 1; ir < g.n; ++ir) {
+              for (int ir = 1; ir < g.n; ir += ir_increment) {
                   std::printf("%g %g %g\n", k*g.r[ir], ff[ir], f*gg[ir]);
               } // ir
           } // echo
@@ -619,7 +621,7 @@ namespace radial_integrator {
       auto const gg = &mem[0], ff = &mem[g.n], rp = &mem[2*g.n], rV = &mem[3*g.n];
       for (int ir = 0; ir < g.n; ++ir) {
           rp[ir] = g.r[ir]*exp(-0.5*pow2(g.r[ir])); // init inhomogeneity*r
-          rV[ir] = -Z; // bare hydrogen potential
+          rV[ir] = -Z; // unscreened hydrogen-like potential
       } // ir
       double E{0.5}, dg{0};
       for (ell_QN_t ell = 0; ell < 4; ++ell) { // loop must run serial and forward
@@ -636,7 +638,7 @@ namespace radial_integrator {
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-//    stat += test_hydrogen_atom(echo);
+      stat += test_hydrogen_atom(echo);
       stat += test_hydrogen_wave_functions(echo);
       stat += test_Bessel_functions(echo);
 //    stat += test_inhomogeneous(echo);

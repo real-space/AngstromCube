@@ -78,9 +78,9 @@ namespace green_potential {
             if (rcut2 >= 0.f) {
                 int constexpr n4 = 4;
                 auto const s = shift[inzb]; // shift vectors between target minus source cube, ToDo: we could generate it from rowCubeCoords - colCubeCoords
-                auto const d2 = pow2((int(s[0])*n4 + x)*real_t(hxyz[0]))
-                              + pow2((int(s[1])*n4 + y)*real_t(hxyz[1]))
-                              + pow2((int(s[2])*n4 + z)*real_t(hxyz[2]));
+                auto const d2 = pow2((int(s[0])*n4 + x)*hxyz[0])
+                              + pow2((int(s[1])*n4 + y)*hxyz[1])
+                              + pow2((int(s[2])*n4 + z)*hxyz[2]);
                 auto const d2out = real_t(d2 - rcut2);
                 Vconfine = (d2out > 0) ? Vconf*pow2(d2out) : 0; // quartic confinement potential, V ~ d^4
 //              std::printf("%.1f %.3f  %d %d %d  %d\n", d2, Vconfine, s[0], s[1], s[2], s[3]); // s[3] == source cube index

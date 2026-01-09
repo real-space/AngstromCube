@@ -66,9 +66,9 @@
   #include "action_plan.hxx" // ::all_tests
   #include "green_input.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
-  #include "unit_system.hxx" // ::all_tests
   #include "energy_mesh.hxx" // ::all_tests
   #include "simple_math.hxx" // ::all_tests
+  #include "unit_system.hxx" // ::all_tests
   #include "sho_overlap.hxx" // ::all_tests
   #include "radial_grid.hxx" // ::all_tests
   #include "single_atom.hxx" // ::all_tests
@@ -99,7 +99,7 @@
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
-#include "unit_system.hxx" // ::set_output_units
+#include "unit_system.hxx" // ::set
 #include "control.hxx" // ::command_line_interface, ::get
 #include "mpi_parallel.hxx" // ::init, ::rank, ::finalize
 
@@ -272,6 +272,10 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
 
     status_t status(0);
     if (results.size() < 1) { // nothing has been tested
+        if ('.' == input_name[0]) {
+            if (echo > 3) { std::printf("# module name starts with \'.\', ignore --test %s\n", input_name.c_str()); }
+            return status; // success
+        }
         error("test for '%s' not found, use -t '?' to see available modules!", module);
     } else {
         if (echo > 0) std::printf("\n\n");
@@ -300,9 +304,10 @@ status_t run_unit_tests(char const *const module=nullptr, int const echo=0) {
                 ++nmodules;
             } // chapter marker
         } // result
-        auto const me = mpi_parallel::rank();
-        status = mpi_parallel::max(status);
-        auto const non0status = mpi_parallel::max(nonzero_status);
+        auto const comm = MPI_COMM_WORLD;
+        auto const me = mpi_parallel::rank(comm);
+        status = mpi_parallel::max(status,comm);
+        auto const non0status = mpi_parallel::max(nonzero_status,comm);
         if (show) {
             if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
             if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);
@@ -335,8 +340,10 @@ int main(int const argc, char *argv[]) {
     // initialize the Message Passing Interface (MPI) for parallel computing
     mpi_parallel::init(argc, argv);
 
+    auto const comm = MPI_COMM_WORLD;
+
     // determine the MPI rank
-    auto const me = mpi_parallel::rank();
+    auto const me = mpi_parallel::rank(comm);
 
     if (argc < 2) warn("no arguments passed to %s!", (argc < 1) ? __FILE__ : argv[0]);
 
@@ -347,6 +354,8 @@ int main(int const argc, char *argv[]) {
     char const *control_file{nullptr}; // the name of the control file (if any)
     std::vector<int> plus_arguments; // mark additional command line arguments
     int verbosity{3}; // set default verbosity low
+    char const* output_length_unit = "Bohr";
+    char const* output_energy_unit = "Ha";
 
     control::set("executable.name", argv[0]);
 
@@ -364,6 +373,10 @@ int main(int const argc, char *argv[]) {
                 for (char const *vv{argv[iarg] + 1}; *vv; ++vv) {
                     verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
                 } // vv
+            } else
+            if ('u' == (ci1 | IgnoreCase)) { // quick options -U= or -u= to modify default output units
+                if ('u' == ci1) { output_length_unit = argv[iarg] + 3; }
+                if ('U' == ci1) { output_energy_unit = argv[iarg] + 3; }
             } else {
 
                 // other options
@@ -386,6 +399,8 @@ int main(int const argc, char *argv[]) {
 #ifndef   NO_UNIT_TESTS
                             "   -t, --test <module> \tRun module unit test\n"
 #endif // NO_UNIT_TESTS
+                            "   -u=<length unit>    \tModify default for output.length.unit\n"
+                            "   -U=<energy unit>    \tModify default for output.energy.unit\n"
                             "   -v, -V, --verbose   \tIncrement verbosity level by 1 or 4\n"
                             "   --version           \tShow version number\n"
                             "   +<name>=<value>     \tOverwrite variable environment\n"
@@ -439,8 +454,8 @@ int main(int const argc, char *argv[]) {
 
     if (echo > 0) std::printf("\n# verbosity=%d\n", echo);
 
-    stat += unit_system::set(control::get("output.length.unit", "Bohr"),
-                             control::get("output.energy.unit", "Ha"), echo);
+    stat += unit_system::set(control::get("output.length.unit", output_length_unit),
+                             control::get("output.energy.unit", output_energy_unit), echo);
     // run
     if (run_tests) {
         stat += run_unit_tests(test_unit, echo);

@@ -100,15 +100,25 @@ namespace mpi_parallel {
 
   inline int init(int argc=0, char **argv=nullptr) { // forward the arguments of main
       static bool already{false};
-      if (already) return 1; // has already been initialized
-      already = true;
-      auto const stat = MPI_Check(MPI_Init(&argc, &argv));
+      int stat{1};
+      if (!already) {
+          #pragma omp critical (mpi_parallel_init)
+          {
+              if (!already) {
+                  stat = MPI_Check(MPI_Init(&argc, &argv));
+                  already = true;
+              }
+          } // critical
+      }
       return stat;
   } // init
 
   inline MPI_Comm comm() { return MPI_COMM_WORLD; }
 
-#define   MPI_SIZE_AND_RANK_INLINED
+#ifndef   HAS_NO_MPI
+    #define   MPI_SIZE_AND_RANK_INLINED
+#endif // HAS_NO_MPI
+
 #ifdef    MPI_SIZE_AND_RANK_INLINED
   inline unsigned size(MPI_Comm const comm=MPI_COMM_WORLD) {
       int size{0};
@@ -143,46 +153,46 @@ namespace mpi_parallel {
   template <> inline MPI_Datatype get<double>  (double   t) { return MPI_DOUBLE;   }
 
   template <typename T>
-  inline int allreduce(T *recv, MPI_Op const op=MPI_SUM, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, T const *send=nullptr) {
+  inline int allreduce(T *recv, MPI_Comm const comm, MPI_Op const op=MPI_SUM, size_t const count=1, T const *send=nullptr) {
       return MPI_Allreduce(send ? send : MPI_IN_PLACE, recv, count, get<T>(), op, comm);
   } // allreduce
 
   template <typename T>
-  inline int broadcast(T *buffer, MPI_Comm const comm=MPI_COMM_WORLD, size_t const count=1, int const root=0) {
+  inline int broadcast(T *buffer, MPI_Comm const comm, size_t const count=1, int const root=0) {
       return MPI_Bcast(buffer, count, get<T>(), root, comm);
   } // broadcast
 
   template <typename T>
-  inline int max(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
-      return allreduce(recv, MPI_MAX, comm, count);
+  inline int max(T *recv, MPI_Comm const comm, size_t const count=1) {
+      return allreduce(recv, comm, MPI_MAX, count);
   } // max
 
   template <typename T>
-  inline int min(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
-      return allreduce(recv, MPI_MIN, comm, count);
+  inline int min(T *recv, MPI_Comm const comm, size_t const count=1) {
+      return allreduce(recv, comm, MPI_MIN, count);
   } // min
 
   template <typename T>
-  inline int sum(T *recv, size_t const count=1, MPI_Comm const comm=MPI_COMM_WORLD) {
-      return allreduce(recv, MPI_SUM, comm, count);
+  inline int sum(T *recv, MPI_Comm const comm, size_t const count=1) {
+      return allreduce(recv, comm, MPI_SUM, count);
   } // sum
 
   template <typename T>
-  inline T max(T const in, MPI_Comm const comm=MPI_COMM_WORLD) {
-      T out{in}; allreduce(&out, MPI_MAX, comm, 1); return out;
+  inline T max(T const in, MPI_Comm const comm) {
+      T out{in}; allreduce(&out, comm, MPI_MAX, 1); return out;
   } // max (scalars)
 
   template <typename T>
-  inline T min(T const in, MPI_Comm const comm=MPI_COMM_WORLD) {
-      T out{in}; allreduce(&out, MPI_MIN, comm, 1); return out;
+  inline T min(T const in, MPI_Comm const comm) {
+      T out{in}; allreduce(&out, comm, MPI_MIN, 1); return out;
   } // min (scalars)
 
   template <typename T>
-  inline T sum(T const in, MPI_Comm const comm=MPI_COMM_WORLD) {
-      T out{in}; allreduce(&out, MPI_SUM, comm, 1); return out;
+  inline T sum(T const in, MPI_Comm const comm) {
+      T out{in}; allreduce(&out, comm, MPI_SUM, 1); return out;
   } // sum (scalars)
 
-  inline int barrier(MPI_Comm const comm=MPI_COMM_WORLD) { 
+  inline int barrier(MPI_Comm const comm) { 
       return MPI_Check(MPI_Barrier(comm));
   } // barrier
 
@@ -191,11 +201,11 @@ namespace mpi_parallel {
   } // finalize
 
 
-  inline int allreduce(simple_stats::Stats<double> & stats, MPI_Comm const comm=MPI_COMM_WORLD) {
+  inline int allreduce(simple_stats::Stats<double> & stats, MPI_Comm const comm) {
       double v[8];
       stats.get(v);
-      auto const status_sum = sum(v, 5, comm); // MPI_SUM on {v[0], v[1], v[2], v[3], v[4]}
-      auto const status_max = max(v + 6, 2, comm); // MPI_MAX on {v[6], v[7]}
+      auto const status_sum = sum(v, comm, 5); // MPI_SUM on {v[0], v[1], v[2], v[3], v[4]}
+      auto const status_max = max(v + 6, comm, 2); // MPI_MAX on {v[6], v[7]}
       stats.set(v);
       return status_sum + status_max;
   } // allreduce

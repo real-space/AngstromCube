@@ -32,6 +32,7 @@
 
 #include "mpi_parallel.hxx"
 
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "recorded_warnings.hxx" // warn, error
 #include "control.hxx" // ::get
 
@@ -112,7 +113,7 @@ namespace mpi_parallel {
         // test the wrappers to MPI_Comm_size, MPI_Comm_rank and MPI_Barrier
         status_t stat(0);
 //      bool const already_initialized = mpi_parallel::init();
-        auto const comm = mpi_parallel::comm();
+        auto const comm = mpi_parallel::comm(); // for tests
         auto const size = mpi_parallel::size(comm);
         auto const rank = mpi_parallel::rank(comm, size);
         stat += mpi_parallel::barrier(comm);

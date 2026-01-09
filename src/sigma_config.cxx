@@ -167,8 +167,8 @@ namespace sigma_config {
 //
 
     int8_t constexpr KeyIgnore = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
-                     KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyUndef = -8;
-    char const Key2String[][8] = {"", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "?"};
+                     KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyComment = -8, KeyUndef = -9;
+    char const Key2String[][8] = {"", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "#", "?"};
 
     int8_t char2ell(char const c) {
         switch (c) {
@@ -195,6 +195,7 @@ namespace sigma_config {
             case 'N': case 'n': return KeyNumax;
             case 'V': case 'v': return KeyMethod;
             case 'W': case 'w': return KeyWarn;
+            case '#':           return KeyComment;
             case '0': case '.': case '+': case '-': return KeyNumeric; // numeric reading
             case '1': case '2': case '3': case '4': case '5':
             case '6': case '7': case '8': case '9': return c - '0'; // enn quantum number of an orbital
@@ -209,11 +210,38 @@ namespace sigma_config {
     } // nl_index
 
     void set_default_core_shells(int ncmx[4], double const Z) {
+        // The default core state configuration (for spdf) will sometimes put valence states
+        // into the core. This happens on purpose for atom numbers Z large enough so we do not
+        // miss any states that are not explicitly marked as valence states.
+        //
+// #  nl    j   occ    index                                                    Z_closed_shell
+//    1s   0.0   2        0      H  He                                          2
+//    2s   0.0   2        1      Li Be                                          4
+//    2p   1.0   6        2      B  C  N  O  F  Ne                              10
+//    3s   0.0   2        3      Na Mg                                          12
+//    3p   1.0   6        4      Al Si P  S  Cl Ar                              18
+//    4s   0.0   2        5      K  Ca                                          20
+//    3d   2.0  10        6      Sc Ti V  Cr Mn Fe Co Ni Cu Zn                  30
+//    4p   1.0   6        7      Ga Ge As Se Br Kr                              36
+//    5s   0.0   2        8      Rb Sr                                          38
+//    4d   2.0  10        9      Y  Zr Nb Mo Tc Ru Rh Pd Ag Cd                  48
+//    5p   1.0   6       10      In Sn Sb Te I  Xe                              54
+//    6s   0.0   2       11      Cs Ba                                          56
+//    4f   3.0  14       12      La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb      70
+//    5d   2.0  10       13      Lu Hf Ta W  Re Os Ir Pt Au Hg                  80
+//    6p   1.0   6       14      Tl Pb Bi Po At Rn                              86
+//    7s   0.0   2       15      Fr Ra                                          88
+//    5f   3.0  14       16      Ac Th Pa U  Np Pu Am Cm Bk Cf Es Fm Md No      102
+//    6d   2.0  10       17      Lr Rf Db Sg Bh Hs Mt Ds Rg Cn                  112
+//    7p   1.0   6       18      Nh Fl Mc Lv Ts Og                              118
+//    8s   0.0   2       19      ue u0                                          120
+//
         ncmx[0] = 0 + (Z >= 120) + (Z >= 88) + (Z >= 56) + (Z >= 38) + (Z >= 20) + (Z >= 12) + (Z >= 4) + (Z >= 2);
         ncmx[1] = 1 + (Z >= 118) + (Z >= 86) + (Z >= 54) + (Z >= 36) + (Z >= 18) + (Z >= 10);
         ncmx[2] = 2 + (Z >= 112) + (Z >= 80) + (Z >= 48) + (Z >= 30);
         ncmx[3] = 3 + (Z >= 102) + (Z >= 70);
     } // set_default_core_shells
+
 
     struct parsed_word_t {
         double value; // numeric value
@@ -257,7 +285,7 @@ namespace sigma_config {
         int iword{0};
         char local_potential_method[32];
 
-        char const * string{config + ('"' == config[0])}; // drop first char if it is a quotation mark '"'
+        char const *string{config + ('"' == config[0])}; // drop first char if it is a quotation mark '"'
                                  // quotation marks are needed to pass config strings by the command line
         char c0{*string};
         while(c0) {
@@ -302,12 +330,18 @@ namespace sigma_config {
                 // leading character is not in {'1', ..., '9'}, i.e. a valid principal quantum number
                 if (KeyNumeric == w.key) {
                     try_numeric = true;
-                } else if (KeyMethod == w.key) {
+                } else
+                if (KeyMethod == w.key) {
                     std::strncpy(local_potential_method, string, 31);
                     if (echo > 7) std::printf("# found local potential method '%s'\n", local_potential_method);
-                } else if (KeyUndef == w.key) {
+                } else
+                if (KeyUndef == w.key) {
                     if (echo > 8) std::printf("# found undefined word in '%s'\n", string);
                     w.mrn = *string; // store the leading character
+                } else
+                if (KeyComment == w.key) {
+                    if (echo > 2) std::printf("# found a comment for Z=%g '%s'\n", Zcore, string);
+                    // stop parsing words after the comment indicator '#'
                 } else {
                     if (echo > 8) std::printf("# found special expression '%s'\n", string);
                 }
@@ -319,14 +353,19 @@ namespace sigma_config {
                 w.key = KeyNumeric; // -9:numeric
             } // try_numeric
 
-            auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
-            if (next_blank) {
-                string = next_blank;
-                while(*string == ' ') { ++string; } // forward to the next non-blank
-                c0 = *string;
+            if (KeyComment == w.key) {
+                c0 = '\0'; // stop the while loop due to a comment
+                if (echo > 9) std::printf("# stop parsing due to comment for Z=%g '%s'\n", Zcore, string);
             } else {
-                c0 = '\0'; // stop the while loop
-            }
+                auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
+                if (next_blank) {
+                    string = next_blank;
+                    while(*string == ' ') { ++string; } // forward to the next non-blank
+                    c0 = *string;
+                } else {
+                    c0 = '\0'; // stop the while loop
+                }
+            } // comment
         } // while;
         int const nwords = iword; // how many words were in the string
         assert(nwords == words.size());
@@ -444,6 +483,8 @@ namespace sigma_config {
                     set_default_core_shells(ncmx, e.Z); // adjust default core shells
                     if (echo > 9) std::printf("# found core charge Z= %g for %s\n", e.Z, symbol);
                     if (e.Z >= 120) warn("some routine may not be prepared for Z= %g >= 120", e.Z);
+                } else if (KeyComment == w.key) {
+                    // ok, there is a comment
                 } else if (KeyUndef == w.key) {
                     warn("%s undefined expression staring from \'%c\' in word #%i", symbol, char(w.mrn), iword);
                 } else {

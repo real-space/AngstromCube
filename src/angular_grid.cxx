@@ -1620,13 +1620,13 @@ namespace angular_grid {
 
     if (echo > 6 && m > 0) {
         int8_t const npoints[8] = {1, 6, 12, 8, 24, 24, 48, 0};
-        std::printf("# %s: The Lebedev-Laikov grid for ellmax= %i has %i = ", __func__, ellmax, n_corrected);
-        int n_check = 0;
+        std::printf("# %s: The Lebedev-Laikov grid for ellmax= %i has %i =", __func__, ellmax, n_corrected);
+        int n_check{0}, i_first{0};
         for (int icode = 0; icode < 7; ++icode) {
-            if (nc[icode] > 0) std::printf("%i*%i + ", nc[icode], npoints[icode]);
+            if (nc[icode] > 0) { std::printf("%s %i*%i", i_first?" +":"", nc[icode], npoints[icode]); ++i_first; }
             n_check += nc[icode] * npoints[icode];
         } // icode
-        std::printf("0 points\n");
+        std::printf(" = %i points\n", n_check);
         assert(n_corrected == n_check);
     } // echo
 
@@ -1710,11 +1710,16 @@ namespace angular_grid {
       int ellmax;
   } angular_grid_t;
 
+
   angular_grid_t* get_grid(int const ellmax, int const echo=0) {
 
       static angular_grid_t grids[1 + ellmax_implemented];
 
+      if (echo > 5) { std::printf("# %s(ellmax=%d)\n", __func__, ellmax); std::fflush(stdout); }
+
       if (ellmax < 0) { // memory cleanup
+        #pragma omp critical (angular_grid_get_grid_cleanup)
+        {
           if (echo > 3) std::printf("# %s: memory cleanup!\n", __FILE__);
           for (int ell = 0; ell <= ellmax_implemented; ++ell) {
               auto & g = grids[ell];
@@ -1727,6 +1732,7 @@ namespace angular_grid {
                   g.ellmax = -1;
               } // this grid was initialized
           } // ell
+        } // critical
           return nullptr; // success
       } else if (ellmax > ellmax_implemented) {
           if (echo > 0) std::printf("# %s: ellmax= %i > ellmax_implemented=%d\n",
@@ -1736,13 +1742,20 @@ namespace angular_grid {
 
       auto & g = grids[ellmax];
       if ((g.npoints < 1) || (g.ellmax != ellmax)) {
-          // init this instance
-          g.ellmax = ellmax;
+       #pragma omp critical (angular_grid_get_grid_init)
+       {
+        if ((g.npoints < 1) || (g.ellmax != ellmax)) {
+          if (echo > 9) { std::printf("# %s(ellmax=%d) needs to be initialized\n", __func__, ellmax); std::fflush(stdout); }
+          // initialize this instance
           g.npoints = get_grid_size(ellmax);
 
           g.xyzw = new double[g.npoints][4];
           auto const npt = create_Lebedev_grid(g.xyzw, ellmax, echo);
+//        if (echo > 9) { std::printf("# %s Lebedev-Laikov grid with %d == %d points\n", __func__, npt, g.npoints); std::fflush(stdout); }
+
           assert(npt == g.npoints && "get_grid_size inconsistent with create_Lebedev_grid");
+
+//        if (echo > 9) { std::printf("# %s Lebedev-Laikov grid with %d points\n", __func__, npt); std::fflush(stdout); }
 
           int const nlm = pow2(1 + ellmax);
           g.Xlm2grid_stride = align<2>(nlm);
@@ -1758,15 +1771,23 @@ namespace angular_grid {
           std::vector<double> xlm(nlm); // must be thread-private if OMP parallel
           for (int ipt = 0; ipt < g.npoints; ++ipt) {
               auto const weight = g.xyzw[ipt][3] * 4*constants::pi;
+//            if (echo > 9) { std::printf("# %s solid_harmonics for point#%i\n", __func__, ipt); std::fflush(stdout); }
               solid_harmonics::rlXlm(xlm.data(), ellmax, g.xyzw[ipt]);
+//            if (echo > 9) { std::printf("# %s solid_harmonics for point#%i done\n", __func__, ipt); std::fflush(stdout); }
               for (int ilm = 0; ilm < nlm; ++ilm) {
                   g.Xlm2grid[ipt*g.Xlm2grid_stride + ilm] = xlm[ilm];
                   g.grid2Xlm[ilm*g.grid2Xlm_stride + ipt] = xlm[ilm]*weight; // transposed and weighted
               } // ilm
           } // ipt
-          if (echo > 3) std::printf("# %s: angular grid for ellmax= %i has %d points\n",
-                                __func__, ellmax, g.npoints);
-      } // grid was not set
+          if (echo > 3) std::printf("# %s: angular grid for ellmax= %i has %d points\n", __func__, ellmax, g.npoints);
+          if (echo > 9) { std::printf("# %s Lebedev-Laikov grid with %d points, init done\n", __func__, npt); std::fflush(stdout); }
+          g.ellmax = ellmax;
+        } // grid was not set
+       } // critical
+      }
+
+      if (echo > 9) { std::printf("# %s Lebedev-Laikov grid, ptr= %p\n", __func__, (void*)&g); std::fflush(stdout); }
+
       return &g;
 
   } // get_grid
@@ -1792,7 +1813,9 @@ namespace angular_grid {
 
   std::vector<gaunt_entry_t> create_numerical_Gaunt(int const ellmax, int const echo) {
       std::vector<gaunt_entry_t> gaunt_coeffs;
-      auto const *const g = get_grid(2*ellmax);
+      if (echo > 5) { std::printf("# %s: angular_grid for ellmax=%d\n", __func__, ellmax); std::fflush(stdout); }
+      auto const *const g = get_grid(2*ellmax, echo);
+      if (echo > 7) { std::printf("# %s: angular_grid for ellmax=%d  g_ptr=%p\n", __func__, ellmax, (void*)g); std::fflush(stdout); }
       if (nullptr != g) {
           assert(2*ellmax == g->ellmax);
           int const M = pow2(1 + ellmax), M2 = pow2(1 + 2*ellmax);
@@ -1825,6 +1848,15 @@ namespace angular_grid {
       } // nullptr != g
       return gaunt_coeffs;
   } // create_numerical_Gaunt
+
+
+
+
+
+
+
+
+
 
 #ifdef    NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

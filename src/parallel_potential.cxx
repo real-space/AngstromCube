@@ -45,7 +45,6 @@
     extern "C" {
        #include "single_atom.h" // live_atom_update_
                                 // live_atom_is_a_dynamic_library_
-                                // live_atom_init_env_
     } // extern "C"
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
@@ -59,51 +58,59 @@ namespace parallel_potential {
       , int32_t *const ip=nullptr // quantities (input/output) integer ip[natoms]
       , float   *const fp=nullptr // quantities (input)        float   fp[natoms or less]
       , double  *const *const dpp=nullptr // quantities (input/output) double* dpp[natoms]
+      , int const echo=0 // log-level
     ) {
-        int32_t stat(0); // status variable for
+        int32_t stat(0); // status result
 
-        static int use{-1};
+        static int use{-1}; // -1: has not been initialized
         if (-1 == use) {
-            use = control::get("use.live.atom", 1.);
-            int const echo = (0 == mpi_parallel::rank());
+            #pragma omp single
+            {
+                use = control::get("use.live.atom", 1.);
+                
 #ifdef    HAS_SINGLE_ATOM
-            if (echo > 1) std::printf("# use.live.atom=%d via single_atom::atom_update\n", use);
+                if (echo > 1) { std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", natoms); std::fflush(stdout); }
+                if (0 == use) {
+                    warn("single_atom::atom_update deactivated by use.live.atom=%i", use);
+                } else {
+                    // the objects single_atom.o have been compiled together with parallel_potential.o and are linked
+                    if (echo > 1) { std::printf("# use.live.atom=%i via single_atom::atom_update\n", use); }
+                }
 #else  // HAS_SINGLE_ATOM
 #ifdef    HAS_LIVE_ATOM
-            int32_t is_dynamic{0}; live_atom_is_a_dynamic_library_(&is_dynamic);
-            if (is_dynamic) {
-                if (use > 1) {
-                    auto const *const control_file = control::get("control.file", "");
-                    if (echo > 0) std::printf("# libliveatom.so is linked as dynamic library\n"
-                        "# read single_atom.*-controls from +control.file=%s\n", control_file);
-                    live_atom_init_env_(control_file, &stat);
-                    if (0 != stat) {
-                        warn("+control.file=%s for libliveatom.so, live_atom_init_env_ returned %i", control_file, int(stat));
-                    }
-                } // use.live.atom > 1 
-            } else {
-                // We do not need the control file in the case of a static library
-                //       as we share the control.o and recorded_warnings.o objects
-                //       however, we can check if all objects are from one version
-                auto const version_none = "<none>";
-                auto const version_atom = control::get("version.atom", version_none);
-                auto const version_main = control::get("version.main", version_none);
-                if (echo > 0) std::printf("# static library libliveatom.a git checkout %s\n", version_atom);
-                if (std::string(version_atom) != version_main) {
-                    warn("different versions: %s but libliveatom.a has %s", version_main, version_atom);
-                } // no warning if both versions are none
-            } // is_dynamic
+                if (echo > 1) { std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", natoms); std::fflush(stdout); }
+                int32_t is_dynamic{0};
+                live_atom_is_a_dynamic_library_(&is_dynamic);
+                char const *const lib = is_dynamic?"so":"a";
+                if (0 == use) {
+                    warn("live_atom_update_@libliveatom.%s deactivated by use.live.atom=%i", lib, use);
+                } else {
+                    if (echo > 1) { std::printf("# use.live.atom=%i via live_atom_update_@libliveatom.%s\n", use, lib); }
+                }
+
+                { // scope: check git version keys for deviation, libliveatom.so or libliveatom.a might be old
+                    live_atom_set_version_(&stat);
+                    auto const version_none = "<none>";
+                    auto const version_atom = control::get("version.atom", version_none);
+                    auto const version_main = control::get("version.main", version_none);
+                    if (echo > 0) { std::printf("# library libliveatom.%s git checkout %s\n", lib, version_atom); }
+                    if (std::string(version_atom) != version_main) {
+                        warn("different versions: %s but libliveatom.%s has %s", version_main, lib, version_atom);
+                    } // no warning if both versions are "<none>"
+                } // use
 #else  // HAS_LIVE_ATOM
-        static bool warned = false;
-        if (!warned) {
-            warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM for %d atoms", natoms);
-            warned = true;
-        } // launch warning only once
+                if (0 != use) {
+                    warn("compiled with neither -DHAS_SINGLE_ATOM nor -DHAS_LIVE_ATOM for %d atoms", natoms);
+                    control::set("use.live.atom", 0.); // should launch another warning about redefinition
+                }
 #endif // HAS_LIVE_ATOM
 #endif // HAS_SINGLE_ATOM
-        } // needs init
+
+            } // omp single
+        } // -1 == use
+
         if (0 == use) {
-            warn("single_atom::atom_update deactivated by use.live.atom=%d", use); 
+            // usage has been deactivated by use.live.atom=0, warnings about that should have been launched earlier
             return 0;
         } // 0 == use
 
@@ -832,52 +839,64 @@ namespace parallel_potential {
 
 
     status_t SCF(int const echo) {
-        status_t stat(0);
-        SimpleTimer init_timer(strip_path(__FILE__), __LINE__, "init timer", 0);
+        // 
+        // This is the most important routine for the Green function code
+        //
+        status_t stat(0); // initialize the return value
+        SimpleTimer init_timer(strip_path(__FILE__), __LINE__, "init timer", 0); // start to measure the time needed for initializations
 
         auto const comm = MPI_COMM_WORLD;
-        auto const me = mpi_parallel::rank(comm);
         auto const nprocs = mpi_parallel::size(comm); assert(nprocs > 0);
+        auto const me     = mpi_parallel::rank(comm, nprocs);
 
-        int const check = control::get("check", 0.); // check-mode
+        int const check = control::get("check", 0.); // 0:run-mode, <>0:check-mode
 
+        char const *const basis_method = control::get("basis", "Green-function"); // {Green-function, Thomas-Fermi, none}
         bool needs_integrator{false};
-        char const *const basis_method = control::get("basis", "Green-function"); // {Thomas-Fermi, Green-function}
         switch (*basis_method | 32) {
             case 't': break; // Thomas-Fermi model
             case 'g': needs_integrator = true; break; // Green-function model
             case 'n': warn("with +basis=%s --> none no new valence density is created!", basis_method); break;
-            default:  error("not implemented +basis=%s", basis_method);
+            default : error("not implemented +basis=%s", basis_method);
         } // switch
 
         // load geometry from +geometry.file=atoms.xyz
-        real_space::grid_t g;    // entire grid descriptor
+        real_space::grid_t g;    // entire grid descriptor, dense grid
         view2D<double> xyzZ_all; // coordinates for all atoms
-        int32_t n_all_atoms;     // number of all atoms (at most 2.147483647e9)
-
-        { // scope: init_geometry_and_grid
+        int32_t n_all_atoms;     // number of all atoms (max 2.147483647e9 == 2^31 - 1)
+        { // scope: init_geometry_and_grid, the number of grid points must be a multiple of 8 in each direction
             auto const stat_init = geometry_input::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
             if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
             stat += stat_init;
         } // scope
 
-        auto constexpr n8x8x8 = size_t(8*8*8);
+        auto constexpr n8x8x8 = size_t(8*8*8); // each cube for the potential generation has 8^3 grid points
 
-        // create a coarse grid descriptor
+        // create a coarse grid descriptor, gc
         real_space::grid_t gc(g[0] >> 1, g[1] >> 1, g[2] >> 1); // divide +grid.points by 2
         {
             assert(gc[0]*2 == g[0]); assert(gc[1]*2 == g[1]); assert(gc[2]*2 == g[2]); // g.grid_points must be an even number
             auto const gbc = g.boundary_conditions();
-            gc.set_boundary_conditions(gbc); // copy original boundary conditions {isolated, vacuum, repeat, periodic}
-            gc.set_cell_shape(g.cell, echo*0); // muted
+            gc.set_boundary_conditions(gbc); // copy original boundary conditions {isolated, vacuum, repeat, periodic} to the coarse grid
+            gc.set_cell_shape(g.cell, echo*0); // copy cell shape, muted
             gc.set_grid_spacing(g.h[0]*2, g.h[1]*2, g.h[2]*2); // twice the grid spacing
-            for (int d{0}; d < 3; ++d) { assert(0 == (gc[d] & 0x3)); } // all grid numbers must be a multiple of 4
+            for (int d{0}; d < 3; ++d) {
+                assert(0 == (gc[d] & 0x3) && "all grid numbers must be a multiple of 4");
+            } // d
             auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
             if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
                       gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
+            // modify dense grid BCs: map | from         to
+            //                            | vacuum   --> isolated
+            //                            | repeat   --> periodic
+            //                            | isolated --> isolated 
+            //                            | periodic --> periodic
             g.set_boundary_conditions(boundary_condition::potential_bc(gbc[0]),
-                                      boundary_condition::potential_bc(gbc[1]), // map vacuum --> isolated, repeat --> periodic
+                                      boundary_condition::potential_bc(gbc[1]),
                                       boundary_condition::potential_bc(gbc[2]));
+            // vacuum boundary conditions allow the Green function to extend beyond the isolated boundaries
+            //                            while the potential is zero by definition outside the boundaries
+            // repeat boundary conditions assume a periodic potential but a range-truncated Green function
         }
         double const grid_center[] = {g[0]*g.h[0]*.5, g[1]*g.h[1]*.5, g[2]*g.h[2]*.5}; // reference point for atomic positions
 
@@ -885,9 +904,11 @@ namespace parallel_potential {
         parallel_poisson::load_balancing_t const lb(g, comm, 8, echo);
         if (echo > 1) { auto const nb = lb.grid_cubes(); std::printf("# use  %d %d %d  grid cubes\n", nb[0], nb[1], nb[2]); }
 
+        // create a communication infrastructure for the application of a Laplacian operator on the parallelized grid
         parallel_poisson::parallel_grid_t const pg(g, lb, echo, "grid distribution");
 
-        parallel_poisson::parallel_grid_t const pg_Interpolation(g, lb, echo, "Interpolation");
+        // // create a communication infrastructure for the application of an interpolation operator on the parallelized grid
+        // parallel_poisson::parallel_grid_t const pg_Interpolation(g, lb, echo, "Interpolation");
 
 
         // distribute the atom ownership:
@@ -907,26 +928,21 @@ namespace parallel_potential {
         //     would create some MPI closeness for systems with homogeneously distributed atoms
 
         if (echo > 0) std::printf("# distribute %.3f k atoms as %g atoms per rank on %d ranks\n", n_all_atoms*1e-3, n_all_atoms/double(nprocs), nprocs);
-        int32_t const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model, owner_rank = global_atom_id % nprocs
+        int32_t const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model: owner_rank = global_atom_id % nprocs
         if (echo > 4) std::printf("# rank#%i has %d owned atoms\n", me, na);
 
-        std::vector<double> Z_owned_atoms(na, 0.);
-        for (int32_t ia{0}; ia < na; ++ia) {
-            auto const gid = nprocs*ia + me;
-            assert(0 <= gid); assert(gid < n_all_atoms);
-            Z_owned_atoms[ia] = xyzZ_all(gid,3); // component 3 is the atomic number Z
-        } // ia
 
         auto const n_cubes = pg.n_local();
         view2D<double> cube_coords(n_cubes, 4, 0.0);
         auto atom_images_ = get_neighborhood(cube_coords, n_all_atoms, xyzZ_all, pg, g, grid_center, echo);
         // for now atom_images_.atom_id_ are in [0, n_all_atoms)
 
-        // ToDo: use get_neighborhood with r_cut + r_trunc to prefilter the relevant atomic images for the Green function method, so we don't have to pass xyzZ_all to them
+        // ToDo: use get_neighborhood with r_cut + r_trunc to prefilter the relevant atomic images ...
+        //              ... for the Green function method, so we don't have to pass xyzZ_all to them
 
         auto const global_atom_ids = find_unique_atoms(atom_images_, echo);
+        // after find_unique_atoms atom_images_.atom_id_ are in [0, global_atom_ids.size())
         auto const & atom_images = atom_images_; // from here on use the const reference
-        // after find_unique_atoms atom_images.atom_id_ are in [0, global_atom_ids.size())
 
 
 
@@ -935,16 +951,10 @@ namespace parallel_potential {
 
         atom_communication::AtomCommList_t const atom_comm_list(n_all_atoms, global_atom_ids, comm, echo);
 
-        float take_atomic_valence_densities{1}; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
-        if (echo > 2) std::printf("# take atomic valence densities with %g %%\n", take_atomic_valence_densities*100);
-
-        char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
-        auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
-        if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
-        std::vector<int32_t> numax(na, pawdata_from_file ? -9 : -4); // -4: libliveatom, -9: load from pawxml files
+        std::vector<int32_t> numax(na, 0);          // SHO basis size 
         std::vector<int32_t> lmax_qlm(na, -1);      // expansion of qlm on owned atoms
-        std::vector<int32_t> lmax_vlm(na, -1);      // expansion of vlm on owned atoms
         std::vector<int32_t> lmaxs_qlm(natoms, -1); // expansion of qlm on contributing atoms
+        std::vector<int32_t> lmax_vlm(na, -1);      // expansion of vlm on owned atoms
         std::vector<int32_t> lmaxs_vlm(natoms, -1); // expansion of vlm on contributing atoms
         std::vector<int32_t> nr2(na,      1 << 12); // 4096 r^2-grid size on owned atoms
         std::vector<int32_t> nr2s(natoms, 1 << 12); // 4096 r^2-grid size on contributing atoms
@@ -953,33 +963,40 @@ namespace parallel_potential {
         std::vector<double> sigma_cmp(na, 1.);      // spread of the Gaussian used in the compensation charges on owned atoms
         std::vector<double> sigmas_cmp(natoms, 1.); // spread of the Gaussian used in the compensation charges on contributing atoms
 
+        float take_atomic_valence_densities{1}; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
+        if (echo > 2) std::printf("# take atomic valence densities with %g %%\n", take_atomic_valence_densities*100);
+
         // initialize and get sigma, lmax for each atom
-        data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat; // for owned atoms
-        data_list<double> atom_qzyx, atom_vzyx;                   // for owned atoms
-        data_list<double> atoms_qzyx, atoms_vzyx;                 // for contributing atoms
-        {
-#ifdef    HAS_SINGLE_ATOM
-            if (echo > 1) { std::printf("# use single_atom::atom_update(what, na=%d, ...)\n", na); std::fflush(stdout); }
-#else  // HAS_SINGLE_ATOM
-#ifdef    HAS_LIVE_ATOM
-            // use linked library libliveatom
-            if (echo > 1) { std::printf("# use C-interface live_atom_update_(what, na=%d, ...)\n", na); std::fflush(stdout); }
-#else  // HAS_LIVE_ATOM
-            if (echo > 1) std::printf("# missing live atom library -DHAS_LIVE_ATOM or -DHAS_SINGLE_ATOM\n");
-#endif // HAS_LIVE_ATOM
-#endif // HAS_SINGLE_ATOM
+        data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat, atom_qzyx, atom_vzyx; // for owned atoms
+        data_list<double> atoms_qzyx, atoms_vzyx; // for contributing atoms
+        { // scope
+
+            char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
+            auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
+            if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
+
+            std::vector<double> Z_owned_atoms(na, 0.);
+            #pragma omp parallel for
+            for (int32_t ia = 0; ia < na; ++ia) {
+                auto const gid = nprocs*ia + me;
+                assert(0 <= gid); assert(gid < n_all_atoms);
+                Z_owned_atoms.at(ia) = xyzZ_all(gid,3); // component 3 is the atomic number Z
+                numax.at(ia) = pawdata_from_file ? -(gid + 1) : (gid + 1);
+            } // ia
 
             std::vector<float> ionization(na, 0.f);
             {   SimpleTimer atom_init_timer(strip_path(__FILE__), __LINE__, "atom init", echo);
-            stat += live_atom_update("initialize", na, Z_owned_atoms.data(), numax.data(), ionization.data(), (double**)1);
+            stat += live_atom_update("initialize", na, Z_owned_atoms.data(), numax.data(), ionization.data(), (double**)1, echo);
             } // timer
-            stat += live_atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
-            stat += live_atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
-            stat += live_atom_update("sigma cmp",  na, sigma_cmp.data());
+            stat += live_atom_update("lmax qlm", na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
+            stat += live_atom_update("lmax vlm", na, (double*)1, lmax_vlm.data());
+            stat += live_atom_update("sigma cmp", na, sigma_cmp.data());
 
+            
             { // scope: initialized the data_lists for owned atoms
-                view2D<uint32_t> num(6, na, 0); // how many
-                for (int32_t ia{0}; ia < na; ++ia) {
+                view2D<uint32_t> num(6, na, 0); // how many entries per atom
+                #pragma omp parallel for
+                for (int32_t ia = 0; ia < na; ++ia) {
                     num(0,ia) = pow2(1 + lmax_qlm.at(ia)); // qlm
                     num(1,ia) = pow2(1 + lmax_vlm.at(ia)); // vlm
                     auto const n_sho = sho_tools::nSHO(numax.at(ia)); assert(n_sho > 0);
@@ -1001,7 +1018,8 @@ namespace parallel_potential {
                 unsigned constexpr m8 = 8; // up to 8 scalars are transmitted as doubles
                 std::vector<uint32_t> num(na, m8);
                 data_list<double> atom_send(num, 0.0);
-                for (int32_t ia{0}; ia < na; ++ia) { // owned atoms
+                #pragma omp parallel for
+                for (int32_t ia = 0; ia < na; ++ia) { // owned atoms
                     atom_send(ia,0) = numax.at(ia);
                     atom_send(ia,1) = lmax_qlm.at(ia);
                     atom_send(ia,2) = lmax_vlm.at(ia);
@@ -1017,7 +1035,8 @@ namespace parallel_potential {
 
                 stat += atom_comm_list.broadcast(atoms_recv, atom_send, "eight atom scalars", echo);
 
-                for (uint32_t iatom{0}; iatom < natoms; ++iatom) { // contributing atoms
+                #pragma omp parallel for
+                for (uint32_t iatom = 0; iatom < natoms; ++iatom) { // contributing atoms
                     lmaxs_qlm.at(iatom)  = atoms_recv(iatom,1);
                     lmaxs_vlm.at(iatom)  = atoms_recv(iatom,2);
                     sigmas_cmp.at(iatom) = atoms_recv(iatom,3); 
@@ -1028,7 +1047,8 @@ namespace parallel_potential {
 
             { // scope: initialized the data_lists for addition and projection with contributing atoms
                 view2D<uint32_t> num(2, natoms, 0); // how many
-                for (uint32_t iatom{0}; iatom < natoms; ++iatom) {
+                #pragma omp parallel for
+                for (uint32_t iatom = 0; iatom < natoms; ++iatom) {
                     num(0,iatom) = sho_tools::nSHO(lmaxs_qlm[iatom]);
                     num(1,iatom) = sho_tools::nSHO(lmaxs_vlm[iatom]);
                 } // iatom
@@ -1045,11 +1065,10 @@ namespace parallel_potential {
         data_list<double> atoms_vbar(nr2s, 0.0); // zero potentials on contributing atoms
         data_list<double> atoms_rhoc(nr2s, 0.0); // core densities  on contributing atoms
 
+        std::vector<int32_t> numax_prj; // SHO basis size  of the PAW projectors on owned atoms
+        std::vector<double>  sigma_prj; // Gaussian spread of the PAW projectors on owned atoms
 
-
-        std::vector<int32_t> numax_prj;
-        std::vector<double>  sigma_prj;
-        energy_contour::Integrator integrator;
+        energy_contour::Integrator *integrator{nullptr};
         if (needs_integrator) {
             if (echo > 0) std::printf("\n# Initialize energy contour integrator\n");
 
@@ -1057,49 +1076,53 @@ namespace parallel_potential {
             //     as it has to tell apart atomic images from atomic copies
             std::vector<double> xyzZinso(0);
             { // scope: determine additional info
-                numax_prj.resize(na, 0);
+                numax_prj.resize(na, -1);
                 sigma_prj.resize(na, 1.);
                 stat += live_atom_update("projectors", na, sigma_prj.data(), numax_prj.data());
 
                 view2D<double> numax_sigma(n_all_atoms, 2, 0.0);
-                for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
+                #pragma omp parallel for
+                for (int32_t ia = 0; ia < na; ++ia) { // loop over owned atoms
                     assert(numax_prj.at(ia) == numax.at(ia) && "inconsist between 'projectors' and 'initialize' call");
                     auto const gid = nprocs*ia + me; // global_atom_id
                     assert(0 <= gid); assert(gid < n_all_atoms);
                     numax_sigma(gid,0) = numax_prj.at(ia);
                     numax_sigma(gid,1) = sigma_prj.at(ia);
                 } // ia
-                mpi_parallel::max(numax_sigma[0], n_all_atoms*2, comm); // this is potentially slow
 
-                xyzZinso.resize(8*n_all_atoms);
-                for (int32_t gid{0}; gid < n_all_atoms; ++gid) { // another loop over all atoms, TODO can we avoid this?
-                    set(&xyzZinso[gid*8], 4, xyzZ_all[gid]); // copy position and atomic number
-                    xyzZinso[gid*8 + 4] = gid;
-                    xyzZinso[gid*8 + 5] = numax_sigma(gid,0);
-                    xyzZinso[gid*8 + 6] = numax_sigma(gid,1);
-                    xyzZinso[gid*8 + 7] = 0; // spare
+                mpi_parallel::max(numax_sigma[0], comm, n_all_atoms*2); // this is potentially slow
+
+                xyzZinso.resize(n_all_atoms*8ull);
+                #pragma omp parallel for
+                for (int32_t gid = 0; gid < n_all_atoms; ++gid) { // another loop over all atoms, TODO can we avoid this?
+                    set(&xyzZinso[gid*8ull], 4, xyzZ_all[gid]); // copy position and atomic number
+                    xyzZinso[gid*8ull + 4] = gid; // global atom id
+                    xyzZinso[gid*8ull + 5] = numax_sigma(gid,0); // numax
+                    xyzZinso[gid*8ull + 6] = numax_sigma(gid,1); // sigma
+                    xyzZinso[gid*8ull + 7] = 0; // unused
                 } // gid
             } // scope
 
-            // envoke the constructor energy_contour::Integrator
-            integrator = energy_contour::Integrator(gc, xyzZinso, echo, check);
+            // construct the energy_contour::Integrator
+            integrator = new energy_contour::Integrator(gc, xyzZinso, lb, echo, check);
 
             // setup communication infrastructure for atom_mat
-            auto const & target_global_atom_ids = integrator.plan_->dyadic_plan.global_atom_ids;
+            auto const & target_global_atom_ids = integrator->plan_->dyadic_plan.global_atom_ids;
             std::vector<int64_t> owned_global_atom_ids(na);
-            for (int ia{0}; ia < na; ++ia) {
+            #pragma omp parallel for
+            for (int32_t ia = 0; ia < na; ++ia) {
                 owned_global_atom_ids[ia] = nprocs*ia + me;
             } // ia
             assert(0 == (xyzZinso.size() & 0x7)); // make sure it is divisible by 8
             uint32_t const n_all_atoms = xyzZinso.size() >> 3; // divide by 8
-            std::vector<green_parallel::rank_int_t> atom_owner_rank(n_all_atoms, 0);
-            auto const nprocs = mpi_parallel::size(); // comm=MPI_COMM_WORLD?
-            for (uint32_t gid{0}; gid < n_all_atoms; ++gid) {
+            std::vector<green_parallel::rank_int_t> atom_owner_rank(n_all_atoms, green_parallel::no_owner);
+            #pragma omp parallel for
+            for (uint32_t gid = 0; gid < n_all_atoms; ++gid) {
                 atom_owner_rank[gid] = gid % nprocs;
             } // gid
             uint32_t const nb[] = {n_all_atoms, 0, 0};
-            integrator.plan_->matrices_requests = green_parallel::RequestList_t(
-                target_global_atom_ids, owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
+            integrator->plan_->matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
+                owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
             if (echo > 1) std::printf("\n");
         } // needs_integrator
 
@@ -1182,7 +1205,8 @@ namespace parallel_potential {
                 auto & atom_rhov = atom_vbar; // use memory of vbar for the moment
                 // get smooth spherical valence density
                 stat += live_atom_update("valence densities", na, 0, nr2.data(), 0, atom_rhov.data());
-                for (int32_t ia{0}; ia < na; ++ia) { // loop over owned atoms
+                #pragma omp parallel for
+                for (int32_t ia = 0; ia < na; ++ia) { // loop over owned atoms
                     // add valence density to r^2-gridded core density
                     if (echo > 15) std::printf("# rank#%i atom#%i wants to add %g core electrons\n",         me, ia, integrate_r2grid(atom_rhoc[ia], nr2[ia]));
                     add_product(atom_rhoc[ia], nr2[ia], atom_rhov[ia], take_atomic_valence_densities*1.);
@@ -1209,8 +1233,8 @@ namespace parallel_potential {
                 auto const *const density = augmented_density[0]; // augmented density before adding compensation charges
                 auto       *const potential = V_xc[0];
                 // double rho_max{0}; int64_t i_max{-1};
-//              #pragma omp parallel for // does not compile with GCC/12.3.0
-                for (size_t i{0}; i < n_cubes*n8x8x8; ++i) {
+                #pragma omp parallel for // does not compile with GCC/12.3.0
+                for (size_t i = 0; i < n_cubes*n8x8x8; ++i) {
                     auto const rho_i = density[i];
                     // if (rho_i > rho_max) { rho_max = rho_i; i_max = i; }
                     double vxc_i;
@@ -1229,7 +1253,8 @@ namespace parallel_potential {
 
             stat += live_atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
 
-            for (int ia{0}; ia < na; ++ia) {
+            #pragma omp parallel for
+            for (int ia = 0; ia < na; ++ia) {
                 auto const global_atom_id = ia*nprocs + me;
                 auto const stat_den = sho_projection::denormalize_electrostatics(atom_qzyx[ia], atom_qlm[ia], lmax_qlm[ia], sigma_cmp[ia], unitary, echo);
                 if (stat_den) warn("denormalize_electrostatics failed with status= %i for atom#%i", int(stat_den), global_atom_id);
@@ -1275,7 +1300,7 @@ namespace parallel_potential {
             // project the electrostatic grid onto the localized compensation charges
             project_grid(atoms_vzyx, V_electrostatic, cube_coords, n_cubes, lmaxs_vlm, sigmas_cmp, atom_images, g.grid_spacings(), echo);
 
-            stat += atom_comm_list.allreduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", g.dV(), echo);
+            stat += atom_comm_list.reduce(atom_vzyx, atoms_vzyx, "projected electrostatic potential", g.dV(), echo);
             for (int32_t ia{0}; ia < na; ++ia) {
                 auto const global_atom_id = ia*nprocs + me;
                 auto const stat_ren = sho_projection::renormalize_electrostatics(atom_vlm[ia], atom_vzyx[ia], lmax_vlm[ia], sigma_cmp[ia], unitary, echo);
@@ -1336,14 +1361,16 @@ namespace parallel_potential {
             case 'g':
             {
                 std::snprintf(scf_iteration_label, 64, "Green function in SCF-iteration#%i", scf_iteration);
-                SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
+                //SimpleTimer green_timer(strip_path(__FILE__), __LINE__, scf_iteration_label, 0);
 
                 if (echo > 0) std::printf("# +basis=%s --> Green-function model\n", basis_method);
-                view2D<double> V_coarse(n_cubes, 4*4*4, 0.0);
+                assert(nullptr != integrator && "the energy_contour::Integrator needs to be initialized!");
+
+                std::vector<double> V_coarse(n_cubes*4*4*4, 0.0);
                 for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) { // parallel loop over local cubes
-                    cube_average(V_coarse[ilb], V_effective[ilb]);
+                    cube_average(&V_coarse[ilb*4*4*4], V_effective[ilb]);
                 } // ilb
-                print_stats(V_coarse[0], n_cubes*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
+                print_stats(V_coarse.data(), n_cubes*size_t(4*4*4), comm, echo > 0, 0, "# coarse effective potential", eV, _eV);
 
                 double band_bottom{-1.};
                 { // scope: extract the highest core state energy and an estimate for the lowest valence state energy
@@ -1387,21 +1414,26 @@ namespace parallel_potential {
                 } // scope
 
                 // call energy-contour integration to find a new density
-                auto const stat_Gf = integrator.integrate(new_valence_density[0], E_Fermi, V_coarse[0], atom_mat, numax_prj, sigma_prj,
-                                                          pg_Interpolation, n_valence_electrons, g.dV(), echo, check);
+                auto const stat_Gf = integrator->integrate(new_valence_density[0], E_Fermi, V_coarse, atom_mat, numax_prj, sigma_prj,
+                                                           n_valence_electrons, g.dV(), echo, check, scf_iteration);
                 stat += stat_Gf;
-                if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
 
-                auto const green_function_took = green_timer.stop();
+                //auto const green_function_took = green_timer.stop();
+                {
+                    /*
+                    simple_stats::Stats<> green_time_stats;
+                    green_time_stats.add(green_function_took);
+                    mpi_parallel::allreduce(green_time_stats,comm);
+                    if (0 == check && echo > 2) {
+                        std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
+                            scf_iteration, green_time_stats.interval().c_str());
+                    } // echo
+                    green_function_times.add(green_time_stats.max());
+                    */
+                }
                 mpi_parallel::barrier(comm); // wait until other ranks have finished the Green function solution
-                simple_stats::Stats<> green_time_stats;
-                green_time_stats.add(green_function_took);
-                mpi_parallel::allreduce(green_time_stats);
-                if (0 == check && echo > 2) {
-                    std::printf("# Green function solution in SCF-iteration#%i took %s seconds\n", 
-                        scf_iteration, green_time_stats.interval().c_str());
-                } // echo
-                green_function_times.add(green_time_stats.max());
+
+                if (stat_Gf && 0 == me) warn("# energy_contour::integration returned status= %i", int(stat_Gf));
             }
             break;
 
@@ -1446,7 +1478,7 @@ namespace parallel_potential {
                 for (int32_t ia{0}; ia < na; ++ia) {
                     add_product(Ea.data(), nE, atom_contrib[ia], 1.); // all atomic weight factors are 1.0
                 } // ia
-                mpi_parallel::sum(Ea.data(), nE, comm);
+                mpi_parallel::sum(Ea.data(), comm, nE);
                 if (echo > 7) std::printf("\n# sum of atomic energy contributions without grid contributions:\n");
                 energy_contribution::show(Ea.data(), echo - 7, eV, _eV);
                 // now add grid contributions
@@ -1464,7 +1496,7 @@ namespace parallel_potential {
             } // total_energy_details
 
             double atomic_energy_corrections{0};
-            for (int32_t ia = 0; ia < na; ++ia) {
+            for (int32_t ia{0}; ia < na; ++ia) {
                 atomic_energy_corrections += atomic_energy_diff[ia];
             } // ia
             atomic_energy_corrections = mpi_parallel::sum(atomic_energy_corrections, comm);
@@ -1509,6 +1541,11 @@ namespace parallel_potential {
                     me, green_memory::total_memory_now()*1e-9, green_memory::high_water_mark()*1e-9);
         } // scope
 
+        if (integrator) {
+            if (echo > 4) { std::printf("# envoke Integrator-destructor\n"); }
+            delete integrator;
+        }
+        
         stat += live_atom_update("memory cleanup", na);
         return stat;
     } // SCF

@@ -161,7 +161,11 @@ namespace pawxml_import {
               warn("%s: radial grid neither exponential nor reciprocal, found %s", filename, eq);
           }
           if (0 != std::atoi(istart))                error("%s: assume a radial grid starting at 0", filename);
-          if (p.n != std::atoi(iend) + 1)            error("%s: assume a radial grid starting from 0 to n-1", filename);
+          auto const iiend = std::atoi(iend);
+          if (p.n != iiend + 1) {
+              p.n = iiend + 1;
+              warn("%s: it seems that the grid.n has not been set, derive .n from .iend+1, .n=%d", filename, p.n);
+          }
       } else warn("<radial_grid> not found in xml-file '%s'", filename);
 
       p.states.resize(0);
@@ -203,7 +207,7 @@ namespace pawxml_import {
           auto const type = xml_reading::find_attribute(shape_function, "type", "?type");
           auto const rc   = xml_reading::find_attribute(shape_function, "rc", "0");
           if (echo > 5) std::printf("# %s:  <shape_function type=\"%s\" rc=\"%s\"/>\n", filename, type, rc);
-          if (std::strcmp(type, "gauss")) error("%s: assume a shape_function type gauss", filename);
+          if (std::strcmp(type, "gauss")) error("%s: assume a shape_function type \'gauss\' but found \'%s\'", filename, type);
           p.shape_function_rc = std::atof(rc);
       } else warn("<shape_function> not found in xml-file '%s'", filename);
 

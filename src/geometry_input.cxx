@@ -11,9 +11,10 @@
 #include "real_space.hxx" // ::grid_t
 #include "chemical_symbol.hxx" // ::decode
 #include "control.hxx" // ::get, ::set, ::echo_set_without_warning
-#include "mpi_parallel.hxx" // ::comm, ::rank, ::broadcast
+#include "mpi_parallel.hxx" // MPI_Comm, ::comm, ::rank, ::broadcast
 #include "data_view.hxx" // view2D<T>
 #include "unit_system.hxx" // ::length_unit, ::energy_unit
+#include "boundary_condition.hxx" // Shifted_Boundary, Periodic_Boundary
 
 namespace geometry_input {
 
@@ -24,12 +25,15 @@ namespace geometry_input {
           view2D<double> & xyzZ
         , int32_t & n_atoms
         , double cell[3][4]
-        , int8_t bc[3] // =nullptr
+        , int8_t bc[3]
+     // , MPI_Comm const comm
         , char const *const filename // ="atoms.xyz"
         , int const echo // =5 log-level
     ) {
-        auto const comm = mpi_parallel::comm(); // default_communicator
+        auto const comm = mpi_parallel::comm(); // == MPI_COMM_WORLD
         auto const me = mpi_parallel::rank(comm);
+        assert(cell);
+        assert(bc);
         int return_status{0};
         if (0 == me) { // MPI master task
 
@@ -46,24 +50,63 @@ namespace geometry_input {
             { // scope: parse line #2
                 std::istringstream iss(line);
                 std::string word;
-                if ('%' == line[0]) {
+                if ('%' == line[0]) { // completely unconstrained unit cell
                     double L[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
                     if (echo > 0) std::printf("# 1st char in 2nd line is %%, read periodic unit cell in file \'%s\': %s\n", filename, line.c_str());
                     iss >> word >> L[0][0] >> L[0][1] >> L[0][2] >> L[1][0] >> L[1][1] >> L[1][2] >> L[2][0] >> L[2][1] >> L[2][2];
-                    if (nullptr != cell) set(cell[0], 12, L[0], Angstrom2Bohr);
-                    if (nullptr != bc) set(bc, 3, Periodic_Boundary);
+                    set(cell[0], 3*4, L[0], Angstrom2Bohr);
+                    set(bc, 3, Periodic_Boundary);
                 } else {
-                    double L[3] = {0,0,0};
-                    std::string B[3];
-                    iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2]; // Cartesian mode
-                    if (nullptr != cell) set(cell[0], 12, 0.0); // clear
+                    double L[3] = {0,0,0}; // Cartesian cell parameters in Angstrom units
+                    double Lxy{0}, Lxz{0}, Lyz{0}; // shifts for GENERAL_CELL feature in Angstrom units
+                    std::string B[3]; // words describing the boundary conditions
+                    iss >> word >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2] >> Lxy >> Lxz >> Lyz; // Cartesian mode
+                    set(cell[0], 3*4, 0.0); // clear
                     for (int d{0}; d < 3; ++d) {
-                        if (nullptr != cell) {
-                            cell[d][d] = L[d] * Angstrom2Bohr;
-                            assert(cell[d][d] > 0);
-                        }
-                        if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 'x' + d);
+                        cell[d][d] = L[d]*Angstrom2Bohr; // set diagonal
+                        assert(cell[d][d] > 0 && "Diagonal cell parameters must be positive in Cartesian reading mode");
+                        bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 'x' + d);
+#ifndef   GENERAL_CELL
+                        if (Shifted_Boundary == bc[d]) {
+                            warn("correct %c-boundary from \'shifted\' to \'periodic\' as -DGENERAL_CELL was not active during compilation", 'x'+d);
+                            bc[d] = Periodic_Boundary; // correct
+                        } // shifted
+#endif // GENERAL_CELL
                     } // d
+
+                    { // scope: process shifts
+                        double const S[] = {Lxy, Lxz, Lyz};
+                        for (int k{0}; k < 3; ++k) {
+                            int const x = k/2, y = (k + 3)/2; // x in {0,0,1}, y in {1,2,2}
+                            if (Shifted_Boundary == bc[y]) {
+                                if (echo > 1) { std::printf("# found %c%c-shift of %g Ang\n", 'x'+x, 'x'+y, S[k]); }
+#ifdef    GENERAL_CELL
+                                cell[y][x] = S[k]*Angstrom2Bohr; // insert into lower triangular part
+                                if (S[k] >= L[x]) { error("only shifts less than one unit cell implemented, found L%c%c= %g Ang but L%c%c= %g Ang",
+                                                                                                       'x'+x, 'x'+y, S[k],   'x'+x, 'x'+x, L[x]); }
+                                if (Lxy < 0)      { error("only positive shifts implemented, found L%c%c= %g Ang", 'x'+x, 'x'+y, S[k]); }
+#else  // GENERAL_CELL
+                                if (0 != S[k]) { warn("ignored %c%c-shift of %g Ang, make sure -DGENERAL_CELL was active during compilation", 'x'+x, 'x'+y, S[k]); }
+#endif // GENERAL_CELL
+                            } else {
+                                if (0 != S[k]) { warn("ignored a %c%c-shift of %g Ang as y-boundary condition is not \'shifted\'", 'x'+x, 'x'+y, S[k]); }
+                            }
+                        } // k --> k==0: xy, k==1: xz, k==2: yz
+#ifdef    GENERAL_CELL
+                        // launch warnings if the boundary condition is shifted, shift could be used due to -DGENERAL_CELL but shifts are zero
+                        if (Shifted_Boundary == bc[2] && 0 == Lxz && 0 == Lyz) { warn("z-boundary condition is \'shifted\' but xz-shift and yz-shift are both zero", 0); }
+                        if (Shifted_Boundary == bc[1] && 0 == Lxy)             { warn("y-boundary condition is \'shifted\' but xy-shift is zero", 0); }
+                        if (Shifted_Boundary == bc[0])                         { error("x-boundary may never be \'shifted\'", 0); }
+                        // for (int d{0}; d < 3; ++d) {
+                        //     if (Shifted_Boundary == bc[d]) {
+                        //         bc[d] = Periodic_Boundary; // for all other purposes than the input these are just periodic BCs
+                        //     } // shifted
+                        // } // d
+#endif // GENERAL_CELL
+                    } // scope
+
+
+
                 } // cell == Basis
             } // scope
 
@@ -156,6 +199,7 @@ namespace geometry_input {
             real_space::grid_t & g // output grid descriptor
           , view2D<double> & xyzZ // output atom coordinates and core charges Z
           , int32_t & natoms // output number of atoms found
+//        , MPI_Comm const comm
           , unsigned const n_even // =2
           , int const echo // =0 log-level
     ) {
@@ -166,7 +210,7 @@ namespace geometry_input {
         int8_t bc[3]; // boundary conditions
         double cell[3][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}}; // general cell parameters
         auto const geo_file = control::get("geometry.file", "atoms.xyz");
-        if (echo > 3) std::printf("# +geometry.file=%s\n", geo_file);
+        if (echo > 3) { std::printf("# +geometry.file=%s\n", geo_file); }
         stat += read_xyz_file(xyzZ, natoms, cell, bc, geo_file, echo);
 
         auto const grid_spacing_unit_name = control::get("grid.spacing.unit", "Bohr");
@@ -297,6 +341,11 @@ namespace geometry_input {
         if (echo > 0) std::printf("# electronic.temperature= %g %s == %g %s\n", temp*eu, _eu, temp*eV, _eV);
         return temp;
     } // get_temperature
+
+
+
+
+
 
 #ifdef    NO_UNIT_TESTS
     status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

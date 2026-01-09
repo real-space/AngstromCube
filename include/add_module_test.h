@@ -1,3 +1,4 @@
+#pragma once
 // This file is part of AngstromCube under MIT License
 
 // This header serves to #define add_module_test needed in main.cxx, green.cxx and green_tests.cu
@@ -9,13 +10,13 @@
 //    #include "simple_timer.hxx" // SimpleTimer
 //
 //    std::vector<std::tuple<char const*, double, status_t>> results;
-//    std::string const input_name;
+//    std::string const & input_name;
 //    int const echo;
 //    bool const all;
 //    bool const show;
 
 #define   add_module_test(MODULE_NAME) {                                            \
-              auto const module_name = #MODULE_NAME;                                \
+              char const *const module_name = #MODULE_NAME;                         \
               if (all || (input_name == module_name)) {                             \
                   SimpleTimer timer(module_name, 0, "", 0);                         \
                   if (echo > 2 && !show) std::printf("\n\n\n# ============= "       \

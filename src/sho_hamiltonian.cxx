@@ -317,7 +317,7 @@ namespace sho_hamiltonian {
 
       auto const result = dense_solver::solve(HSm, x_axis, echo); // will display the spectrum, no construction of density so far
 
-      if (use_sho_basis && echo > 3) {
+      if (use_sho_basis) {
           // classify the eigenstates according to the basis functions
           for (int iband = 0; iband < HSm.dim1(); ++iband) {
               int ia_max{-1}, ib_max{-1};
@@ -330,8 +330,8 @@ namespace sho_hamiltonian {
                       if (wg > wg_max) { wg_max = wg; ia_max = ia; ib_max = ib; }
                   } // ib
               } // ia
-              std::printf("# band #%i norm= %g largest weight %.1f %% at atom #%i basis function #%i of %d\n",
-                                    iband, std::sqrt(norm2), wg_max/norm2*100., ia_max, ib_max, nbasis[ia_max]);
+              if (echo > 3) std::printf("# band #%i norm= %g largest weight %.1f %% at atom #%i basis function #%i of %d\n",
+                                                iband, std::sqrt(norm2), wg_max/norm2*100., ia_max, ib_max, nbasis[ia_max]);
           } // iband
       } // use_sho_basis
 

@@ -45,6 +45,36 @@ namespace load_balancer {
 
     int constexpr X=0, Y=1, Z=2, W=3;
 
+    std::vector<float> calculate_weights(
+          std::vector<int64_t> const & global_source_indices
+        , std::vector<load_balancer::WeightInfo> const & weight_infos
+        , size_t const grid_size
+    ) {
+        std::vector<float> result(grid_size, 1.f);
+
+        float const weightMultiplierForKinetic = control::get("load_balancer.weight.kinetic", 0.4);
+        float const weightMultiplierForSHOadd  = control::get("load_balancer.weight.SHOadd", 0.025);
+        float const weightMultiplierForSHOprj  = control::get("load_balancer.weight.SHOprj", 0.05);
+
+        for (int wi = 0; wi < weight_infos.size(); ++wi) {
+            auto const globalIndex = global_source_indices[wi];
+            assert(globalIndex < grid_size);
+
+            auto const & weightInfo = weight_infos[wi];
+
+            // We have at least homogeneous costs
+            assert(weightInfo.weightContributionForKinetic);
+
+            float const weight = weightMultiplierForKinetic * weightInfo.weightContributionForKinetic +
+                                 weightMultiplierForSHOadd * weightInfo.weightContributionForSHOadd +
+                                 weightMultiplierForSHOprj * weightInfo.weightContributionForSHOprj;
+
+            result[globalIndex] = weight;
+        } // wi
+
+        return result;
+    } // calculate_weights
+
     template <typename real_t>
     double center_of_weight(
           double cow[4] // result: center of weight [0/1/2] and number of contributors [3]
@@ -281,6 +311,7 @@ namespace load_balancer {
           uint32_t const comm_size // number of MPI processes in this communicator
         , int32_t  const comm_rank // rank of this MPI process
         , uint32_t const nb[3] // number of blocks in X/Y/Z direction
+        , float const *const block_weights // =nullptr, stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , int const echo // =0, log level
         , double rank_center[4] // =nullptr, export the rank center [0/1/2] and number of items [3]
         , uint16_t *const owner_rank // =nullptr, export the owner rank of each task, [nb[Z]*nb[Y]*nb[X]]
@@ -303,7 +334,7 @@ namespace load_balancer {
         for (uint32_t ix{0}; ix < nb[X]; ++ix) {
             auto const iall = (size_t(iz)*nb[Y] + iy)*size_t(nb[X]) + ix;
 //          assert(uint32_t(iall) == iall && "uint32_t is not long enough!");
-            float const w8 = 1.f; // weight(ix,iy,iz); // WEIGHTS CAN BE INSERTED HERE
+            float const w8 = block_weights ? block_weights[iall] : 1.f;
             w8s[iall]     = w8;
             w8sum_all    += w8;
             xyzw[iall][X] = ix + .5f;

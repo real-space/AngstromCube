@@ -30,7 +30,7 @@
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
-#include "single_atom.hxx" // ::atom_update
+#include "single_atom.hxx" // ::atom_update, ::set_version
 #include "energy_contribution.hxx" // ::show, ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
@@ -189,12 +189,19 @@ namespace self_consistency {
 
 
       std::vector<double> sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
-      char const pawdata_from = (*control::get("pawdata.from", "auto")) | 32; // 'a': auto, 'f': pawxml_import
-      std::vector<int32_t> numax(na, ('f' == pawdata_from)?-9:-1); // -1: LivePAW, -9: load from pawxml files
       std::vector<int32_t> lmax_qlm(na, -1);
       std::vector<int32_t> lmax_vlm(na, -1);
+      std::vector<int32_t> numax(na);
+      {
+          char const pawdata_from = *control::get("pawdata.from", "auto"); // 'a': auto, 'f': pawxml_import
+          bool const pawdata_from_file = ('f' == (pawdata_from | 32));
+          for (int ia = 0; ia < na; ++ia) {
+              numax.at(ia) = pawdata_from_file ? -(ia + 1) : (ia + 1);
+          } // ia
+      }
 
       // initialize and get sigma, lmax for each atom
+      stat += single_atom::set_version(echo);
       if (echo > 0) std::printf("# initialize %d atoms\n", na);
       stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
       stat += single_atom::atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
@@ -662,6 +669,7 @@ namespace self_consistency {
     status_t all_tests(int const echo) {
         status_t stat(0);
 //      stat += test_scf(echo);
+        warn("test_scf deactivated, envoke ./a43 without -t to run the self_consistency::SCF", 0);
         return stat;
     } // all_tests
 

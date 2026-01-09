@@ -6,6 +6,7 @@
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
+#include <cmath> // std::log2, ::ceil
 
 #ifdef    HAS_TFQMRGPU
 
@@ -43,7 +44,7 @@
 #include "constants.hxx"       // ::pi
 #include "green_memory.hxx"    // get_memory, free_memory
 #include "status.hxx"          // status_t, STATUS_TEST_NOT_INCLUDED
-#include "mpi_parallel.hxx"    // ::allreduce, ::rank
+#include "mpi_parallel.hxx"    // ::allreduce, ::rank, MPI_COMM_WORLD
 #include "recorded_warnings.hxx" // warn
 #include "inline_math.hxx"     // set
 
@@ -81,15 +82,37 @@ namespace green_action {
             auto & p = *p_;
             auto const nnzbX = p.colindx.size();
             if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+        
+            if (echo > 3) {
+                // memory estimate for tfQMRgpu
+#ifdef    TFQMRGPU_USE_ATOMICADD
+                int const l2nX = 0; // if we use atomicAdd, the reduction memory is just the coefficients itself
+#else  // TFQMRGPU_USE_ATOMICADD
+                int const l2nX = std::ceil(std::log2(nnzbX*1.));
+#endif // TFQMRGPU_USE_ATOMICADD
+                int const nnzbB = 1;
+                size_t const mem = 7*nnzbX*2ull*LM*LN*sizeof(real_t) // v4 ... v9
+                                 + nnzbX*2ull*LM*LN*sizeof(float) // v3
+                                 + nnzbB*2ull*LM*LN*sizeof(real_t) // v2
+                                 + 5*p.nCols*2ull*LN*sizeof(real_t) // coefficients
+                                 + 3ull*(1ull << l2nX)*p.nCols*LN*sizeof(double) // reduction memory
+                                 + 2ull*p.nCols*LN*sizeof(double) // coefficients
+                                 + nnzbX*sizeof(uint16_t)   // index lists
+                                 + nnzbB*sizeof(uint32_t)   // index lists
+                                 + p.nCols*sizeof(int8_t);  // index lists
+                std::printf("# memory estimate for tfQMRgpu(nnzbX=%ld, nCols=%d) is %.3f %s\n", nnzbX, p.nCols, mem*GByte, _GByte);
+            } // echo
+
 #ifdef    HAS_TFQMRGPU
             if (nnzbX > 0) {
+                auto const comm = MPI_COMM_WORLD;
                 if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
-                // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
+                // try to instanciate tfqmrgpu::solve<T> with this T=action_t<real_t,R1C2,Noco,64>
                 tfqmrgpu::solve(*this); // compute GPU memory requirements
-                auto const me = mpi_parallel::rank();                                  // uses MPI_COMM_WORLD
+                auto const me = mpi_parallel::rank(comm);                                      // uses MPI_COMM_WORLD
                 {
-                    simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m); // uses MPI_COMM_WORLD
-                    if (echo + check > 3) std::printf("# tfqmrgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
+                    simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m,comm); // uses MPI_COMM_WORLD
+                    if (echo + check > 3) std::printf("# tfQMRgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
                     if (echo > 7) std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
                     if (p.gpu_mem > 1e11)  warn("rank#%i tries to allocate %.3f GByte GPU memory", me, p.gpu_mem*1e-9);
@@ -99,20 +122,8 @@ namespace green_action {
                 if (echo > 9) std::printf("# rank#%i allocated %.9f %s memory_buffer_ at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_);
 // #endif // DEBUGGPU
             } else {
-                if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+                if (echo > 2) std::printf("# cannot call tfQMRgpu library if X has no elements!\n");
             }
-#else  // HAS_TFQMRGPU
-            // memory estimate for tfQMRgpu
-            // 7*nnzbX*2*LM*LN*sizeof(real_t)
-            // +nnzbX*2*LM*LN*sizeof(float)  // v3
-            // +nnzbB*2*LM*LN*sizeof(real_t) // v2
-            // +5*nCols*2*LN*sizeof(real_t)
-            // +2*(1ul << l2nX)*nCols*1.5*LN*sizeof(double)
-            // +2*nCols*LN*sizeof(double)
-            // +nnzbX*sizeof(uint16_t)
-            // +nnzbB*sizeof(uint32_t)
-            // +nCols*sizeof(int8_t);
-
 #endif // HAS_TFQMRGPU
         } // constructor
 
@@ -128,7 +139,7 @@ namespace green_action {
             auto const natomcoeffs = dp.AtomImageStarts ? dp.AtomImageStarts[dp.nAtomImages] : 0;
             auto const n = size_t(natomcoeffs) * p_->nCols;
             apc_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "apc");
-//          aac_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "aac"); // currently not used
+//          aac_ = get_memory<real_t[R1C2][Noco][LM]>(n, p_->echo, "aac"); // currently not used, coefficients are rotated in-place
         } // take_memory
 
         void transfer(char* const buffer, cudaStream_t const streamId=0) {
@@ -187,12 +198,12 @@ namespace green_action {
         ) {
             if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
 
-// #ifdef    DEBUGGPU
-            if (echo > 5) {
-                auto const me = mpi_parallel::rank(); // usues MPI_COMM_WORLD            
+#ifdef    DEBUGGPU
+            if (echo > 9) {
+                auto const me = mpi_parallel::rank(MPI_COMM_WORLD);
                 std::printf("# rank#%i action_t at %p usues memory_buffer_ at %p\n", me, (void*)this, (void*)memory_buffer_);
             } // echo
-// #endif // DEBUGGPU
+#endif // DEBUGGPU
 
             assert(nullptr != p_);
             auto const & p = *p_;

@@ -35,7 +35,7 @@ namespace kinetic_plan {
     } // get_inz
 
 
-    status_t finite_difference_plan(
+    void finite_difference_plan( // effectively he constructor for kinetic_plan_t
           green_sparse::sparse_t<int32_t> & sparse // result
         , int16_t & FD_range // side result
         , int const dd // direction of derivative
@@ -210,7 +210,6 @@ namespace kinetic_plan {
         if (FD_range < 1) {
             warn("kinetic energy switched off in %c-direction", 'x' + dd);
         }
-        return 0;
     } // finite_difference_plan
 
 
@@ -288,8 +287,8 @@ namespace kinetic_plan {
     kinetic_plan_t::kinetic_plan_t(
             int16_t & FD_range // side result
           , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
-          , uint32_t const periodicity
-          , std::vector<int32_t> const target_axes[3]
+          , uint32_t const periodicity // periodicity in derivative direction, 0 if not periodic
+          , std::vector<int32_t> const target_axes[3] // contain the global indices w.r.t. the box and -1 if outside, not used except for their .size()
           , uint32_t const RowStart[]
           , uint16_t const ColIndex[]
           , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
@@ -298,10 +297,10 @@ namespace kinetic_plan {
       )
         : derivative_direction_(dd)
       {
-          auto const stat = kinetic_plan::finite_difference_plan(sparse_, FD_range, // results
+          kinetic_plan::finite_difference_plan(sparse_, FD_range, // results
                     dd, periodicity, target_axes, RowStart, ColIndex,
                     iRow_of_coords, sparsity_pattern, echo);
-          if (stat) warn("failed to set up finite_difference_plan for %c-direction, status= %i", 'x'+dd, int(stat));
+          FD_range_ = FD_range; // store in member variable
       } // constructor
 
 

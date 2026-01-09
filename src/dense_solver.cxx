@@ -130,7 +130,7 @@ namespace dense_solver {
 
       status_t stat_eig(0);
       for (int h0s1 = 1; h0s1 >= 0; --h0s1) { // loop must run down and serial
-          if (echo > 0) std::printf("\n");
+          if (echo > 3) std::printf("\n");
           auto const matrix_name = h0s1 ? "overlap" : "Hamiltonian";
           real_t const  u = h0s1 ?  1 :  eV; // output unit conversion factor 
           auto   const _u = h0s1 ? "" : _eV; // unit symbol

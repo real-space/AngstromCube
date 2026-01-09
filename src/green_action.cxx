@@ -26,7 +26,7 @@
   #include "display_units.h" // GByte, _GByte
   #include "green_input.hxx" // ::load_Hamiltonian
   #include "green_function.hxx" // ::construct_Green_function
-  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank
+  #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm, MPI_COMM_WORLD
 
   #ifdef    HAS_TFQMRGPU
 
@@ -84,13 +84,13 @@ namespace green_action {
 #ifdef    HAS_TFQMRGPU
       if (iterations > 0) {
           if (nnzbX < 1) {
-              if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+              if (echo > 2) std::printf("# cannot call tfQMRgpu library if X has no elements!\n");
               return;
           }
           p.echo = echo - 5;
           if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
 
-          // beware, the changes only the local potential. In a non-benchmark situation use ::update_energy_parameter
+          // beware, this changes only the local potential. In a non-benchmark situation use ::update_energy_parameter
           p.E_param = std::complex<double>(control::get("green_action.energy.parameter.real", 0.0),
                                            control::get("green_action.energy.parameter.imag", 0.0));
 
@@ -98,8 +98,8 @@ namespace green_action {
           tfqmrgpu::solve(action); // compute GPU memory requirements
 
           {
-              simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem); // uses MPI_COMM_WORLD
-              if (echo > 5) std::printf("# tfqmrgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
+              simple_stats::Stats<> mem; mem.add(p.gpu_mem); mpi_parallel::allreduce(mem, MPI_COMM_WORLD);
+              if (echo > 5) std::printf("# tfQMRgpu needs [%.1f, %.1f +/- %.1f, %.1f] %s GPU memory, %.3f %s total\n",
                 mem.min()*GByte, mem.mean()*GByte, mem.dev()*GByte, mem.max()*GByte, _GByte, mem.sum()*GByte, _GByte);
           }
           auto memory_buffer = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
@@ -163,7 +163,6 @@ namespace green_action {
 
 
   status_t test_green_action(int const echo=0) {
-      bool const already_initialized = mpi_parallel::init();
 
       uint32_t ng[3] = {0, 0, 0}; // grid sizes
       int8_t   bc[3] = {0, 0, 0}; // boundary conditions
@@ -173,19 +172,20 @@ namespace green_action {
       std::vector<double> xyzZinso(0); // atom info
       std::vector<std::vector<double>> AtomMatrices(0); // non-local potential
 
-      auto const *const filename = control::get("hamiltonian.file", "Hmt.empty.4x4x4.xml");
+      auto const *const filename = control::get("hamiltonian.file", "Hmt.xml");
       auto stat = green_input::load_Hamiltonian(ng, bc, hg, Veff, natoms, xyzZinso, AtomMatrices, filename, echo - 5);
       if (stat) {
           warn("failed to load_Hamiltonian with status=%d", int(stat));
-          if (!already_initialized) mpi_parallel::finalize();
           return stat;
       } // stat
 
       int const r1c2 = control::get("green_function.benchmark.complex", 1.) + 1;
       int const noco = control::get("green_function.benchmark.noco", 1.);
 
+      auto const comm = mpi_parallel::comm(); // for tests
+      std::vector<int64_t> gids(0);
       action_plan_t p;
-      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, echo, noco);
+      stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo, noco);
 
       assert(1 == r1c2 || 2 == r1c2);
       assert(1 == noco || r1c2 == noco);
@@ -213,7 +213,6 @@ namespace green_action {
               warn("green_function.benchmark.action must be in {32011, 32021, 32022, 64011, 64021, 64022} but found %d", action);
       } // switch action
 
-      if (!already_initialized) mpi_parallel::finalize();
       return stat;
   } // test_green_action
 
@@ -240,7 +239,9 @@ namespace green_action {
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_construction_and_destruction(echo);
+      bool const already_initialized = mpi_parallel::init();
       stat += test_green_action(echo);
+      if (!already_initialized) mpi_parallel::finalize();
       return stat;
   } // all_tests
 

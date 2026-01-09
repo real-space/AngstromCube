@@ -31,6 +31,7 @@ set(a43_atom_headers
     ../include/inline_math.hxx
     ../include/linear_algebra.hxx
     ../include/lossful_compression.hxx
+    ../include/omp_parallel.hxx
     ../include/pawxml_export.hxx
     ../include/pawxml_import.hxx
     ../include/print_tools.hxx
@@ -80,6 +81,7 @@ set(a43_atom_sources
     sho_unitary.cxx
     sigma_config.cxx
     single_atom.cxx
+    unit_system.cxx
 )
    
 # build a shared library libliveatom.so
@@ -101,10 +103,12 @@ set(a43_headers ${a43_atom_headers}
     ../include/bessel_transform.hxx
     ../include/dense_solver.hxx
     ../include/define_version.h
+    ../include/display_units.h
     ../include/energy_contour.hxx
     ../include/energy_contribution.hxx
     ../include/energy_mesh.hxx
     ../include/exchange_correlation.hxx
+    ../include/finite_difference.hxx
     ../include/gaunt_entry.h
     ../include/geometry_analysis.hxx
     ../include/geometry_input.hxx
@@ -119,6 +123,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/load_balancer.hxx
     ../include/mpi_parallel.hxx
     ../include/multi_grid.hxx
+    ../include/omp_parallel.hxx
     ../include/parallel_poisson.hxx
     ../include/parallel_potential.hxx
     ../include/plane_wave.hxx
@@ -132,6 +137,7 @@ set(a43_headers ${a43_atom_headers}
     ../include/sho_projection.hxx
     ../include/simple_timer.hxx
     ../include/structure_solver.hxx
+    ../include/unit_system.hxx
     ../include/verify_benchmark.hxx
 )
 
@@ -143,6 +149,7 @@ set(a43_sources ${a43_atom_sources}
     dense_solver.cxx
     energy_contour.cxx
     energy_mesh.cxx
+    finite_difference.cxx
     geometry_analysis.cxx
     geometry_input.cxx
     green_experiments.cxx
@@ -233,6 +240,7 @@ set(green_headers
     ../include/kinetic_plan.hxx
     ../include/load_balancer.hxx
     ../include/mpi_parallel.hxx
+    ../include/omp_parallel.hxx
     ../include/parallel_poisson.hxx
     ../include/parallel_potential.hxx
     ../include/print_tools.hxx
@@ -254,12 +262,12 @@ set(green_headers
     ../include/xml_reading.hxx
 )
 
-# source files needed for ./green (independent of CUDA or no-CUDA)
+# source files needed for ./green (independent of CUDA or no-CUDA) 
 set(green_sources
     action_plan.cxx
     atom_communication.cxx
     chemical_symbol.cxx
-    control.cxx
+    # control.cxx
     display_units.cxx
     dyadic_plan.cxx
     energy_contour.cxx
@@ -276,9 +284,11 @@ set(green_sources
     mpi_parallel.cxx
     parallel_poisson.cxx
     parallel_potential.cxx
-    recorded_warnings.cxx
+    # recorded_warnings.cxx
     sho_unitary.cxx
+    unit_system.cxx
 )
+#### the objects for control and recorded_warnings are provided through libliveatom.so
 
 if(HAS_CUDA)
     enable_language(CUDA)
@@ -322,7 +332,7 @@ if(HAS_CUDA)
     find_package(CUDAToolkit REQUIRED) ### for cuRAND
     target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>)
     # GPU debugging information:
-    # target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo -Xptxas -v>)
+    # target_compile_options(green PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo -Xptxas -v --expt-relaxed-constexpr>)
     target_link_libraries(green PUBLIC cuda curand)
     # CUDA architectures 70=Volta, 80=Ampere, 90=Hopper
     set_property(TARGET green PROPERTY CUDA_ARCHITECTURES 70 80 90)
@@ -332,8 +342,9 @@ endif(HAS_CUDA)
 # a43 never has CUDA
 target_compile_definitions(a43 PUBLIC -DHAS_NO_CUDA)
 
-# a43 comes together with single_atom, while green will be linked against libliveatom.so
+# a43 comes together with single_atom::
 target_compile_definitions(a43   PUBLIC -DHAS_SINGLE_ATOM)
+# green will be linked against libliveatom.so
 target_compile_definitions(green PUBLIC -DHAS_LIVE_ATOM)
 target_link_libraries(green PUBLIC liveatom)
 
@@ -345,9 +356,12 @@ endif(HAS_DEVEL)
 if(HAS_OPENMP)
     find_package(OpenMP)
     if(OpenMP_CXX_FOUND)
-        target_link_libraries(a43 PUBLIC OpenMP::OpenMP_CXX)
+        target_link_libraries(a43      PUBLIC OpenMP::OpenMP_CXX)
+        target_link_libraries(liveatom PUBLIC OpenMP::OpenMP_CXX)
+        # target_link_libraries(green    PUBLIC OpenMP::OpenMP_CXX)
     endif()
-    target_compile_definitions(liveatom PUBLIC -DHAS_NO_OMP)
+    # target_compile_definitions(a43      PUBLIC -DHAS_NO_OMP)
+    # target_compile_definitions(liveatom PUBLIC -DHAS_NO_OMP)
     target_compile_definitions(green    PUBLIC -DHAS_NO_OMP)
 else(HAS_OPENMP)
     add_definitions(-DHAS_NO_OMP)
@@ -427,6 +441,8 @@ endif(HAS_RAPIDJSON)
 if(HAS_TFQMRGPU)
     # we use the header-only part of the tfQMRgpu library
     target_compile_definitions(green PUBLIC -DHAS_TFQMRGPU)
+    # we try to avoid using too much memory in the situation of many columns
+    target_compile_definitions(green PUBLIC -DTFQMRGPU_USE_ATOMICADD)
     target_include_directories(green PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/_deps/tfqmrgpu-src/tfQMRgpu/include>)
 endif(HAS_TFQMRGPU)
 

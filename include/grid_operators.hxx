@@ -373,7 +373,7 @@ namespace grid_operators {
 //        std::printf("\n# here: %s %s:%d\n\n", __func__, __FILE__, __LINE__);
 
           // this simple grid-based preconditioner is a diffusion stencil
-          preconditioner = finite_difference::stencil_t<complex_t>(g.h, std::min(1, nn_precond));
+          preconditioner = finite_difference::stencil_t<real_fd_t>(g.h, std::min(1, nn_precond));
           for (int d = 0; d < 3; ++d) {
               preconditioner.c2nd[d][1] = 1/12.;
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
@@ -625,7 +625,7 @@ namespace grid_operators {
       std::vector<double> potential;
 //    std::vector<complex_t> scale_factors;
       finite_difference::stencil_t<real_fd_t> kinetic;
-      finite_difference::stencil_t<complex_t> preconditioner;
+      finite_difference::stencil_t<real_fd_t> preconditioner;
       bool has_precond;
       bool has_overlap;
     //   kpt_t current_kpoint; // this is a state variable, so OpenMP loops over k-points should not use this.

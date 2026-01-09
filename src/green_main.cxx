@@ -11,8 +11,7 @@
 #include <string> // std::string
 #include <tuple> // std::tuple<...>, ::make_tuple, ::get
 
-#include "parallel_potential.hxx" // ::SCF
-
+  #include "parallel_potential.hxx" // ::SCF
 #ifndef   NO_UNIT_TESTS
   #include "global_coordinates.hxx" // ::all_tests
   #include "atom_communication.hxx" // ::all_tests
@@ -43,11 +42,12 @@
 
 #include <cstdlib> // std::abs, ::abort
 
+#include "display_units.h" // GByte, _GByte
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::allreduce
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
 #include "green_memory.hxx" // ::high_water_mark
-#include "unit_system.hxx" // ::set_output_units
+#include "unit_system.hxx" // ::set
 #include "control.hxx" // ::command_line_interface, ::get
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -130,9 +130,10 @@ status_t run_unit_tests(char const *unit_name, int const echo=0) {
             status += std::abs(int(stat));
             nonzero_status += (0 != stat);
         } // result
-        auto const me = mpi_parallel::rank();
-        status = mpi_parallel::max(status);
-        auto const non0status = mpi_parallel::max(nonzero_status);
+        auto const comm = mpi_parallel::comm(); // MPI_COMM_WORLD
+        auto const me = mpi_parallel::rank(comm);
+        status = mpi_parallel::max(status,comm);
+        auto const non0status = mpi_parallel::max(nonzero_status, comm);
         if (show) {
             if (echo > 0) std::printf("\n# %d modules can be tested\n", nmodules);
             if (0 == me) warn("display mode only, none of %d modules has been tested", nmodules);
@@ -151,19 +152,6 @@ status_t run_unit_tests(char const *unit_name, int const echo=0) {
 #endif // NO_UNIT_TESTS
 } // run_unit_tests
 
-
-int show_help(char const *executable, int const echo=1) {
-    if (echo > 0) std::printf("Usage %s [OPTION]\n"
-        "   --help           [-h]\tThis help message\n"
-        "   --version            \tShow version number\n"
-#ifndef   NO_UNIT_TESTS
-        "   --test <module>  [-t]\tRun module unit test\n"
-#endif // NO_UNIT_TESTS
-        "   --verbose        [-V]\tIncrement verbosity level\n"
-        "   +<name>=<value>      \tModify variable environment\n"
-        "\n", executable);
-    return 0;
-} // show_help
 
 
 int show_version(char const *executable="#", int const echo=1) {
@@ -193,11 +181,13 @@ int main(int const argc, char *argv[]) {
     if (0 == me && nprocs >= 65535) error("too many MPI processes will break, found nprocs= %d > 65535", nprocs);
 
     status_t stat(0);
-    char const *test_unit = ""; // the name of the unit to be tested
     int run_tests{0};
-    int verbosity{3*(0 == me)}; // set default verbosity low for master, zero for other ranks
+    char const *test_unit = ""; // the name of the unit to be tested
     char const *control_file{nullptr}; // the name of the control file (if any)
     std::vector<int> plus_arguments; // mark additional command line arguments
+    int verbosity{3*(0 == me)}; // set default verbosity low for master, zero for other ranks
+    char const* output_length_unit = "Bohr";
+    char const* output_energy_unit = "Ha";
 
     if (argc < 2) {  // use defaults: atoms.xyz, control.sh
         if (0 == me) { std::printf("# no arguments passed to %s!\n", (argc < 1) ? __FILE__ : argv[0]); }
@@ -217,6 +207,10 @@ int main(int const argc, char *argv[]) {
                 for (char const *vv{argv[iarg] + 1}; *vv; ++vv) {
                     verbosity += 4*('V' == *vv) + ('v' == *vv); // increment by 'V':4, 'v':1
                 } // vv
+            } else
+            if ('u' == (ci1 | IgnoreCase)) { // quick options -U= or -u= to modify default output units
+                if ('u' == ci1) { output_length_unit = argv[iarg] + 3; }
+                if ('U' == ci1) { output_energy_unit = argv[iarg] + 3; }
             } else {
 
                 // other options
@@ -239,6 +233,8 @@ int main(int const argc, char *argv[]) {
 #ifndef   NO_UNIT_TESTS
                             "   -t, --test <module> \tRun module unit test\n"
 #endif // NO_UNIT_TESTS
+                            "   -u=<length unit>    \tModify default for output.length.unit\n"
+                            "   -U=<energy unit>    \tModify default for output.energy.unit\n"
                             "   -v, -V, --verbose   \tIncrement verbosity level by 1 or 4\n"
                             "   --version           \tShow version number\n"
                             "   +<name>=<value>     \tOverwrite variable environment\n"
@@ -295,8 +291,8 @@ int main(int const argc, char *argv[]) {
 
     if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
 
-    stat += unit_system::set(control::get("output.length.unit", "Bohr"),
-                             control::get("output.energy.unit", "Ha"), echo);
+    stat += unit_system::set(control::get("output.length.unit", output_length_unit),
+                             control::get("output.energy.unit", output_energy_unit), echo);
     // run
     if (run_tests) {
         stat += run_unit_tests(test_unit, echo);
@@ -305,7 +301,7 @@ int main(int const argc, char *argv[]) {
     }
 
     { // scope: show the GPU memory high water mark
-        simple_stats::Stats<> m; m.add(green_memory::high_water_mark()); mpi_parallel::allreduce(m); // MPI_COMM_WORLD
+        simple_stats::Stats<> m; m.add(green_memory::high_water_mark()); mpi_parallel::allreduce(m, comm); // MPI_COMM_WORLD
         if (echo > 1) std::printf("# GPU memory high water mark [%g, %.3f +/- %g, %g] %s, %g %s total\n",
                     m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
     } // scope
@@ -319,7 +315,7 @@ int main(int const argc, char *argv[]) {
 
     if (echo > 0) recorded_warnings::show_warnings(3);
     recorded_warnings::clear_warnings(1);
-    mpi_parallel::allreduce(&stat); // make sure all processes return the same status
+    mpi_parallel::allreduce(&stat, comm); // make sure all processes return the same status
     mpi_parallel::finalize();
 
     return int(stat);
