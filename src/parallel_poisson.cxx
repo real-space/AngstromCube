@@ -461,11 +461,11 @@ namespace parallel_poisson {
 
         if (echo > 8) {
             std::printf("# rank#%i %s: requests={", me, __func__);
-            printf_vector(" %lli", remote_global_ids_, "}");
+            printf_vector(" %lli", remote_global_ids_, " }");
             std::printf(", %ld items\n", remote_global_ids_.size());
 
             std::printf("# rank#%i %s: offering={", me, __func__);
-            printf_vector(" %lli", local_global_ids_, "}");
+            printf_vector(" %lli", local_global_ids_, " }");
             std::printf(", %ld items\n", local_global_ids_.size());
         } // echo
 
@@ -483,7 +483,7 @@ namespace parallel_poisson {
                 owners.emplace_back((green_parallel::no_owner == ow) ? -1 : ow);
             } // ow
             std::printf("# rank#%i %s: RequestList.owner={", me, __func__);
-            printf_vector(" %i", owners, "}");
+            printf_vector(" %i", owners, " }");
             std::printf(", %ld items\n", requests_.owners().size());
         } // echo
 
