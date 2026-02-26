@@ -368,7 +368,7 @@ namespace green_function {
         , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
-        , std::vector<double> const & xyzZinso // [natoms*8]
+        , std::vector<double> const & xyzZinso // [natoms*8] atom coordinates x,y,z, atomic number Z, atom id, numax, sigma, other 
         , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , std::vector<int64_t> const & global_potential_indices
@@ -833,23 +833,6 @@ namespace green_function {
 
             view3D<int32_t> iRow_of_coords(num_target_coords[Z],num_target_coords[Y],num_target_coords[X], -1); // init as non-existing
 
-            std::vector<int32_t> target_axes[3]; // mappings from [0, num_target_coords) --> global coordinates in [0, n_blocks) or -1
-            for (int d{0}; d < 3; ++d) {
-                target_axes[d] = std::vector<int32_t>(num_target_coords[d]);
-                for (int ii{0}; ii < num_target_coords[d]; ++ii) {
-                    auto const global_target_coord = ii + min_target_coords[d];
-                    if (Periodic_Boundary == bc[d]) {
-                        target_axes[d][ii] = global_target_coord % n_blocks[d];
-                    } else {
-                        if (global_target_coord >= 0 && global_target_coord < n_blocks[d]) {
-                            target_axes[d][ii] = global_target_coord;
-                        } else {
-                            target_axes[d][ii] = -1; // non-existing (vacuum)
-                        }
-                    }
-                } // ii
-            } // d
-
             { // scope: fill BSR tables
                 simple_stats::Stats<> st;
                 uint32_t iRow{0}; // init as 1st index
@@ -991,7 +974,7 @@ namespace green_function {
                     p.kinetic[dd] = kinetic_plan_t(kinetic_nFD_dd // results, kinetic_nFD_dd may be modified
                         , dd // derivative direction in {0, 1, 2}
                         , (Periodic_Boundary == bc[dd])*n_blocks[dd] // derivative direction is periodic? (not wrapped)
-                        , target_axes // mappings from [0, num_target_coords) --> global coordinates in [0, n_blocks) or -1
+                        , num_target_coords
                         , p.RowStart
                         , p.colindx.data()
                         , iRow_of_coords

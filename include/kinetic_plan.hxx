@@ -50,7 +50,7 @@ namespace kinetic_plan {
             int16_t & FD_range // side result: finite-difference range
           , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
           , uint32_t const periodicity // number of blocks in the periodic direction (if periodic, 0 otherwise)
-          , std::vector<int32_t> const target_axes[3] // global index labels
+          , uint32_t const num_target_coords[3]
           , uint32_t const RowStart[] // row starts      for the sparse block array to be derived
           , uint16_t const ColIndex[] // columns indices for the sparse block array to be derived
           , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent

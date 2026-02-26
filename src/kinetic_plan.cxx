@@ -40,7 +40,7 @@ namespace kinetic_plan {
         , int16_t & FD_range // side result
         , int const dd // direction of derivative
         , uint32_t const periodicity // periodicity in derivative direction, 0 if not periodic
-        , std::vector<int32_t> const target_axes[3] // contain the global indices w.r.t. the box and -1 if outside, not used except for their .size()
+        , uint32_t const num_target_coords[3]
         , uint32_t const RowStart[]
         , uint16_t const ColIndex[]
         , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
@@ -93,18 +93,14 @@ namespace kinetic_plan {
         // prepare the finite-difference sequence lists
         char const direction = 'x' + dd;
         assert(X == dd || Y == dd || Z == dd);
-        uint32_t const num_target_coords[] = {uint32_t(target_axes[X].size()),
-                                              uint32_t(target_axes[Y].size()),
-                                              uint32_t(target_axes[Z].size())};
         assert(num_target_coords[X] > 0); assert(num_target_coords[Y] > 0); assert(num_target_coords[Z] > 0);
-   //   auto const & target_axis = target_axes[dd]; // in derivative direction (not used)
 
         auto const number_all_target_coords = (num_target_coords[Z])*size_t(num_target_coords[Y])*size_t(num_target_coords[X]);
         int num[3];
         set(num, 3, num_target_coords);
         uint32_t const num_dd = num[dd];
         num[dd] = 1; // replace number of target blocks in derivative direction
-        if (echo > 4) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
+        if (echo > 4) { std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]); }
         simple_stats::Stats<> length_stats;
         uint32_t const nrhs = sparsity_pattern.size();
         auto const max_lists = nrhs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
@@ -288,7 +284,7 @@ namespace kinetic_plan {
             int16_t & FD_range // side result
           , int const dd // direction of derivative, 0:X, 1:Y, 2:Z
           , uint32_t const periodicity // periodicity in derivative direction, 0 if not periodic
-          , std::vector<int32_t> const target_axes[3] // contain the global indices w.r.t. the box and -1 if outside, not used except for their .size()
+          , uint32_t const num_target_coords[3]
           , uint32_t const RowStart[]
           , uint16_t const ColIndex[]
           , view3D<int32_t> const & iRow_of_coords // (Z,Y,X) look-up table: row index of the Green function as a function of internal 3D coordinates, -1:non-existent
@@ -298,7 +294,7 @@ namespace kinetic_plan {
         : derivative_direction_(dd)
       {
           kinetic_plan::finite_difference_plan(sparse_, FD_range, // results
-                    dd, periodicity, target_axes, RowStart, ColIndex,
+                    dd, periodicity, num_target_coords, RowStart, ColIndex,
                     iRow_of_coords, sparsity_pattern, echo);
           FD_range_ = FD_range; // store in member variable
       } // constructor
