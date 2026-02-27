@@ -81,6 +81,7 @@
         std::swap(this->global_atom_ids     , rhs.global_atom_ids     );
      // std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
         std::swap(this->weight_infos        , rhs.weight_infos        );
+        std::swap(this->nc2_max             , rhs.nc2_max             );
         this->update_flop_counts();
         return *this;
     } // move assignment
@@ -607,13 +608,15 @@
       here;
 
       p.nc2_max = nc2_max;
- //   auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
+      auto const count = Noco*Noco*nc2_max;
+      if (echo > 2) std::printf("# MPI data exchange for atom matrices with %ld doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
  //   if (echo > 2) std::printf("# MPI data exchange for atom matrices with %ld doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
  //   p.AtomMatrices_ = view2D<double>(nac, count, 0.0); // get CPU memory for atomic matrices
 
       here;
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
+      if (echo > 2) std::printf("# dyadic_plan.nc2_max= %ld = %d\n", nc2_max, p.nc2_max);
 
       p.update_flop_counts(echo); // prepare to count the number of floating point operations
 

@@ -135,6 +135,7 @@ public:
     std::vector<int64_t> global_atom_ids; // union of target atoms of plans[:].dyadic_plan.global_atom_ids
     size_t gpu_mem = 0; // ToDo accumulate
     view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2), CPU memory, prepared for SHO projection with unnormalized Gauss-Hermite functions
+    uint32_t nc2_max = 0;
 
     ~action_plans_t(); // custom destructor
 

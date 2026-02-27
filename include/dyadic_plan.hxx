@@ -15,6 +15,8 @@
 class dyadic_plan_t {
 public: // members
 
+    // Warning when adding members: add a swap statement for each new member to the move assignment in dyadic_plan.cxx
+
     uint32_t* AtomStarts          = nullptr; // [nAtoms + 1]
     int8_t*   AtomLmax            = nullptr; // [nAtoms]
     double**  AtomMatrices        = nullptr; // [nAtoms][2*nc^2] atomic matrices in GPU memory, nc: number of SHO coefficients of this atom

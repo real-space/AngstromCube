@@ -171,11 +171,7 @@ namespace green_function {
 
         int const mat_exchange = control::get("green_function.matrices.exchange", 1.);
         if (mat_exchange) {
-            uint32_t nc2_max{0};
-            for (auto const & pl : p.plans) {
-                nc2_max = std::max(nc2_max, pl.dyadic_plan.nc2_max);
-            } // pl
-            auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
+            auto const count = Noco*Noco*p.nc2_max;
             if (echo > 2) std::printf("# MPI data exchange for atom matrices with %d doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
             int const nac = p.global_atom_ids.size();
             p.AtomMatrices_ = view2D<double>(nac, count, 0.0); // get CPU memory for atomic matrices
@@ -187,7 +183,7 @@ namespace green_function {
                 // ToDo: insert sho_prefactors here instead of in update_energy_parameter. But how to need numax and sigma?
                 if (nc2 > count) error("%ld = AtomMatrices[%ld].size() > count = %ld", nc2, iam, count);
                 assert(nc2 <= count);
-                set(input[iam], nc2, am.data()); // copy
+                set(input[iam], nc2, am.data()); // copy into input array
             } // iam
             p.matrices_requests.exchange(p.AtomMatrices_.data(), input.data(), count, echo, "atom_mat");
             // now atom matrices are stored in p.AtomMatrices_, call update_energy_parameter to transfer them into GPU memory
@@ -375,6 +371,28 @@ namespace green_function {
     } // get_right_hand_sides
 
 
+
+    // Function to perform bisection (binary search)
+    template <typename T>
+    int binary_search(std::vector<T> const & arr, T const target) {
+        int left{0}, right = arr.size() - 1;
+
+        while (left <= right) {
+            // Calculate middle index to avoid potential overflow
+            int const mid = left + (right - left) / 2;
+
+            if (arr[mid] == target) {
+                return mid; // Target found
+            } else if (arr[mid] < target) {
+                left = mid + 1; // Target is in the right half
+            } else {
+                right = mid - 1; // Target is in the left half
+            }
+        }
+        return -1; // Target not found
+    } // binary_search
+
+
     // basically the constructor for action_plan_t
     status_t construct_Green_function(
           action_plans_t & plans // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
@@ -438,35 +456,37 @@ namespace green_function {
 
         // truncation radius
         auto const r_trunc = control::get("green_function.truncation.radius", 10.);
-        {
-            auto & p = plans; 
-            // ToDo: indent
-        if (echo > 0) { std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing); }
-        p.r_truncation  = std::max(0., r_trunc);
-        // confinement potential
-        p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
-        p.V_confinement = control::get("green_function.confinement.potential", 1.);
-        if (echo > 2) { std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV); }
-        if (echo > 2) { std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV); }
-        }
+        {   auto & p = plans; 
+            if (echo > 0) { std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing); }
+            p.r_truncation  = std::max(0., r_trunc);
+            // confinement potential
+            p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
+            p.V_confinement = control::get("green_function.confinement.potential", 1.);
+            if (echo > 2) { std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV); }
+            if (echo > 2) { std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV); }
+        } // scope
 
         assert(nrhs_all < (1ul << 16) && "the integer type of ColIndex is uint16_t!");
 
         int const omp_max = omp_get_max_threads();
-        // determine a number of subdivision of the RHS
-        int const nsub = control::get("green_function.subdivide", omp_max*1.);
-     // plans.plans.resize(nsub); // resize does not work because of deleted copy constructor inside
+        if (echo > 0) { std::printf("# try to subdivide with at most %d threads\n", omp_max); }
+
+        // determine a number of subdivisions for the RHSs
+        int const nsub = control::get("green_function.subdivide", std::min(std::max(1, omp_max), int(nrhs_all))*1.);
+     // plans.plans.resize(nsub); // resize does not work because of deleted copy constructor inside action_plan_t
+        if (echo > 0) { std::printf("# +green_function.subdivide=%d\n", nsub); }
         plans.plans = std::vector<action_plan_t>(nsub);
 
     // ToDo: fix indentation
     #pragma omp parallel for
     for (int isub = 0; isub < nsub; ++isub) {
         auto & p = plans.plans[isub];
-        echo = (0 == isub)*echo_original;
+        echo = (0 == isub)*echo_original; // only OMP master reports
 
         // distribute the work
         uint32_t const irhs0 = (isub*nrhs_all)/nsub, irhs1 = ((isub + 1)*nrhs_all)/nsub;
         uint32_t const nrhs = irhs1 - irhs0;
+        if (echo > 0) { std::printf("# thread#%i treats %d of %d RHSs\n", isub, nrhs, nrhs_all); }
         p.global_source_indices.resize(nrhs);
         for (int irhs = 0; irhs < nrhs; ++irhs) {
             p.global_source_indices[irhs] = plans.global_source_indices.at(irhs + irhs0);            
@@ -1108,6 +1128,9 @@ namespace green_function {
         // prepare for the MPI exchange of potential blocks
         int const pot_exchange = control::get("green_function.potential.exchange", 1.);
         if (pot_exchange) {
+
+            if (echo > 3) { std::printf("# prepare potential exchange\n"); }
+
             std::set<int64_t> gai_union; // union of global atom indices
             std::set<int64_t> gti_union; // union of global target indices
             for (int isub{0}; isub < nsub; ++isub) { // serial loop
@@ -1122,11 +1145,16 @@ namespace green_function {
             plans.global_atom_ids     = std::vector<int64_t>(gai_union.begin(), gai_union.end()); // convert set to vector
             std::vector<int64_t> const global_target_indices(gti_union.begin(), gti_union.end()); // convert set to vector
             plans.nPots = global_target_indices.size();
+            if (echo > 3) { std::printf("# potential exchange for rank#%i has %ld atoms and %.3f k potential cubes\n", me, plans.global_atom_ids.size(), plans.nPots*.001); }
             // is global_target_indices sorted?
             plans.potential_requests = green_parallel::RequestList_t(global_target_indices, // requests
                                                                  global_potential_indices, // offerings
                                                                  potential_owner_ranks, n_blocks, comm, echo, "potential");
+            if (echo > 3) { std::printf("# potential request list prepared\n"); }
+            
             size_t not_found{0};
+            if (echo > 5) { std::printf("# rank#%i global_target_indices=", me); printf_vector(" %lli", global_target_indices); }
+
             #pragma omp parallel for
             for (int isub = 0; isub < nsub; ++isub) {
                 auto & p = plans.plans[isub];
@@ -1136,26 +1164,27 @@ namespace green_function {
                     auto const iRow = p.veff_index[inz];
                     if (-1 != iRow) {
                         auto const gti = p.global_target_indices.at(iRow);
-                        // ToDo find idx such that global_target_indices[idx] == gti using bisection (only works on a sorted vector)
-                        size_t lower{0}, upper{global_target_indices.size() - 1};
-                        while (lower < upper) {
-                            auto const middle = (lower + upper) >> 1;
-                            if (global_target_indices.at(middle) > gti) {
-                                lower = middle;
-                            } else {
-                                upper = middle;
-                            }
-                        }
-                        assert(lower == upper);
-                        int64_t const idx = lower;
+                        // now find idx such that global_target_indices[idx] == gti using bisection (only works on a sorted vector)
+
+                        // stupid plain search
+                        // int64_t idx{-1};
+                        // for (size_t iti{0}; iti < global_target_indices.size(); ++iti) {
+                        //     if (global_target_indices[iti] == gti) { idx = iti; }
+                        // } // iti
+                        auto const idx = binary_search(global_target_indices, gti);
+
                         if (idx >= 0) {
                             p.veff_index[inz] = idx; // overwrite
                         } else {
-                            ++not_found; // launch error later
+                            #pragma omp atomic
+                            { ++not_found; } // launch error later
                         }
                     }
                 } // inz
-                p.Veff = plans.Veff;
+                if (echo > 5) { std::printf("# rank#%i thread#%i veff_index=", me, isub); printf_vector(" %d", p.veff_index, nnz); }
+                p.Veff = plans.Veff; // copy pointer
+                // ToDo: do we need an indirection list for the atoms as well?
+
             } // isub
             if (not_found) { error("%ld elements could not be found in union of global target indices", not_found); }
 
@@ -1169,6 +1198,19 @@ namespace green_function {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         }
 
+        uint32_t nc2_max{0};
+        plans.gpu_mem = 0;
+        // for (auto const & p : plans.plans) {
+        for (int isub{0}; isub < nsub; ++isub) { // serial loop
+            auto const & p = plans.plans[isub];
+            if (echo > 0) { std::printf("# dyadic_plan.nc2_max= %d\n", p.dyadic_plan.nc2_max); }
+            nc2_max = std::max(nc2_max, p.dyadic_plan.nc2_max);
+            plans.gpu_mem += p.gpu_mem;
+        } // p
+        plans.nc2_max = mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
+        if (echo > 0) { std::printf("# dyadic_plans.nc2_max= %d, plans.gpu_memory= %.6f MByte\n", plans.nc2_max, plans.gpu_mem*1e-6); }
+
+        if (echo > 0) { std::printf("# construct_Green_function done\n\n"); }
         return 0;
     } // construct_Green_function
 

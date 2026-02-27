@@ -58,7 +58,7 @@ namespace energy_contour {
         std::vector<float> weights = load_balancer::calculate_weights(plan_->global_source_indices, 
                                     no_weights, // plan_->dyadic_plan.weight_infos, 
                                     plan_->owner_rank_.size());
-        mpi_parallel::max(weights.data(), lb.comm(), weights.size()); // MPI_Allreduce(MPI_Max)
+        mpi_parallel::max(weights.data(), lb.comm(), weights.size()); // MPI_Allreduce(MPI_MAX)
 
         for (size_t wi = 0; wi < weights.size(); ++wi) {
             auto const w = weights[wi];
@@ -68,7 +68,7 @@ namespace energy_contour {
         } // wi
 
         // if the two distributions are not the same, we need to redistribute the 4x4x4 density cubes
-        if (!weights.empty()) { // ToDo: check if we need redistribution at all
+        if (0) { // (!weights.empty()) { // ToDo: check if we need redistribution at all
 
             delete plan_;
             plan_ = new action_plans_t();
