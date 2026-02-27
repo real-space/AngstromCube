@@ -43,7 +43,7 @@ namespace energy_contour {
         , int const check
     ) {
         if (echo > 0) std::printf("# construct %s with grid=[%d %d %d]\n", __func__, gc[0], gc[1], gc[2]);
-        plan_ = new action_plan_t(); // CPU memory for the plan
+        plan_ = new action_plans_t(); // CPU memory for the plans
         auto stat = green_function::construct_Green_function(*plan_, // result
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
                             xyzZinso, // atom info
@@ -54,7 +54,10 @@ namespace energy_contour {
                             echo);
         if (stat) warn("construct_Green_function returned status= %i", int(stat));
 
-        std::vector<float> weights = load_balancer::calculate_weights(plan_->global_source_indices, plan_->dyadic_plan.weight_infos, plan_->owner_rank_.size());
+        std::vector<load_balancer::WeightInfo> const no_weights(0);
+        std::vector<float> weights = load_balancer::calculate_weights(plan_->global_source_indices, 
+                                    no_weights, // plan_->dyadic_plan.weight_infos, 
+                                    plan_->owner_rank_.size());
         mpi_parallel::max(weights.data(), lb.comm(), weights.size()); // MPI_Allreduce(MPI_Max)
 
         for (size_t wi = 0; wi < weights.size(); ++wi) {
@@ -68,7 +71,7 @@ namespace energy_contour {
         if (!weights.empty()) { // ToDo: check if we need redistribution at all
 
             delete plan_;
-            plan_ = new action_plan_t();
+            plan_ = new action_plans_t();
             auto stat = green_function::construct_Green_function(*plan_, // result
                             gc.grid_points(), gc.boundary_conditions(), gc.grid_spacings(), // grid info
                             xyzZinso, // atom info
@@ -95,7 +98,13 @@ namespace energy_contour {
         if (echo > 2) { std::printf("# generate a parallel grid descriptor for the interpolation of densities\n"); }
         pg_ = new parallel_poisson::parallel_grid_t(gc, lb, echo, "Interpolation");
 
-        solver_ = new green_solver_t(plan_, echo, check);
+        int const nsub = plan_->plans.size();
+
+        solver_.resize(nsub);
+        #pragma omp parallel for
+        for (int isub = 0; isub < nsub; ++isub) {
+            solver_.at(isub) = green_solver_t(& plan_->plans[isub], echo, check);
+        } // isub
         if (echo > 7) std::printf("# constructed %s\n", __func__);
     } // constructor
 
@@ -103,7 +112,7 @@ namespace energy_contour {
 #ifdef    DEBUGGPU
         std::printf("\n# destruct %s\n", __func__);
 #endif // DEBUGGPU
-        if (solver_) { delete solver_; }
+        solver_.resize(0);
         if (plan_) { delete plan_; }
         if (pg_) { delete pg_; }
     } // destructor
@@ -156,11 +165,9 @@ namespace energy_contour {
 
         auto const ncubes = pg_->n_local(); // number of 8x8x8 cubes treated on the dense grid
         assert(nullptr != plan_);
-        assert(nullptr != solver_);
         auto & plan = *plan_;
-        plan.echo = echo >> 2; // lower internal verbosity
 
-        auto const nrhs = plan.nCols; // number of 4x4x4 cubes treated by the Green function solver
+        uint32_t const nrhs = plan.global_source_indices.size(); // number of 4x4x4 cubes treated by the Green function solver
         if (echo > 1) { std::printf("# dense grid domain has %d cubes, Green solver works on %d RHS cubes\n", ncubes, nrhs); }
 
         int constexpr Noco = 1;
@@ -226,6 +233,8 @@ namespace energy_contour {
         char timer_label[64]; std::snprintf(timer_label, 64, "Green solver in SCF-iteration#%i", scf_iteration_number);
         SimpleTimer integrate_timer(strip_path(__FILE__), __LINE__, timer_label, 0); // start timer
 
+        int const nsub = plan.plans.size();
+
         simple_stats::Stats<> iterations_needed_Ek;
         for (int iEpoint{0}; iEpoint < nEpoints; ++iEpoint) {
             auto const energy_weight = energy_weights[iEpoint];
@@ -235,41 +244,47 @@ namespace energy_contour {
             std::snprintf(energy_parameter_label, 64, "(%g %s, %g %s)", (energy.real() - Fermi_level)*eV, _eV, energy.imag()*Kelvin, _Kelvin);
             if (echo > 7) std::printf("# energy parameter#%i %s with weight (%g, %g)\n", iEpoint, energy_parameter_label, std::real(energy_weight), std::imag(energy_weight));
 
-            stat += green_function::update_energy_parameter(plan, energy, dVc, echo, Noco);
-
             view2D<Complex> rho_E(nrhs, n4x4x4, zero);
-
             simple_stats::Stats<> iterations_needed_k;
-            for (int ikpoint{0}; ikpoint < nkpoints; ++ikpoint) {
-                double const *const kpoint = kpoint_mesh[ikpoint];
-                Complex const kpoint_weight = kpoint[brillouin_zone::WEIGHT];
 
-                if (echo + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g] weight= %g\n",
-                                                 energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], kpoint[3]);
-                if (0 == check) {
-                    stat += green_function::update_phases(plan, kpoint, echo >> 3, Noco);
+            #pragma omp parallel for
+            for (int isub = 0; isub < nsub; ++isub) {
+                auto & p = plan.plans[isub];
 
-                    view2D<Complex> rho_Ek(nrhs, n4x4x4, zero);
+                stat += green_function::update_energy_parameter(p, plan, energy, dVc, echo, Noco);
 
-                    // ******************************
-                    // *** Core solver invokation ***
-                    // ******************************
-                    
-                    solver_->solve(rho_Ek[0], nrhs, max_iterations, echo);
+                for (int ikpoint{0}; ikpoint < nkpoints; ++ikpoint) {
+                    double const *const kpoint = kpoint_mesh[ikpoint];
+                    Complex const kpoint_weight = kpoint[brillouin_zone::WEIGHT];
 
-                    // ******************************
+                    if (echo + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g] weight= %g\n",
+                                                    energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], kpoint[3]);
+                    if (0 == check) {
+                        stat += green_function::update_phases(p, kpoint, echo >> 3, Noco);
+
+                        view2D<Complex> rho_Ek(nrhs, n4x4x4, zero);
+
+                        // ******************************
+                        // *** Core solver invokation ***
+                        // ******************************
+                        
+                        solver_[isub].solve(rho_Ek[0], nrhs, max_iterations, echo);
+
+                        // ******************************
 
 
-                    add_product(rho_E[0], nrhs*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
-                    if (sync) {
-                        auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], nrhs*n4x4x4).imag(), comm)*dVc; // MPI synchronization point
-                        if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
-                                                        energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral, plan.iterations_needed);
-                    } // sync
-                    iterations_needed_k.add(plan.iterations_needed);
-                } // check
+                        add_product(rho_E[0], nrhs*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
+                        // if (sync) {
+                        //     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], nrhs*n4x4x4).imag(), comm)*dVc; // MPI synchronization point
+                        //     if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
+                        //                                     energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral, p.iterations_needed);
+                        // } // sync
+                        iterations_needed_k.add(p.iterations_needed); // omp critical
+                    } // check
 
-            } // ikpoint
+                } // ikpoint
+
+            } // isub
 
             if (0 == check) {
                 if (sync) {

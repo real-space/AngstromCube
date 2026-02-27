@@ -115,7 +115,8 @@ namespace green_experiments {
                 std::complex<double> E_param(E_real, E_imag);
 
   //            green_function::update_energy_parameter(p, E_param, AtomMatrices, dV, 1.0, Noco, echo);
-                green_function::update_energy_parameter(p, E_param, dV, echo, Noco);
+             // green_function::update_energy_parameter(p, E_param, dV, echo, Noco);
+                error("green_function::update_energy_parameter(p, plans, E_param, dV, echo, Noco) missing", 0);
 
 #ifdef    HAS_TFQMRGPU
                 if (maxiter >= 0) {
@@ -429,8 +430,9 @@ namespace green_experiments {
         green_action::action_t<real_t,R1C2,Noco,64> action_H(&pH); // constructor
         green_action::action_t<real_t,R1C2,Noco,64> action_S(&pS); // constructor
         double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
-        green_function::update_energy_parameter(pH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H -  (0)*S)
-        green_function::update_energy_parameter(pS, -1.0, dVol, echo, Noco, 0.0); // prepare for S: A = (0*H - (-1)*S)
+        // green_function::update_energy_parameter(pH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H -  (0)*S)
+        // green_function::update_energy_parameter(pS, -1.0, dVol, echo, Noco, 0.0); // prepare for S: A = (0*H - (-1)*S)
+        error("green_function::update_energy_parameter(p, plans, E_param, dV, echo, Noco) missing", 0);
 
         assert(nb == nblocks && "Davidson code has been deleted, see d2e840d166d3dfd17bd5bd2d42749e5b856b5d4d");
         assert(nb == nblocks); // there are as many bands as real-space grid points
@@ -663,8 +665,8 @@ namespace green_experiments {
         auto const comm = mpi_parallel::comm(); // for tests
 
         std::vector<int64_t> gids(0);
-        action_plan_t p;
-        auto const plan_stat = green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo, Noco);
+        action_plans_t plan;
+        auto const plan_stat = green_function::construct_Green_function(plan, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo, Noco);
         if (plan_stat) {
             warn("construct_Green_function failed with status=%d", int(plan_stat));
             return plan_stat;
@@ -679,7 +681,7 @@ namespace green_experiments {
             for (int64_t ia{0}; ia < na; ++ia) { owned_global_atom_ids[ia] = ia; target_global_atom_ids[ia] = ia; }
             uint32_t const nb[] = {uint32_t(na), 0, 0};
             std::vector<uint16_t> atom_owner_rank(na, uint16_t(0)); // all atoms owned by the MPI master
-            p.matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
+            plan.matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
                 owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
         } // scope
 
@@ -689,6 +691,7 @@ namespace green_experiments {
 
         here;
 
+        auto & p = plan.plans.at(0);
         if ('g' == how) {
             // compute the spectral function using the Green function method
             return (1 == Noco) ? spectralfunction<double,1>(p, ng, hg, echo):
@@ -699,8 +702,8 @@ namespace green_experiments {
             int const echo_pS = echo*control::get("green_experiments.overlap.echo", 0.); // separate verbosity for the second initialization, default=mute
             if (echo > 4) std::printf("# verbosity for second call to construct_Green_function is +green_experiments.overlap.echo=%d\n", echo_pS);
 
-            action_plan_t pS; // plan for the overlap operator
-            auto const plan_stat = green_function::construct_Green_function(pS, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo_pS, Noco); // since the copy operator is deleted we have to do it again
+            action_plans_t planS; // plan for the overlap operator
+            auto const plan_stat = green_function::construct_Green_function(planS, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo_pS, Noco); // since the copy operator is deleted we have to do it again
             if (plan_stat) {
                 warn("construct_Green_function failed with status=%d for the overlap operator", int(plan_stat));
                 return plan_stat;
@@ -708,7 +711,8 @@ namespace green_experiments {
 
             here;
 
-            pS.matrices_requests = p.matrices_requests; // deep copy
+            planS.matrices_requests = plan.matrices_requests; // deep copy
+            auto & pS = planS.plans.at(0);
 
             // this needs to be done to get the AtomMatrices into the overlap operators
             auto const pot_stat = 1; // green_function::update_potential(pS, nb, Veff, AtomMatrices, echo, Noco); // ToDo: interface changed

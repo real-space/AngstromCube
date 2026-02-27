@@ -69,8 +69,10 @@ namespace green_action {
 #else  // NO_UNIT_TESTS
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  void test_action(action_plan_t & p, int const iterations=1, int const echo=9) {
+  void test_action(action_plans_t & plan, int const iterations=1, int const echo=9) {
       if (echo > 1) std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+
+      auto & p = plan.plans.at(0);
       green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
       uint32_t const nnzbX = p.colindx.size();
@@ -184,7 +186,7 @@ namespace green_action {
 
       auto const comm = mpi_parallel::comm(); // for tests
       std::vector<int64_t> gids(0);
-      action_plan_t p;
+      action_plans_t p;
       stat += green_function::construct_Green_function(p, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo, noco);
 
       assert(1 == r1c2 || 2 == r1c2);

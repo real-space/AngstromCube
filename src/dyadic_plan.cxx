@@ -79,7 +79,7 @@
         std::swap(this->sparse_SHOadd       , rhs.sparse_SHOadd       );
         std::swap(this->sparse_SHOsum       , rhs.sparse_SHOsum       );
         std::swap(this->global_atom_ids     , rhs.global_atom_ids     );
-        std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
+     // std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
         std::swap(this->weight_infos        , rhs.weight_infos        );
         this->update_flop_counts();
         return *this;
@@ -597,7 +597,7 @@
           assert(nc > 0); // the number of coefficients of a contributing atom copy must be non-zero
           p.AtomStarts[iac + 1] = p.AtomStarts[iac] + nc; // create prefetch sum
           p.AtomLmax[iac] = numax;
-          char name[64]; std::snprintf(name, 64, "AtomMatrices[a#%lli]", ia);
+          char name[64]; std::snprintf(name, 64, "AtomMatrices[a#%i]", ia);
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear GPU memory
           nc2_max = std::max(nc2_max, size_t(2*nc*nc));
@@ -606,9 +606,10 @@
 
       here;
 
-      auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
-      if (echo > 2) std::printf("# MPI data exchange for atom matrices with %ld doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
-      p.AtomMatrices_ = view2D<double>(nac, count, 0.0); // get CPU memory for atomic matrices
+      p.nc2_max = nc2_max;
+ //   auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
+ //   if (echo > 2) std::printf("# MPI data exchange for atom matrices with %ld doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
+ //   p.AtomMatrices_ = view2D<double>(nac, count, 0.0); // get CPU memory for atomic matrices
 
       here;
 

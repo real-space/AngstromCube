@@ -32,7 +32,9 @@
       , int const Noco // =2
     ) {
         if (echo > 0) std::printf("# constructor for %s --> green_function::construct_Green_function\n", __func__);
-        green_function::construct_Green_function(*this, ng, bc, hg, xyzZinso, nullptr, comm, potential_gids, owner_ranks, echo, Noco);
+        error("construct_Green_function needed to be deactivated for now", 0);
+        // green_function::construct_Green_function(*this, ng, bc, hg, xyzZinso, nullptr, comm, potential_gids, owner_ranks, echo, Noco);
+
     } // constructor
 
     action_plan_t::~action_plan_t() { // destructor
@@ -42,16 +44,24 @@
         // free_memory(source_coords);
         // free_memory(target_coords);
         free_memory(target_minus_source);
-        for (int mag{0}; mag < 4*(nullptr != Veff); ++mag) {
-            free_memory(Veff[mag]);
-        } // mag
-        free_memory(Veff);
+        // for (int mag{0}; mag < 4*(nullptr != Veff); ++mag) {
+        //     free_memory(Veff[mag]);
+        // } // mag
+        // free_memory(Veff);
         free_memory(veff_index);
         free_memory(colCubePos);
         free_memory(rowCubePos);
         free_memory(grid_spacing_trunc);
         free_memory(phase);
         green_debug_printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(action_plan_t));
+    } // destructor
+
+
+    action_plans_t::~action_plans_t() { // custom destructor
+        for (int mag{0}; mag < 4*(nullptr != Veff); ++mag) {
+            free_memory(Veff[mag]);
+        } // mag
+        free_memory(Veff);
     } // destructor
 
 namespace action_plan {

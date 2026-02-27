@@ -69,12 +69,6 @@ public: // TODo: check which members could be private
 
     std::vector<int64_t> global_target_indices; // [nRows]
     std::vector<int64_t> global_source_indices; // [nCols]
-    double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
-    float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
-    float V_confinement   = 1; // potential prefactor
-    std::complex<double> E_param; // energy parameter
-
-    kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
 
     uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
     uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
@@ -83,20 +77,23 @@ public: // TODo: check which members could be private
     float   (*rowCubePos)[3+1]    = nullptr; // [nRows][3+1] internal coordinates in float, could be int16_t for most applications
     float   (*colCubePos)[3+1]    = nullptr; // [nCols][3+1] internal coordinates in float, could be int16_t for most applications
     int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences                                               TODO: remove target_minus_source
-    double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nRows][64], 4 >= Noco^2
-    // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
+    double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nPots][64], 4 >= Noco^2
     int32_t*  veff_index          = nullptr; // [nnzbX] indirection list, values -1 for non-existent indices
+
+    std::complex<double> E_param; // energy parameter
 
     double *grid_spacing_trunc = nullptr; // [3]
     double (*phase)[2][2]      = nullptr; // [3] // phase factors for the 3 directions across the boundaries, used in kinetic and dyadic phases are derived from it
 
-    bool noncollinear_spin = false;
+    kinetic_plan_t kinetic[3]; // plan to execute the kinetic energy operator
 
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
-    std::vector<green_parallel::rank_int_t> owner_rank_; // load balancing, can be different from that of the dense grid
-    green_parallel::RequestList_t potential_requests; // request list to exchange potential cubes
-    green_parallel::RequestList_t matrices_requests;  // request list to exchange atomic matrices
+    double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
+    float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
+    float V_confinement   = 1; // potential prefactor
+    bool noncollinear_spin = false;
+
 
 
 public:
@@ -118,6 +115,30 @@ public:
     ~action_plan_t(); // destructor
 
 }; // action_plan_t
+
+
+class action_plans_t {
+public:
+
+    double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
+    float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
+    float V_confinement   = 1; // potential prefactor
+    bool noncollinear_spin = false;
+    size_t nPots          = 0;
+    double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nPots][64], 4 >= Noco^2
+    // Veff could be (*Veff[4])[64], however, then we cannot pass Veff to GPU kernels but have to pass Veff[0], Veff[1], ...
+    std::vector<action_plan_t> plans;
+    std::vector<int64_t> global_source_indices; // [nRHSs]
+    std::vector<green_parallel::rank_int_t> owner_rank_; // load balancing, can be different from that of the dense grid
+    green_parallel::RequestList_t potential_requests; // request list to exchange potential cubes
+    green_parallel::RequestList_t matrices_requests;  // request list to exchange atomic matrices
+    std::vector<int64_t> global_atom_ids; // union of target atoms of plans[:].dyadic_plan.global_atom_ids
+    size_t gpu_mem = 0; // ToDo accumulate
+    view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2), CPU memory, prepared for SHO projection with unnormalized Gauss-Hermite functions
+
+    ~action_plans_t(); // custom destructor
+
+}; // action_plans_t
 
 
 namespace action_plan {

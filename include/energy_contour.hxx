@@ -59,11 +59,11 @@ namespace energy_contour {
 
     // members
     public:
-        action_plan_t *plan_ = nullptr; // ToDo: make this a private member
+        action_plans_t *plan_ = nullptr; // ToDo: make this a private member
         parallel_poisson::parallel_grid_t *pg_ = nullptr; // ToDo: make this private
         green_parallel::RequestList_t *req_ = nullptr;
     private:
-        green_solver_t *solver_ = nullptr;
+        std::vector<green_solver_t> solver_;
     }; // class Integrator
 
     status_t all_tests(int const echo=0); // declaration only

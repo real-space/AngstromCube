@@ -23,7 +23,7 @@
 namespace green_function {
 
     status_t construct_Green_function( // constructor for action_plan_t
-          action_plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+          action_plans_t & plans // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
         , int8_t const boundary_condition[3] // boundary conditions
         , double const hg[3] // grid spacings
@@ -37,7 +37,7 @@ namespace green_function {
     ); // declaration only
 
     status_t update_potential(
-          action_plan_t & p // modify
+          action_plans_t & p // modify
 //      , uint32_t const nb[3] // numbers of 4*4*4 grid cubes of the unit cell in with the potential is defined
         , std::vector<double> const & Veff // effective potential[ncubes*4*4*4]
         , std::vector<std::vector<double>> const & AtomMatrices
@@ -47,6 +47,7 @@ namespace green_function {
 
     status_t update_energy_parameter(
           action_plan_t & p // modify
+        , action_plans_t const & plans
         , std::complex<double> const E_param
         , double const dVol // volume element of the coarse grid
         , int const echo=0 // verbosity

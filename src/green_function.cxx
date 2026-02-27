@@ -8,6 +8,7 @@
 #include <utility>    // std::swap, ::move
 #include <vector>     // std::vector<T>
 #include <complex>    // std::complex
+#include <set>        // std::set<T>
 
 #include "green_function.hxx"
 
@@ -27,6 +28,7 @@
 #include "sho_projection.hxx" // ::get_sho_prefactors
 #include "green_parallel.hxx" // ::potential_exchange, ::RequestList_t
 #include "mpi_parallel.hxx" // ::init, ::finalize, ::rank, ::comm
+#include "omp_parallel.hxx" // omp_get_max_threads
 #include "load_balancer.hxx" // ::rank_int_t
 
 #include "sho_tools.hxx" // ::nSHO
@@ -65,6 +67,7 @@ namespace green_function {
     // ToDo: make it a method of action_plan_t
     status_t update_energy_parameter(
           action_plan_t & plan
+        , action_plans_t const & plans
         , std::complex<double> const E_param
         , double const dVol // volume element of the coarse grid
         , int const echo // =0
@@ -77,7 +80,7 @@ namespace green_function {
 
         auto & p = plan.dyadic_plan;
         if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
-        auto const count = p.AtomMatrices_.stride();
+        auto const count = plans.AtomMatrices_.stride();
 
         auto const f = dVol; // we multiply the matrices by dVol so we can omit this factor in SHOprj
         for (int iac = 0; iac < p.nAtoms; ++iac) { // contributing atoms can be processed in parallel
@@ -87,7 +90,7 @@ namespace green_function {
             assert(Noco*Noco*2*nc*nc <= count && "Maybe set up with wrong Noco");
 
             // use the atom matrices stored in CPU memory which are filled by green_parallel::exchange
-            double const *const hmt = p.AtomMatrices_[iac]; // in CPU memory, sho_tools::zyx_order
+            double const *const hmt = plans.AtomMatrices_[iac]; // in CPU memory, sho_tools::zyx_order
 
             // fill this with matrix values
             auto const atomMatrix = p.AtomMatrices[iac]; // data layout [Noco*Noco*2*nc*nc], 2 for {real,imag}, in GPU memory
@@ -114,7 +117,7 @@ namespace green_function {
 
     // ToDo: make it a method of action_plan_t
     status_t update_potential(
-          action_plan_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+          action_plans_t & p // inout, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , std::vector<double> const & Vtot // [ncubes*4*4*4]
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo // =0 // verbosity
@@ -127,9 +130,7 @@ namespace green_function {
             assert(0 == (n_grid_points & 63ull) && "the number of grid points must be a multiple of 64");
             int32_t const ncubes = n_grid_points >> 6; // divide by 64
     
-            int32_t const nrhs = p.nCols; // the number of right-hand-side 4x4x4 cubes treated in the Green function solver
-    
-            if (echo > 0) { std::printf("# copy only %.3f k grid blocks points, expect %d\n", ncubes*1e-3, nrhs); }
+            if (echo > 0) { std::printf("# copy only %.3f k grid blocks points\n", ncubes*1e-3); }
 
             double const scale_V = control::get("hamiltonian.scale.potential", 1.);
             if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
@@ -159,7 +160,7 @@ namespace green_function {
         if (echo > 4) {
             int constexpr mag = 0; // only for the Noco=1 case
             simple_stats::Stats<> pot;
-            for (int iRow = 0; iRow < p.nRows; ++iRow) {
+            for (int iRow = 0; iRow < p.nPots; ++iRow) {
                 auto const *const V = p.Veff[mag][iRow]; // analyze the potential elements in GPU memory
                 for (int i64 = 0; i64 < 64; ++i64) {
                     pot.add(V[i64]);
@@ -170,7 +171,15 @@ namespace green_function {
 
         int const mat_exchange = control::get("green_function.matrices.exchange", 1.);
         if (mat_exchange) {
-            auto const count = p.dyadic_plan.AtomMatrices_.stride();
+            uint32_t nc2_max{0};
+            for (auto const & pl : p.plans) {
+                nc2_max = std::max(nc2_max, pl.dyadic_plan.nc2_max);
+            } // pl
+            auto const count = Noco*Noco*mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
+            if (echo > 2) std::printf("# MPI data exchange for atom matrices with %d doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
+            int const nac = p.global_atom_ids.size();
+            p.AtomMatrices_ = view2D<double>(nac, count, 0.0); // get CPU memory for atomic matrices
+
             view2D<double> input(AtomMatrices.size(), count, 0.0);
             for (size_t iam{0}; iam < AtomMatrices.size(); ++iam) { 
                 auto const & am = AtomMatrices.at(iam);
@@ -180,8 +189,9 @@ namespace green_function {
                 assert(nc2 <= count);
                 set(input[iam], nc2, am.data()); // copy
             } // iam
-            p.matrices_requests.exchange(p.dyadic_plan.AtomMatrices_.data(), input.data(), count, echo, "atom_mat");
-            // now atom matrices are stored in p.dyadic_plan.AtomMatrices_, call update_energy_parameter to transfer them into GPU memory
+            p.matrices_requests.exchange(p.AtomMatrices_.data(), input.data(), count, echo, "atom_mat");
+            // now atom matrices are stored in p.AtomMatrices_, call update_energy_parameter to transfer them into GPU memory
+
         } else {
             warn("# +green_function.matrices.exchange=%d --> skip", mat_exchange);
         } // needs exchange
@@ -235,7 +245,10 @@ namespace green_function {
         , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
         , MPI_Comm const comm
         , int const echo=0
-    ) {
+    )
+        // for the subdomain version (each domain can be split into several smaller domains to be treated by OpenMP)
+        // we need to pass a number of threads here 
+    {
         std::vector<int64_t> global_source_indices; // result array
 #ifndef   HAS_NO_MPI
         auto const comm_size = mpi_parallel::size(comm);
@@ -248,7 +261,7 @@ namespace green_function {
         auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         if (comm_size > 1) {
 
-            if (echo > 3) std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3);
+            if (echo > 3) { std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3); }
             assert(nall > 0);
             double rank_center[4]; // rank_center[0/1/2] are the coordinates of the center of weight of the RHSs assigned to this rank
                                     // rank_center[3] is the number of tasks with nonzero weight
@@ -331,15 +344,15 @@ namespace green_function {
                         std::min(std::max(1, n_source_blocks[d]), int32_t(nb[d])); // clamp
                 off[d] = (nb[d] - n_source_blocks[d])/2; // place at center of the unit cell
             } // d
-            if (source_cube && echo > 0) std::printf("\n# use green_function.sources= %d x %d x %d\n",
-                                            n_source_blocks[X], n_source_blocks[Y], n_source_blocks[Z]);
+            if (source_cube && echo > 0) { std::printf("\n# use green_function.sources= %d x %d x %d\n",
+                                            n_source_blocks[X], n_source_blocks[Y], n_source_blocks[Z]); }
 
             // total number of right-hand-sides treated in this MPI process
             auto const nrhs = size_t(n_source_blocks[Z])*size_t(n_source_blocks[Y])*size_t(n_source_blocks[X]);
 
-            if (echo > 3) std::printf("# number of RHS source blocks %s = %ld\n", str(n_source_blocks, 1, " x "), nrhs);
+            if (echo > 3) { std::printf("# number of RHS source blocks %s = %ld\n", str(n_source_blocks, 1, " x "), nrhs); }
 
-            if (echo > 5) std::printf("# offset source blocks %s\n", str(off, 1, " "));
+            if (echo > 5) { std::printf("# offset source blocks %s\n", str(off, 1, " ")); }
 
             global_source_indices.resize(nrhs, global_coordinates::nonexistent);
             uint32_t irhs{0};
@@ -349,14 +362,14 @@ namespace green_function {
                 global_source_indices[irhs] = global_coordinates::get((ibx + off[X])%nb[X],
                                                                       (iby + off[Y])%nb[Y],
                                                                       (ibz + off[Z])%nb[Z]);
-                if (echo > 8) std::printf("# RHS#%i \tglobal block id = o%21.21llo\n", irhs, global_source_indices[irhs]);
+                if (echo > 8) { std::printf("# RHS#%i \tglobal block id = o%21.21llo\n", irhs, global_source_indices[irhs]); }
                 ++irhs;
             }}} // xyz
             assert(nrhs == irhs);
 
         } // comm_size > 1
 
-        if (echo > 5) std::printf("# total number of source blocks is %ld\n", global_source_indices.size());
+        if (echo > 5) { std::printf("# total number of source blocks is %ld\n", global_source_indices.size()); }
         assert(global_source_indices.size() <= (1ull << 16) && "column indices are uint16_t");
         return global_source_indices;
     } // get_right_hand_sides
@@ -364,7 +377,7 @@ namespace green_function {
 
     // basically the constructor for action_plan_t
     status_t construct_Green_function(
-          action_plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+          action_plans_t & plans // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
@@ -373,15 +386,14 @@ namespace green_function {
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , std::vector<int64_t> const & global_potential_indices
         , load_balancer::rank_int_t const *const potential_owner_ranks
-        , int const echo // =0 // log-level
+        , int echo // =0 // log-level
         , int const Noco // =1
     ) {
         auto const nprocs = mpi_parallel::size(comm);
         auto const me = mpi_parallel::rank(comm, nprocs);
+        auto const echo_original = echo;
 
-        if (echo > 1) std::printf("\n#\n# %s(grid=[%s])\n#\n\n", __func__, str(ng, 1, " "));
-
-        p.E_param = 0;
+        if (echo > 1) { std::printf("\n#\n# %s(grid=[%s])\n#\n\n", __func__, str(ng, 1, " ")); }
 
         int8_t bc[3] = {boundary_condition[X], boundary_condition[Y], boundary_condition[Z]};
         uint32_t n_blocks[3] = {0, 0, 0};
@@ -393,14 +405,14 @@ namespace green_function {
             assert(hg[d] > 0. && "Needs a positive grid spacing");
             assert(Isolated_Boundary <= bc[d] && bc[d] <= Repeat_Boundary); // only {iso, peri, vacuum, repeat} allowed
         } // d
-        if (echo > 3) std::printf("# n_blocks %s\n", str(n_blocks));
+        if (echo > 3) { std::printf("# n_blocks %s\n", str(n_blocks)); }
 
 
         auto const n_all_blocks = size_t(n_blocks[Z])*size_t(n_blocks[Y])*size_t(n_blocks[X]);
 
         // regroup effective potential into blocks of 4x4x4
         assert((1 == Noco || 2 == Noco) && "Noco must be either 1 or 2");
-        p.noncollinear_spin = (2 == Noco);
+        plans.noncollinear_spin = (2 == Noco); // with subdomains this could be global
 
         // Cartesian cell parameters for the unit cell in which the potential is defined
         double const cell[] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
@@ -418,10 +430,58 @@ namespace green_function {
         } // echo
 
         // we assume that the source blocks lie compact in space and preferably close to each other
-        p.global_source_indices = get_right_hand_sides(p.owner_rank_, n_blocks, block_weights, comm, echo);
+        plans.global_source_indices = get_right_hand_sides(plans.owner_rank_, n_blocks, block_weights, comm, echo);
         // now p.owner_rank_[] tells the MPI rank of the process responsible for a RHS block
-        uint32_t const nrhs = p.global_source_indices.size();
-        if (echo > 1) std::printf("# total number of source blocks is %d\n", nrhs);
+        uint32_t const nrhs_all = plans.global_source_indices.size();
+        if (echo > 1) { std::printf("# total number of source blocks is %d\n", nrhs_all); }
+
+
+        // truncation radius
+        auto const r_trunc = control::get("green_function.truncation.radius", 10.);
+        {
+            auto & p = plans; 
+            // ToDo: indent
+        if (echo > 0) { std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing); }
+        p.r_truncation  = std::max(0., r_trunc);
+        // confinement potential
+        p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
+        p.V_confinement = control::get("green_function.confinement.potential", 1.);
+        if (echo > 2) { std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV); }
+        if (echo > 2) { std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV); }
+        }
+
+        assert(nrhs_all < (1ul << 16) && "the integer type of ColIndex is uint16_t!");
+
+        int const omp_max = omp_get_max_threads();
+        // determine a number of subdivision of the RHS
+        int const nsub = control::get("green_function.subdivide", omp_max*1.);
+     // plans.plans.resize(nsub); // resize does not work because of deleted copy constructor inside
+        plans.plans = std::vector<action_plan_t>(nsub);
+
+    // ToDo: fix indentation
+    #pragma omp parallel for
+    for (int isub = 0; isub < nsub; ++isub) {
+        auto & p = plans.plans[isub];
+        echo = (0 == isub)*echo_original;
+
+        // distribute the work
+        uint32_t const irhs0 = (isub*nrhs_all)/nsub, irhs1 = ((isub + 1)*nrhs_all)/nsub;
+        uint32_t const nrhs = irhs1 - irhs0;
+        p.global_source_indices.resize(nrhs);
+        for (int irhs = 0; irhs < nrhs; ++irhs) {
+            p.global_source_indices[irhs] = plans.global_source_indices.at(irhs + irhs0);            
+        } // irhs
+
+        p.noncollinear_spin = plans.noncollinear_spin;
+        p.r_truncation = plans.r_truncation;
+        p.r_confinement = plans.r_confinement;
+        p.V_confinement = plans.V_confinement;
+
+        // from here on, we could introduce subdomains i.e. split nrhs into as many groups as there are OpenMP threads
+
+
+        p.E_param = 0; // with subdomains --> make this variable for each subdomain
+
 
         view2D<int32_t> global_source_coords(nrhs, 4, 0);
         p.nCols = nrhs;
@@ -435,7 +495,7 @@ namespace green_function {
         int32_t global_internal_offset[]   = {0, 0, 0};
         double max_distance_from_comass{0}, max_distance_from_center{0};
         { // scope: determine min, max, center
-            auto const by_nrhs = 1./std::max(1u, nrhs);
+            auto const by_nrhs = (nrhs >= 1) ? 1./nrhs : 0.;
             for (uint32_t irhs{0}; irhs < nrhs; ++irhs) {
                 global_coordinates::get(global_source_coords[irhs], p.global_source_indices[irhs]);
                 for (int d{0}; d < 3; ++d) {
@@ -445,15 +505,14 @@ namespace green_function {
                     max_global_source_coords[d] = std::max(max_global_source_coords[d], rhs_coord);
                 } // d
             } // irhs
-            if (echo > 4) std::printf("# all sources within (%s) and (%s)\n",
-                str(min_global_source_coords), str(max_global_source_coords));
+            if (echo > 4) { std::printf("# all sources within (%s) and (%s)\n", str(min_global_source_coords), str(max_global_source_coords)); }
 
             for (int d{0}; d < 3; ++d) {
                 auto const middle2 = min_global_source_coords[d] + max_global_source_coords[d];
                 center_of_RHSs[d] = ((middle2*0.5)*4 + 2)*hg[d];
             } // d
 
-            if (echo > 5) std::printf("# internal and global coordinates differ by %s\n", str(global_internal_offset));
+            if (echo > 5) { std::printf("# internal and global coordinates differ by %s\n", str(global_internal_offset)); }
 
 //          p.source_coords = get_memory<int16_t[4]>(nrhs, echo, "source_coords"); // internal coordinates
             { // scope: fill p.source_coords and compute the largest distance from the center or center of mass
@@ -478,28 +537,20 @@ namespace green_function {
             } // scope
 
         } // scope
-        if (echo > 3) std::printf("# center of mass of RHS blocks is %s %s\n", str(center_of_mass_RHS, Ang), _Ang);
-        if (echo > 2) std::printf("# center of coords  RHS blocks is %s %s\n", str(center_of_RHSs    , Ang), _Ang);
-        if (echo > 3) std::printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
-                                                        max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang);
+        if (echo > 3) { std::printf("# center of mass of RHS blocks is %s %s\n", str(center_of_mass_RHS, Ang), _Ang); }
+        if (echo > 2) { std::printf("# center of coords  RHS blocks is %s %s\n", str(center_of_RHSs    , Ang), _Ang); }
+        if (echo > 3) { std::printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
+                                                        max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang); }
 
-        // truncation radius
-        auto const r_trunc = control::get("green_function.truncation.radius", 10.);
-        if (echo > 0) std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing);
-        p.r_truncation  = std::max(0., r_trunc);
-        // confinement potential
-        p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
-        p.V_confinement = control::get("green_function.confinement.potential", 1.);
-        if (echo > 2) std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV);
-        if (echo > 2) std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV);
 
         // count the number of green function elements for each target block
-
-        double r_block_circumscribing_sphere{0};
-
         uint32_t num_target_coords[3] = {0, 0, 0}; // range of target coordinates
         int32_t  min_target_coords[3] = {0, 0, 0}; // minimum of global target coordinates
         int32_t  max_target_coords[3] = {0, 0, 0}; // maximum of global target coordinates
+
+        double const r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
+        if (echo > 2) { std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang); }
+        
         { // scope: create the truncated Green function block-sparsity pattern
             auto const rtrunc = std::max(0., r_trunc);
             double scale_grid_spacing[] = {1, 1, 1};
@@ -519,8 +570,8 @@ namespace green_function {
                     if (scale_h >= 0) {
                         h[d] = hg[d]*scale_h;
                         if (1. != scale_h) {
-                            if (echo > 1) std::printf("# scale grid spacing in %c-direction for truncation %g * %g = %g %s\n",
-                                                                                'x' + d, hg[d]*Ang, scale_h, h[d]*Ang, _Ang);
+                            if (echo > 1) { std::printf("# scale grid spacing in %c-direction for truncation %g * %g = %g %s\n",
+                                                                                'x' + d, hg[d]*Ang, scale_h, h[d]*Ang, _Ang); }
                         } // scale factor deviates from unity
                     } else {
                         error("cannot use +green_function.scale.grid.spacing.%c=%g with a negative number", 'x' + d, scale_h);
@@ -537,24 +588,22 @@ namespace green_function {
                                 assert(deformed_cell > 0);
                             } else { // h[d] > 0
                                 assert(0 == h[d]); // truncation in this direction has been switched off manually --> no warning
-                                if (echo > 1) std::printf("# no truncation in %c-direction\n", 'x' + d);
+                                if (echo > 1) { std::printf("# no truncation in %c-direction\n", 'x' + d); }
                             }
                         } else {
                             bc[d] = Wrap_Boundary; // now bc[d] may differ from boundary_condition[d]
                             // truncation sphere does not overlap with its periodic images, we can treat it like a Vacuum_Boundary
-                            if (echo > 1) std::printf("# periodic boundary condition in %c-direction is wrapped\n", 'x' + d);
+                            if (echo > 1) { std::printf("# periodic boundary condition in %c-direction is wrapped\n", 'x' + d); }
                         }
                     } // periodic boundary condition
                 } // r_trunc >= 0
 
             } // d
 
-            r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
-            if (echo > 2) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
             auto const rtrunc_plus  =              rtrunc + 2*r_block_circumscribing_sphere;
             auto const rtrunc_minus = std::max(0., rtrunc - 2*r_block_circumscribing_sphere);
-            if (echo > 3) std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang);
-            if (echo > 5 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
+            if (echo > 3) { std::printf("# truncation radius %g %s, search within %g %s\n", rtrunc*Ang, _Ang, rtrunc_plus*Ang, _Ang); }
+            if (echo > 5 && rtrunc_minus > 0) { std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang); }
 
             int32_t itr[3]; // translate the truncation radius into a number of blocks
             for (int d{0}; d < 3; ++d) { // spatial directions
@@ -581,13 +630,13 @@ namespace green_function {
 
             } // d
             if (r_trunc < 0) {
-                if (echo > 1) std::printf("# truncation deactivated\n");
+                if (echo > 1) { std::printf("# truncation deactivated\n"); }
             } else {
-                if (echo > 2) std::printf("# truncation beyond %d %d %d blocks\n", itr[X], itr[Y], itr[Z]);
+                if (echo > 2) { std::printf("# truncation beyond %d %d %d blocks\n", itr[X], itr[Y], itr[Z]); }
             }
             auto const product_target_blocks = (num_target_coords[Z])*size_t(num_target_coords[Y])*size_t(num_target_coords[X]);
-            if (echo > 3) std::printf("# all targets within (%s) and (%s) --> %s = %.3f k\n", str(min_target_coords),
-                                str(max_target_coords), str(num_target_coords, 1, " x "), product_target_blocks*.001);
+            if (echo > 3) { std::printf("# all targets within (%s) and (%s) --> %s = %.3f k\n", str(min_target_coords),
+                                str(max_target_coords), str(num_target_coords, 1, " x "), product_target_blocks*.001); }
             assert(product_target_blocks > 0);
             std::vector<std::vector<uint16_t>> column_indices(product_target_blocks);
 
@@ -601,7 +650,7 @@ namespace green_function {
             std::vector<int32_t> tag_diagonal(product_target_blocks, -1);
             std::vector<int64_t> idx3_diagonal(nrhs, -1);
 
-            assert(nrhs < (1ul << 16) && "the integer type of ColIndex is uint16_t!");
+            
             std::vector<std::vector<bool>> sparsity_pattern(nrhs); // std::vector<bool> is a memory-saving bit-array
 
             simple_stats::Stats<> inout[4]; // 4 classes {inside, partial, outside, checked}
@@ -625,7 +674,7 @@ namespace green_function {
                         b_last[d]  =  itr[d];
                     } // boundary_condition
                 } // d
-                if (echo > 7) std::printf("# RHS#%i checks target box from (%s) to (%s)\n", irhs, str(b_first), str(b_last));
+                if (echo > 7) { std::printf("# RHS#%i checks target box from (%s) to (%s)\n", irhs, str(b_first), str(b_last)); }
 
                 int32_t target_coords[3]; // global target block coordinates
                 for (int32_t bz = b_first[Z]; bz <= b_last[Z]; ++bz) { target_coords[Z] = source_coords[Z] + bz;
@@ -706,7 +755,7 @@ namespace green_function {
                     stats_d2[nci].add(d2);
 
                 }}} // bx // by // bz
-                if (echo > 8) std::printf("# RHS#%i has %ld single and %ld multiple hits\n", irhs, hit_single, hit_multiple);
+                if (echo > 8) { std::printf("# RHS#%i has %ld single and %ld multiple hits\n", irhs, hit_single, hit_multiple); }
                 assert(0 == hit_multiple); // in this version, target blocks may not be hit more than once. In earlier version, hit_multiple was default for periodic BCs
                 assert(hit_single <= product_target_blocks);
                 if (echo > 7) {
@@ -729,8 +778,8 @@ namespace green_function {
                         } // hist[nci] > 0
                     } // nci
                     auto const partial = total_checked - hist[0] - hist[max_nci];
-                    if (echo > 8) std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
-                                    irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
+                    if (echo > 8) { std::printf("# RHS#%i has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
+                                    irhs, hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001); }
                     inout[0].add(hist[max_nci]);  // inside
                     inout[1].add(partial);        // partial
                     inout[2].add(hist[0]);        // outside
@@ -763,17 +812,14 @@ namespace green_function {
                 nall += hist[n];
                 nnzb += hist[n]*n;
             } // n
-            if (echo > 7) {
-                std::printf("# histogram total= %.3f k: ", nall*.001);
-                printf_vector(" %d", hist.data(), nrhs + 1);
-            } // echo
+            if (echo > 7) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nrhs + 1); }
             assert(nall == product_target_blocks && "sanity check");
 
             p.nRows = product_target_blocks - hist[0]; // the target block entries with no RHS do not create a row
-            if (echo > 1) std::printf("# total number of Green function blocks is %.3f k, "
-                                "average %.1f per source block\n", nnzb*.001, nnzb/std::max(nrhs*1., 1.));
-            if (echo > 2) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n",
-                p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001);
+            if (echo > 1) { std::printf("# total number of Green function blocks is %.3f k, "
+                                "average %.1f per source block\n", nnzb*.001, nnzb/std::max(nrhs*1., 1.)); }
+            if (echo > 2) { std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n",
+                p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001); }
 
 #ifdef    HAS_BITMAP_EXPORT
             if (0 == me) { // scope: export_as_bitmap, reduce over z-coordinate
@@ -1000,29 +1046,10 @@ namespace green_function {
 
         } // scope
 
-        // allocate GPU memory for the local potential elements
-        p.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
-        for (int mag{0}; mag < 4; ++mag) { p.Veff[mag] = nullptr; }
-
-        for (int mag{0}; mag < Noco*Noco; ++mag) {
-            // these arrays could be smaller for Repeat_Boundary and Vacuum_Boundary, however, we focus onto the default cases
-            p.Veff[mag] = get_memory<double[64]>(p.nRows, echo, "Veff[mag]"); // in managed memory
-            set(p.Veff[mag][0], p.nRows*64, 0.0);
-        } // mag
-
-        // prepare for the MPI exchange of potential blocks
-        int const pot_exchange = control::get("green_function.potential.exchange", 1.);
-        if (pot_exchange) {
-            p.potential_requests = green_parallel::RequestList_t(p.global_target_indices, // requests
-                                                                 global_potential_indices, // offerings
-                                                                 potential_owner_ranks, n_blocks, comm, echo, "potential");
-        } else {
-            warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
-        }
 
         FILE* svg{nullptr};
 #ifdef    GREEN_FUNCTION_SVG_EXPORT
-        if (0 == me) { svg = std::fopen("green_function.svg", "w"); }
+        if (0 == me) { svg = std::fopen("green_function.svg", "w"); } // only MPImaster will create the file
         if (nullptr != svg) {
             std::fprintf(svg, "<!-- SVG code generated by %s -->\n", __FILE__); // can be viewed at https://editsvgcode.com/
             std::fprintf(svg, "<svg viewBox=\"%d %d %d %d\" xmlns=\"http://www.w3.org/2000/svg\">\n",
@@ -1066,6 +1093,80 @@ namespace green_function {
         {
             auto const nerr = p.dyadic_plan.consistency_check();
             if (nerr) warn("dyadic_plan.consistency_check returned %d errors", nerr);
+        }
+
+    } // isub
+    // ToDo: fix indentation
+
+        echo = echo_original;
+
+        plans.nPots = 0;
+        // allocate GPU memory for the local potential elements
+        plans.Veff = get_memory<double(*)[64]>(4, echo, "Veff");
+        for (int mag{0}; mag < 4; ++mag) { plans.Veff[mag] = nullptr; }
+
+        // prepare for the MPI exchange of potential blocks
+        int const pot_exchange = control::get("green_function.potential.exchange", 1.);
+        if (pot_exchange) {
+            std::set<int64_t> gai_union; // union of global atom indices
+            std::set<int64_t> gti_union; // union of global target indices
+            for (int isub{0}; isub < nsub; ++isub) { // serial loop
+                auto const & p = plans.plans[isub];
+                for (auto const i64 : p.global_target_indices) {
+                    gti_union.insert(i64);
+                } // i64
+                for (auto const i32 : p.dyadic_plan.global_atom_ids) {
+                    gai_union.insert(i32);
+                } // i32
+            } // isub
+            plans.global_atom_ids     = std::vector<int64_t>(gai_union.begin(), gai_union.end()); // convert set to vector
+            std::vector<int64_t> const global_target_indices(gti_union.begin(), gti_union.end()); // convert set to vector
+            plans.nPots = global_target_indices.size();
+            // is global_target_indices sorted?
+            plans.potential_requests = green_parallel::RequestList_t(global_target_indices, // requests
+                                                                 global_potential_indices, // offerings
+                                                                 potential_owner_ranks, n_blocks, comm, echo, "potential");
+            size_t not_found{0};
+            #pragma omp parallel for
+            for (int isub = 0; isub < nsub; ++isub) {
+                auto & p = plans.plans[isub];
+                auto const nnz = p.colindx.size();
+                // fix the veff_index list
+                for (size_t inz{0}; inz < nnz; ++inz) {
+                    auto const iRow = p.veff_index[inz];
+                    if (-1 != iRow) {
+                        auto const gti = p.global_target_indices.at(iRow);
+                        // ToDo find idx such that global_target_indices[idx] == gti using bisection (only works on a sorted vector)
+                        size_t lower{0}, upper{global_target_indices.size() - 1};
+                        while (lower < upper) {
+                            auto const middle = (lower + upper) >> 1;
+                            if (global_target_indices.at(middle) > gti) {
+                                lower = middle;
+                            } else {
+                                upper = middle;
+                            }
+                        }
+                        assert(lower == upper);
+                        int64_t const idx = lower;
+                        if (idx >= 0) {
+                            p.veff_index[inz] = idx; // overwrite
+                        } else {
+                            ++not_found; // launch error later
+                        }
+                    }
+                } // inz
+                p.Veff = plans.Veff;
+            } // isub
+            if (not_found) { error("%ld elements could not be found in union of global target indices", not_found); }
+
+            for (int mag{0}; mag < Noco*Noco; ++mag) {
+                // these arrays could be smaller for Repeat_Boundary and Vacuum_Boundary, however, we focus onto the default cases
+                plans.Veff[mag] = get_memory<double[64]>(plans.nPots, echo, "Veff[mag]"); // in managed memory
+                set(plans.Veff[mag][0], plans.nPots*64, 0.0);
+            } // mag
+
+        } else {
+            warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
         }
 
         return 0;
@@ -1129,7 +1230,7 @@ namespace green_function {
         for (int bcx{0}; bcx < 4; ++bcx) {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
             if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
-            action_plan_t p;
+            action_plans_t p;
             stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, nullptr, comm, gids, nullptr, echo/8, Noco);
         }}} // bcx bcy bcz
         } // Noco
