@@ -103,7 +103,8 @@ namespace energy_contour {
         solver_ = std::vector<green_solver_t>(nsub);
         #pragma omp parallel for
         for (int isub = 0; isub < nsub; ++isub) {
-            solver_.at(isub) = green_solver_t(& plan_->plans[isub], echo, check); // could this be a move constructor
+            int const ech0 = echo*(0 == isub);
+            solver_.at(isub) = green_solver_t(& plan_->plans[isub], ech0, check); // could this be a move constructor
         } // isub
         if (echo > 7) std::printf("# constructed %s\n\n", __func__);
     } // constructor
@@ -247,35 +248,38 @@ namespace energy_contour {
             simple_stats::Stats<> iterations_needed_k;
 
             #pragma omp parallel for
-            for (int isub = 0; isub < nsub; ++isub) {
+            for (int isub = 0; isub < nsub; ++isub) { // subdomains thread-parallel
+                int const ech0 = echo*(0 == isub);
                 auto & p = plan.plans[isub];
+                uint32_t const irhs0 = (isub*nrhs)/nsub, irhs1 = ((isub + 1)*nrhs)/nsub;
+                uint32_t const mrhs = irhs1 - irhs0; // number of Right-Hand-Sides treated by this subdomain
 
-                stat += green_function::update_energy_parameter(p, plan, energy, dVc, echo, Noco);
+                stat += green_function::update_energy_parameter(p, plan, energy, dVc, ech0, Noco);
 
-                for (int ikpoint{0}; ikpoint < nkpoints; ++ikpoint) {
+                for (int ikpoint{0}; ikpoint < nkpoints; ++ikpoint) { // we could combine subdomains and k-points into a merged loop
                     double const *const kpoint = kpoint_mesh[ikpoint];
                     Complex const kpoint_weight = kpoint[brillouin_zone::WEIGHT];
 
-                    if (echo + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g] weight= %g\n",
+                    if (ech0 + check > 8) std::printf("# solve Green function for E=%s, k-point=[%g %g %g] weight= %g\n",
                                                     energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], kpoint[3]);
                     if (0 == check) {
-                        stat += green_function::update_phases(p, kpoint, echo >> 3, Noco);
+                        stat += green_function::update_phases(p, kpoint, ech0 >> 3, Noco);
 
-                        view2D<Complex> rho_Ek(nrhs, n4x4x4, zero);
+                        view2D<Complex> rho_Ek(mrhs, n4x4x4, zero);
 
                         // ******************************
                         // *** Core solver invokation ***
                         // ******************************
                         
-                        solver_[isub].solve(rho_Ek[0], nrhs, max_iterations, echo);
+                        solver_[isub].solve(rho_Ek[0], mrhs, max_iterations, ech0);
 
                         // ******************************
 
 
-                        add_product(rho_E[0], nrhs*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
+                        add_product(rho_E[irhs0], mrhs*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
                         // if (sync) {
                         //     auto const rho_integral = mpi_parallel::sum(sum(rho_Ek[0], nrhs*n4x4x4).imag(), comm)*dVc; // MPI synchronization point
-                        //     if (echo > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
+                        //     if (ech0 > 11) std::printf("# Green function solution for E=%s, k-point=[%g %g %g] has %g electrons, %d iterations\n",
                         //                                     energy_parameter_label, kpoint[0], kpoint[1], kpoint[2], rho_integral, p.iterations_needed);
                         // } // sync
                         iterations_needed_k.add(p.iterations_needed); // omp critical

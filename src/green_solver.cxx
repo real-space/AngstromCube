@@ -30,7 +30,7 @@ typedef green_action::action_t<double,2,1> Act821;
 typedef green_action::action_t<double,2,2> Act822;
 
 
-    green_solver_t::green_solver_t(action_plan_t* p, int const echo, int const check) {
+    green_solver_t::green_solver_t(action_plan_t* p, int const echo, int const check) { // custom constructor
         if (nullptr != p) {
             if (echo > 0) std::printf("# construct %s +check=%d\n", __func__, check);
             int const fp_input = control::get("green_solver.floating.point.bits", 64.);
@@ -62,11 +62,11 @@ typedef green_action::action_t<double,2,2> Act822;
     } // constructor
 
 
-    green_solver_t & green_solver_t::operator=(green_solver_t && rhs) { // move assignment
+    green_solver_t & green_solver_t::operator=(green_solver_t && rhs) { // move assignment operator
         std::swap(this->action_key_ , rhs.action_key_);
         std::swap(this->action_     , rhs.action_    );
         return *this;
-    } // move assignment
+    } // move assignment operator
 
 
     green_solver_t::~green_solver_t() { // destructor

@@ -112,7 +112,7 @@ public:
       , int const Noco // =2
     ); // declaration only
 
-    ~action_plan_t(); // destructor
+    ~action_plan_t(); // custom destructor
 
 }; // action_plan_t
 

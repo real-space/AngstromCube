@@ -43,6 +43,7 @@ public: // members
     // std::vector<int32_t> original_atom_index;
 
     uint32_t nc2_max = 0;
+    int32_t* atom_indirection = nullptr; // [nAtoms] indirection list
 
     // moved to action_plans_t
     // view2D<double> AtomMatrices_; // dim1=nAtoms, stride=MPI_MAX(2*nc[ia]^2), CPU memory, prepared for SHO projection with unnormalized Gauss-Hermite functions

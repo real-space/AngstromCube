@@ -89,8 +89,10 @@ namespace green_function {
             assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
             assert(Noco*Noco*2*nc*nc <= count && "Maybe set up with wrong Noco");
 
+            auto const iai = p.atom_indirection[iac]; assert(iai >= 0);
+
             // use the atom matrices stored in CPU memory which are filled by green_parallel::exchange
-            double const *const hmt = plans.AtomMatrices_[iac]; // in CPU memory, sho_tools::zyx_order
+            double const *const hmt = plans.AtomMatrices_[iai]; // in CPU memory, sho_tools::zyx_order
 
             // fill this with matrix values
             auto const atomMatrix = p.AtomMatrices[iac]; // data layout [Noco*Noco*2*nc*nc], 2 for {real,imag}, in GPU memory
@@ -358,7 +360,8 @@ namespace green_function {
                 global_source_indices[irhs] = global_coordinates::get((ibx + off[X])%nb[X],
                                                                       (iby + off[Y])%nb[Y],
                                                                       (ibz + off[Z])%nb[Z]);
-                if (echo > 8) { std::printf("# RHS#%i \tglobal block id = o%21.21llo\n", irhs, global_source_indices[irhs]); }
+                // display global source cube ids as octal, i.e. each decimal digit holds 3 bits. An 1D-cell in x-direction will look like binary counting. 
+                if (echo > 8) { std::printf("# RHS#%i \tglobal cube id= o%21.21llo\n", irhs, global_source_indices[irhs]); }
                 ++irhs;
             }}} // xyz
             assert(nrhs == irhs);
@@ -400,7 +403,7 @@ namespace green_function {
         , int8_t const boundary_condition[3] // boundary conditions in {Isolated, Periodic, Vacuum, Repeat}
         , double const hg[3] // grid spacings
         , std::vector<double> const & xyzZinso // [natoms*8] atom coordinates x,y,z, atomic number Z, atom id, numax, sigma, other 
-        , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]] 
+        , float const *const block_weights // stores the weight of each block, [nb[Z]*nb[Y]*nb[X]]
         , MPI_Comm const comm // MPI communicator, a copy is also stored in potential_requests
         , std::vector<int64_t> const & global_potential_indices
         , load_balancer::rank_int_t const *const potential_owner_ranks
@@ -482,6 +485,7 @@ namespace green_function {
     for (int isub = 0; isub < nsub; ++isub) {
         auto & p = plans.plans[isub];
         echo = (0 == isub)*echo_original; // only OMP master reports
+        p.echo = 0;
 
         // distribute the work
         uint32_t const irhs0 = (isub*nrhs_all)/nsub, irhs1 = ((isub + 1)*nrhs_all)/nsub;
@@ -1131,22 +1135,17 @@ namespace green_function {
 
             if (echo > 3) { std::printf("# prepare potential exchange\n"); }
 
-            std::set<int64_t> gai_union; // union of global atom indices
             std::set<int64_t> gti_union; // union of global target indices
             for (int isub{0}; isub < nsub; ++isub) { // serial loop
                 auto const & p = plans.plans[isub];
                 for (auto const i64 : p.global_target_indices) {
                     gti_union.insert(i64);
                 } // i64
-                for (auto const i32 : p.dyadic_plan.global_atom_ids) {
-                    gai_union.insert(i32);
-                } // i32
             } // isub
-            plans.global_atom_ids     = std::vector<int64_t>(gai_union.begin(), gai_union.end()); // convert set to vector
             std::vector<int64_t> const global_target_indices(gti_union.begin(), gti_union.end()); // convert set to vector
             plans.nPots = global_target_indices.size();
-            if (echo > 3) { std::printf("# potential exchange for rank#%i has %ld atoms and %.3f k potential cubes\n", me, plans.global_atom_ids.size(), plans.nPots*.001); }
-            // is global_target_indices sorted?
+            if (echo > 3) { std::printf("# potential exchange for rank#%i has %.3f k potential cubes\n", me, plans.nPots*.001); }
+
             plans.potential_requests = green_parallel::RequestList_t(global_target_indices, // requests
                                                                  global_potential_indices, // offerings
                                                                  potential_owner_ranks, n_blocks, comm, echo, "potential");
@@ -1165,14 +1164,7 @@ namespace green_function {
                     if (-1 != iRow) {
                         auto const gti = p.global_target_indices.at(iRow);
                         // now find idx such that global_target_indices[idx] == gti using bisection (only works on a sorted vector)
-
-                        // stupid plain search
-                        // int64_t idx{-1};
-                        // for (size_t iti{0}; iti < global_target_indices.size(); ++iti) {
-                        //     if (global_target_indices[iti] == gti) { idx = iti; }
-                        // } // iti
                         auto const idx = binary_search(global_target_indices, gti);
-
                         if (idx >= 0) {
                             p.veff_index[inz] = idx; // overwrite
                         } else {
@@ -1181,9 +1173,8 @@ namespace green_function {
                         }
                     }
                 } // inz
-                if (echo > 5) { std::printf("# rank#%i thread#%i veff_index=", me, isub); printf_vector(" %d", p.veff_index, nnz); }
+                // if (echo > 5) { std::printf("# rank#%i thread#%i veff_index=", me, isub); printf_vector(" %d", p.veff_index, nnz); }
                 p.Veff = plans.Veff; // copy pointer
-                // ToDo: do we need an indirection list for the atoms as well?
 
             } // isub
             if (not_found) { error("%ld elements could not be found in union of global target indices", not_found); }
@@ -1196,19 +1187,63 @@ namespace green_function {
 
         } else {
             warn("# +green_function.potential.exchange=%d --> skip", pot_exchange);
-        }
+        } // pot_exchange
 
         uint32_t nc2_max{0};
         plans.gpu_mem = 0;
         // for (auto const & p : plans.plans) {
         for (int isub{0}; isub < nsub; ++isub) { // serial loop
             auto const & p = plans.plans[isub];
-            if (echo > 0) { std::printf("# dyadic_plan.nc2_max= %d\n", p.dyadic_plan.nc2_max); }
+            if (echo > 19) { std::printf("# dyadic_plan.nc2_max= %d\n", p.dyadic_plan.nc2_max); }
             nc2_max = std::max(nc2_max, p.dyadic_plan.nc2_max);
             plans.gpu_mem += p.gpu_mem;
-        } // p
+        } // isub
         plans.nc2_max = mpi_parallel::max(nc2_max, MPI_COMM_WORLD);
         if (echo > 0) { std::printf("# dyadic_plans.nc2_max= %d, plans.gpu_memory= %.6f MByte\n", plans.nc2_max, plans.gpu_mem*1e-6); }
+
+
+        // prepare for the MPI exchange of atom matrices
+        int const mat_exchange = control::get("green_function.matrices.exchange", 1.);
+        if (mat_exchange) {
+
+            if (echo > 3) { std::printf("# prepare matrices exchange\n"); }
+
+            std::set<int64_t> gai_union; // union of global atom indices
+            for (int isub{0}; isub < nsub; ++isub) { // serial loop
+                auto const & p = plans.plans[isub];
+                for (auto const i32 : p.dyadic_plan.global_atom_ids) {
+                    gai_union.insert(i32);
+                } // i32
+            } // isub
+            plans.global_atom_ids = std::vector<int64_t>(gai_union.begin(), gai_union.end()); // convert set to vector
+            if (echo > 3) { std::printf("# matrices exchange for rank#%i has %ld atoms\n", me, plans.global_atom_ids.size()); }
+
+            // this step will be done in parallel_potential.cxx
+            // plans.matrices_requests = green_parallel::RequestList_t(plans.global_atom_ids, // requests
+            //                                                         owned_global_atom_ids, // offerings
+            //                           atom_owner_rank, {n_all_atoms, 0, 0}, comm, echo, "atom matrices");
+
+            size_t not_found{0};
+            #pragma omp parallel for
+            for (int isub = 0; isub < nsub; ++isub) {
+                auto & p = plans.plans[isub].dyadic_plan;
+                // fix the atom_indirection list
+                for (size_t iac{0}; iac < p.nAtoms; ++iac) {
+                    int64_t const gid = p.global_atom_ids.at(iac);
+                    auto const idx = binary_search(plans.global_atom_ids, gid);
+                    p.atom_indirection[iac] = idx;
+                    if (idx < 0) { 
+                        #pragma omp atomic
+                        { ++not_found; } // launch error later
+                    }
+                } // iac
+                if (echo > 5) { std::printf("# rank#%i thread#%i atom_indirection=", me, isub); printf_vector(" %d", p.atom_indirection, p.nAtoms); }
+            } // isub
+            if (not_found) { error("%ld elements could not be found in union of global atom indices", not_found); }
+
+        } else {
+            warn("# +green_function.matrices.exchange=%d --> skip", mat_exchange);
+        } // mat_exchange
 
         if (echo > 0) { std::printf("# construct_Green_function done\n\n"); }
         return 0;

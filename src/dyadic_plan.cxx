@@ -55,6 +55,7 @@
         free_memory(AtomImageShift);
         free_memory(AtomLmax);
         free_memory(AtomSigma);
+        free_memory(atom_indirection);
         if (sparse_SHOprj) for (int32_t irhs = 0; irhs < nrhs; ++irhs) sparse_SHOprj[irhs].~sparse_t<>();
         free_memory(sparse_SHOprj);
     } // constructor
@@ -82,6 +83,7 @@
      // std::swap(this->AtomMatrices_       , rhs.AtomMatrices_       );
         std::swap(this->weight_infos        , rhs.weight_infos        );
         std::swap(this->nc2_max             , rhs.nc2_max             );
+        std::swap(this->atom_indirection    , rhs.atom_indirection    );
         this->update_flop_counts();
         return *this;
     } // move assignment
@@ -583,10 +585,11 @@
       here;
 
       // get GPU memory for the matrices
-      p.AtomMatrices = get_memory<double*>(nac, echo, "AtomMatrices");
-      p.AtomLmax     = get_memory<int8_t>(nac, echo, "AtomLmax");
-      p.AtomSigma    = get_memory<double>(nac, echo, "AtomSigma");
-      p.AtomStarts   = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
+      p.AtomMatrices     = get_memory<double*>(nac, echo, "AtomMatrices");
+      p.AtomLmax         = get_memory<int8_t>(nac, echo, "AtomLmax");
+      p.AtomSigma        = get_memory<double>(nac, echo, "AtomSigma");
+      p.AtomStarts       = get_memory<uint32_t>(nac + 1, echo, "AtomStarts");
+      p.atom_indirection = get_memory<int32_t>(nac, echo, "atom_indirection");
       p.AtomStarts[0] = 0; // init prefetch sum
 
       size_t nc2_max{1}; // green_parallel::exchange does not work with count==0
@@ -602,6 +605,7 @@
           p.AtomMatrices[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
           set(p.AtomMatrices[iac], Noco*Noco*2*nc*nc, 0.0); // clear GPU memory
           nc2_max = std::max(nc2_max, size_t(2*nc*nc));
+          atom_indirection[iac] = iac; // preliminary
       } // iac
       p.nAtoms = nac; // number of contributing atom copies
 
@@ -617,6 +621,8 @@
 
       if (echo > 1) std::printf("# found %lu contributing atoms with %lu atom images\n", nac, nai);
       if (echo > 2) std::printf("# dyadic_plan.nc2_max= %ld = %d\n", nc2_max, p.nc2_max);
+
+      // ToDo: we coul consider to introduce a number of unique atoms --> this is the set of atoms for which the AtomMatrices need to be communicated
 
       p.update_flop_counts(echo); // prepare to count the number of floating point operations
 

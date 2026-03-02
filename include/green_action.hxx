@@ -71,7 +71,7 @@ namespace green_action {
         // with real_t either float or double
         //
 
-        action_t(action_plan_t *plan, int const echo=0, int const check=0)
+        action_t(action_plan_t *plan, int const echo=0, int const check=0) // custom constructor
           : p_(plan), apc_(nullptr) // , aac_(nullptr)
         {
             if (echo > 1) std::printf("# construct %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
@@ -134,10 +134,12 @@ namespace green_action {
             green_debug_printf("# destruct %s\n", __func__);
             free_memory(apc_);
 //          free_memory(aac_); // currently not used
-// #ifdef    DEBUGGPU
-            if (1) { std::printf("# free %p\n", (void*)memory_buffer_); }
-// #endif // DEBUGGPU
-            free_memory(memory_buffer_);
+            if (memory_buffer_) {
+#ifdef    DEBUGGPU
+                std::printf("# green_action::~action_t free memory_buffer_ at %p\n", (void*)memory_buffer_); }
+#endif // DEBUGGPU
+                free_memory(memory_buffer_);
+            } // if
         } // destructor
 
         void take_memory(char* &buffer) {

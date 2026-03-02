@@ -15,8 +15,9 @@ namespace global_coordinates {
     // Each coordinate is in the range [0, 2^21)
     // Negative values are allowed as input but will be folded back into the positive range.
 
-    int64_t constexpr nonexistent = -1;
+    int64_t constexpr nonexistent = -1; // all 64 bits are set, most importantly the highest, the sign bit
 
+    // encode
     inline int64_t get(int32_t x, int32_t y, int32_t z) {
         // interleave bit pattern of the lowest 21 bits to 63 bits:
         // result: sign,z20,y20,x20,z19,y19,x19, ... ,z1,y1,x1,z0,y0,x0
@@ -34,6 +35,7 @@ namespace global_coordinates {
     template <typename int_t>
     inline int64_t get(int_t const xyz[3]) { return get(xyz[0], xyz[1], xyz[2]); }
 
+    // decode
     inline status_t get(uint32_t xyz[3], int64_t i63) {
         // retrieve global_coordinates from i63 identifyer
         // coordinates will be cast into the half-open range [0, 2^21)
@@ -51,7 +53,7 @@ namespace global_coordinates {
         // retrieve signed global_coordinates in the half-open range [-2^20, 2^20)
         uint32_t constexpr b20 = 1 << 20;
         int32_t  constexpr b21 = 1 << 21;
-        return int32_t(xyz) - (xyz >= b20)*b21; // subtract 2^21 if larger equal 2^20
+        return int32_t(xyz) - (xyz >= b20)*b21; // subtract 2^21 if larger or equal to 2^20
     } // get
 
     inline status_t get(int32_t xyz[3], int64_t i63) {
