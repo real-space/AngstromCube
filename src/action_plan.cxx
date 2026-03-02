@@ -37,7 +37,7 @@
 
     } // constructor
 
-    action_plan_t::~action_plan_t() { // destructor
+    action_plan_t::~action_plan_t() { // custom destructor
         green_debug_printf("# destruct %s\n", __func__);
         free_memory(RowStart);
         free_memory(rowindx);

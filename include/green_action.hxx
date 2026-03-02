@@ -117,7 +117,10 @@ namespace green_action {
                     if (echo > 7) std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
                     if (p.gpu_mem > 1e11)  warn("rank#%i tries to allocate %.3f GByte GPU memory", me, p.gpu_mem*1e-9);
                 }
-                if (0 == check) memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+                if (0 == check) {
+                    memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
+                    if (echo > 3) { std::printf("# rank#%i allocated %.9f %s at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_); }
+                }
 // #ifdef    DEBUGGPU
                 if (echo > 9) std::printf("# rank#%i allocated %.9f %s memory_buffer_ at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_);
 // #endif // DEBUGGPU
@@ -131,6 +134,9 @@ namespace green_action {
             green_debug_printf("# destruct %s\n", __func__);
             free_memory(apc_);
 //          free_memory(aac_); // currently not used
+// #ifdef    DEBUGGPU
+            if (1) { std::printf("# free %p\n", (void*)memory_buffer_); }
+// #endif // DEBUGGPU
             free_memory(memory_buffer_);
         } // destructor
 

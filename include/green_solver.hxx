@@ -10,14 +10,25 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "action_plan.hxx" // action_plan_t
 
+// The purpose of this class is to hide the templated versions of tfQMRgpu solvers 
+// with <float,2,1>, <float,2,2>, <double,2,1> and <double,2,2>
+
 class green_solver_t {
 public:
 
+    green_solver_t() : action_{nullptr}, action_key_{0} {} // default constructor
+
     green_solver_t( // constructor
-          action_plan_t* p=nullptr
+          action_plan_t* p
         , int const echo=0
         , int const check=0
     ); // declaration only
+
+    green_solver_t(green_solver_t const &) = delete; // copy constructor
+    green_solver_t(green_solver_t &&) = delete; // move constructor
+    green_solver_t & operator=(green_solver_t const &) = delete; // copy assignment
+    green_solver_t & operator=(green_solver_t && rhs); // custom move assignment operator
+//  green_solver_t & operator=(green_solver_t &&) = delete; // move assignment
 
     ~green_solver_t(); // destructor, declaration only
 

@@ -100,19 +100,18 @@ namespace energy_contour {
 
         int const nsub = plan_->plans.size();
 
-        solver_.resize(nsub);
+        solver_ = std::vector<green_solver_t>(nsub);
         #pragma omp parallel for
         for (int isub = 0; isub < nsub; ++isub) {
-            solver_.at(isub) = green_solver_t(& plan_->plans[isub], echo, check);
+            solver_.at(isub) = green_solver_t(& plan_->plans[isub], echo, check); // could this be a move constructor
         } // isub
-        if (echo > 7) std::printf("# constructed %s\n", __func__);
+        if (echo > 7) std::printf("# constructed %s\n\n", __func__);
     } // constructor
 
     Integrator::~Integrator() {
 #ifdef    DEBUGGPU
         std::printf("\n# destruct %s\n", __func__);
 #endif // DEBUGGPU
-        solver_.resize(0);
         if (plan_) { delete plan_; }
         if (pg_) { delete pg_; }
     } // destructor

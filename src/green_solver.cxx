@@ -61,6 +61,14 @@ typedef green_action::action_t<double,2,2> Act822;
         }
     } // constructor
 
+
+    green_solver_t & green_solver_t::operator=(green_solver_t && rhs) { // move assignment
+        std::swap(this->action_key_ , rhs.action_key_);
+        std::swap(this->action_     , rhs.action_    );
+        return *this;
+    } // move assignment
+
+
     green_solver_t::~green_solver_t() { // destructor
 #ifdef    DEBUGGPU
         std::printf("# destruct %s, this=%p\n", __func__, (void*)this);
@@ -77,6 +85,7 @@ typedef green_action::action_t<double,2,2> Act822;
             } // switch action_key_
         } // action_
     } // destructor
+
 
     status_t green_solver_t::solve(
           std::complex<double> rho[] // result: density [plan.nCols][4*4*4]
