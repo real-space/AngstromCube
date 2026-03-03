@@ -16,7 +16,7 @@
     ## compile to check for missing include files
     g++ -std=c++11 \
         -I../include/ \
-        -I../external/ \
+        -I../external/rapidxml \
         -g -pedantic -Wall -O0 \
            -Wno-sign-compare \
            -Wno-format \

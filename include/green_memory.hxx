@@ -1,6 +1,7 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+#include <cstddef> // size_t
 #ifdef    DEBUG
     #include <cstdio> // std::printf
 #endif // DEBUG

@@ -96,7 +96,7 @@
         auto const colIndex = sparse_SHOsum.colIndex();
         stat += (sparse_SHOsum.nRows() != nAtoms);
         if (!rowStart) return stat;
-        for (uint32_t ia = 0; ia < nAtoms; ++ia) {
+        for (uint32_t ia{0}; ia < nAtoms; ++ia) {
             for (auto bsr = rowStart[ia]; bsr < rowStart[ia + 1]; ++bsr) {
                 auto const iai = colIndex[bsr];
                 stat += (AtomImageLmax[iai] != AtomLmax[ia]);
@@ -113,7 +113,7 @@
         {
             auto const iai_of_bsr = sparse_SHOadd.colIndex();
             auto const nnz        = sparse_SHOadd.nNonzeros();
-            for (size_t bsr = 0; bsr < nnz; ++bsr) {
+            for (size_t bsr{0}; bsr < nnz; ++bsr) {
                 int const lmax = AtomImageLmax[iai_of_bsr[bsr]];
                 flop_count_SHOadd += 64 * flop_count_SHOprj_SHOadd(lmax); // 64 threads per block (real version)
                 flop_count_SHOgen += 12 * flop_count_Hermite_Gauss(lmax); // 12 threads per block eval the Hermite polynomials
@@ -123,7 +123,7 @@
 //        flop_count_SHOprj = flop_count_SHOadd; // symmetric, both missing factor R1C2 Noco^2
 
         flop_count_SHOmul = 0;
-        for (int ia = 0; ia < nAtoms; ++ia) {
+        for (int ia{0}; ia < nAtoms; ++ia) {
             int const lmax = AtomImageLmax[ia];
             flop_count_SHOmul += pow2(sho_tools::nSHO(lmax));
         } // ia
@@ -166,7 +166,7 @@
         uint32_t const grid_blocks[3] // number of 4*4*4 grid blocks
       , int8_t const boundary_condition[3]
       , double const grid_spacing[3]
-      , std::vector<double> const & xyzZinso // [natoms*8]
+      , std::vector<double> const & xyzZinso // [n_all_atoms*8]
       , uint32_t const nRowsGreen // number of target blocks in the Green function
       , uint32_t const nrhs
       , uint32_t const *const rowStartGreen
@@ -205,7 +205,7 @@
       double const r_proj = control::get("green_function.projection.radius", 6.); // in units of sigma
       p.grid_spacing[3] = r_proj; // store radius in units of sigma at which the projectors stop
 
-      int32_t const natoms = xyzZinso.size()/8; // number of original atoms
+      int32_t const natoms = xyzZinso.size() >> 3; // divide by 8 to get the number of original atoms
       if (echo > 2) std::printf("\n#\n# %s for %d atoms\n#\n", __func__, natoms);
 
       // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
@@ -405,6 +405,7 @@
                   AtomImageStarts[iai + 1] = AtomImageStarts[iai] + nc;
                   ++iai;
 
+#ifdef    GREEN_FUNCTION_SVG_EXPORT
                   if (nullptr != svg) { // these circles show the projection spheres of the atoms
                       double const h[] = {grid_spacing[X], grid_spacing[Y]};
                       std::fprintf(svg, "  <ellipse cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"none\" stroke=\"red\" />\n",
@@ -415,6 +416,7 @@
                       if (Z > 0) std::fprintf(svg, "  <text x=\"%g\" y=\"%g\" style=\"font-size: 3;\">%g</text>\n",
                                                     atom_pos[X]/h[X], atom_pos[Y]/h[Y], Z); // label
                   } // nullptr != svg
+#endif // GREEN_FUNCTION_SVG_EXPORT
 
               } else {
 //                if (echo > 15) std::printf("# image of atom #%i at %s %s does not contribute\n", atom_id, str(atom_pos, Ang), _Ang);

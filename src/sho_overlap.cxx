@@ -962,7 +962,7 @@ namespace sho_overlap {
                           auto const true_kv = bv[0]*(kvec[0] + ix)
                                             + bv[1]*(kvec[1] + iy)
                                             + bv[2]*(kvec[2] + iz);
-                          free_E.push_back(0.5*norm(true_kv)); // energy parabolasin Hatree units
+                          free_E.push_back(0.5*norm(true_kv)); // energy parabola in Hartree units
                       } // ix
                   } // iy
               } // iz

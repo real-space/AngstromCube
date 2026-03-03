@@ -7,7 +7,9 @@ echo "Linking will require a dependency tree of objects, so we skip that."
 echo ""
 
 for module in \
+  action_plan \
   angular_grid \
+  atom_communication \
   atom_core \
   atom_image \
   bessel_transform \
@@ -25,13 +27,16 @@ for module in \
   dense_operator \
   dense_solver \
   density_generator \
+  dyadic_plan \
   element_config \
+  energy_contour \
   exchange_correlation \
   fermi_distribution \
   finite_difference \
   fourier_poisson \
   fourier_transform \
   geometry_analysis \
+  geometry_input \
   global_coordinates \
   green_action \
   green_dyadic \
@@ -39,8 +44,10 @@ for module in \
   green_function \
   green_input \
   green_kinetic \
+  green_memory \
   green_parallel \
   green_potential \
+  green_solver \
   green_sparse \
   green_tests \
   grid_operators \
@@ -48,11 +55,14 @@ for module in \
   inline_math \
   iterative_poisson \
   json_reading \
+  kinetic_plan \
   linear_algebra \
   load_balancer \
   mpi_parallel \
   multi_grid \
   parallel_domains \
+  parallel_poisson \
+  parallel_potential \
   pawxml_export \
   pawxml_import \
   plane_wave \

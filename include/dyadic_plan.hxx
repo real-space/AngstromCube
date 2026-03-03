@@ -2,6 +2,7 @@
 // This file is part of AngstromCube under MIT License
 
 #include <cstdio> // FILE
+#include <cstddef> // size_t
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <vector> // std::vector<T>
 #include <utility> // std::swap
@@ -11,6 +12,12 @@
 #include "inline_math.hxx" // pow2, pow3
 #include "data_view.hxx" // view2D<T>
 #include "load_balancer.hxx" // InhomogenousCostInfo
+
+namespace dyadic_plan {
+
+    inline status_t all_tests(int echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+
+} // namespace dyadic_plan
 
 class dyadic_plan_t {
 public: // members
@@ -112,3 +119,4 @@ public: // methods
     } // get_flop_count
 
 }; // dyadic_plan_t
+

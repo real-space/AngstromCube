@@ -5,6 +5,7 @@
 #include <cstdint> // uint32_t, int32_t, uint16_t, int16_t
 #include <cassert> // assert
 
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_sparse.hxx" // ::sparse_t<T>
 #include "data_view.hxx" // view3D<T>
 
@@ -35,6 +36,9 @@ namespace kinetic_plan {
         , double const phase_angles[3]=nullptr
         , int const echo=0 // verbosity
     ); // declaration only
+
+    inline status_t all_tests(int echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+
 
 } // namespace kinetic_plan
 
