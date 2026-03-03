@@ -360,7 +360,10 @@ namespace green_function {
                 global_source_indices[irhs] = global_coordinates::get((ibx + off[X])%nb[X],
                                                                       (iby + off[Y])%nb[Y],
                                                                       (ibz + off[Z])%nb[Z]);
-                // display global source cube ids as octal, i.e. each decimal digit holds 3 bits. An 1D-cell in x-direction will look like binary counting. 
+                // display global source cube ids as octal, i.e. each decimal digit holds 3 bits
+                // A 1D-cell in x-direction will look like binary counting with '1's and '0's.
+                // A 1D-cell in y-direction will look like binary counting with '2's and '0's.
+                // A 1D-cell in z-direction will look like binary counting with '4's and '0's.
                 if (echo > 8) { std::printf("# RHS#%i \tglobal cube id= o%21.21llo\n", irhs, global_source_indices[irhs]); }
                 ++irhs;
             }}} // xyz
@@ -475,23 +478,27 @@ namespace green_function {
         if (echo > 0) { std::printf("# try to subdivide with at most %d threads\n", omp_max); }
 
         // determine a number of subdivisions for the RHSs
-        int const nsub = control::get("green_function.subdivide", std::min(std::max(1, omp_max), int(nrhs_all))*1.);
+        int const nsub = std::min(std::max(1, int(control::get("green_function.subdivide", omp_max))), int(nrhs_all));
+        control::set("green_function.subdivide", nsub);
      // plans.plans.resize(nsub); // resize does not work because of deleted copy constructor inside action_plan_t
         if (echo > 0) { std::printf("# +green_function.subdivide=%d\n", nsub); }
+        assert(nsub <= nrhs_all);
         plans.plans = std::vector<action_plan_t>(nsub);
 
-    // ToDo: fix indentation
-    #pragma omp parallel for
-    for (int isub = 0; isub < nsub; ++isub) {
-        auto & p = plans.plans[isub];
-        echo = (0 == isub)*echo_original; // only OMP master reports
-        p.echo = 0;
+// ToDo: fix indentation
+#pragma omp parallel for
+for (int isub = 0; isub < nsub; ++isub) {
+    auto & p = plans.plans[isub];
+    echo = (0 == isub)*echo_original; // only OMP master reports
+    p.echo = 0;
 
-        // distribute the work
-        uint32_t const irhs0 = (isub*nrhs_all)/nsub, irhs1 = ((isub + 1)*nrhs_all)/nsub;
-        uint32_t const nrhs = irhs1 - irhs0;
-        if (echo > 0) { std::printf("# thread#%i treats %d of %d RHSs\n", isub, nrhs, nrhs_all); }
-        p.global_source_indices.resize(nrhs);
+    // distribute the work
+    uint32_t const irhs0 = (isub*nrhs_all)/nsub, irhs1 = ((isub + 1)*nrhs_all)/nsub;
+    uint32_t const nrhs = irhs1 - irhs0;
+    if (echo > 0) { std::printf("# thread#%i treats %d of %d RHSs\n", isub, nrhs, nrhs_all); }
+    p.global_source_indices.resize(nrhs);
+    if (nrhs > 0) {
+
         for (int irhs = 0; irhs < nrhs; ++irhs) {
             p.global_source_indices[irhs] = plans.global_source_indices.at(irhs + irhs0);            
         } // irhs
@@ -1061,7 +1068,6 @@ namespace green_function {
             } // scope: set up kinetic plans
 
             // transfer stuff into managed GPU memory
-
             p.grid_spacing_trunc = get_memory<double>(3, echo, "grid_spacing_trunc");
             set(p.grid_spacing_trunc, 3, h); // customized grid spacings used for the construction of the truncation sphere
 
@@ -1119,8 +1125,16 @@ namespace green_function {
             if (nerr) warn("dyadic_plan.consistency_check returned %d errors", nerr);
         }
 
-    } // isub
-    // ToDo: fix indentation
+    } else { // if (nrhs > 0)
+            // transfer stuff into managed GPU memory (even for idle threads)
+            p.grid_spacing_trunc = get_memory<double>(3, echo, "grid_spacing_trunc");
+            set(p.grid_spacing_trunc, 3, 1.0); // customized grid spacings used for the construction of the truncation sphere
+
+            p.phase = get_memory<double[2][2]>(3, echo, "phase");
+            kinetic_plan::set_phase(p.phase, nullptr, echo); // init with Gamma point
+    } 
+} // isub
+// ToDo: fix indentation
 
         echo = echo_original;
 

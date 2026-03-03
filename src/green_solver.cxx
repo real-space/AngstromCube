@@ -13,6 +13,7 @@
 #include "control.hxx" // ::get
 #include "green_action.hxx" // action_t<real_t,R1C2,Noco>
 #include "recorded_warnings.hxx" // error
+#include "verify_benchmark.hxx" // ::verify_Green_function
 
 // #define   DEBUG
 
@@ -33,7 +34,7 @@ typedef green_action::action_t<double,2,2> Act822;
     green_solver_t::green_solver_t(action_plan_t* p, int const echo, int const check) { // custom constructor
         if (nullptr != p) {
             if (echo > 0) std::printf("# construct %s +check=%d\n", __func__, check);
-            int const fp_input = control::get("green_solver.floating.point.bits", 64.);
+            int const fp_input = control::get("green_solver.floating.point.bits", 32.);
             int const fp = (32 == fp_input) ? 32 : 64;
             if (echo > 0) std::printf("# +green_solver.floating.point.bits=%i --> %i\n", fp_input, fp);
             int constexpr r1c2 = 2; // 1:real, 2:complex (always complex since tfQMRgpu does not support real)
@@ -99,20 +100,33 @@ typedef green_action::action_t<double,2,2> Act822;
 #endif // DEBUGGPU
         assert(action_ && "action pointer must be valid for call to solve");
         switch (action_key_) {
-        case 32021: return ((Act421*)action_)->solve(rho, nblocks, max_iterations, echo); // complex
-        case 32022: return ((Act422*)action_)->solve(rho, nblocks, max_iterations, echo); // complex non-collinear
-        case 64021: return ((Act821*)action_)->solve(rho, nblocks, max_iterations, echo); // double complex
-        case 64022: return ((Act822*)action_)->solve(rho, nblocks, max_iterations, echo); // double complex non-collinear
-        default: error("No solve with such action_key= %i", int(action_key_)); return action_key_;
+        case 32021: { return ((Act421*)action_)->solve(rho, nblocks, max_iterations, echo); } // complex
+        case 32022: { return ((Act422*)action_)->solve(rho, nblocks, max_iterations, echo); } // complex non-collinear
+        case 64021: { return ((Act821*)action_)->solve(rho, nblocks, max_iterations, echo); } // double complex
+        case 64022: { return ((Act822*)action_)->solve(rho, nblocks, max_iterations, echo); } // double complex non-collinear
+        default:    { error("No solve with such action_key= %i", int(action_key_)); return action_key_; }
         } // switch action_key_
     } // solve
 
 
-
-
-
-
-
+    status_t green_solver_t::verify(int const echo) {
+        switch (action_key_) {
+        case 32021: {
+            auto const *const a = (Act421*)action_;
+            auto const *const p = a->get_plan();
+            return verify_benchmark::verify_Green_function((float  const*)a->get_memory_buffer(),
+                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->rowCubePos, p->colCubePos); }
+        case 64021: {
+            auto const *const a = (Act821*)action_;
+            auto const *const p = a->get_plan();
+            return verify_benchmark::verify_Green_function((double const*)a->get_memory_buffer(),
+                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->rowCubePos, p->colCubePos); }
+        case 64022:
+        case 32022: { error("non-collinear not implemented, found action_key=%d", action_key_); return -1; }
+        default:    { warn("action key=%d has not been set", action_key_); return 0; }
+        } // action_key_
+        return 0;
+    } // verify
 
 
 

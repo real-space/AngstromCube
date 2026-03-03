@@ -1,7 +1,7 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-#include <cstdio> // std::sprintf
+#include <cstdio> // std::sprintf, ::fopen, ::fprintf, ::fclose
 #include <cassert> // assert
 #include <algorithm> // std::max
 #include <cstdint> // int8_t, int16_t
@@ -14,6 +14,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "mpi_parallel.hxx" // ::allreduce, ::sum, ::min, ::max, MPI_COMM_WORLD
 #include "global_coordinates.hxx" // ::get
+#include "inline_math.hxx" // pow2
 
 namespace verify_benchmark {
 
@@ -154,6 +155,87 @@ namespace verify_benchmark {
             return 0;
         }
     } // verify
+
+
+    template <typename real_t>
+    inline status_t verify_Green_function(
+          real_t const Gf[] // Green function elements [nnzbX*2*64*64]
+        , uint32_t const nRows // number of Rows
+        , uint32_t const nCols // number of Columns
+        , uint32_t const RowStart[] // [nRows + 1]
+        , uint16_t const colindx[]  // [nnzbX]
+        , float const rowCubePos[][3+1] // [nRows][3+1] internal coordinates
+        , float const colCubePos[][3+1] // [nCols][3+1] internal coordinates
+        , char const*const filename="green_radial.dat"
+        , int const echo=9 // verbosity
+    ) {
+        // project the Green_function onto a radial grid and plot it
+        // assume Noco==1, R1C2==2, no atoms, repeated boundary conditions
+        int constexpr nrad = 1024;
+        double const hr2 = 1.0;
+        view3D<double> rad(3,nrad,nCols*64, 0.0);
+        // traverse the sparse structure
+        int constexpr Real = 0, Imag = 1;
+        for (uint32_t iRow{0}; iRow < nRows; ++iRow) {
+            auto const *const rowPos = rowCubePos[iRow];
+            for (uint32_t inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+                auto const jCol = colindx[inz];
+                auto const *const colPos = colCubePos[jCol];
+                double const v[] = {rowPos[0] - colPos[0], rowPos[1] - colPos[1], rowPos[2] - colPos[2]};
+                for (int i64{0}; i64 < 64; ++i64) {
+                    int const vi[] = {(i64 >> 0) & 0x3, (i64 >> 2) & 0x3, (i64 >> 4) & 0x3};
+                    for (int j64{0}; j64 < 64; ++j64) {
+                        int const vj[] = {(j64 >> 0) & 0x3, (j64 >> 2) & 0x3, (j64 >> 4) & 0x3};
+                        double const reGf = Gf[((inz*2 + Real)*64 + i64)*64 + j64];
+                        double const imGf = Gf[((inz*2 + Imag)*64 + i64)*64 + j64];
+                        auto const r2 = pow2(v[0]*4 + vi[0] - vj[0]) 
+                                      + pow2(v[1]*4 + vi[1] - vj[1])
+                                      + pow2(v[2]*4 + vi[2] - vj[2]);
+                        int const irad = int(r2*hr2);
+                        auto const w1 = r2*hr2 - irad, w0 = 1 - w1; // linear interpolation weight
+                        rad(2,irad + 0,jCol*64 + j64) += w0;
+                        rad(2,irad + 1,jCol*64 + j64) += w1;
+                        rad(1,irad + 0,jCol*64 + j64) += w0*imGf;
+                        rad(1,irad + 1,jCol*64 + j64) += w1*imGf;
+                        rad(0,irad + 0,jCol*64 + j64) += w0*reGf;
+                        rad(0,irad + 1,jCol*64 + j64) += w1*reGf;
+                    } // j64
+                } // i64
+            } // inz
+        } // iRow
+        if (echo > 0) { std::printf("# collect radial data of Green function for %d rows and %d cols\n", nRows, nCols); }
+
+        auto const f = std::fopen(filename, "w");
+        if (nullptr != f) {
+            if (0) {
+                std::fprintf(f, "# plot radius, imaginary part of Green function for %d columns:\n", nCols*64);
+                for (int irad = 0; irad < nrad; ++irad) {
+                    double const r2 = irad/hr2, r = std::sqrt(r2);
+                    std::fprintf(f, "%.6f  ", r);
+                    for (int j64{0}; j64 < nCols*64; ++j64) {
+                        auto const value = (rad(2,irad,j64) > 0) ? rad(1,irad,j64)/rad(2,irad,j64) : 0.0;
+                        std::fprintf(f, " %g", value);
+                    } // j64
+                    std::fprintf(f, "\n");
+                } // irad
+                std::fprintf(f, "\n\n");
+            }
+            // plot the same again with a separate abcissa each time
+            for (int j64{0}; j64 < nCols*64; ++j64) {
+                std::fprintf(f, "\n# plot radius, real and imaginary part of Green function for column#%i:\n", j64);
+                for (int irad = 0; irad < nrad; ++irad) {
+                    if (rad(2,irad,j64) > 0) {
+                        auto const w = 1./rad(2,irad,j64);
+                        std::fprintf(f, "%.6f %g %g\n", std::sqrt(irad/hr2), rad(0,irad,j64)*w, rad(1,irad,j64)*w);
+                    }
+                } // irad
+            } // j64
+            std::fclose(f);
+            if (echo > 0) { std::printf("# file \'%s\' written\n", filename); }
+        } // f
+
+        return 0;
+    } // verify_Green_function
 
 
     inline status_t all_tests(int const echo=0) {

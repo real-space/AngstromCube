@@ -30,6 +30,7 @@
 #include "simple_stats.hxx" // ::Stats<>
 #include "simple_timer.hxx" // SimpleTimer
 #include "green_parallel.hxx" // ::RequestList_t
+#include "verify_benchmark.hxx" // ::verify_Green_function
 
 namespace energy_contour {
 
@@ -104,7 +105,7 @@ namespace energy_contour {
         #pragma omp parallel for
         for (int isub = 0; isub < nsub; ++isub) {
             int const ech0 = echo*(0 == isub);
-            solver_.at(isub) = green_solver_t(& plan_->plans[isub], ech0, check); // could this be a move constructor
+            solver_.at(isub) = green_solver_t(& plan_->plans[isub], ech0, check); // move assignment operator
         } // isub
         if (echo > 7) std::printf("# constructed %s\n\n", __func__);
     } // constructor
@@ -225,6 +226,8 @@ namespace energy_contour {
                 (emin + Fermi_level)*eV, (emax + Fermi_level)*eV, _eV, nEpoints, std::abs(emax - emin)/std::max(1, nEpoints - 1)*eV, _eV, energies.at(0).imag()*eV, _eV);
         } // show DoS
 
+        int const verify_Gf = control::get("verify.green.function", 0.);
+
         Complex constexpr zero = 0;
         view2D<Complex> rho_c(nrhs, n4x4x4, zero); // complex density
         view2D<Complex> res_c(nrhs, n4x4x4, zero); // complex response density
@@ -247,6 +250,7 @@ namespace energy_contour {
             view2D<Complex> rho_E(nrhs, n4x4x4, zero);
             simple_stats::Stats<> iterations_needed_k;
 
+
             #pragma omp parallel for
             for (int isub = 0; isub < nsub; ++isub) { // subdomains thread-parallel
                 int const ech0 = echo*(0 == isub);
@@ -265,16 +269,19 @@ namespace energy_contour {
                     if (0 == check) {
                         stat += green_function::update_phases(p, kpoint, ech0 >> 3, Noco);
 
-                        view2D<Complex> rho_Ek(mrhs, n4x4x4, zero);
+                        view2D<Complex> rho_Ek(mrhs, n4x4x4, zero); // thread-local field
 
                         // ******************************
                         // *** Core solver invokation ***
                         // ******************************
-                        
+
                         solver_[isub].solve(rho_Ek[0], mrhs, max_iterations, ech0);
 
                         // ******************************
-
+                        if (verify_Gf) {
+                            solver_[isub].verify(ech0);
+                            if (verify_Gf < 0) { error("verify.green.function=%d --> exit", verify_Gf); }
+                        } 
 
                         add_product(rho_E[irhs0], mrhs*n4x4x4, rho_Ek[0], kpoint_weight); // accumulate complex density over k-points
                         // if (sync) {

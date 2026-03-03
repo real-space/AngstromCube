@@ -36,6 +36,7 @@ public:
         , int const echo=0 // verbosity level
     ); // declaration only
 
+    status_t verify(int const echo=0);
 
 private: // members
 

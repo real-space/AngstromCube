@@ -56,6 +56,8 @@
 
 namespace green_action {
 
+    // ToDo: should we move the lengthy implementation into green_action.cxx?
+
     template <typename floating_point_t=float, unsigned R1C2=2, unsigned Noco=1, unsigned n64=64>
     class action_t { // an action as used in tfQMRgpu
     public:
@@ -74,14 +76,14 @@ namespace green_action {
         action_t(action_plan_t *plan, int const echo=0, int const check=0) // custom constructor
           : p_(plan), apc_(nullptr) // , aac_(nullptr)
         {
-            if (echo > 1) std::printf("# construct %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco);
+            if (echo > 1) { std::printf("# construct %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); }
             assert((1 == Noco && (1 == R1C2 || 2 == R1C2)) || (2 == Noco && 2 == R1C2));
             char* buffer{nullptr};
             take_memory(buffer);
             assert(nullptr != plan);
             auto & p = *p_;
             auto const nnzbX = p.colindx.size();
-            if (echo > 3) std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte);
+            if (echo > 3) { std::printf("# memory of a Green function is %.6f %s\n", nnzbX*R1C2*pow2(64.*Noco)*sizeof(real_t)*GByte, _GByte); }
         
             if (echo > 3) {
                 // memory estimate for tfQMRgpu
@@ -106,26 +108,26 @@ namespace green_action {
 #ifdef    HAS_TFQMRGPU
             if (nnzbX > 0) {
                 auto const comm = MPI_COMM_WORLD;
-                if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
+                if (echo > 0) { std::printf("\n# call tfqmrgpu::mem_count\n"); }
                 // try to instanciate tfqmrgpu::solve<T> with this T=action_t<real_t,R1C2,Noco,64>
                 tfqmrgpu::solve(*this); // compute GPU memory requirements
                 auto const me = mpi_parallel::rank(comm);                                      // uses MPI_COMM_WORLD
                 {
                     simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m,comm); // uses MPI_COMM_WORLD
-                    if (echo + check > 3) std::printf("# tfQMRgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
-                                m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte);
-                    if (echo > 7) std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte);
-                    if (p.gpu_mem > 1e11)  warn("rank#%i tries to allocate %.3f GByte GPU memory", me, p.gpu_mem*1e-9);
+                    if (echo + check > 3) { std::printf("# tfQMRgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
+                                m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte); }
+                    if (echo > 7) { std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte); }
+                    if (p.gpu_mem > 1e11)  { warn("rank#%i tries to allocate %.3f GByte GPU memory", me, p.gpu_mem*1e-9); }
                 }
                 if (0 == check) {
                     memory_buffer_ = get_memory<char>(p.gpu_mem, echo, "tfQMRgpu-memoryBuffer");
                     if (echo > 3) { std::printf("# rank#%i allocated %.9f %s at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_); }
                 }
 // #ifdef    DEBUGGPU
-                if (echo > 9) std::printf("# rank#%i allocated %.9f %s memory_buffer_ at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_);
+                if (echo > 9) { std::printf("# rank#%i allocated %.9f %s memory_buffer_ at %p\n", me, p.gpu_mem*GByte, _GByte, (void*)memory_buffer_); }
 // #endif // DEBUGGPU
             } else {
-                if (echo > 2) std::printf("# cannot call tfQMRgpu library if X has no elements!\n");
+                if (echo > 2) { std::printf("# cannot call tfQMRgpu library if X has no elements!\n"); }
             }
 #endif // HAS_TFQMRGPU
         } // constructor
@@ -173,8 +175,8 @@ namespace green_action {
             if (2 == Noco) assert(p.noncollinear_spin && "Also the plan needs to be created with Noco=2");
             double nops{0};
 
-            if (p.echo > 3) std::printf("\n");
-            if (p.echo > 2) std::printf("# green_action::multiply\n");
+            if (p.echo > 3) { std::printf("\n"); }
+            if (p.echo > 2) { std::printf("# green_action::multiply\n"); }
 
             // start with the local potential, assign y to initial values
             nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p.Veff, p.veff_index,
@@ -190,13 +192,14 @@ namespace green_action {
             nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc_, x, p.dyadic_plan,
                         p.rowindx, colIndex, p.rowCubePos, nnzb, p.echo);
 
-            if (p.echo > 4) std::printf("# green_action::multiply %g Gflop\n", nops*1e-9);
+            if (p.echo > 4) { std::printf("# green_action::multiply %g Gflop\n", nops*1e-9); }
 
             return nops;
         } // multiply
 
-        action_plan_t * get_plan() { return p_; }
+        action_plan_t * get_plan() const { return p_; }
 
+        char const * get_memory_buffer() const { return memory_buffer_; }
 
         status_t solve(
             std::complex<double> rho[] // result: complex-valued density[ncubes][4*4*4]
@@ -204,7 +207,7 @@ namespace green_action {
             , int const max_iterations=1
             , int const echo=9
         ) {
-            if (echo > 7) std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__);
+            if (echo > 7) { std::printf("# action_t<%s,R1C2=%d,Noco=%d>::%s\n", real_t_name<real_t>(), R1C2, Noco, __func__); }
 
 #ifdef    DEBUGGPU
             if (echo > 9) {
@@ -220,17 +223,17 @@ namespace green_action {
             set(rho, p.nCols*size_t(4*4*4), std::complex<double>(0));
 
             if (0 == max_iterations) { 
-                if (echo > 2) std::printf("# requested to run no iterations --> only check the action_t constructor\n");
+                if (echo > 2) { std::printf("# requested to run no iterations --> only check the action_t constructor\n"); }
                 return 0;
             } // 0 max_iterations
 
 #ifdef    HAS_TFQMRGPU
             if (max_iterations >= 0) {
                 if (nnzbX < 1) {
-                    if (echo > 2) std::printf("# cannot call tfqmrgpu library if X has no elements!\n");
+                    if (echo > 2) { std::printf("# cannot call tfqmrgpu library if X has no elements!\n"); }
                     return 0;
                 }
-                if (echo > 4) std::printf("\n# call tfqmrgpu::solve\n\n");
+                if (echo > 4) { std::printf("\n# call tfqmrgpu::solve\n\n"); }
                 assert(nullptr != memory_buffer_);
                 double time_needed{1};
                 { // scope: call the solver
@@ -240,17 +243,17 @@ namespace green_action {
 
                     time_needed = timer.stop();
                 } // scope
-                if (echo > 5) std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
-                                                                p.residuum_reached,  p.iterations_needed);
-                if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
-                if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
+                if (echo > 5) { std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
+                                                                p.residuum_reached,  p.iterations_needed); }
+                if (echo > 6) { std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop"); }
+                if (echo > 6) { std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s"); }
 
                 // export solution Green function
                 auto const Green = (real_t const (*)[R1C2][Noco*64][Noco*64])memory_buffer_;
                 // under the silent assumption that the solution vector v1 in tfQMRgpu is the first vector in the memory_buffer_
 
-                if (echo > 5) std::printf("# copy %d diagonal cubes of the Green function\n", p.nCols);
-                if (ncubes != p.nCols) warn("Green function solution provides %d 4x4x4 cubes, but requested %d", p.nCols, ncubes);
+                if (echo > 5) { std::printf("# copy %d diagonal cubes of the Green function\n", p.nCols); }
+                if (ncubes != p.nCols) { warn("Green function solution provides %d 4x4x4 cubes, but requested %d", p.nCols, ncubes); }
                 assert(p.subset.size() == p.nCols);
                 double const f_Kramers_Kronig = 1./constants::pi;
                 for (uint32_t iCol{0}; iCol < p.nCols; ++iCol) {
@@ -266,7 +269,7 @@ namespace green_action {
                 return 0;
             } // max_iterations >= 0
 #else  // HAS_TFQMRGPU
-            if (echo > 3) std::printf("# has not been compiled with -D HAS_TFQMRGPU, run benchmark %d iterations\n", std::abs(max_iterations));
+            if (echo > 3) { std::printf("# has not been compiled with -D HAS_TFQMRGPU, run benchmark %d iterations\n", std::abs(max_iterations)); }
 #endif // HAS_TFQMRGPU
 
             int const niterations = std::abs(max_iterations);
@@ -293,13 +296,13 @@ namespace green_action {
                     std::swap(x, y);
                     progress.report(iteration, niterations);
                 } // iteration
-                if (echo > 1) std::printf("#\n# running action.multiply needed [%g, %g +/- %g, %g] seconds per iteration\n",
-                                                timings.min(), timings.mean(), timings.dev(), timings.max());
+                if (echo > 1) { std::printf("#\n# running action.multiply needed [%g, %g +/- %g, %g] seconds per iteration\n",
+                                                timings.min(), timings.mean(), timings.dev(), timings.max()); }
                 char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
-                if (echo > 1) std::printf("# %d calls of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
-                                                niterations, nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF);
-                if (echo > 1) std::printf("# fastest call of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
-                                                nflops/niterations, fF, timings.min(), nflops/(niterations*timings.min())*1e-9, fF);
+                if (echo > 1) { std::printf("# %d calls of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
+                                                niterations, nflops, fF, timings.sum(), nflops/timings.sum()*1e-9, fF); }
+                if (echo > 1) { std::printf("# fastest call of action.multiply performed %.3e %clop in %.3e seconds, i.e. %g G%clop/s\n",
+                                                nflops/niterations, fF, timings.min(), nflops/(niterations*timings.min())*1e-9, fF); }
             } // scope
 
             free_memory(colIndex);
