@@ -23,23 +23,20 @@
         #include <cuda.h>
         #define devPtr const __restrict__
     #endif // HAS_NO_CUDA
-    #include "tfqmrgpu_memWindow.h" // memWindow_t
     #include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 
 #else  // HAS_TFQMRGPU
 
-    #include <utility> // std::pair<T>
-    typedef std::pair<size_t,size_t> memWindow_t;
     #ifdef    HAS_NO_CUDA
         typedef size_t cudaStream_t;
     #endif // HAS_NO_CUDA
 
 #endif // HAS_TFQMRGPU
 
+#include "action_plan.hxx"     // action_plan_t
 #include "green_kinetic.hxx"   // ::multiply
 #include "green_potential.hxx" // ::multiply
 #include "green_dyadic.hxx"    // ::multiply
-#include "action_plan.hxx"     // action_plan_t
 #include "kinetic_plan.hxx"    // kinetic_plan_t
 #include "dyadic_plan.hxx"     // dyadic_plan_t
 #include "green_sparse.hxx"    // ::sparse_t<,>

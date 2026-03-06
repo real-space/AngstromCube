@@ -14,8 +14,7 @@
 
 #else  // HAS_TFQMRGPU
 
-    #include <utility> // std::pair<T>
-    typedef std::pair<size_t,size_t> memWindow_t;
+    typedef struct { size_t offset; size_t length; } memWindow_t;
 
 #endif // HAS_TFQMRGPU
 
