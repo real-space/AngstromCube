@@ -464,11 +464,11 @@ namespace green_function {
         auto const r_trunc = control::get("green_function.truncation.radius", 10.);
         {   auto & p = plans; 
             if (echo > 0) { std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing); }
-            p.r_truncation  = std::max(0., r_trunc);
+            p.r_truncation = std::max(0., r_trunc);
             // confinement potential
-            p.r_confinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
+            p.r_confinement = control::get("green_function.confinement.radius", std::min(std::max(0., r_trunc - 2.0), p.r_truncation));
             p.V_confinement = control::get("green_function.confinement.potential", 1.);
-            if (echo > 2) { std::printf("# confinement potential %g*(r/Bohr - %g)^4 %s\n", p.V_confinement*eV, p.r_confinement, _eV); }
+            if (echo > 2) { std::printf("# confinement potential %g*((r/Bohr)^2 - %g^2)^2 %s\n", p.V_confinement*eV, p.r_confinement, _eV); }
             if (echo > 2) { std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV); }
         } // scope
 
@@ -490,7 +490,7 @@ namespace green_function {
 for (int isub = 0; isub < nsub; ++isub) {
     auto & p = plans.plans[isub];
     echo = (0 == isub)*echo_original; // only OMP master reports
-    p.echo = 0;
+    p.echo = 0; // echo;
 
     // distribute the work
     uint32_t const irhs0 = (isub*nrhs_all)/nsub, irhs1 = ((isub + 1)*nrhs_all)/nsub;
@@ -958,7 +958,7 @@ for (int isub = 0; isub < nsub; ++isub) {
                                 { // scope: search inz such that p.colindx[inz] == iCol
                                     int64_t inz_found{-1};
                                     for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1] && -1 == inz_found; ++inz) {
-                                        if (iCol == p.colindx[inz]) inz_found = inz;
+                                        if (iCol == p.colindx[inz]) { inz_found = inz; }
                                     } // inz
                                     assert(-1 != inz_found && "iCol should be in the list");
                                     p.subset[iCol] = inz_found;
@@ -1017,6 +1017,8 @@ for (int isub = 0; isub < nsub; ++isub) {
                 if (echo > 2) std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
             } // scope: fill BSR tables
             column_indices.clear(); // not needed beyond this point
+
+            if (echo > 2) { std::printf("# subset.size()= %ld subset=", p.subset.size()); printf_vector(" %d", p.subset); }
 
             if (echo > 1) { // measure the difference in the number of target blocks of each RHS
                 std::vector<uint32_t> nt(nrhs, 0);

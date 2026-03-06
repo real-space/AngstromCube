@@ -8,6 +8,11 @@
 #include <complex> // std::complex<real_t>
 #include <cmath> // std::log2, ::ceil
 
+//// if we activate debug statements here, this will affect included tfQMRgpu headers
+// #define DEBUG
+// #define DEBUGGPU
+// #define FULLDEBUG
+
 #ifdef    HAS_TFQMRGPU
 
 //  #define DEBUG
@@ -47,6 +52,7 @@
 #include "mpi_parallel.hxx"    // ::allreduce, ::rank, MPI_COMM_WORLD
 #include "recorded_warnings.hxx" // warn
 #include "inline_math.hxx"     // set
+
 
 #ifdef    DEBUG
   #define green_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
@@ -138,7 +144,7 @@ namespace green_action {
 //          free_memory(aac_); // currently not used
             if (memory_buffer_) {
 #ifdef    DEBUGGPU
-                std::printf("# green_action::~action_t free memory_buffer_ at %p\n", (void*)memory_buffer_); }
+                std::printf("# green_action::~action_t free memory_buffer_ at %p\n", (void*)memory_buffer_);
 #endif // DEBUGGPU
                 free_memory(memory_buffer_);
             } // if
@@ -153,7 +159,9 @@ namespace green_action {
         } // take_memory
 
         void transfer(char* const buffer, cudaStream_t const streamId=0) {
-            // no transfers needed since we are using managed memory
+            std::printf("# green_action transfer buffer=%p, memory_buffer_=%p, offset=%p\n", (void*)buffer, (void*)memory_buffer_, (void*)p_->colindxwin.offset);
+            set((uint16_t*)(p_->colindxwin.offset), p_->colindx.size(), p_->colindx.data());
+            set((uint32_t*)(p_->subsetwin.offset),  p_->subset.size(),  p_->subset.data());
         } // transfer
 
         bool has_preconditioner() const { return false; }
@@ -161,7 +169,7 @@ namespace green_action {
 
         double multiply( // returns the number of flops performed
               real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzb][2][LM][LM]
-            , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM]
+            , real_t         (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzb][2][LM][LM] (not real_t const any more for green_potential::multiply)
             , uint16_t const (*const __restrict colIndex) // column indices [nnzb], warning: must be in device memory or managed memory
             , uint32_t const nnzb // number of nonzero blocks, typically colIndex.size()
             , uint32_t const nCols=1 // should match with p.nCols, number of block columns, assert(colIndex[:] < nCols)
@@ -176,12 +184,20 @@ namespace green_action {
             double nops{0};
 
             if (p.echo > 3) { std::printf("\n"); }
+
+#ifdef    CONFINEMENT_POTENTIAL
+            // mask the input vector x (this is why it cannot be real_t const)
+            nops += green_potential::multiply_mask<real_t,R1C2,Noco>(x,
+                        p.target_minus_source, p.grid_spacing_trunc, nnzb,
+                        p.V_confinement, pow2(p.r_confinement), pow2(p.r_truncation), p.echo);
+#endif // CONFINEMENT_POTENTIAL
+
             if (p.echo > 2) { std::printf("# green_action::multiply\n"); }
 
             // start with the local potential, assign y to initial values
             nops += green_potential::multiply<real_t,R1C2,Noco>(y, x, p.Veff, p.veff_index,
                         p.target_minus_source, p.grid_spacing_trunc, nnzb, p.E_param,
-                        p.V_confinement, pow2(p.r_confinement), p.echo);
+                        p.V_confinement, pow2(p.r_confinement), pow2(p.r_truncation), p.echo);
 
             // add the kinetic energy expressions
             for (int dd = 0; dd < 3; ++dd) { // loop must run serial
@@ -192,14 +208,21 @@ namespace green_action {
             nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc_, x, p.dyadic_plan,
                         p.rowindx, colIndex, p.rowCubePos, nnzb, p.echo);
 
-            if (p.echo > 4) { std::printf("# green_action::multiply %g Gflop\n", nops*1e-9); }
+            if (p.echo > 4) { std::printf("# green_action::multiply %g G%clop\n", nops*1e-9, (8 == sizeof(real_t))?'F':'f'); }
 
             return nops;
         } // multiply
 
+
+
         action_plan_t * get_plan() const { return p_; }
 
+
+
         char const * get_memory_buffer() const { return memory_buffer_; }
+
+
+
 
         status_t solve(
             std::complex<double> rho[] // result: complex-valued density[ncubes][4*4*4]
@@ -245,8 +268,9 @@ namespace green_action {
                 } // scope
                 if (echo > 5) { std::printf("\n# after tfqmrgpu::solve residuum= %.1e in %d iterations\n",
                                                                 p.residuum_reached,  p.iterations_needed); }
-                if (echo > 6) { std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop"); }
-                if (echo > 6) { std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s"); }
+                char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
+                if (echo > 6) { std::printf("# after tfqmrgpu::solve flop count is %.6f G%clop\n", p.flops_performed*1e-9, fF); }
+                if (echo > 6) { std::printf("# estimated performance is %.6f G%clop/s\n", p.flops_performed*1e-9/time_needed, fF); }
 
                 // export solution Green function
                 auto const Green = (real_t const (*)[R1C2][Noco*64][Noco*64])memory_buffer_;

@@ -15,14 +15,13 @@ namespace bessel_transform {
   template <typename real_t>
   inline status_t transform_s_function(
         real_t out[] // result
-      , real_t const in[]
-      , radial_grid_t const & g
-      , int const nq
-      , double const dq=.125
-      , bool const back=false
+      , real_t const in[] // input function
+      , radial_grid_t const & g // radial real-space grid
+      , int const nq // number of Bessel frequencies
+      , double const dq=.125 // spacing of Bessel frequencies
+      , bool const back=false // true:back-transform, false:forward-transform
       , int const echo=3 // log-level
   ) {
-
       if (echo > 8) std::printf("# %s(out=%p, in=%p, g=%p, nq=%d, dq=%.3f, back=%d, echo=%d);\n",
                            __func__, (void*)out, (void*)in, (void*)&g, nq, dq, back, echo);
 
@@ -53,11 +52,12 @@ namespace bessel_transform {
       if (echo > 8) std::printf("# %s    n_in=%d x_in=%p dx_in=%p n_out=%d x_out=%p\n",
                       __func__, n_in, (void*)x_in, (void*)dx_in, n_out, (void*)x_out);
 
-      double const sqrt2overpi = .7978845608028654; // this makes the transform symmetric
+      double constexpr sqrt2overpi = .7978845608028654; // this makes the transform symmetric
       //  assert(std::sqrt(2./constants::pi) == sqrt2overpi);
+      #pragma omp parallel for
       for (int io = 0; io < n_out; ++io) {
           double tmp{0};
-          for (int ii = 0; ii < n_in; ++ii) {
+          for (int ii{0}; ii < n_in; ++ii) {
               double const qr = x_in[ii]*x_out[io];
               tmp += in[ii] * Bessel_j0(qr) * dx_in[ii];
           } // ii
@@ -74,11 +74,11 @@ namespace bessel_transform {
       , int const nr2
       , double const in[]
       , radial_grid_t const & g
-      , int const echo=2
+      , int const echo=2 // log-level
   ) {
       if (echo > 8) {
           std::printf("\n# %s input:\n", __func__);
-          for (int ir = 0; ir < g.n; ++ir) {
+          for (int ir{0}; ir < g.n; ++ir) {
               std::printf("%g %g\n", g.r[ir], in[ir]);
           } // ir
           std::printf("\n\n");
@@ -98,7 +98,7 @@ namespace bessel_transform {
 
       if (echo > 8) {
           std::printf("\n# %s output:\n", __func__);
-          for (int ir2 = 0; ir2 < r2g.n; ++ir2) {
+          for (int ir2{0}; ir2 < r2g.n; ++ir2) {
               std::printf("%g %g\n", r2g.r[ir2], out[ir2]);
           } // ir2
           std::printf("\n\n");

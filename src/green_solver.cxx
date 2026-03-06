@@ -115,12 +115,12 @@ typedef green_action::action_t<double,2,2> Act822;
             auto const *const a = (Act421*)action_;
             auto const *const p = a->get_plan();
             return verify_benchmark::verify_Green_function((float  const*)a->get_memory_buffer(),
-                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->rowCubePos, p->colCubePos); }
+                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->target_minus_source); }
         case 64021: {
             auto const *const a = (Act821*)action_;
             auto const *const p = a->get_plan();
             return verify_benchmark::verify_Green_function((double const*)a->get_memory_buffer(),
-                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->rowCubePos, p->colCubePos); }
+                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->target_minus_source); }
         case 64022:
         case 32022: { error("non-collinear not implemented, found action_key=%d", action_key_); return -1; }
         default:    { warn("action key=%d has not been set", action_key_); return 0; }

@@ -15,6 +15,8 @@
 #include "mpi_parallel.hxx" // ::allreduce, ::sum, ::min, ::max, MPI_COMM_WORLD
 #include "global_coordinates.hxx" // ::get
 #include "inline_math.hxx" // pow2
+#include "bessel_transform.hxx" // ::Bessel_j0, ::transform_s_function
+#include "radial_grid.hxx" // radial_grid_t, ::create_radial_grid, ::destroy_radial_grid
 
 namespace verify_benchmark {
 
@@ -162,79 +164,113 @@ namespace verify_benchmark {
           real_t const Gf[] // Green function elements [nnzbX*2*64*64]
         , uint32_t const nRows // number of Rows
         , uint32_t const nCols // number of Columns
-        , uint32_t const RowStart[] // [nRows + 1]
-        , uint16_t const colindx[]  // [nnzbX]
-        , float const rowCubePos[][3+1] // [nRows][3+1] internal coordinates
-        , float const colCubePos[][3+1] // [nCols][3+1] internal coordinates
+        , uint32_t const RowStart[] // [nRows + 1] row starts in block sparse matrix structure of the Green function
+        , uint16_t const colindx[]  // [nnzbX] column indices
+        , int16_t const target_minus_source[][3+1] // [nnzbX][3+1] internal coordinates, target_minus_source == rowCubePos - colCubePos
         , char const*const filename="green_radial.dat"
         , int const echo=9 // verbosity
     ) {
+        status_t stat(0);
         // project the Green_function onto a radial grid and plot it
-        // assume Noco==1, R1C2==2, no atoms, repeated boundary conditions
+        // silently assume Noco==1, R1C2==2, no atoms, repeated boundary conditions
+
+        // parameters for Bessel transform
+        int const nq = 32; double const dq = 0.5; // choose a q-grid: 32*0.5 = 16 = pi/0.2
+        view3D<double> besc(nCols*64,2,nq, 0.0); // Bessel coefficients
+
         int constexpr nrad = 1024;
-        double const hr2 = 1.0;
-        view3D<double> rad(3,nrad,nCols*64, 0.0);
+        // double const hr2 = 1.0;
+        double const hr = nrad/20.;
+        view3D<double> rad(nCols*64,3,nrad, 0.0);
         // traverse the sparse structure
-        int constexpr Real = 0, Imag = 1;
+        int constexpr Real = 0, Imag = 1, Dnom = 2;
         for (uint32_t iRow{0}; iRow < nRows; ++iRow) {
-            auto const *const rowPos = rowCubePos[iRow];
-            for (uint32_t inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-                auto const jCol = colindx[inz];
-                auto const *const colPos = colCubePos[jCol];
-                double const v[] = {rowPos[0] - colPos[0], rowPos[1] - colPos[1], rowPos[2] - colPos[2]};
+            // auto const *const rowPos = rowCubePos[iRow];
+            for (uint32_t inzb = RowStart[iRow]; inzb < RowStart[iRow + 1]; ++inzb) {
+                auto const jCol = colindx[inzb]; assert(jCol < nCols);
+                // auto const *const colPos = colCubePos[jCol];
+                // double const vc[] = {rowPos[0] - colPos[0], rowPos[1] - colPos[1], rowPos[2] - colPos[2]}; // cube difference vector
+                auto const *const vc = target_minus_source[inzb];
                 for (int i64{0}; i64 < 64; ++i64) {
                     int const vi[] = {(i64 >> 0) & 0x3, (i64 >> 2) & 0x3, (i64 >> 4) & 0x3};
                     for (int j64{0}; j64 < 64; ++j64) {
                         int const vj[] = {(j64 >> 0) & 0x3, (j64 >> 2) & 0x3, (j64 >> 4) & 0x3};
-                        double const reGf = Gf[((inz*2 + Real)*64 + i64)*64 + j64];
-                        double const imGf = Gf[((inz*2 + Imag)*64 + i64)*64 + j64];
-                        auto const r2 = pow2(v[0]*4 + vi[0] - vj[0]) 
-                                      + pow2(v[1]*4 + vi[1] - vj[1])
-                                      + pow2(v[2]*4 + vi[2] - vj[2]);
-                        int const irad = int(r2*hr2);
-                        auto const w1 = r2*hr2 - irad, w0 = 1 - w1; // linear interpolation weight
-                        rad(2,irad + 0,jCol*64 + j64) += w0;
-                        rad(2,irad + 1,jCol*64 + j64) += w1;
-                        rad(1,irad + 0,jCol*64 + j64) += w0*imGf;
-                        rad(1,irad + 1,jCol*64 + j64) += w1*imGf;
-                        rad(0,irad + 0,jCol*64 + j64) += w0*reGf;
-                        rad(0,irad + 1,jCol*64 + j64) += w1*reGf;
+                        auto const j = jCol*64 + j64;
+                        double const reGf = Gf[((inzb*2 + Real)*64 + i64)*64 + j64];
+                        double const imGf = Gf[((inzb*2 + Imag)*64 + i64)*64 + j64];
+                        int constexpr n4 = 4; // 4 grid points per cube in very spatial direction
+                        double const r2 = pow2(vc[0]*n4 + vi[0] - vj[0])
+                                        + pow2(vc[1]*n4 + vi[1] - vj[1])
+                                        + pow2(vc[2]*n4 + vi[2] - vj[2]);
+                        auto const r = std::sqrt(r2);
+                        // int const irad = int(r2*hr2);
+                        int const irad = int(r*hr);
+                        if (irad + 1 < nrad) {
+                            // auto const w1 = r2*hr2 - irad, w0 = 1 - w1; // linear interpolation weights
+                            auto const w1 = r*hr - irad, w0 = 1 - w1; // linear interpolation weights
+                            rad(j,Real,irad + 0) += w0*reGf;
+                            rad(j,Real,irad + 1) += w1*reGf;
+                            rad(j,Imag,irad + 0) += w0*imGf;
+                            rad(j,Imag,irad + 1) += w1*imGf;
+                            rad(j,Dnom,irad + 0) += w0;
+                            rad(j,Dnom,irad + 1) += w1;
+                        }
+                        // store Bessel coefficients
+                        for (int iq{0}; iq < nq; ++iq) {
+                            auto const q = iq*dq;
+                            auto const j0 = bessel_transform::Bessel_j0(q*r);
+                            besc(j,Real,iq) += reGf * j0;
+                            besc(j,Imag,iq) += imGf * j0;
+                        } // iq
                     } // j64
                 } // i64
-            } // inz
+            } // inzb
         } // iRow
         if (echo > 0) { std::printf("# collect radial data of Green function for %d rows and %d cols\n", nRows, nCols); }
 
         auto const f = std::fopen(filename, "w");
         if (nullptr != f) {
             if (0) {
-                std::fprintf(f, "# plot radius, imaginary part of Green function for %d columns:\n", nCols*64);
+                std::fprintf(f, "## plot radius, imaginary part of Green function for %d columns:\n", nCols*64);
                 for (int irad = 0; irad < nrad; ++irad) {
-                    double const r2 = irad/hr2, r = std::sqrt(r2);
-                    std::fprintf(f, "%.6f  ", r);
-                    for (int j64{0}; j64 < nCols*64; ++j64) {
-                        auto const value = (rad(2,irad,j64) > 0) ? rad(1,irad,j64)/rad(2,irad,j64) : 0.0;
+                    // std::fprintf(f, "%.6f  ", std::sqrt(irad/hr2)); // radius
+                    std::fprintf(f, "%.6f  ", irad/hr); // radius
+                    for (int j{0}; j < nCols*64; ++j) {
+                        auto const value = (rad(j,Dnom,irad) > 0) ? rad(j,Imag,irad)/rad(j,Dnom,irad) : 0.0;
                         std::fprintf(f, " %g", value);
-                    } // j64
-                    std::fprintf(f, "\n");
+                    } // j
+                    std::fprintf(f, "\n"); // end of line
                 } // irad
                 std::fprintf(f, "\n\n");
             }
-            // plot the same again with a separate abcissa each time
-            for (int j64{0}; j64 < nCols*64; ++j64) {
-                std::fprintf(f, "\n# plot radius, real and imaginary part of Green function for column#%i:\n", j64);
+            auto g = radial_grid::create_radial_grid(512, 32., radial_grid::equation_equidistant);
+            view2D<double> green_radial(2,g.n);
+            // plot the same again with a separate abscissa each time
+            // for (int j{0}; j < nCols*64; ++j) {
+            for (int j{0}; j < 1; ++j) { // only plot the {0,0,0} source grid point
+                std::fprintf(f, "\n\n## plot radius, real and imaginary part of Green function for column#%i:\n", j);
                 for (int irad = 0; irad < nrad; ++irad) {
-                    if (rad(2,irad,j64) > 0) {
-                        auto const w = 1./rad(2,irad,j64);
-                        std::fprintf(f, "%.6f %g %g\n", std::sqrt(irad/hr2), rad(0,irad,j64)*w, rad(1,irad,j64)*w);
+                    if (rad(j,Dnom,irad) > 0) {
+                        auto const w = 1./rad(j,Dnom,irad);
+                        // std::fprintf(f, "%.6f %g %g\n", std::sqrt(irad/hr2), rad(j,Real,irad)*w, rad(j,Imag,irad)*w);
+                        std::fprintf(f, "%.6f %g %g\n", irad/hr, rad(j,Real,irad)*w, rad(j,Imag,irad)*w);
                     }
                 } // irad
-            } // j64
+                // find real-space representation from Bessel-backtransform
+                for (int reim{0}; reim < 2; ++reim) {
+                    stat += bessel_transform::transform_s_function(green_radial[reim], besc(j,reim), g, nq, dq, true, 0);
+                } // reim
+                std::fprintf(f, "\n## plot radius, real and imaginary part of Green function for column#%i from Bessel transform:\n", j);
+                for (int ir{0}; ir < g.n; ++ir) {
+                    std::fprintf(f, "%.6f %g %g\n", g.r[ir], green_radial(Real,ir), green_radial(Imag,ir));
+                } // ir
+            } // j
+            radial_grid::destroy_radial_grid(g);
             std::fclose(f);
             if (echo > 0) { std::printf("# file \'%s\' written\n", filename); }
         } // f
 
-        return 0;
+        return stat;
     } // verify_Green_function
 
 

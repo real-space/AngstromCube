@@ -117,8 +117,9 @@ namespace green_action {
           } // timer
           if (echo > 0) std::printf("\n# after tfqmrgpu::solve residuum reached= %.1e iterations needed= %d\n",
                                                              p.residuum_reached,    p.iterations_needed);
-          if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f %s\n", p.flops_performed*1e-9, "Gflop");
-          if (echo > 6) std::printf("# estimated performance is %.6f %s\n", p.flops_performed*1e-9/time_needed, "Gflop/s");
+          char const fF = (sizeof(real_t) == 8) ? 'F' : 'f';
+          if (echo > 6) std::printf("# after tfqmrgpu::solve flop count is %.6f G%clop\n", p.flops_performed*1e-9, fF);
+          if (echo > 6) std::printf("# estimated performance is %.6f G%clop/s\n", p.flops_performed*1e-9/time_needed, fF);
           free_memory(memory_buffer);
           return;
       } // iterations > 0

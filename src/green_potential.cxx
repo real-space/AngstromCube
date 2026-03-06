@@ -46,7 +46,7 @@ namespace green_potential {
         status_t stat(0);
         uint32_t const nnzb = 1;
         auto Vloc = get_memory<double(*)[64]>(Noco*Noco, echo, "Vloc");
-        for (int mag = 0; mag < Noco*Noco; ++mag) Vloc[mag] = get_memory<double[64]>(1, echo, "Vloc[mag]");
+        for (int mag = 0; mag < Noco*Noco; ++mag) { Vloc[mag] = get_memory<double[64]>(1, echo, "Vloc[mag]"); }
         auto vloc_index = get_memory<int32_t>(1, echo, "vloc_index"); vloc_index[0] = 0;
         auto shift = get_memory<int16_t[3+1]>(1, echo, "shift");      set(shift[0], 3+1, int16_t(0));
         auto hxyz = get_memory<double>(3+1, echo, "hxyz");            set(hxyz, 3+1, 1.);
@@ -61,13 +61,28 @@ namespace green_potential {
         free_memory(hxyz);
         free_memory(shift);
         free_memory(vloc_index);
-        for (int mag = 0; mag < Noco*Noco; ++mag) free_memory(Vloc[mag]);
+        for (int mag = 0; mag < Noco*Noco; ++mag) { free_memory(Vloc[mag]); }
         free_memory(Vloc);
         return stat;
     } // test_multiply
 
+    status_t test_mask(int const echo=0) {
+        auto const rconf = 3.4, rcut = 4.55, dr=0.01;
+        if (echo > 2) { std::printf("\n## plot mask function for r_conf=%g and r_cut=%g:\n0 1\n", rconf, rcut); }
+        auto const denom = 1./(rcut - rconf);
+        for (int ir = int(rconf/dr); ir <= int(rcut/dr); ++ir) {
+            auto const r = ir*dr;
+            auto const x = (r - rconf)*denom;
+            auto const f = x*x*(2*x - 3) + 1;
+            if (echo > 2) { std::printf("%g %g\n", r, f); }
+        } // ir
+        if (echo > 2) { std::printf("%g 0\n%g 0\n\n", rcut, rcut + 1); }
+        return 0;
+    } // test_mask
+
     status_t all_tests(int const echo) {
         status_t stat(0);
+        stat += test_mask(echo);
         stat += test_multiply(echo);
         return stat;
     } // all_tests
