@@ -507,6 +507,7 @@ for (int isub = 0; isub < nsub; ++isub) {
         p.r_truncation = plans.r_truncation;
         p.r_confinement = plans.r_confinement;
         p.V_confinement = plans.V_confinement;
+        set(p.grid_spacing, 3, hg); // copy grid spacings
 
         // from here on, we could introduce subdomains i.e. split nrhs into as many groups as there are OpenMP threads
 

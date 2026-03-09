@@ -30,7 +30,6 @@
 #include "simple_stats.hxx" // ::Stats<>
 #include "simple_timer.hxx" // SimpleTimer
 #include "green_parallel.hxx" // ::RequestList_t
-#include "verify_benchmark.hxx" // ::verify_Green_function
 
 namespace energy_contour {
 

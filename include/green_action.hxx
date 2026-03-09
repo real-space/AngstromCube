@@ -156,7 +156,9 @@ namespace green_action {
         } // take_memory
 
         void transfer(char* const buffer, cudaStream_t const streamId=0) {
+#ifdef    DEBUGGPU
             std::printf("# green_action transfer buffer=%p, memory_buffer_=%p, offset=%p\n", (void*)buffer, (void*)memory_buffer_, (void*)p_->colindxwin.offset);
+#endif // DEBUGGPU
             set((uint16_t*)(p_->colindxwin.offset), p_->colindx.size(), p_->colindx.data());
             set((uint32_t*)(p_->subsetwin.offset),  p_->subset.size(),  p_->subset.data());
         } // transfer
@@ -186,7 +188,7 @@ namespace green_action {
             // mask the input vector x (this is why it cannot be real_t const)
             nops += green_potential::multiply_mask<real_t,R1C2,Noco>(x,
                         p.target_minus_source, p.grid_spacing_trunc, nnzb,
-                        p.V_confinement, pow2(p.r_confinement), pow2(p.r_truncation), p.echo);
+                        pow2(p.r_confinement), pow2(p.r_truncation), p.echo);
 #endif // CONFINEMENT_POTENTIAL
 
             if (p.echo > 2) { std::printf("# green_action::multiply\n"); }
@@ -204,6 +206,13 @@ namespace green_action {
             // add the non-local potential using the dyadic action of project + add
             nops += green_dyadic::multiply<real_t,R1C2,Noco>(y, apc_, x, p.dyadic_plan,
                         p.rowindx, colIndex, p.rowCubePos, nnzb, p.echo);
+
+#ifdef    CONFINEMENT_POTENTIAL
+            // mask the result vector y
+            nops += green_potential::multiply_mask<real_t,R1C2,Noco>(y,
+                        p.target_minus_source, p.grid_spacing_trunc, nnzb,
+                        pow2(p.r_confinement), pow2(p.r_truncation), p.echo);
+#endif // CONFINEMENT_POTENTIAL
 
             if (p.echo > 4) { std::printf("# green_action::multiply %g G%clop\n", nops*1e-9, (8 == sizeof(real_t))?'F':'f'); }
 

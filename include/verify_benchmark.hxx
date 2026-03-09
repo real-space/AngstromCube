@@ -17,6 +17,7 @@
 #include "inline_math.hxx" // pow2
 #include "bessel_transform.hxx" // ::Bessel_j0, ::transform_s_function
 #include "radial_grid.hxx" // radial_grid_t, ::create_radial_grid, ::destroy_radial_grid
+#include "simple_stats.hxx" // ::Stats<>
 
 namespace verify_benchmark {
 
@@ -167,6 +168,7 @@ namespace verify_benchmark {
         , uint32_t const RowStart[] // [nRows + 1] row starts in block sparse matrix structure of the Green function
         , uint16_t const colindx[]  // [nnzbX] column indices
         , int16_t const target_minus_source[][3+1] // [nnzbX][3+1] internal coordinates, target_minus_source == rowCubePos - colCubePos
+        , double const hxyz[3]
         , char const*const filename="green_radial.dat"
         , int const echo=9 // verbosity
     ) {
@@ -175,8 +177,10 @@ namespace verify_benchmark {
         // silently assume Noco==1, R1C2==2, no atoms, repeated boundary conditions
 
         // parameters for Bessel transform
-        int const nq = 32; double const dq = 0.5; // choose a q-grid: 32*0.5 = 16 = pi/0.2
+        int const nq = 52; double const dq = 1./16;
+        // int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq)); // from real_space::Bessel_projection
         view3D<double> besc(nCols*64,2,nq, 0.0); // Bessel coefficients
+        auto const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
 
         int constexpr nrad = 1024;
         // double const hr2 = 1.0;
@@ -199,9 +203,9 @@ namespace verify_benchmark {
                         double const reGf = Gf[((inzb*2 + Real)*64 + i64)*64 + j64];
                         double const imGf = Gf[((inzb*2 + Imag)*64 + i64)*64 + j64];
                         int constexpr n4 = 4; // 4 grid points per cube in very spatial direction
-                        double const r2 = pow2(vc[0]*n4 + vi[0] - vj[0])
-                                        + pow2(vc[1]*n4 + vi[1] - vj[1])
-                                        + pow2(vc[2]*n4 + vi[2] - vj[2]);
+                        double const r2 = pow2((vc[0]*n4 + vi[0] - vj[0])*hxyz[0])
+                                        + pow2((vc[1]*n4 + vi[1] - vj[1])*hxyz[1])
+                                        + pow2((vc[2]*n4 + vi[2] - vj[2])*hxyz[2]);
                         auto const r = std::sqrt(r2);
                         // int const irad = int(r2*hr2);
                         int const irad = int(r*hr);
@@ -243,6 +247,7 @@ namespace verify_benchmark {
                 } // irad
                 std::fprintf(f, "\n\n");
             }
+            double const dVol = sqrt2pi*std::abs(hxyz[0]*hxyz[1]*hxyz[2]);
             auto g = radial_grid::create_radial_grid(512, 32., radial_grid::equation_equidistant);
             view2D<double> green_radial(2,g.n);
             // plot the same again with a separate abscissa each time
@@ -262,7 +267,7 @@ namespace verify_benchmark {
                 } // reim
                 std::fprintf(f, "\n## plot radius, real and imaginary part of Green function for column#%i from Bessel transform:\n", j);
                 for (int ir{0}; ir < g.n; ++ir) {
-                    std::fprintf(f, "%.6f %g %g\n", g.r[ir], green_radial(Real,ir), green_radial(Imag,ir));
+                    std::fprintf(f, "%.6f %g %g\n", g.r[ir], green_radial(Real,ir)*dVol, green_radial(Imag,ir)*dVol);
                 } // ir
             } // j
             radial_grid::destroy_radial_grid(g);

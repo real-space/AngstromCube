@@ -92,6 +92,7 @@ public: // TODo: check which members could be private
     float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
     float V_confinement   = 1; // potential prefactor
     bool noncollinear_spin = false;
+    double grid_spacing[3]; // in CPU memory
 
 
 

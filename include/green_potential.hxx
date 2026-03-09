@@ -203,7 +203,6 @@ namespace green_potential {
         , int16_t const (*const __restrict__ target_minus_source)[3+1] // 3D cube shift vector, 4th component unused, [inzb][0:2]
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , int     const nnzb // number of all cubes to be treated
-        , float   const Vconf // prefactor for the confinement potential
         , float   const rconf2 // confinement radius^2 for the confinement potential, negative for no confinement
         , float   const rcut2  // hard cutoff radius^2 for masking --> this modifies the input vector!
     ) {
@@ -282,16 +281,15 @@ namespace green_potential {
         , int16_t  const (*const __restrict__ target_minus_source)[3+1] // 3D cube shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , uint32_t const nnzb // number of all cubes to be treated
-        , float    const Vconf=0  // prefactor for the confinement potential
         , float    const rconf2=-1
         , float    const rcut2=9e37 // cutoff radius^2 for the confinement potential, -1: no confinement
         , int const echo=0
     ) {
 
         if (echo > 11) {
-            std::printf("# %s<%s,R1C2=%d,Noco=%d> psi=%p, target_minus_source=%p, hxyz=%p, nnzb=%d, Vconf=%g, rconf^2=%.f, rcut^2=%.f\n",
+            std::printf("# %s<%s,R1C2=%d,Noco=%d> psi=%p, target_minus_source=%p, hxyz=%p, nnzb=%d, rconf^2=%.f, rcut^2=%.f\n",
                            __func__, (4 == sizeof(real_t))?"float":"double", R1C2, Noco, (void*)psi,
-                           (void*)target_minus_source, (void*)hxyz, nnzb, Vconf, rconf2, rcut2);
+                           (void*)target_minus_source, (void*)hxyz, nnzb, rconf2, rcut2);
         } // echo
 
 #ifdef    CONFINEMENT_POTENTIAL
@@ -302,7 +300,7 @@ namespace green_potential {
 #else  // HAS_NO_CUDA
                   ( dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA
-                psi, target_minus_source, hxyz, nnzb, Vconf, rconf2, rcut2);
+                psi, target_minus_source, hxyz, nnzb, rconf2, rcut2);
         }
 #endif // CONFINEMENT_POTENTIAL
 
