@@ -169,7 +169,8 @@ namespace verify_benchmark {
         , uint16_t const colindx[]  // [nnzbX] column indices
         , int16_t const target_minus_source[][3+1] // [nnzbX][3+1] internal coordinates, target_minus_source == rowCubePos - colCubePos
         , double const hxyz[3]
-        , char const*const filename="green_radial.dat"
+        , char const *const filename="green_radial.dat"
+        , char const *const jsonfile="green_function.json"
         , int const echo=9 // verbosity
     ) {
         status_t stat(0);
@@ -185,9 +186,9 @@ namespace verify_benchmark {
         int constexpr nrad = 1024;
         // double const hr2 = 1.0;
         double const hr = nrad/20.;
-        view3D<double> rad(nCols*64,3,nrad, 0.0);
+        view3D<simple_stats::Stats<double>> rad(nCols*64,2,nrad);
         // traverse the sparse structure
-        int constexpr Real = 0, Imag = 1, Dnom = 2;
+        int constexpr Real = 0, Imag = 1;
         for (uint32_t iRow{0}; iRow < nRows; ++iRow) {
             // auto const *const rowPos = rowCubePos[iRow];
             for (uint32_t inzb = RowStart[iRow]; inzb < RowStart[iRow + 1]; ++inzb) {
@@ -212,12 +213,10 @@ namespace verify_benchmark {
                         if (irad + 1 < nrad) {
                             // auto const w1 = r2*hr2 - irad, w0 = 1 - w1; // linear interpolation weights
                             auto const w1 = r*hr - irad, w0 = 1 - w1; // linear interpolation weights
-                            rad(j,Real,irad + 0) += w0*reGf;
-                            rad(j,Real,irad + 1) += w1*reGf;
-                            rad(j,Imag,irad + 0) += w0*imGf;
-                            rad(j,Imag,irad + 1) += w1*imGf;
-                            rad(j,Dnom,irad + 0) += w0;
-                            rad(j,Dnom,irad + 1) += w1;
+                            rad(j,Real,irad + 0).add(reGf, w0);
+                            rad(j,Real,irad + 1).add(reGf, w1);
+                            rad(j,Imag,irad + 0).add(imGf, w0);
+                            rad(j,Imag,irad + 1).add(imGf, w1);
                         }
                         // store Bessel coefficients
                         for (int iq{0}; iq < nq; ++iq) {
@@ -234,46 +233,118 @@ namespace verify_benchmark {
 
         auto const f = std::fopen(filename, "w");
         if (nullptr != f) {
-            if (0) {
-                std::fprintf(f, "## plot radius, imaginary part of Green function for %d columns:\n", nCols*64);
-                for (int irad = 0; irad < nrad; ++irad) {
-                    // std::fprintf(f, "%.6f  ", std::sqrt(irad/hr2)); // radius
-                    std::fprintf(f, "%.6f  ", irad/hr); // radius
-                    for (int j{0}; j < nCols*64; ++j) {
-                        auto const value = (rad(j,Dnom,irad) > 0) ? rad(j,Imag,irad)/rad(j,Dnom,irad) : 0.0;
-                        std::fprintf(f, " %g", value);
-                    } // j
-                    std::fprintf(f, "\n"); // end of line
-                } // irad
-                std::fprintf(f, "\n\n");
-            }
             double const dVol = sqrt2pi*std::abs(hxyz[0]*hxyz[1]*hxyz[2]);
             auto g = radial_grid::create_radial_grid(512, 32., radial_grid::equation_equidistant);
             view2D<double> green_radial(2,g.n);
             // plot the same again with a separate abscissa each time
             // for (int j{0}; j < nCols*64; ++j) {
             for (int j{0}; j < 1; ++j) { // only plot the {0,0,0} source grid point
-                std::fprintf(f, "\n\n## plot radius, real and imaginary part of Green function for column#%i:\n", j);
-                for (int irad = 0; irad < nrad; ++irad) {
-                    if (rad(j,Dnom,irad) > 0) {
-                        auto const w = 1./rad(j,Dnom,irad);
-                        // std::fprintf(f, "%.6f %g %g\n", std::sqrt(irad/hr2), rad(j,Real,irad)*w, rad(j,Imag,irad)*w);
-                        std::fprintf(f, "%.6f %g %g\n", irad/hr, rad(j,Real,irad)*w, rad(j,Imag,irad)*w);
-                    }
-                } // irad
-                // find real-space representation from Bessel-backtransform
                 for (int reim{0}; reim < 2; ++reim) {
-                    stat += bessel_transform::transform_s_function(green_radial[reim], besc(j,reim), g, nq, dq, true, 0);
+                    std::fprintf(f, "\n\n## plot radius, %s part of Green function for column#%i:\n", reim?"imaginary":"real", j);
+                    for (int irad = 0; irad < nrad; ++irad) {
+                        auto const & st = rad(j,reim,irad);
+                        if (st.num() > 0) {
+                            auto const mu = st.mean(), dv = st.dev();
+                            std::fprintf(f, "%.6f %g %g %g %g %g\n", irad/hr, mu, st.min(), st.max(), mu - dv, mu + dv);
+                        }
+                    } // irad
                 } // reim
-                std::fprintf(f, "\n## plot radius, real and imaginary part of Green function for column#%i from Bessel transform:\n", j);
-                for (int ir{0}; ir < g.n; ++ir) {
-                    std::fprintf(f, "%.6f %g %g\n", g.r[ir], green_radial(Real,ir)*dVol, green_radial(Imag,ir)*dVol);
-                } // ir
+                if (0) {
+                    // find real-space representation from Bessel-backtransform
+                    for (int reim{0}; reim < 2; ++reim) {
+                        stat += bessel_transform::transform_s_function(green_radial[reim], besc(j,reim), g, nq, dq, true, 0);
+                    } // reim
+                    std::fprintf(f, "\n## plot radius, real and imaginary part of Green function for column#%i from Bessel transform:\n", j);
+                    for (int ir{0}; ir < g.n; ++ir) {
+                        std::fprintf(f, "%.6f %g %g\n", g.r[ir], green_radial(Real,ir)*dVol, green_radial(Imag,ir)*dVol);
+                    } // ir
+                } // 0
             } // j
             radial_grid::destroy_radial_grid(g);
             std::fclose(f);
             if (echo > 0) { std::printf("# file \'%s\' written\n", filename); }
         } // f
+
+        if (nullptr != jsonfile && '\0' != *jsonfile) {
+            auto const f = std::fopen(jsonfile, "w");
+            if (nullptr != f) {
+                std::vector<char> tab_vector(128, ' '); tab_vector[127] = '\0'; // null terminated string
+                char const *tab{ &tab_vector[127]};
+
+                std::fprintf(f, "%s{\n", tab);
+                tab -= 2; // indent
+
+                std::fprintf(f, "%s\"GreenFunction\": {\n", tab);
+                tab -= 2; // indent
+
+                // ToDo: missing: k-point, E-point
+                auto const nnzb = RowStart[nRows];
+
+                std::fprintf(f, "%s\"datatype\": \"fp%d\",\n", tab, int(sizeof(real_t)*8));
+                std::fprintf(f, "%s\"numbertype\": \"complex\",\n", tab);
+                std::fprintf(f, "%s\"number of rows\": %d,\n", tab, nRows);
+                std::fprintf(f, "%s\"number of cols\": %d,\n", tab, nCols);
+                std::fprintf(f, "%s\"number of nonzeros\": %d,\n", tab, nnzb);
+                std::fprintf(f, "%s\"cube pairs\": {\n", tab, nCols);
+                tab -= 2; // indent
+
+                for (uint32_t iRow{0}; iRow < nRows; ++iRow) {
+                    for (uint32_t inzb = RowStart[iRow]; inzb < RowStart[iRow + 1]; ++inzb) {
+                        auto const jCol = colindx[inzb]; assert(jCol < nCols);
+                        auto const *const vc = target_minus_source[inzb];
+                        int constexpr n4 = 4; // 4 grid points per cube in very spatial direction
+                        double const r2 = pow2(vc[0]*n4*hxyz[0]) + pow2(vc[1]*n4*hxyz[1]) + pow2(vc[2]*n4*hxyz[2]);
+                        auto const r = std::sqrt(r2);
+
+                        std::fprintf(f, "%s\"cube pair %d\": {\n", tab, inzb, nCols);
+                        tab -= 2; // indent
+
+                        // ToDo: missing global row and col indices
+
+                        std::fprintf(f, "%s\"row cube index\": %d,\n", tab, iRow);
+                        std::fprintf(f, "%s\"col cube index\": %d,\n", tab, jCol);
+                        std::fprintf(f, "%s\"nonzero index\": %d,\n", tab, inzb);
+                        std::fprintf(f, "%s\"target minus source\": [%d, %d, %d],\n", tab, int(vc[0]), int(vc[1]), int(vc[2]));
+                        std::fprintf(f, "%s\"center distance\": %g,\n", tab, r); // in Bohr
+                        std::fprintf(f, "%s\"data\": [\n", tab);
+                        tab -= 2; // indent
+
+                        for (int i64{0}; i64 < 64; ++i64) {
+                            std::fprintf(f, "%s[\n", tab); // rowdata
+                            tab -= 2; // indent
+                            for (int j64{0}; j64 < 64; ++j64) {
+                                if (0 == (j64 & 0x3)) { std::fprintf(f, tab); }
+                                auto const reGf = Gf[((inzb*2 + Real)*64 + i64)*64 + j64];
+                                auto const imGf = Gf[((inzb*2 + Imag)*64 + i64)*64 + j64];
+                                std::fprintf(f, "%g,%g%s", reGf, imGf, (j64 < 63) ? (((j64 & 0x3) < 3) ? ",  " : ",\n") : "");
+                            } // j64
+                            tab += 2; // unindent
+                            std::fprintf(f, " ]%c\n", (i64 < 63)?',':' '); // rowdata
+                        } // i64
+
+                        tab += 2; // unindent
+                        std::fprintf(f, "%s]\n", tab); // data
+
+                        tab += 2; // unindent
+                        std::fprintf(f, "%s}%c\n", tab, (inzb < nnzb - 1)?',':' '); // cube pair
+
+                    } // inzb
+                } // iRow
+
+                tab += 2; // unindent
+                std::fprintf(f, "%s}\n", tab); // cubes
+
+                tab += 2; // unindent
+                std::fprintf(f, "%s}\n", tab); // GreenFunction
+
+                tab += 2; // unindent
+                std::fprintf(f, "%s}\n", tab); // json structure
+
+                assert('\0' == *tab); // tabulator is back to position 127
+                std::fclose(f);
+                if (echo > 0) { std::printf("# file \'%s\' written\n", jsonfile); }
+            } // f
+        } // jsonfile
 
         return stat;
     } // verify_Green_function
