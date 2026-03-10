@@ -9,7 +9,7 @@
 #include "geometry_input.hxx"
 
 #include "real_space.hxx" // ::grid_t
-#include "chemical_symbol.hxx" // ::decode
+#include "chemical_symbol.hxx" // ::decode, ::get
 #include "control.hxx" // ::get, ::set, ::echo_set_without_warning
 #include "mpi_parallel.hxx" // MPI_Comm, ::comm, ::rank, ::broadcast
 #include "data_view.hxx" // view2D<T>
@@ -333,6 +333,44 @@ namespace geometry_input {
     } // init_geometry_and_grid
 
 
+
+    status_t get_sum_formula(
+          char formula[96] // result
+        , view2D<double> const & xyzZ // xyzZ[natoms][4+]
+        , int32_t const natoms // total number of all atoms
+        , int const echo // log-level
+    ) {
+        if (natoms < 1) {
+            std::snprintf(formula, 96, "<no atoms>");
+            return 0;
+        } // no atoms
+        assert(xyzZ.stride() >= 4);
+        std::vector<uint32_t> hist(128, 0u);
+        std::vector<char> asterisk(128, '_');
+        for (int32_t ia{0}; ia < natoms; ++ia) {
+            auto const Z = xyzZ(ia,3);
+            auto const iZ = chemical_symbol::get(Z);
+            auto const iz7 = iZ & 0x7f;
+            ++hist[iz7];
+            if (Z != iZ) { asterisk[iz7] = '*'; } // indicate that some species have non-integer numbers of protons
+        } // ia
+        char *f{formula};
+        int remain{96};
+        char symbol[4];
+        for (int iz{0}; iz < 128; ++iz) {
+            if (hist[iz]) {
+                chemical_symbol::get(symbol, iz);
+                auto const n_chars_printed = std::snprintf(f, remain, "%s%c%d ", symbol, asterisk[iz], hist[iz]);
+                remain -= n_chars_printed;
+                if (remain < 10) { return -1; } // failure
+                f += n_chars_printed;
+            }
+        } // iz
+        return 0; // success
+    } // get_sum_formula
+
+
+
     double get_temperature(int const echo, double const def) { // def=1e-3
         auto const unit = control::get("electronic.temperature.unit", "Ha");
         char const *_eu;
@@ -355,7 +393,11 @@ namespace geometry_input {
         real_space::grid_t g;
         view2D<double> xyzZ;
         int32_t natoms;
-        return init_geometry_and_grid(g, xyzZ, natoms, 8, echo);
+        auto const stat = init_geometry_and_grid(g, xyzZ, natoms, 8, echo);
+        char sum_formula[96];
+        get_sum_formula(sum_formula, xyzZ, natoms, echo);
+        if (echo > 0) { std::printf("# %s: sum formula: %s", __func__, sum_formula); }
+        return stat;
     } // test_init
 
     status_t all_tests(int const echo) {

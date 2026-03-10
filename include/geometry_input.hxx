@@ -29,6 +29,13 @@ namespace geometry_input {
         , int const echo=0 // log-level
     ); // declaration only
 
+    status_t get_sum_formula(
+          char formula[96] // result
+        , view2D<double> const & xyzZ // xyzZ[natoms][4+]
+        , int32_t const natoms // total number of all atoms
+        , int const echo=0 // log-level
+    ); // declaration only
+
     double get_temperature(int const echo, double const def=1e-3); // declaration only
 
     status_t all_tests(int const echo=0); // declaration only

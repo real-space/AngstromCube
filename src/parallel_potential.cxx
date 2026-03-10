@@ -866,9 +866,12 @@ namespace parallel_potential {
         int32_t n_all_atoms;     // number of all atoms (max 2.147483647e9 == 2^31 - 1)
         { // scope: init_geometry_and_grid, the number of grid points must be a multiple of 8 in each direction
             auto const stat_init = geometry_input::init_geometry_and_grid(g, xyzZ_all, n_all_atoms, 8, echo);
-            if (stat_init) warn("init_geometry_and_grid returned status= %i", int(stat_init));
+            if (stat_init) { warn("init_geometry_and_grid returned status= %i", int(stat_init)); }
             stat += stat_init;
         } // scope
+        char sum_formula[96];
+        geometry_input::get_sum_formula(sum_formula, xyzZ_all, n_all_atoms, echo);
+        if (echo > 0) { std::printf("\n#\n# sum formula: %s\n#\n\n", sum_formula); }
 
         auto constexpr n8x8x8 = size_t(8*8*8); // each cube for the potential generation has 8^3 grid points
 
@@ -1506,7 +1509,7 @@ namespace parallel_potential {
                          + grid_electrostatic_energy
                          + atomic_energy_corrections;
             if (echo > 0) { std::printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV); std::fflush(stdout); }
-
+            if (echo > 0) { std::printf("# sum formula: %s\n\n", sum_formula); std::fflush(stdout); }
 
 
             scf_run = (scf_iteration < scf_maxiter && 0 == check); // run only 1 iteration in check mode (check==1)

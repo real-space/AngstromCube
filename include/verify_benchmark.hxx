@@ -285,7 +285,7 @@ namespace verify_benchmark {
                 std::fprintf(f, "%s\"number of rows\": %d,\n", tab, nRows);
                 std::fprintf(f, "%s\"number of cols\": %d,\n", tab, nCols);
                 std::fprintf(f, "%s\"number of nonzeros\": %d,\n", tab, nnzb);
-                std::fprintf(f, "%s\"cube pairs\": {\n", tab, nCols);
+                std::fprintf(f, "%s\"cube pairs\": {\n", tab);
                 tab -= 2; // indent
 
                 for (uint32_t iRow{0}; iRow < nRows; ++iRow) {
@@ -296,7 +296,7 @@ namespace verify_benchmark {
                         double const r2 = pow2(vc[0]*n4*hxyz[0]) + pow2(vc[1]*n4*hxyz[1]) + pow2(vc[2]*n4*hxyz[2]);
                         auto const r = std::sqrt(r2);
 
-                        std::fprintf(f, "%s\"cube pair %d\": {\n", tab, inzb, nCols);
+                        std::fprintf(f, "%s\"cube pair %d\": {\n", tab, inzb);
                         tab -= 2; // indent
 
                         // ToDo: missing global row and col indices
@@ -313,7 +313,7 @@ namespace verify_benchmark {
                             std::fprintf(f, "%s[\n", tab); // rowdata
                             tab -= 2; // indent
                             for (int j64{0}; j64 < 64; ++j64) {
-                                if (0 == (j64 & 0x3)) { std::fprintf(f, tab); }
+                                if (0 == (j64 & 0x3)) { std::fprintf(f, "%s", tab); }
                                 auto const reGf = Gf[((inzb*2 + Real)*64 + i64)*64 + j64];
                                 auto const imGf = Gf[((inzb*2 + Imag)*64 + i64)*64 + j64];
                                 std::fprintf(f, "%g,%g%s", reGf, imGf, (j64 < 63) ? (((j64 & 0x3) < 3) ? ",  " : ",\n") : "");

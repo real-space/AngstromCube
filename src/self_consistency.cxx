@@ -21,7 +21,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "data_list.hxx" // data_list<T>
 
-#include "geometry_input.hxx" // ::read_xyz_file, ::get_temperature, ::init_geometry_and_grid
+#include "geometry_input.hxx" // ::read_xyz_file, ::get_temperature, ::init_geometry_and_grid, ::get_sum_formula
 #include "geometry_analysis.hxx" // ::fold_back, length
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::get, ::set, ::echo_set_without_warning
@@ -119,6 +119,11 @@ namespace self_consistency {
                                       boundary_condition::potential_bc(gbc[2]));
       }
       int const na{na_noconst}; // total number of atoms
+      char sum_formula[96];
+      { // scope: compute the sum formula of the geometry
+          geometry_input::get_sum_formula(sum_formula, xyzZ, na, echo);
+          if (echo > 0) { std::printf("\n#\n# sum formula: %s\n#\n\n", sum_formula); }
+      }
 
       std::vector<float> ionization(na, 0.f);
       { // scope: ionization between first and last atom
@@ -606,6 +611,7 @@ namespace self_consistency {
                        + grid_electrostatic_energy
                        + atomic_energy_corrections;
           if (echo > 0) { std::printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV); std::fflush(stdout); }
+          if (echo > 0) { std::printf("# sum formula: %s\n\n", sum_formula); std::fflush(stdout); }
 
 
 
