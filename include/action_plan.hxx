@@ -88,9 +88,10 @@ public: // TODo: check which members could be private
 
     dyadic_plan_t dyadic_plan; // plan to execute the dyadic potential operator
 
-    double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
-    float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
-    float V_confinement   = 1; // potential prefactor
+    double r_truncation = 9e18; // radius beyond which the Green function is truncated, in Bohr
+    float r_mask        = 9e18; // radius beyond which the mask is multiplied, in Bohr
+    float r_confinement = 9e18; // radius beyond which the confinement potential is added, in Bohr
+    float V_confinement = 1; // potential prefactor
     bool noncollinear_spin = false;
 
 
@@ -119,9 +120,10 @@ public:
 class action_plans_t {
 public:
 
-    double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
-    float r_confinement   = 9e18; // radius beyond which the confinement potential is added, in Bohr
-    float V_confinement   = 1; // potential prefactor
+    double r_truncation = 9e18; // radius beyond which the Green function is truncated, in Bohr
+    float r_mask        = 9e18; // radius beyond which the mask is multiplied, in Bohr
+    float r_confinement = 9e18; // radius beyond which the confinement potential is added, in Bohr
+    float V_confinement = 1; // potential prefactor
     bool noncollinear_spin = false;
     size_t nPots          = 0;
     double  (**Veff)[64]          = nullptr; // effective potential, data layout [4][nPots][64], 4 >= Noco^2

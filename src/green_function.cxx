@@ -462,12 +462,14 @@ namespace green_function {
 
         // truncation radius
         auto const r_trunc = control::get("green_function.truncation.radius", 10.);
-        {   auto & p = plans; 
+        {   auto & p = plans;
             if (echo > 0) { std::printf("# green_function.truncation.radius=%g %s, %.1f grid points\n", r_trunc*Ang, _Ang, r_trunc/average_grid_spacing); }
             p.r_truncation = std::max(0., r_trunc);
+            p.r_mask        = control::get("green_function.mask.radius", std::min(std::max(0., r_trunc - 1.0), p.r_truncation));
             // confinement potential
             p.r_confinement = control::get("green_function.confinement.radius", std::min(std::max(0., r_trunc - 2.0), p.r_truncation));
             p.V_confinement = control::get("green_function.confinement.potential", 1.);
+            if (echo > 2) { std::printf("# masking at radius %g %s\n", p.r_mask*Ang, _Ang); }
             if (echo > 2) { std::printf("# confinement potential %g*((r/Bohr)^2 - %g^2)^2 %s\n", p.V_confinement*eV, p.r_confinement, _eV); }
             if (echo > 2) { std::printf("# V_confinement(r_truncation)= %g %s\n", p.V_confinement*eV*pow4(r_trunc - p.r_confinement), _eV); }
         } // scope
@@ -504,7 +506,8 @@ for (int isub = 0; isub < nsub; ++isub) {
         } // irhs
 
         p.noncollinear_spin = plans.noncollinear_spin;
-        p.r_truncation = plans.r_truncation;
+        p.r_truncation  = plans.r_truncation;
+        p.r_mask        = plans.r_mask;
         p.r_confinement = plans.r_confinement;
         p.V_confinement = plans.V_confinement;
 

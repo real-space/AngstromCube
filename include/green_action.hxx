@@ -188,7 +188,7 @@ namespace green_action {
             // mask the input vector x (this is why it cannot be real_t const)
             nops += green_potential::multiply_mask<real_t,R1C2,Noco>(x,
                         p.target_minus_source, p.grid_spacing_trunc, nnzb,
-                        pow2(p.r_confinement), pow2(p.r_truncation), p.echo);
+                        pow2(p.r_mask), pow2(p.r_truncation), p.echo);
 #endif // CONFINEMENT_POTENTIAL
 
             if (p.echo > 2) { std::printf("# green_action::multiply\n"); }
@@ -211,7 +211,7 @@ namespace green_action {
             // mask the result vector y
             nops += green_potential::multiply_mask<real_t,R1C2,Noco>(y,
                         p.target_minus_source, p.grid_spacing_trunc, nnzb,
-                        pow2(p.r_confinement), pow2(p.r_truncation), p.echo);
+                        pow2(p.r_mask), pow2(p.r_truncation), p.echo);
 #endif // CONFINEMENT_POTENTIAL
 
             if (p.echo > 4) { std::printf("# green_action::multiply %g G%clop\n", nops*1e-9, (8 == sizeof(real_t))?'F':'f'); }

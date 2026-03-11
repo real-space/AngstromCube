@@ -1,7 +1,7 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-// A simple multi-dimensional array library
+// A simple multi-dimensional array library, see documentation at ../doc/data_view.md
 
 #include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert
@@ -16,13 +16,13 @@
 #ifdef    DEBUGGPU
     #define data_view_debug_printf(...) { std::printf(__VA_ARGS__); std::fflush(stdout); }
 #else  // DEBUGGPU
- #define data_view_debug_printf(...)
+    #define data_view_debug_printf(...)
 #endif // DEBUGGPU
 
 #ifdef    DEVEL
-  #ifndef   NO_UNIT_TESTS
-    #include "simple_timer.hxx" // SimpleTimer
-  #endif // NO_UNIT_TESTS
+    #ifndef   NO_UNIT_TESTS
+        #include "simple_timer.hxx" // SimpleTimer
+    #endif // NO_UNIT_TESTS
 #endif // DEVEL
 
 
@@ -209,20 +209,20 @@ private:
 
   template <typename T>
   view2D<T> transpose(
-        view2D<T> const & a // input matrix a(N
-      , int const aN // assume shape a(N,M)
+        view2D<T> const & a // input matrix a(aN,aM)
+      , int const aN // assume shape a(aN,aM)
       , int const aM=-1 // -1:auto use a.stride()
       , char const conj='n' // 'c':complex conjugate (for complex data types)
   ) {
       // define matrix-transposition a(N,M) --> a_transposed(M,N)
 
-      int const N = (-1 == aM) ? a.stride() : aM;
-      int const M = aN;
-      assert( N <= a.stride() );
+      int const Nt = (-1 == aM) ? a.stride() : aM;
+      int const Mt = aN;
+      assert( Nt <= a.stride() );
       bool const c = ('c' == (conj | 32)); // case insensitive: 'C' and 'c' lead to complex conjugation
-      view2D<T> a_transposed(N, M);
-      for (int n = 0; n < N; ++n) {
-          for (int m = 0; m < M; ++m) {
+      view2D<T> a_transposed(Nt, Mt); // memory allocation
+      for (int n = 0; n < Nt; ++n) {
+          for (int m = 0; m < Mt; ++m) {
               auto const a_mn = a(m,n); 
               a_transposed(n,m) = c ? conjugate(a_mn) : a_mn;
           } // m
@@ -234,18 +234,19 @@ private:
   void gemm(view2D<Tc> & c // result matrix, shape(N,M)
       , int const N, view2D<Tb> const & b //  left input matrix, shape(N,K)
       , int const K, view2D<Ta> const & a // right input matrix, shape(K,M)
-      , int const aM=-1 // user specify M different from min(a.stride(), c.stride())
+      , int const aM=-1 // user specified M, may be different from min(a.stride(), c.stride())
       , char const beta='0' // '0':overwrite elements of c, else add to c
   ) {
       // define a generic matrix-matrix multiplication: c(N,M) = b(N,K) * a(K,M)
 
       int const M = (-1 == aM) ? std::min(c.stride(), a.stride()) : aM;
-      if (M > a.stride()) error("M= %d > %ld =a.stride", M, a.stride());
-      if (K > b.stride()) error("K= %d > %ld =b.stride", M, b.stride());
-      if (M > c.stride()) error("M= %d > %ld =c.stride", M, c.stride());
+      if (M > a.stride()) { error("M= %d > %ld =a.stride", M, a.stride()); }
+      if (K > b.stride()) { error("K= %d > %ld =b.stride", K, b.stride()); }
+      if (M > c.stride()) { error("M= %d > %ld =c.stride", M, c.stride()); }
       assert( M <= a.stride() );
       assert( K <= b.stride() );
       assert( M <= c.stride() );
+      // generic triple-loop matrix-matrix-multiplication
       for (int n = 0; n < N; ++n) {
           for (int m = 0; m < M; ++m) {
               Tc t(0);
@@ -566,11 +567,7 @@ inline void set(view4D<T> & y, size_t const n3, T const a) {
 #undef DimUnknown
 #undef data_view_debug_printf
 #undef CHECK_INDEX
-
-
-
-
-
+#undef CHECK_INDEX_AT
 
 
 
@@ -594,7 +591,33 @@ namespace data_view {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS
 
-  inline int test_view2D(int const echo=9) {
+  inline status_t test_view2D_transpose(int const echo=9) {
+      int constexpr n1 = 3, n0 = 5;
+      if (echo > 3) { std::printf("\n# %s(%i,%i)\n", __func__, n1, n0); }
+
+      status_t stat(0);
+
+      view2D<float> a(n1,n0);
+      for (int i1 = 0; i1 < n1; ++i1) {
+          for (int i0 = 0; i0 < n0; ++i0) {
+              a.at(i1,i0) = i1 + 0.1*i0;
+          } // i0
+      } // i1
+
+      auto const aT = transpose(a, n1);
+
+      for (int i0 = 0; i0 < n0; ++i0) {
+          for (int i1 = 0; i1 < n1; ++i1) {
+              stat += (aT.at(i0,i1) != a.at(i1,i0));
+          } // i1
+      } // i0
+
+      if (stat > 0 && echo > 0) { std::printf("# %s(%i,%i) --> %d errors\n", __func__, n1, n0, int(stat)); }
+      return stat;
+  } // test_view2D_transpose
+
+
+  inline status_t test_view2D(int const echo=9) {
       int constexpr n1 = 3, n0 = 5;
       if (echo > 3) std::printf("\n# %s(%i,%i)\n", __func__, n1, n0);
 
@@ -625,7 +648,7 @@ namespace data_view {
       return 0;
   } // test_view2D
 
-  inline int test_view3D(int const echo=9) {
+  inline status_t test_view3D(int const echo=9) {
       int constexpr n2 = 3, n1 = 2, n0 = 5;
       if (echo > 3) std::printf("\n# %s(%i,%i,%i)\n", __func__, n2, n1, n0);
       view3D<float> a(n2,n1,8); // memory allocation with stride padding
@@ -645,7 +668,7 @@ namespace data_view {
       return 0;
   } // test_view3D
 
-  inline int test_view4D(int const echo=9) {
+  inline status_t test_view4D(int const echo=9) {
       int constexpr n3 = 1, n2 = 2, n1 = 3, n0 = 4;
       if (echo > 3) std::printf("\n# %s(%i,%i,%i,%i)\n", __func__, n3, n2, n1, n0);
       view4D<float> a(n3,n2,n1,n0); // memory allocation
@@ -671,33 +694,50 @@ namespace data_view {
 #ifdef    DEVEL
       // benchmark which way is faster, [][] or (,)
       if (echo < 1) return 0;
-      view2D<int> a(2, 2, 0);
-      {   SimpleTimer t(__FILE__, __LINE__, "a[i][j]", echo);
-          for (int irep = 0; irep < nrep; ++irep) {
-              a[1][1] = a[1][0];
-              a[1][0] = a[0][1];
-              a[0][1] = a[0][0];
-              a[0][0] = irep;
-          } // irep
-      } // timer
-      if (echo > 3) std::printf("# a[i][j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
-      std::fflush(stdout);
-      {   SimpleTimer t(__FILE__, __LINE__, "a(i,j)", echo);
+      view2D<int> a(2,2, 0);
+      {   SimpleTimer t(__FILE__, __LINE__, "a(i,j)    ", echo);
           for (int irep = 0; irep < nrep; ++irep) {
               a(1,1) = a(1,0);
-              a(1,0) = a(0,1); // This version is about 1.5x slower
+              a(1,0) = a(0,1); // This version is fastest (with -D DATA_VIEW_HAS_NO_INDEX_CHECKING)
               a(0,1) = a(0,0);
               a(0,0) = irep;
           } // irep
       } // timer
-      if (echo > 3) std::printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
-      std::fflush(stdout);
+      if (echo > 3) { std::printf("# a(i,j)     = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1)); std::fflush(stdout); }
+      {   SimpleTimer t(__FILE__, __LINE__, "a[i][j]   ", echo);
+          for (int irep = 0; irep < nrep; ++irep) {
+              a[1][1] = a[1][0];
+              a[1][0] = a[0][1]; // This version is a bit slower
+              a[0][1] = a[0][0];
+              a[0][0] = irep;
+          } // irep
+      } // timer
+      if (echo > 3) { std::printf("# a[i][j]    = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1)); std::fflush(stdout); }
+      {   SimpleTimer t(__FILE__, __LINE__, "a.at(i)[j]", echo);
+          for (int irep = 0; irep < nrep; ++irep) {
+              a.at(1)[1] = a.at(1)[0];
+              a.at(1)[0] = a.at(0)[1]; // This version is always slow due to single index checking
+              a.at(0)[1] = a.at(0)[0];
+              a.at(0)[0] = irep;
+          } // irep
+      } // timer
+      if (echo > 3) { std::printf("# a.at(i)[j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1)); std::fflush(stdout); }
+      {   SimpleTimer t(__FILE__, __LINE__, "a.at(i,j) ", echo);
+          for (int irep = 0; irep < nrep; ++irep) {
+              a.at(1,1) = a.at(1,0);
+              a.at(1,0) = a.at(0,1); // This version even slower, both indices are checked
+              a.at(0,1) = a.at(0,0);
+              a.at(0,0) = irep;
+          } // irep
+      } // timer
+      if (echo > 3) { std::printf("# a.at(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1)); std::fflush(stdout); }
 #endif // DEVEL
       return 0;
   } // test_bench_view2D
 
   inline status_t all_tests(int const echo=0) {
       status_t status = 0;
+      status += test_view2D_transpose(echo);
       status += test_view2D(echo);
       status += test_view3D(echo);
       status += test_view4D(echo);
