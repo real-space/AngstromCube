@@ -1,6 +1,6 @@
 ***Multi-dimensional Arrays***
 
-The largest feature-envy for Fortran90, however, are the intrinsic support of
+The largest feature-envy of C++ towards Fortran90 are the intrinsic support of
 multi-dimensional arrays with support for run-time checking of index-out-of-bounds.
 
 Therefore, `data_view.hxx` introduces the containers
@@ -19,11 +19,11 @@ described in the following.
 ```
 and initializer values can be passed, e.g.
 ```C++
-    view2D<float> a2(n1, n0, 1.0f); // allocates n1*n0 floats, set all to value 1
+    view2D<float> a2(n1, n0, 1.0f); // allocates n1*n0 floats, set all entries to value 1
 ```
 We can use the familiar `[]`-operator onto a `view2D`.
 It does not return an `std::vector` or a `view1D` for reasons of performance
-but a plain `T*` pointer where it is the programmer`s duty to check that
+but a plain `T*` pointer where it is the programmer's responsibility to check that
 this pointer is not dereferenced beyond entry `n0`, i.e. index checking is disabled here.
 
 The `[]`-operator onto a `view3D` returns a `view2D` and, similarly,
@@ -31,13 +31,13 @@ for `view4D` a `view3D` is retained. Mind that the returned objects
 are only data views (hence the name) and do not allocate their own memory.
 This allows to use, if necessary, also the `[]`-indexing syntax in a cascading fashion
 ```C++
-    view4D<T> a4(n3, n2, n1, n0); // allocates
-    T b = a4[i3][i2][i1][i0];
+    view4D<T> a4(n3, n2, n1, n0); // allocates memory
+    T b = a4[i3][i2][i1][i0]; // complicated dereferencing
 ```
 Although deep copies are avoided, it comes at a runtime overhead of creating 
 several temporary objects. It is encouraged to use the Fortran-like `()`-indexing syntax
 ```C++
-    b = a4(i3,i2,i1,i0);
+    b = a4(i3,i2,i1,i0); // direct dereferencing
 ```
 to minimize the overhead.
 Furthermore, the `()`-operator allows to pass 1D sub-views of e.g. 3D arrays
@@ -101,4 +101,13 @@ Here, we have to pass `n1` manually since it cannot be queried from `a2`.
 Mind that, although views to data are in principle capable to avoid deep copies
 during transposition, this model has not been implemented here.
 
-
+*Index Checking*
+By default, indices are checked for access-out-of-bounds wherever possible, however,
+we can deactivate index checking by the preprocessor macro '-D DATA_VIEW_HAS_NO_INDEX_CHECKING'.
+If, however, we use `data_view` in very delicate situations that are far from performance critical,
+we can enforce the index checking by
+using `.at(i)` instead of `[i]` (same as in `std::vector<T>`),
+using `.at(i,j)` instead of `(i,j)`,
+using `.at(i,j,k)` instead of `(i,j,k)` and 
+using `.at(i,j,k,l)` instead of `(i,j,k,l)`
+to get access to single elements or sub-views.
