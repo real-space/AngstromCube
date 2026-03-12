@@ -2,7 +2,9 @@
 #define   SINGLE_ATOM_HEADER
 // This file is part of AngstromCube under MIT License
 
-// C - interface for libliveatom.so
+// #doc
+// This is the C interface for libliveatom.so
+//
 
 /*
     What do we need to replace PAWs in any DFT code?

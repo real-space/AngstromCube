@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// This module extracts geoemtry information from a *.xyz geometry.file
+//
+
 #include <cstdint> // int32_t
 
 #include "status.hxx" // status_t
@@ -10,6 +14,7 @@
 
 namespace geometry_input {
 
+    // file reading
     status_t read_xyz_file(
           view2D<double> & xyzZ // result
         , int32_t & n_atoms     // result
@@ -20,6 +25,7 @@ namespace geometry_input {
         , int const echo=5 // log-level
     ); // declaration only
 
+    // check atom positions for consistency with boundary conditions
     status_t init_geometry_and_grid(
           real_space::grid_t & g // output grid descriptor
         , view2D<double> & xyzZ  // output atom coordinates and core charges Z
@@ -29,6 +35,7 @@ namespace geometry_input {
         , int const echo=0 // log-level
     ); // declaration only
 
+    // write a single line sum formula to summarize the geometry
     status_t get_sum_formula(
           char formula[96] // result
         , view2D<double> const & xyzZ // xyzZ[natoms][4+]
@@ -36,8 +43,10 @@ namespace geometry_input {
         , int const echo=0 // log-level
     ); // declaration only
 
+    // find the electronic.temperature from control
     double get_temperature(int const echo, double const def=1e-3); // declaration only
 
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace geometry_input

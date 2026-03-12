@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// This offers an allocator for managed GPU memory.
+//
+
 #include <cstddef> // size_t
 #ifdef    DEBUG
     #include <cstdio> // std::printf
@@ -10,17 +14,24 @@
 
 namespace green_memory {
 
+    // wrapper to allocate new managed GPU memory (or CPU memory if compiled without CUDA)
     void* malloc(size_t const size_in_Bytes, char const *const name=""); // declaration only
+
+    // wrapper to free the managed GPU memory
     void free(void* ptr, char const *const name=""); // declaration only
 
+    // show how much memory is in use now
     size_t total_memory_now(); // declaration only
+
+    // show the maximum of memory that has been used since the program start
     size_t high_water_mark(); // declaration only
 
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_memory
 
-
+    // useful wrapper around malloc to allocate arrays, e.g. get_memory<float[3][4]>
     template <typename T>
     T* get_memory(size_t const size=1, int const echo=0, char const *const name="") {
 
@@ -42,7 +53,7 @@ namespace green_memory {
         return (T*)ptr;
     } // get_memory
 
-
+    // corresponding wrapper for get_memory<T>, please use the macro free_memory (without leading underscore) to get a debug string
     template <typename T>
     void _free_memory(T* & ptr, char const *const name="") {
 #ifdef    DEBUG
@@ -59,5 +70,6 @@ namespace green_memory {
 
 #define free_memory(PTR) _free_memory(PTR, #PTR)
 
+    // display name according to floating.point precision
     template <typename real_t=float>
     inline char const* real_t_name() { return (8 == sizeof(real_t)) ? "double" : "float"; }

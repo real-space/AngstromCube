@@ -1,6 +1,11 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// This module performs the action of the local effective potential
+// onto sets of columns of a Green function as part of the ultra-block-sparse Hamiltonian.
+//
+
 #include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, uint32_t, int16_t, int8_t
 #include <cassert> // assert
@@ -17,6 +22,7 @@
 
 namespace green_potential {
 
+    // potential operator GPU kernel
     template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Potential( // GPU kernel, must be launched with <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef    HAS_NO_CUDA
@@ -68,7 +74,7 @@ namespace green_potential {
         int const dx = ( i64       & 0x3) - ( j64       & 0x3); // difference in x-direction in [-3, 3]
         int const dy = ((i64 >> 2) & 0x3) - ((j64 >> 2) & 0x3); // difference in y-direction in [-3, 3]
         int const dz = ((i64 >> 4) & 0x3) - ((j64 >> 4) & 0x3); // difference in z-direction in [-3, 3]
-        // due to the masking, we ignore the Noco-spin index inside j64
+        // due to the bit-masking, we ignore the Noco-spin index inside j64
 //      std::printf("# block %d thread %d has in-block shifts %d %d %d \n", i64, j64, x, y, z); // debug
 #endif // CONFINEMENT_POTENTIAL
 
@@ -154,8 +160,9 @@ namespace green_potential {
     } // Potential
 
 
+    // potential operator driver
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t multiply(
+    size_t __host__ multiply(
           real_t         (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , double   const (*const *const __restrict__ Vloc)[64] // local potential, Vloc[Noco*Noco][iloc][4*4*4]
@@ -194,6 +201,7 @@ namespace green_potential {
     } // multiply potential
 
 
+    // masking GPU kernel
     template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Mask( // GPU kernel, must be launched with <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef    HAS_NO_CUDA
@@ -277,13 +285,14 @@ namespace green_potential {
     } // Mask
 
 
+    // masking driver
     template <typename real_t, int R1C2=2, int Noco=1>
-    size_t multiply_mask( // mask
+    size_t __host__ multiply_mask( // mask
           real_t         (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input and output
         , int16_t  const (*const __restrict__ target_minus_source)[3+1] // 3D cube shift vector (target minus source), 4th component unused
         , double   const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
         , uint32_t const nnzb // number of all cubes to be treated
-        , float    const rmask2=-1
+        , float    const rmask2=8e37
         , float    const rcut2=9e37 // cutoff radius^2 for the confinement potential, -1: no confinement
         , int const echo=0
     ) {
@@ -311,7 +320,7 @@ namespace green_potential {
 
 
 
-
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_potential

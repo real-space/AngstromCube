@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// Collect statistics in a structured way.
+//
+
 #include <cstdio> // std::printf
 #include <algorithm> // std::min, ::max
 #include <cmath> // std::sqrt, ::abs
@@ -102,7 +106,7 @@ namespace simple_stats {
 
 
 
-
+    // self-tests
 #ifdef    NO_UNIT_TESTS
     inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS

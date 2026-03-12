@@ -1,6 +1,12 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// The dydadic_plan_t class groups information needed to apply the outer-product
+// of factorized SHO-functions (SHO=Spherical Harmonic Oscillator basis functions)
+// as part of the application of a real-space Hamiltonian.
+//
+
 #include <cstdio> // FILE
 #include <cstddef> // size_t
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
@@ -15,6 +21,7 @@
 
 namespace dyadic_plan {
 
+    // self-tests
     inline status_t all_tests(int echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 
 } // namespace dyadic_plan

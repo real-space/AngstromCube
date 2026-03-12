@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// Routine collection for the generation of the local effective DFT potential.
+//
+
 #include <cstdio> // std::printf, ::snprintf
 
 #include "status.hxx" // status_t
@@ -26,7 +30,7 @@
 
 namespace potential_generator {
 
-  // debugging tool wrapper
+  // debugging tool wrapper to dump arrays to disk
   template <typename real_t>
   status_t write_array_to_file(
         char const *filename // file name to write to
@@ -41,6 +45,7 @@ namespace potential_generator {
   } // write_array_to_file
 
 
+  // add spherically-symmetric functions stored on r^2-grids to a 3D grid function at atomic centers
   template <typename real_t>
   status_t add_smooth_quantities(
         real_t values[] // add to this function on a 3D grid
@@ -90,6 +95,7 @@ namespace potential_generator {
   } // add_smooth_quantities
 
 
+  // add multipoles to a grid function
   template <typename real_t, int debug=0>
   status_t add_generalized_Gaussian(
         real_t values[] // grid values which are modified
@@ -224,6 +230,7 @@ namespace potential_generator {
 
 #ifdef    DEVEL
 
+  // project potentials into a radial representation, e.g. around an atom-center
   inline status_t potential_projections(
         real_space::grid_t const & g // dense grid descriptor
       , double const Ves[] // electrostatic potential on g
@@ -253,8 +260,9 @@ namespace potential_generator {
               { // scope: Laplace_Ves should match rho
                   double res_a{0}, res_2{0};
                   for (size_t i = 0; i < g.all(); ++i) {
-                      res_a += std::abs(Laplace_Ves[i] - rho[i]);
-                      res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
+                      auto const difference = Laplace_Ves[i] - rho[i];
+                      res_a += std::abs(difference);
+                      res_2 +=     pow2(difference);
                   } // i
                   res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
                   if (echo > 1) std::printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e (FD-order=%i)\n", res_a, res_2, nfd);
@@ -368,6 +376,7 @@ namespace potential_generator {
 
 #endif // DEVEL
 
+  // self-tests
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace potential_generator

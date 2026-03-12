@@ -357,6 +357,7 @@ namespace green_action {
     }; // class action_t
 
 
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_action

@@ -404,8 +404,8 @@ namespace single_atom {
 
 
 
-
   class LiveAtom {
+      // LiveAtom is an internal class, its effects are mediated through the C++ interface (see single_atom.hxx) or the C interface (see single_atom.h)
   public:
       // ToDo: separate everything which is energy-parameter-set dependent
       //        and group it into a class valence_window_t (or some better name)

@@ -1,7 +1,9 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
 // A simple multi-dimensional array library, see documentation at ../doc/data_view.md
+//
 
 #include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert

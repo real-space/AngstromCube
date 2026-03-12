@@ -1,6 +1,12 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// The kinetic_plan_t contains index lists needed for the finite-difference
+// derivative on a 4x4x4-cube-grouped 3D grid as used in the kinetic energy operator
+// of the ultra-block-sparse Hamiltonian.
+//
+
 #include <cstdio> // std::printf
 #include <cstdint> // uint32_t, int32_t, uint16_t, int16_t
 #include <cassert> // assert
@@ -23,7 +29,7 @@ namespace kinetic_plan {
     int32_t constexpr CUBE_IS_ZERO = 0; // and thus is not stored
     int32_t constexpr CUBE_NEEDS_PHASE = -1; // negative indices refer to their positive counterparts but with a phase
 
-
+    // determine the complex Bloch-phase coefficients for forward and backward motion, i.e. when we cross a periodic boundary
     double set_phase(
           double phase[2][2] // result: phase factors[forward+backward][real+imag]
         , double const phase_angle=0 // phase_angle in units of 2*pi
@@ -31,12 +37,14 @@ namespace kinetic_plan {
         , int const echo=0 // verbosity
     ); // declaration only
 
-    void set_phase( // wrapper for set_phase defined above for all 3 directions
+    // wrapper for set_phase defined above for all 3 directions
+    void set_phase(
           double phase[3][2][2]
         , double const phase_angles[3]=nullptr
         , int const echo=0 // verbosity
     ); // declaration only
 
+    // self-tests
     inline status_t all_tests(int echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 
 

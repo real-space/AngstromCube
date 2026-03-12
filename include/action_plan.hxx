@@ -1,6 +1,14 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// The action_plan is a class to contain all the support information
+// for the action of a ultra-block-sparse Hamiltonian onto a set of Green function columns.
+// It contains the necessary members for being instanciated with tfQMRgpu::solve
+// and additional members related to the real-space Green function approach.
+// The action_plan class is independent of floating point precision, real/complex and spin collinearity.
+//
+
 #include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
@@ -145,6 +153,7 @@ public:
 
 namespace action_plan {
 
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace action_plan

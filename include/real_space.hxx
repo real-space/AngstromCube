@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// real_space::grid_t is a descriptor for a 3D uniform real-space grid.
+//
+
 #include <cstdio> // std::printf
 #include <cstdint> // uint32_t, int8_t
 #include <algorithm> // std::min, ::max
@@ -226,7 +230,7 @@ namespace real_space {
   }; // class grid_t
 
 
-
+  // add a real-valued radially symmetric function to values on a general grid, the function is stored on an r^2-grid
   template <typename real_t>
   status_t add_function_general(
         real_t values[] // grid values which are modified
@@ -281,6 +285,7 @@ namespace real_space {
 
 
 
+  // add a real-valued radially symmetric function to values on a Cartesian grid, the function is stored on an r^2-grid
   template <typename real_t>
   status_t add_function(
         real_t values[] // grid values which are modified
@@ -362,6 +367,8 @@ namespace real_space {
       return stat;
   } // add_function
 
+
+  // project values on a 3D grid around a given center position to a radial represention using Bessel functions
   template <typename real_t>
   status_t Bessel_projection(
         double q_coeff[] // result Bessel coefficients
@@ -416,7 +423,7 @@ namespace real_space {
 
 
 
-
+  // self-tests
 #ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS

@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// Definition of the radial_grid_t radial grid descriptor.
+// This comes in a file separate from radial_grid.hxx as it could be included by plain C code.
+//
 
 struct radial_grid_t {
     int   n = 0; // number of points

@@ -1,6 +1,11 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// The green_function module offers the main constructor method for
+// action_plans_t and the contained vector of action_plan_t instances.
+//
+
 #include <cstdint> // uint32_t, int8_t
 #include <vector>  // std::vector<T>
 #include <complex> // std::complex<real_t>
@@ -22,6 +27,7 @@
 
 namespace green_function {
 
+    // constructor method for action_plans_t
     status_t construct_Green_function( // constructor for action_plan_t
           action_plans_t & plans // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
         , uint32_t const ng[3] // numbers of grid points of the unit cell in with the potential is defined
@@ -36,15 +42,17 @@ namespace green_function {
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear
     ); // declaration only
 
+    // envoke MPI communication for potential fields and atom matrices
     status_t update_potential(
           action_plans_t & p // modify
 //      , uint32_t const nb[3] // numbers of 4*4*4 grid cubes of the unit cell in with the potential is defined
-        , std::vector<double> const & Veff // effective potential[ncubes*4*4*4]
+        , std::vector<double> const & Veff // effective potential[ncubes*4*4*4], missing Noco-factor
         , std::vector<std::vector<double>> const & AtomMatrices
         , int const echo=0 // verbosity
         , int const Noco=1 // 1:collinear spins, 2:Non-collinear
     ); // declaration only
 
+    // adopt the energy parameter inside the action_plan_t to a given value, also prepare atom_matrices internally
     status_t update_energy_parameter(
           action_plan_t & p // modify
         , action_plans_t const & plans
@@ -55,6 +63,7 @@ namespace green_function {
         , double const scale_H=1
     ); // declaration only
 
+    // update the complex and spin-related phase factors for a given Brillouin zone vector (k-point)
     status_t update_phases(
           action_plan_t & p // modify
         , double const k_point[3] // Brillouin zone vector
@@ -62,6 +71,7 @@ namespace green_function {
         , int const Noco=1 // // 1:collinear spins, 2:Non-collinear
     ); // declaration only
 
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_function

@@ -1,6 +1,11 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// The green_solver module offers an abstraction to the templated
+// multi-versioning {float,double} x {Noco=1, Noco=2} of green_action::action_t
+//
+
 #include <cstdio> // std::printf
 #include <cassert> // assert
 #include <cstdint> // uint32_t
@@ -10,7 +15,6 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "action_plan.hxx" // action_plan_t
 
-    // This module resolves the multi-versioning {float,double} x {Noco=1, Noco=2} of green_action::action_t
 class green_solver_t {
 public:
 
@@ -48,6 +52,7 @@ private: // members
 
 namespace green_solver {
 
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace green_solver

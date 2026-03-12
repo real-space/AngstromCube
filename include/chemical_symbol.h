@@ -1,11 +1,15 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// This defines the chemical symbols of the table of elements as a global string.
+//
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-char const element_symbols[] =
+char const element_symbols[] =  // char[128*2+1]
 "__"                            //    0 vaccum
 "H He"                          // 1s 1--2
 "LiBe"                          // 2s 3--4
@@ -28,7 +32,7 @@ char const element_symbols[] =
 "NhFlMcLvTsOg"                  // 7p 113--118
 "ueu0"                          // 8s 119--120
 "u1u2u3u4u5u6e ";               //    121--127 user defined
- // 2 3 4 5 6 7
+ // 2 3 4 5 6 7 8 9 0 1 2 3 4
 
 #ifdef __cplusplus
 } // extern "C"

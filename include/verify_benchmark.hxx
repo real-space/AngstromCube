@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// Check if solutions have expected symmetries.
+//
+
 #include <cstdio> // std::sprintf, ::fopen, ::fprintf, ::fclose
 #include <cassert> // assert
 #include <algorithm> // std::max
@@ -21,6 +25,7 @@
 
 namespace verify_benchmark {
 
+    // reduce the 3D fields according to an expected crystal symmetry
     inline double show_symmetrized(
           view2D<double> const & density // assume to have 4^3 cubes of 4^3 grid points per cubic diamond unit cell
         , int64_t const gid[] // global cube identifiers
@@ -160,6 +165,7 @@ namespace verify_benchmark {
     } // verify
 
 
+    // project complex-valued collinear Green functions onto a radial grid around each source grid point.
     template <typename real_t>
     inline status_t verify_Green_function(
           real_t const Gf[] // Green function elements [nnzbX*2*64*64]
@@ -350,6 +356,7 @@ namespace verify_benchmark {
     } // verify_Green_function
 
 
+    // self-tests
     inline status_t all_tests(int const echo=0) {
         size_t const ncubes = 64;
         view2D<double> density(ncubes, 4*4*4, 1.);

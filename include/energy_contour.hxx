@@ -1,7 +1,13 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
-#include <algorithm> // std::swap
+// #doc
+// The energy_countour integrator module envokes the green_solver.
+// The Integrator class holds a vectors of green_solver_t instances for different OpenMP-threads.
+//
+
+
+// #include <algorithm> // std::swap
 
 #include "status.hxx" // status_t
 #include "mpi_parallel.hxx" // MPI_Comm
@@ -66,6 +72,7 @@ namespace energy_contour {
         std::vector<green_solver_t> solver_;
     }; // class Integrator
 
+    // self-tests
     status_t all_tests(int const echo=0); // declaration only
 
 } // namespace energy_contour

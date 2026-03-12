@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// This module offers simple templated math functions.
+//
+
 #include <cstdlib> // size_t
 #include <cmath> // std::round
 
@@ -111,6 +115,7 @@
 
 namespace inline_math {
 
+  // self-tests
 #ifdef    NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else  // NO_UNIT_TESTS

@@ -1,6 +1,10 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// This is the C++ interface to the main routine of the libliveatom.so shared library.
+//
+
 #include <cstdint> // int32_t
 
 #include "status.hxx" // status_t
@@ -16,8 +20,10 @@ namespace single_atom {
       , double *const *dpp=nullptr // (c/v/z)out quantities on r2-grid, (u)in vlm, (q)out qlm, (h)out: aHm, aSm, (a)in aDm
   ); // declaration only
 
+  // set the internal variable "version.atom" to a git key passed as preprocessor macro
   status_t set_version(int const echo=0); // declaration only
 
+  // self-tests
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace single_atom

@@ -1,5 +1,11 @@
 #pragma once
 
+// #doc
+// The bessel_transform module offers functionality to transform and back-transform
+// real-valued functions between different radial grids whereas the reciprocal space
+// representation is always an equidistant grid.
+//
+
 #include <cstdio> // std::printf
 #include <cmath> // std::sin
 #include <vector> // std::vector<T>
@@ -10,8 +16,10 @@
 
 namespace bessel_transform {
 
+  // the first Bessel function of the first kind
   inline double Bessel_j0(double const x) { return (x*x < 1e-16) ? 1.0 - x*x/6. : std::sin(x)/x; }
 
+  // transform between real-space and reciprocal space (the reciprocal grid is always equidistant)
   template <typename real_t>
   inline status_t transform_s_function(
         real_t out[] // result
@@ -67,6 +75,7 @@ namespace bessel_transform {
       return 0;
   } // transform_s_function
 
+  // transform a smooth function from any radial grid in real-space to an r^2-grid in real-space
   template <typename real_t>
   inline status_t transform_to_r2grid(
         real_t out[]
@@ -107,6 +116,7 @@ namespace bessel_transform {
       return stat;
   } // transform_to_r2grid
 
+  // self-tests
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace bessel_transform
