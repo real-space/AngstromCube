@@ -37,6 +37,7 @@
 #include "progress_report.hxx" // ProgressReport
 #include "linear_algebra.hxx" // ::eigenvalues, ::gemm
 #include "mpi_parallel.hxx" // ::comm
+#include "global_coordinates.hxx" // ::nonexistent, ::get
 
 #ifdef    HAS_BITMAP_EXPORT
     #include "bitmap.hxx" // ::write_bmp_file
@@ -52,13 +53,16 @@ namespace green_experiments {
 
     template <typename real_t=double, int Noco=1>
     status_t spectralfunction(
-          action_plan_t & p
+          action_plans_t & plans
         , uint32_t const ng[3] // grid points
         , double const hg[3] // grid spacings
         , int const echo=0
     ) {
         int constexpr R1C2 = 2;
         if (echo > 1) std::printf("\n# %s:%s<%s,R1C2=%d,Noco=%d>\n", strip_path(__FILE__), __func__, real_t_name<real_t>(), R1C2, Noco);
+
+        assert(1 == plans.plans.size() && "no subdomains supported");
+        auto & p = plans.plans[0];
 
         green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
 
@@ -81,7 +85,7 @@ namespace green_experiments {
 
         p.gpu_mem = 0;
 #ifdef    HAS_TFQMRGPU
-        p.echo = echo - 5;
+        // p.echo = echo - 5;
         if (echo > 0) std::printf("\n# call tfqmrgpu::mem_count\n");
         tfqmrgpu::solve(action); // try to instanciate tfqmrgpu::solve with this action_t<real_t,R1C2,Noco,64>
         if (echo > 2) std::printf("# tfqmrgpu::solve requires %.6f GByte GPU memory\n", p.gpu_mem*1e-9);
@@ -114,9 +118,8 @@ namespace green_experiments {
                 double const E_real = iE*dE + E0;
                 std::complex<double> E_param(E_real, E_imag);
 
-  //            green_function::update_energy_parameter(p, E_param, AtomMatrices, dV, 1.0, Noco, echo);
-             // green_function::update_energy_parameter(p, E_param, dV, echo, Noco);
-                error("green_function::update_energy_parameter(p, plans, E_param, dV, echo, Noco) missing", 0);
+                green_function::update_energy_parameter(p, plans, E_param, dV, echo, Noco);
+                // error("green_function::update_energy_parameter(p, plans, E_param, dV, echo, Noco) missing", 0);
 
 #ifdef    HAS_TFQMRGPU
                 if (maxiter >= 0) {
@@ -317,8 +320,8 @@ namespace green_experiments {
 
     template <typename real_t=double, int R1C2=1, int Noco=1>
     status_t eigensolver(
-          action_plan_t & pH
-        , action_plan_t & pS
+          action_plans_t & plansH
+        , action_plans_t & plansS
         , uint32_t const ng[3] // coarse grid points
         , double const hg[3] // coarse grid spacings
         , int const nb=1 // number of bands == 64*nb
@@ -383,6 +386,11 @@ namespace green_experiments {
         int const ng4[] = {int(ng[0] >> 2), int(ng[1] >> 2), int(ng[2] >> 2)}; // convert #gridpoints to #cubes
         auto const nblocks = size_t(ng4[2]) * size_t(ng4[1]) * size_t(ng4[0]);
         if (echo > 1) std::printf("# %s cell grid has %d x %d x %d = %ld cubes\n", __func__, ng4[2], ng4[1], ng4[0], nblocks);
+
+        assert(1 == plansH.plans.size() && 1 == plansS.plans.size() && "no subdomains supported");
+        auto & pH = plansH.plans[0];
+        auto & pS = plansS.plans[0];
+
         size_t const nnzb = pH.colindx.size();
         if (echo > 1) std::printf("# %s nnzb= %ld\n", __func__, nnzb);
         assert(nnzb == nblocks * nb && "This solver can only run with a dense Green function");
@@ -430,9 +438,10 @@ namespace green_experiments {
         green_action::action_t<real_t,R1C2,Noco,64> action_H(&pH); // constructor
         green_action::action_t<real_t,R1C2,Noco,64> action_S(&pS); // constructor
         double const dVol = hg[2]*hg[1]*hg[0]; // volume element of the real space grid
-        // green_function::update_energy_parameter(pH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H -  (0)*S)
-        // green_function::update_energy_parameter(pS, -1.0, dVol, echo, Noco, 0.0); // prepare for S: A = (0*H - (-1)*S)
-        error("green_function::update_energy_parameter(p, plans, E_param, dV, echo, Noco) missing", 0);
+
+        green_function::update_energy_parameter(pH, plansH,  0.0, dVol, echo, Noco, 1.0); // prepare for H: A = (1*H -  (0)*S)
+        green_function::update_energy_parameter(pS, plansS, -1.0, dVol, echo, Noco, 0.0); // prepare for S: A = (0*H - (-1)*S)
+        // error("green_function::update_energy_parameter(p, plans, E_param, dV, echo, Noco) missing", 0);
 
         assert(nb == nblocks && "Davidson code has been deleted, see d2e840d166d3dfd17bd5bd2d42749e5b856b5d4d");
         assert(nb == nblocks); // there are as many bands as real-space grid points
@@ -664,9 +673,23 @@ namespace green_experiments {
 
         auto const comm = mpi_parallel::comm(); // for tests
 
-        std::vector<int64_t> gids(0);
+        uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2}; // divide by 4
+        std::vector<int64_t> gids(0); // global potential indices
+        { // scope: trivial cube ownership distribution
+            gids.resize(nb[2]*nb[1]*nb[0], global_coordinates::nonexistent);
+            size_t ib{0};
+            for (int iz{0}; iz < nb[2]; ++iz) {
+            for (int iy{0}; iy < nb[1]; ++iy) {
+            for (int ix{0}; ix < nb[0]; ++ix) {
+                gids.at(ib) = global_coordinates::get(ix, iy, iz); 
+                ++ib;
+            }}} // ix iy iz
+            assert(gids.size() == ib);
+            if (echo > 0) { std::printf("# construct Green function for %d x %d x %d = %ld cubes\n\n", nb[0], nb[1], nb[2], gids.size()); }
+        } // scope
+        std::vector<green_parallel::rank_int_t> const por(nb[2]*nb[1]*nb[0], 0); // potential owner ranks
         action_plans_t plan;
-        auto const plan_stat = green_function::construct_Green_function(plan, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo, Noco);
+        auto const plan_stat = green_function::construct_Green_function(plan, ng, bc, hg, xyzZinso, nullptr, comm, gids, por.data(), echo, Noco);
         if (plan_stat) {
             warn("construct_Green_function failed with status=%d", int(plan_stat));
             return plan_stat;
@@ -675,27 +698,28 @@ namespace green_experiments {
         here;
 
         green_parallel::RequestList_t pSmatrices_requests;
-        { // scope: atom ownership distribution
+        { // scope: trivial atom ownership distribution
             auto const na = AtomMatrices.size();
             std::vector<int64_t> target_global_atom_ids(na, -1), owned_global_atom_ids(na);
-            for (int64_t ia{0}; ia < na; ++ia) { owned_global_atom_ids[ia] = ia; target_global_atom_ids[ia] = ia; }
+            for (int64_t ia{0}; ia < na; ++ia) {
+                owned_global_atom_ids[ia] = ia;
+                target_global_atom_ids[ia] = ia;
+            } // ia
             uint32_t const nb[] = {uint32_t(na), 0, 0};
-            std::vector<uint16_t> atom_owner_rank(na, uint16_t(0)); // all atoms owned by the MPI master
+            std::vector<green_parallel::rank_int_t> atom_owner_rank(na, 0); // all atoms owned by the MPI master
             plan.matrices_requests = green_parallel::RequestList_t(target_global_atom_ids,
                 owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
         } // scope
 
-        // uint32_t const nb[] = {ng[0] >> 2, ng[1] >> 2, ng[2] >> 2};
-        auto const pot_stat = 1; // green_function::update_potential(p, nb, Veff, AtomMatrices, echo, Noco); // ToDo: interface changed
+        auto const pot_stat = green_function::update_potential(plan, Veff, AtomMatrices, echo, Noco);
         if (pot_stat) warn("green_function::update_potential failed with status=%d", int(pot_stat));
 
         here;
 
-        auto & p = plan.plans.at(0);
         if ('g' == how) {
             // compute the spectral function using the Green function method
-            return (1 == Noco) ? spectralfunction<double,1>(p, ng, hg, echo):
-                                 spectralfunction<double,2>(p, ng, hg, echo);
+            return (1 == Noco) ? spectralfunction<double,1>(plan, ng, hg, echo):
+                                 spectralfunction<double,2>(plan, ng, hg, echo);
         } else {
             // compute a bandstructure using an eigenstate method
             // for computing eigenstates, we need two separate operators, instead of A = H - E*S, we need H and S
@@ -703,7 +727,7 @@ namespace green_experiments {
             if (echo > 4) std::printf("# verbosity for second call to construct_Green_function is +green_experiments.overlap.echo=%d\n", echo_pS);
 
             action_plans_t planS; // plan for the overlap operator
-            auto const plan_stat = green_function::construct_Green_function(planS, ng, bc, hg, xyzZinso, nullptr, comm, gids, nullptr, echo_pS, Noco); // since the copy operator is deleted we have to do it again
+            auto const plan_stat = green_function::construct_Green_function(planS, ng, bc, hg, xyzZinso, nullptr, comm, gids, por.data(), echo_pS, Noco); // since the copy operator is deleted we have to do it again
             if (plan_stat) {
                 warn("construct_Green_function failed with status=%d for the overlap operator", int(plan_stat));
                 return plan_stat;
@@ -712,15 +736,14 @@ namespace green_experiments {
             here;
 
             planS.matrices_requests = plan.matrices_requests; // deep copy
-            auto & pS = planS.plans.at(0);
 
             // this needs to be done to get the AtomMatrices into the overlap operators
-            auto const pot_stat = 1; // green_function::update_potential(pS, nb, Veff, AtomMatrices, echo, Noco); // ToDo: interface changed
+            auto const pot_stat = green_function::update_potential(planS, Veff, AtomMatrices, echo, Noco);
             if (pot_stat) warn("green_function::update_potential (pS) failed with status=%d", int(pot_stat));
 
             here;
 
-            int const nbands  = control::get("green_experiments.eigen.nbands", p.nCols*64.)/64;
+            int const nbands  = control::get("green_experiments.eigen.nbands", plan.plans[0].nCols*64.)/64;
             int const is_real = control::get("green_experiments.eigen.real", 0.);
             int const r1c2 = (2 == Noco) ? 2 : (2 - (is_real > 0));
             int const bits = control::get("green_experiments.eigen.floating.point.bits", 64.);
@@ -729,13 +752,13 @@ namespace green_experiments {
                 case 3211:
                 case 6411: error("cannot instantiate action_t with R1C2==1 with -D HAS_TFQMRGPU (fp%d)", bits);
 #else  // HAS_TFQMRGPU
-                case 3211: return eigensolver<float ,1,1>(p, pS, ng, hg, nbands, echo);
-                case 6411: return eigensolver<double,1,1>(p, pS, ng, hg, nbands, echo); // real
+                case 3211: return eigensolver<float ,1,1>(plan, planS, ng, hg, nbands, echo);
+                case 6411: return eigensolver<double,1,1>(plan, planS, ng, hg, nbands, echo); // real
 #endif // HAS_TFQMRGPU
-                case 3221: return eigensolver<float ,2,1>(p, pS, ng, hg, nbands, echo);
-                case 6421: return eigensolver<double,2,1>(p, pS, ng, hg, nbands, echo); // complex
-                case 3222: return eigensolver<float ,2,2>(p, pS, ng, hg, nbands, echo);
-                case 6422: return eigensolver<double,2,2>(p, pS, ng, hg, nbands, echo); // complex non-collinear
+                case 3221: return eigensolver<float ,2,1>(plan, planS, ng, hg, nbands, echo);
+                case 6421: return eigensolver<double,2,1>(plan, planS, ng, hg, nbands, echo); // complex
+                case 3222: return eigensolver<float ,2,2>(plan, planS, ng, hg, nbands, echo);
+                case 6422: return eigensolver<double,2,2>(plan, planS, ng, hg, nbands, echo); // complex non-collinear
                 default:   error("no such case %s%d with Noco=%d", (1 == r1c2)?"real":"complex", bits, Noco);
             } // fp32 or fp64, complex or real, Noco 1 or 2
         } // how

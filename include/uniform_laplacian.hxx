@@ -1,6 +1,11 @@
 #pragma once
 // This file is part of AngstromCube under MIT License
 
+// #doc
+// This module defines the high-order central point finite-difference
+// coefficients for second derivatives on a 1D uniform grid.
+//
+
 #include <cstdio> // std::printf
 
 #include "recorded_warnings.hxx" // warn
@@ -203,7 +208,7 @@ namespace uniform_laplacian {
       status_t stat(0);
       int const mantissa_bits = (sizeof(real_t) > 4)? 52 : 23; // 23:float, 52:double
       double const precision = 4./(1ul << mantissa_bits);
-      if (echo > 4) std::printf("# expected precision for real_%ld is %.1e\n", sizeof(real_t), precision);
+      if (echo > 4) std::printf("\n# expected precision for %s is %.1e\n", (8 == sizeof(real_t))?"double":"float", precision);
       double maxdev{0}; int maxdev_nn{-99};
  //   for (int nn{14}; nn >= -1; --nn) { // test also 3 different warnings launched by ::get
       for (int nn{1}; nn <= 13; ++nn) {
@@ -228,18 +233,19 @@ namespace uniform_laplacian {
           uniform_laplacian::get(fd[nn], nn);
       } // nn
       std::printf("\n## finite-difference dispersion for nn=1..13 (in Hartree)\n");
-      for (int ik = 0; ik <= 100; ++ik) {
-          double const k = 0.01 * ik * constants::pi;
-          std::printf("%g %g  ", k, 0.5*k*k); // compare to parabola
+      for (int ik = 0; ik <= 128; ++ik) {
+          double const k = (ik * (1/128.)) * constants::pi;
+          std::printf("%g %g  ", k, 0.5*k*k); // compare to parabola: E(k) = k^2/2
           for (int nn{1}; nn <= 13; ++nn) {
               double E_k{-0.5*fd[nn][0]};
-              for (int j = 1; j <= nn; ++j) {
+              for (int j{1}; j <= nn; ++j) {
                   E_k -= std::cos(k*j) * fd[nn][j];
               } // j
               std::printf(" %g", E_k); // plot dispersion
           } // nn
           std::printf("\n");
       } // ik
+      std::printf("\n\n");
       return 0;
   } // test_dispersion
 
