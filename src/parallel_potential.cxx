@@ -974,9 +974,9 @@ namespace parallel_potential {
         data_list<double> atoms_qzyx, atoms_vzyx; // for contributing atoms
         { // scope
 
-            char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto generate, 'f': pawxml_import
+            char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto --> generate, 'g': generate, 'f': pawxml_import from file
             auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
-            if (echo > 2) std::printf("# use pawdata.from=%s  options {a, f} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
+            if (echo > 2) std::printf("# use pawdata.from=%s  options {file, generate} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
 
             std::vector<double> Z_owned_atoms(na, 0.);
             #pragma omp parallel for
