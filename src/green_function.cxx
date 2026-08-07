@@ -1173,7 +1173,7 @@ for (int isub = 0; isub < nsub; ++isub) {
             size_t not_found{0};
             if (echo > 5) { std::printf("# rank#%i global_target_indices=", me); printf_vector(" %lli", global_target_indices); }
 
-            #pragma omp parallel for
+            #pragma omp parallel for reduction(+:not_found)
             for (int isub = 0; isub < nsub; ++isub) {
                 auto & p = plans.plans[isub];
                 auto const nnz = p.colindx.size();
@@ -1187,7 +1187,7 @@ for (int isub = 0; isub < nsub; ++isub) {
                         if (idx >= 0) {
                             p.veff_index[inz] = idx; // overwrite
                         } else {
-                            #pragma omp atomic
+                            // #pragma omp atomic --> solved by reduction(+:not_found) clause
                             { ++not_found; } // launch error later
                         }
                     }
@@ -1243,7 +1243,7 @@ for (int isub = 0; isub < nsub; ++isub) {
             //                           atom_owner_rank, {n_all_atoms, 0, 0}, comm, echo, "atom matrices");
 
             size_t not_found{0};
-            #pragma omp parallel for
+            #pragma omp parallel for reduction(+:not_found)
             for (int isub = 0; isub < nsub; ++isub) {
                 auto & p = plans.plans[isub].dyadic_plan;
                 // fix the atom_indirection list
@@ -1251,8 +1251,8 @@ for (int isub = 0; isub < nsub; ++isub) {
                     int64_t const gid = p.global_atom_ids.at(iac);
                     auto const idx = binary_search(plans.global_atom_ids, gid);
                     p.atom_indirection[iac] = idx;
-                    if (idx < 0) { 
-                        #pragma omp atomic
+                    if (idx < 0) {
+                        // #pragma omp atomic --> solved by reduction(+:not_found) clause
                         { ++not_found; } // launch error later
                     }
                 } // iac
