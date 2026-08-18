@@ -152,7 +152,7 @@ namespace load_balancer {
             int const i01 = (rank >= rank_offset + nhalf[0]);
             // i01 == 0: this rank is part of the first set of (np + 1)/2 processes
             // i01 == 1: this rank is part of the second set of (np)/2    processes
-            if (echo > 19) std::printf("# rank#%i divides %d into %d and %d\n", rank, np, nhalf[i01], nhalf[1 - i01]);
+            if (echo > 19) { std::printf("# rank#%i divides %d into %d and %d\n", rank, np, nhalf[i01], nhalf[1 - i01]); }
             assert(nhalf[0] + nhalf[1] == np);
 
             // determine the direction of the largest extent
@@ -163,12 +163,31 @@ namespace load_balancer {
 
             // determine the largest distance^2 from the center of weight
             double maxdist2{-1}; int64_t imax{-1}; // block with the largest distance
+            double maxdistC[] = {-1, -1, -1}; int64_t idir[] = {-1, -1, -1}; // Cartesian direction with largest distance
             for (size_t iuna{0}; iuna < nuna; ++iuna) { // serial due to special reduction
                 auto const iall = indirect[iuna];
                 auto const *const xyz = xyzw[iall];
-                auto const dist2 = pow2(xyz[X] - cow[X]) + pow2(xyz[Y] - cow[Y]) + pow2(xyz[Z] - cow[Z]);
+                auto const dist2x = pow2(xyz[X] - cow[X]),
+                           dist2y = pow2(xyz[Y] - cow[Y]),
+                           dist2z = pow2(xyz[Z] - cow[Z]);
+                if (dist2x > maxdistC[0]) { maxdistC[0] = dist2x; idir[0] = iall; }
+                if (dist2y > maxdistC[1]) { maxdistC[1] = dist2y; idir[1] = iall; }
+                if (dist2z > maxdistC[2]) { maxdistC[2] = dist2z; idir[2] = iall; }
+                auto const dist2 = dist2x + dist2y + dist2z;
                 if (dist2 > maxdist2) { maxdist2 = dist2; imax = iall; }
             } // iuna
+
+            // bool const use_Cartesian = true;
+            bool const use_Cartesian = false;
+            if (use_Cartesian) {
+                int cart_dir{-1}; // prefer the Cartesian directions as sorting direction, which one will it be?
+                double maxC{-1};
+                for (int dir = 0; dir < 3; ++dir) {
+                    if (maxdistC[dir] > maxC) { maxC = maxdistC[dir]; cart_dir = dir; }
+                    cow[dir] = 0;
+                } // dir
+                cow[cart_dir] = 1; // a Cartesian unit vector
+            } // use_Cartesian
 
             if (imax < 0) {
                 // this should only happens if the process is idle,
@@ -178,11 +197,11 @@ namespace load_balancer {
             } else {
 
                 // determine a sorting direction
-                add_product(cow, 3, xyzw[imax], -1.);
+                if (!use_Cartesian) { add_product(cow, 3, xyzw[imax], -1.); } // subtract the position of the element that is farest from the center of weight
                 auto const len2 = pow2(cow[X]) + pow2(cow[Y]) + pow2(cow[Z]);
                 auto const norm = (len2 > 0) ? 1./std::sqrt(len2) : 0.0;
                 double const vec[] = {cow[X]*norm, cow[Y]*norm, cow[Z]*norm};
-                if (echo > 19) std::printf("# rank#%i sort along the [%g %g %g] direction\n", rank, vec[X], vec[Y], vec[Z]);
+                if (echo > 19) { std::printf("# rank#%i sort along the [%g %g %g] direction\n", rank, vec[X], vec[Y], vec[Z]); }
 
                 using fui_t = std::pair<float,uint32_t>;
                 std::vector<fui_t> v(nuna);
