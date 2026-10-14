@@ -75,11 +75,11 @@ namespace green_function {
         , double const scale_H // =1
     ) {
         plan.E_param = E_param;
-        if (echo > 11) std::printf("# %s(E_param=(%g, %g), dVol=%g, Noco=%d, scale_H=%g)\n",
-                 __func__, E_param.real(), E_param.imag(), dVol,    Noco,    scale_H);
+        if (echo > 11) { std::printf("# %s(E_param=(%g, %g), dVol=%g, Noco=%d, scale_H=%g)\n",
+                        __func__, E_param.real(), E_param.imag(), dVol,    Noco,    scale_H); }
 
         auto & p = plan.dyadic_plan;
-        if (1 != Noco && p.nAtoms > 0) warn("not prepared for Noco=%d", Noco);
+        if (1 != Noco && p.nAtoms > 0) { warn("not prepared for Noco=%d", Noco); }
         auto const count = plans.AtomMatrices_.stride();
 
         auto const f = dVol; // we multiply the matrices by dVol so we can omit this factor in SHOprj
@@ -109,7 +109,7 @@ namespace green_function {
 
             // TODO treat Noco components correctly: component 0 and 1 == V_upup and V_dndn
             //                                       component 2 and 3 == V_x and V_y
-            if (Noco > 1) warn("Non-collinear matrix values are not set, Noco=", Noco);
+            if (Noco > 1) { warn("Non-collinear matrix values are not set, Noco=", Noco); }
         } // iac
 
         return 0;
@@ -135,7 +135,7 @@ namespace green_function {
             if (echo > 0) { std::printf("# copy only %.3f k grid blocks points\n", ncubes*1e-3); }
 
             double const scale_V = control::get("hamiltonian.scale.potential", 1.);
-            if (1 != scale_V) warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V);
+            if (1 != scale_V) { warn("local potential is scaled by factor +hamiltonian.scale.potential=%g", scale_V); }
 
             auto const Vinp = new double[ncubes*Noco*Noco][4*4*4];
             for (int32_t icube{0}; icube < ncubes; ++icube) {
@@ -174,7 +174,7 @@ namespace green_function {
         int const mat_exchange = control::get("green_function.matrices.exchange", 1.);
         if (mat_exchange) {
             auto const count = Noco*Noco*p.nc2_max;
-            if (echo > 2) std::printf("# MPI data exchange for atom matrices with %d doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco);
+            if (echo > 2) { std::printf("# MPI data exchange for atom matrices with %d doubles = %.3f kByte, Noco= %d\n", count, count*.008, Noco); }
             int const nac = p.global_atom_ids.size();
             p.AtomMatrices_ = view2D<double>(nac, count, 0.0); // get CPU memory for atomic matrices
 
@@ -253,11 +253,12 @@ namespace green_function {
         auto const comm_rank = mpi_parallel::rank(comm, comm_size);
 #else  // HAS_NO_MPI
         unsigned const comm_size =          std::max(1.,    control::get("mpi.fake.size", 1.));
-        int      const comm_rank = std::min(std::max(0, int(control::get("mpi.fake.rank", comm_size - 1.))), int(comm_size - 1));
+        auto     const comm_rank = std::min(std::max(0, int(control::get("mpi.fake.rank", comm_size - 1.))), int(comm_size - 1));
 #endif // HAS_NO_MPI
         owner_rank.resize(0);
         auto const nall = size_t(nb[Z])*size_t(nb[Y])*size_t(nb[X]);
         if (comm_size > 1) {
+            // MPI parallel part
 
             if (echo > 3) { std::printf("# MPI parallelization of %.3f k right hand sides\n", nall*1e-3); }
             assert(nall > 0);
@@ -295,25 +296,25 @@ namespace green_function {
             mpi_parallel::min(owner_rank.data(), comm, nall); // MPI_Allreduce(MPI_MIN)
             if (echo > 9) { std::printf("# rank#%i owner_rank after  MPI_MIN ", comm_rank); printf_vector(" %i", owner_rank); }
             auto const nrhs = size_t(rank_center[3]); // number of tasks with nonzero weight (weights may not be zero!)
-            if (echo > 5) std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs);
+            if (echo > 5) { std::printf("# rank#%d of %d procs has %ld tasks\n", comm_rank, comm_size, nrhs); }
             {
                 simple_stats::Stats<> nt; // number of tasks
                 nt.add(nrhs);
                 mpi_parallel::allreduce(nt, comm);
-                if (echo > 2) std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
+                if (echo > 2) { std::printf("# number of tasks per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max()); }
             }
             {
                 simple_stats::Stats<> nt; // load of tasks
                 nt.add(load);
                 mpi_parallel::allreduce(nt, comm);
-                if (echo > 1) std::printf("# load per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max());
+                if (echo > 1) { std::printf("# load per rank is in [%g, %g +/- %g, %g]\n", nt.min(), nt.mean(), nt.dev(), nt.max()); }
             }
 
-            {
+            { // scope: add only those RHSs owned by this rank
                 global_source_indices.resize(nrhs, global_coordinates::nonexistent);
                 uint32_t irhs{0};
                 int64_t const nbX = nb[X], nbY = nb[Y];
-                for (size_t iall{0}; iall < nall; ++iall) {
+                for (size_t iall{0}; iall < nall; ++iall) { // loop does not scale good - avoid to run it more than once
                     if (comm_rank == owner_rank[iall]) {
                         int32_t const iz = iall/(nbX*nbY);
                         int32_t const iy = (iall - iz*nbX*nbY)/nbX;
@@ -323,9 +324,9 @@ namespace green_function {
                         ++irhs;
                     } // owned
                 } // iall
-                if (nrhs != irhs) error("rank#%i number of right hand sides=%d inconsistent with number of owned tasks=%d", comm_rank, nrhs, irhs);
+                if (nrhs != irhs) { error("rank#%i number of right hand sides=%d inconsistent with number of owned tasks=%d", comm_rank, nrhs, irhs); }
                 assert(nrhs == irhs && "number of right hand sides inconsistent");
-            }
+            } // scope
 
         } else { // comm_size > 1
             // not MPI parallel or test functionality (emulate to compute a 3D window of sources)
@@ -353,21 +354,23 @@ namespace green_function {
             if (echo > 5) { std::printf("# offset source blocks %s\n", str(off, 1, " ")); }
 
             global_source_indices.resize(nrhs, global_coordinates::nonexistent);
-            uint32_t irhs{0};
-            for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
-            for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {
-            for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
-                global_source_indices[irhs] = global_coordinates::get((ibx + off[X])%nb[X],
-                                                                      (iby + off[Y])%nb[Y],
-                                                                      (ibz + off[Z])%nb[Z]);
-                // display global source cube ids as octal, i.e. each decimal digit holds 3 bits
-                // A 1D-cell in x-direction will look like binary counting with '1's and '0's.
-                // A 1D-cell in y-direction will look like binary counting with '2's and '0's.
-                // A 1D-cell in z-direction will look like binary counting with '4's and '0's.
-                if (echo > 8) { std::printf("# RHS#%i \tglobal cube id= o%21.21llo\n", irhs, global_source_indices[irhs]); }
-                ++irhs;
-            }}} // xyz
-            assert(nrhs == irhs);
+            { // scope: generate list of all RHSs inside a 3D cuboid
+                uint32_t irhs{0};
+                for (int32_t ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
+                for (int32_t iby = 0; iby < n_source_blocks[Y]; ++iby) {
+                for (int32_t ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
+                    global_source_indices[irhs] = global_coordinates::get((ibx + off[X])%nb[X],
+                                                                          (iby + off[Y])%nb[Y],
+                                                                          (ibz + off[Z])%nb[Z]);
+                    // display global source cube ids as octal, i.e. each decimal digit holds 3 bits
+                    // A 1D-cell in x-direction will look like binary counting with '1's and '0's.
+                    // A 1D-cell in y-direction will look like binary counting with '2's and '0's.
+                    // A 1D-cell in z-direction will look like binary counting with '4's and '0's.
+                    if (echo > 8) { std::printf("# RHS#%i \tglobal cube id= o%21.21llo\n", irhs, global_source_indices[irhs]); }
+                    ++irhs;
+                }}} // xyz
+                assert(nrhs == irhs);
+            } // scope
 
         } // comm_size > 1
 
@@ -494,7 +497,7 @@ for (int isub = 0; isub < nsub; ++isub) {
     echo = (0 == isub)*echo_original; // only OMP master reports
     p.echo = 0; // echo;
 
-    // distribute the work
+    // distribute the work: task #isub of nsub will take care of #rhs >= irhs0 and #rhs < irhs1
     uint32_t const irhs0 = (isub*nrhs_all)/nsub, irhs1 = ((isub + 1)*nrhs_all)/nsub;
     uint32_t const nrhs = irhs1 - irhs0;
     if (echo > 0) { std::printf("# thread#%i treats %d of %d RHSs\n", isub, nrhs, nrhs_all); }
@@ -856,7 +859,7 @@ for (int isub = 0; isub < nsub; ++isub) {
                 p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001); }
 
 #ifdef    HAS_BITMAP_EXPORT
-            if (0 == me) { // scope: export_as_bitmap, reduce over z-coordinate
+            if (0 == isub && 0 == me) { // scope: export_as_bitmap, reduce over z-coordinate
                 int const nx = num_target_coords[X], ny = num_target_coords[Y];
                 view3D<float> image(ny, nx, 4, 0.f);
                 for (uint32_t irhs{0}; irhs < nrhs; ++irhs) {
@@ -887,8 +890,8 @@ for (int isub = 0; isub < nsub; ++isub) {
             assert(nnzb < (1ull << 32) && "the integer type of RowStart is uint32_t!");
 
             // resize BSR tables: (Block-compressed Sparse Row format)
-            if (echo > 3) std::printf("# memory of a complex Green function is %.6f %s (float) and %.6f %s (double), Noco=%d\n",
-                  nnzb*2.*pow2(Noco*64)*sizeof(float)*GByte, _GByte,  nnzb*2.*pow2(Noco*64)*sizeof(double)*GByte, _GByte, Noco);
+            if (echo > 3) { std::printf("# memory of a complex Green function is %.6f %s (float) and %.6f %s (double), Noco=%d\n",
+                  nnzb*2.*pow2(Noco*64)*sizeof(float)*GByte, _GByte,  nnzb*2.*pow2(Noco*64)*sizeof(double)*GByte, _GByte, Noco); }
             p.colindx.resize(nnzb);
             p.rowindx  = get_memory<uint32_t>(nnzb, echo, "rowindx");
             p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
@@ -1017,7 +1020,7 @@ for (int isub = 0; isub < nsub; ++isub) {
                 }}} // x y z
                 assert(p.nRows == iRow && "counting 2nd time");
                 assert(nnzb == p.RowStart[p.nRows] && "sparse matrix consistency");
-                if (echo > 2) std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max());
+                if (echo > 2) { std::printf("# source blocks per target block in [%g, %.1f +/- %.1f, %g]\n", st.min(), st.mean(), st.dev(), st.max()); }
             } // scope: fill BSR tables
             column_indices.clear(); // not needed beyond this point
 
@@ -1084,7 +1087,7 @@ for (int isub = 0; isub < nsub; ++isub) {
 
         FILE* svg{nullptr};
 #ifdef    GREEN_FUNCTION_SVG_EXPORT
-        if (0 == me) { svg = std::fopen("green_function.svg", "w"); } // only MPImaster will create the file
+        if (0 == isub && 0 == me) { svg = std::fopen("green_function.svg", "w"); } // only MPImaster will create the file
         if (nullptr != svg) {
             std::fprintf(svg, "<!-- SVG code generated by %s -->\n", __FILE__); // can be viewed at https://editsvgcode.com/
             std::fprintf(svg, "<svg viewBox=\"%d %d %d %d\" xmlns=\"http://www.w3.org/2000/svg\">\n",
@@ -1121,7 +1124,7 @@ for (int isub = 0; isub < nsub; ++isub) {
             std::fprintf(svg, "</svg>\n");
             std::fclose(svg);
             svg = nullptr;
-            if (echo > 3) std::printf("# file green_function.svg (Scalable Vector Graphics) written\n");
+            if (echo > 3) { std::printf("# file green_function.svg (Scalable Vector Graphics) written\n"); }
         } // nullptr != svg
 #endif // GREEN_FUNCTION_SVG_EXPORT
 
@@ -1299,8 +1302,8 @@ for (int isub = 0; isub < nsub; ++isub) {
         std::vector<green_parallel::rank_int_t> owner_rank;
         auto const rhs = get_right_hand_sides(owner_rank, nb, nullptr, MPI_COMM_WORLD, echo);
         auto const nrhs = rhs.size();
-        if (echo > 5) std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",
-                                        __func__, nrhs, owner_rank.size(), nb[X]*nb[Y]*nb[Z]);
+        if (echo > 5) { std::printf("# %s: found %ld right-hand-sides, owner_rank.size()=%ld expect %d\n",
+                                        __func__, nrhs, owner_rank.size(), nb[X]*nb[Y]*nb[Z]); }
         stat += (nb[X]*size_t(nb[Y])*size_t(nb[Z]) != owner_rank.size());
         stat += (nb[X]*size_t(nb[Y])*size_t(nb[Z]) < nrhs);
         for (size_t irhs{0}; irhs < nrhs; ++irhs) {
@@ -1325,7 +1328,7 @@ for (int isub = 0; isub < nsub; ++isub) {
         for (int bcy{0}; bcy < 4; ++bcy) {
         for (int bcx{0}; bcx < 4; ++bcx) {
             int8_t const bcs[] = {bc_test[bcx], bc_test[bcy], bc_test[bcz]};
-            if (echo > 3) std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco);
+            if (echo > 3) { std::printf("# %s(bc=[%d %d %d], Noco=%d)\n", __func__, bcs[X], bcs[Y], bcs[Z], Noco); }
             action_plans_t p;
             stat += construct_Green_function(p, ng, bcs, grid_spacing, xyzZinso, nullptr, comm, gids, nullptr, echo/8, Noco);
         }}} // bcx bcy bcz
