@@ -539,8 +539,8 @@ namespace green_parallel {
             return this->exchange_onesided(data_out, data_inp, count, echo, what);
         } // use one-sided MPI communication routines
 #endif // HAS_ONESIDED_MPI
-        if (echo > 5) std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
-                                                                                  count, count*sizeof(real_t)*.001, what);
+        if (echo > 5) { std::printf("# exchange using MPI two-sided communication, packages of %d numbers, %.3f kByte \'%s\'\n",
+                                                                                    count, count*sizeof(real_t)*.001, what); }
         status_t status(0);
 
 #ifndef   HAS_NO_MPI
