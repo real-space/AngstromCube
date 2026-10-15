@@ -27,6 +27,7 @@
   #include "simple_stats.hxx" // ::all_tests
   #include "green_sparse.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
+  #include "omp_parallel.hxx" // ::all_tests
   #include "json_reading.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
   #include "green_input.hxx" // ::all_tests
@@ -92,6 +93,7 @@ status_t run_unit_tests(char const *unit_name, int const echo=0) {
         add_module_test(green_input);
         add_module_test(load_balancer);
         add_module_test(mpi_parallel);
+        add_module_test(omp_parallel);
         add_module_test(green_parallel);
         add_module_test(green_function);
         add_module_test(green_sparse);
