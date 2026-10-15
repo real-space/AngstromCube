@@ -1267,7 +1267,7 @@ for (int isub = 0; isub < nsub; ++isub) {
             warn("# +green_function.matrices.exchange=%d --> skip", mat_exchange);
         } // mat_exchange
 
-        if (echo > 0) { std::printf("# construct_Green_function done\n\n"); }
+        if (echo > 0) { std::printf("# %s done\n\n", __func__); }
         return 0;
     } // construct_Green_function
 

@@ -25,14 +25,14 @@ namespace omp_parallel {
   inline status_t all_tests(int const echo=0) {
 
       auto const max_threads = omp_get_max_threads(); // can be controlled by shell environment variable OMP_NUM_THREADS
-      if (echo > 2) std::printf("# %sOpenMP with max %d threads\n", omp_replacement?"fake ":"", max_threads);
+      if (echo > 2) { std::printf("# %sOpenMP with max %d threads\n", omp_replacement?"fake ":"", max_threads); }
       assert(1 == omp_get_num_threads()); // outside a parallel region, only 1 thread should be running
       int sum{0};
       #pragma omp parallel for reduction(+:sum)
       for (int i = 0; i < max_threads; ++i) {
           auto const num_threads = omp_get_num_threads();
           auto const thread_id   = omp_get_thread_num();
-          if (echo > 6) std::printf("# OpenMP thread#%i of %d works on item#%i\n", thread_id, num_threads, i);
+          if (echo > 6) { std::printf("# OpenMP thread#%i of %d works on item#%i\n", thread_id, num_threads, i); }
           ++sum;
       } // i
       assert(max_threads == sum);
@@ -41,7 +41,7 @@ namespace omp_parallel {
       {
           auto const thread_id = omp_get_thread_num();
           auto const parallel  = omp_in_parallel();
-          if (0 == thread_id && echo > 3) std::printf("# OpenMP %sactive\n", parallel?"":"in");
+          if (0 == thread_id && echo > 3) { std::printf("# OpenMP %sactive\n", parallel?"":"in"); }
       } // parallel region
 
       return 0;

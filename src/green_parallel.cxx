@@ -146,7 +146,7 @@ namespace green_parallel {
         {
             // auto const stat = MPI_Allreduce(MPI_IN_PLACE, local_index.data(), nall, MPI_UINT32_T, MPI_MAX, comm);
             auto const stat = mpi_parallel::allreduce(local_index.data(), comm, MPI_MAX, nall);
-            if (stat) warn("MPI_Allreduce(local_index) failed with status= %i", int(stat));
+            if (stat) { warn("MPI_Allreduce(local_index) failed with status= %i", int(stat)); }
         }
         // if this is too expensive see ALTERNATIVE
         //
@@ -333,7 +333,7 @@ namespace green_parallel {
             auto const nr = n_recv_partners + n_send_partners;
             std::vector<MPI_Request> mpi_req(nr);
 
-            {
+            { // scope1
                 int const tag = __LINE__;
                 for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
                     auto const rank = recv_packages_from_ranks.at(ri);
@@ -346,12 +346,12 @@ namespace green_parallel {
                     MPI_Irecv(this->send_package_index.at(rj).data(), this->send_package_index.at(rj).size(),
                                 MPI_UINT32_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
                 } // rj
-            } // scope
+            } // scope1
 
             MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
 
             // now also communicate the global indices
-            {
+            { // scope2
                 int const tag = __LINE__;
                 for (uint32_t ri{0}; ri < n_recv_partners; ++ri) {
                     auto const rank = recv_packages_from_ranks.at(ri);
@@ -364,7 +364,7 @@ namespace green_parallel {
                     MPI_Irecv(send_package_global_id.at(rj).data(), send_package_global_id.at(rj).size(),
                                 MPI_INT64_T, rank, tag, comm, &mpi_req.at(n_recv_partners + rj));
                 } // rj
-            } // scope
+            } // scope2
 
             MPI_Waitall(nr, mpi_req.data(), MPI_STATUSES_IGNORE);
 

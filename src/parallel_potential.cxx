@@ -290,7 +290,7 @@ namespace parallel_potential {
         , int const echo=0
         , float const r_cut=16.f // truncation radius of atom-cube interactions, largest radius for smooth core densities, vbar, 9*sigma_cmp
     ) {
-        if (echo > 2) std::printf("# search periodic images of atoms in a neighborhood of radius %g %s\n", r_cut*Ang, _Ang);
+        if (echo > 2) { std::printf("# search periodic images of atoms in a neighborhood of radius %g %s\n", r_cut*Ang, _Ang); }
 
         std::vector<atom_image_t> atom_images(0); // list of candidates of atomic images relevant for this MPI rank
 
@@ -331,8 +331,8 @@ namespace parallel_potential {
         auto const max_dist = std::sqrt(max_dist2);
 
         auto const me = mpi_parallel::rank(pg.comm());
-        if (echo > 2) std::printf("# rank#%i all grid points within %g + %g = %g %s around %g %g %g %s\n",
-            me, max_dist*Ang, r_circum*Ang, (max_dist + r_circum)*Ang, _Ang, cow[0]*Ang, cow[1]*Ang, cow[2]*Ang, _Ang);
+        if (echo > 2) { std::printf("# rank#%i all grid points within %g + %g = %g %s around %g %g %g %s\n",
+            me, max_dist*Ang, r_circum*Ang, (max_dist + r_circum)*Ang, _Ang, cow[0]*Ang, cow[1]*Ang, cow[2]*Ang, _Ang); }
 
 
 
@@ -362,8 +362,8 @@ namespace parallel_potential {
                     } // ip
                 } // global_atom_id
             } // timer
-            if (echo > 2) std::printf("# rank#%i finds %ld atom images inside a %g %s search radius\n",
-                                              me, atom_images.size(), r_search*Ang, _Ang);
+            if (echo > 2) { std::printf("# rank#%i finds %ld atom images inside a %g %s search radius\n",
+                                                me, atom_images.size(), r_search*Ang, _Ang); }
         } // scope
 
 
@@ -397,15 +397,15 @@ namespace parallel_potential {
             } // ja
         } // timer
         auto const distances_checked = n_cubes*atom_images.size();
-        if (echo > 2) std::printf("# rank#%i finds %.6f M of %.6f M atom-cube distances inside a %g %s search radius\n",
-                                          me, distances_close*1e-6, distances_checked*1e-6, r_close*Ang, _Ang);
+        if (echo > 2) { std::printf("# rank#%i finds %.6f M of %.6f M atom-cube distances inside a %g %s search radius\n",
+                                            me, distances_close*1e-6, distances_checked*1e-6, r_close*Ang, _Ang); }
 
         { // scope: check if any cubes are far from atoms
             uint32_t n_far_cubes{0};
             for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) {
                 n_far_cubes += (0 == n_close_atoms[ilb]);
             } // ilb
-            if (n_far_cubes && echo > 1) std::printf("# rank#%i has %d cubes far from any atom image\n", me, n_far_cubes);
+            if (n_far_cubes && echo > 1) { std::printf("# rank#%i has %d cubes far from any atom image\n", me, n_far_cubes); }
         } // scope
 
         // check if any atom images can be removed from the list
@@ -419,8 +419,8 @@ namespace parallel_potential {
         } // ja
         auto const n_relevant_atoms = n_relevance;
         auto const shrink = (n_relevant_atoms < atom_images.size());
-        if (echo > 2) std::printf("# rank#%i %s %.3f k of %.3f k atom images are relevant\n",
-                    me, shrink?"only":"all", n_relevant_atoms*1e-3, atom_images.size()*1e-3);
+        if (echo > 2) { std::printf("# rank#%i %s %.3f k of %.3f k atom images are relevant\n",
+                                            me, shrink?"only":"all", n_relevant_atoms*1e-3, atom_images.size()*1e-3); }
 
         if (shrink) {
             SimpleTimer timer(strip_path(__FILE__), __LINE__, "removing irrelevant atom images", echo);
@@ -446,13 +446,13 @@ namespace parallel_potential {
         new_index.clear(); // not needed any longer
         assert(atom_images.size() == n_relevant_atoms);
         auto const distances_stored = n_cubes*n_relevant_atoms;
-     // if (echo > 2) std::printf("# rank#%i %d x %.3f k = %.6f M atom-cube distances stored, %.3f MByte\n",
-     //                   me, n_cubes, n_relevant_atoms*1e-3, distances_stored*1e-6, distances_stored*4e-6);
-        if (echo > 2) std::printf("# rank#%i %d x %.3f k = %.6f M atom-cube distances\n",
-                              me, n_cubes, n_relevant_atoms*1e-3, distances_stored*1e-6);
+     // if (echo > 2) { std::printf("# rank#%i %d x %.3f k = %.6f M atom-cube distances stored, %.3f MByte\n",
+     //                                     me, n_cubes, n_relevant_atoms*1e-3, distances_stored*1e-6, distances_stored*4e-6); }
+        if (echo > 2) { std::printf("# rank#%i %d x %.3f k = %.6f M atom-cube distances\n",
+                                            me, n_cubes, n_relevant_atoms*1e-3, distances_stored*1e-6); }
         // if we knew the radii of compensation charges, core densities, valence densities, vbar, we could reduce this data item to a single bit, i.e. by 32x
         assert(n_relevant_atoms == atom_images.size());
-        
+
         if (echo > 7) {
             std::printf("# rank#%i has contributing global_atom_ids {", me);
             for (auto const & ai : atom_images) {
@@ -477,7 +477,7 @@ namespace parallel_potential {
         } // ai
         // the size of this map determines how many different global_ids are involved
         auto const natoms = npi_map.size(); // number of contributing atoms
-        if (echo > 0) std::printf("# found %ld different atoms in %ld atom images\n", natoms, atom_images.size());
+        if (echo > 0) { std::printf("# found %ld different atoms in %ld atom images\n", natoms, atom_images.size()); }
 
         std::vector<uint32_t> global_atom_ids(natoms); // prepare function result
         std::map<int32_t,uint32_t> id_map; // this map translates from global_atom_ids to iatom-indices
@@ -494,7 +494,7 @@ namespace parallel_potential {
             } // ia
             assert(natoms == iatom);
             auto const s_interval = s.interval();
-            if (echo > 3) std::printf("# distribution of periodic images is %s\n", s_interval.c_str());
+            if (echo > 3) { std::printf("# distribution of periodic images is %s\n", s_interval.c_str()); }
         } // scope
 
         // translate the members atom_id_ in atom_images from global ids into unique ids
@@ -536,7 +536,7 @@ namespace parallel_potential {
         view3D<double> H1d(3,n8,sho_tools::n1HO(numax));
         float radius2[3][n8];
         for (int dir = 0; dir < 3; ++dir) {
-            if (echo > 55) std::printf("\n# Hermite polynomials for %c-direction:\n", 'x' + dir);
+            if (echo > 55) { std::printf("\n# Hermite polynomials for %c-direction:\n", 'x' + dir); }
             for (int i8 = 0; i8 < n8; ++i8) {
                 auto const x = cube_coords[dir] + (i8 + .5)*hg[dir] - atom_center[dir];
                 Gauss_Hermite_polynomials(H1d(dir,i8), x*sigma_inv, numax);
@@ -596,7 +596,7 @@ namespace parallel_potential {
                 assert( nSHO == iSHO );
                 ++nhits;
 
-//              if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
+//              if (echo > 6) { std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); } // plot function value vs r
                 if (1 == PROJECT0_OR_ADD1) {
                     result[izyx] += val; // load-modify-store, must be atomic if threads are involved
                 } // add
@@ -649,8 +649,8 @@ namespace parallel_potential {
                 hits_per_cube        += hits;
             } // ai
 #ifdef    DEVEL
-            if (echo > 17 && hits_per_cube) std::printf("# %s: cube #%i at %g %g %g Bohr has %.3f k hits\n", __func__,
-                ilb, cube_coords[ilb][0], cube_coords[ilb][1], cube_coords[ilb][2], hits_per_cube*1e-3);
+            if (echo > 17 && hits_per_cube) { std::printf("# %s: cube #%i at %g %g %g Bohr has %.3f k hits\n", __func__,
+                            ilb, cube_coords[ilb][0], cube_coords[ilb][1], cube_coords[ilb][2], hits_per_cube*1e-3); }
 #else  // DEVEL
             if (0) std::printf("%ld", hits_per_cube);
 #endif // DEVEL
@@ -658,7 +658,7 @@ namespace parallel_potential {
 #ifdef    DEVEL
         if (echo > 13) {
             for (size_t iatom{0}; iatom < sigma.size()*(echo > 0); ++iatom) {
-                if (hits_per_atom[iatom]) std::printf("# %s: atom #%li has %.3f k hits\n", __func__, iatom, hits_per_atom[iatom]*1e-3);
+                if (hits_per_atom[iatom]) { std::printf("# %s: atom #%li has %.3f k hits\n", __func__, iatom, hits_per_atom[iatom]*1e-3); }
             } // iatom
         } // echo
 #endif // DEVEL
@@ -700,8 +700,8 @@ namespace parallel_potential {
                 hits_per_atom      += hits;
             } // ilb
 #ifdef    DEVEL
-            if (echo > 17 && hits_per_atom) std::printf("# %s: image of atom #%i at %g %g %g Bohr has %.3f k hits\n",
-                                           __func__, iatom, ai.pos_[0], ai.pos_[1], ai.pos_[2], hits_per_atom*1e-3);
+            if (echo > 17 && hits_per_atom) { std::printf("# %s: image of atom #%i at %g %g %g Bohr has %.3f k hits\n",
+                                           __func__, iatom, ai.pos_[0], ai.pos_[1], ai.pos_[2], hits_per_atom*1e-3); }
 #else  // DEVEL
             if (0) std::printf("%ld", hits_per_atom);
 #endif // DEVEL
@@ -709,8 +709,8 @@ namespace parallel_potential {
 #ifdef    DEVEL
         if (echo > 13) {
             for (uint32_t ilb{0}; ilb < n_cubes; ++ilb) {
-                if (hits_per_cube[ilb]) std::printf("# %s: cube #%i at %g %g %g Bohr has %.3f k hits\n", __func__,
-                    ilb, cube_coords[ilb][0], cube_coords[ilb][1], cube_coords[ilb][2], hits_per_cube[ilb]*1e-3);
+                if (hits_per_cube[ilb]) { std::printf("# %s: cube #%i at %g %g %g Bohr has %.3f k hits\n",
+                    __func__, ilb, cube_coords[ilb][0], cube_coords[ilb][1], cube_coords[ilb][2], hits_per_cube[ilb]*1e-3); }
             } // ilb
         } // echo
 #endif // DEVEL
@@ -763,10 +763,10 @@ namespace parallel_potential {
             } // inside
         }}} // ix iy iz
 #ifdef    DEVEL
-        if (grid_points_inside && echo > 17) std::printf("# %ld grid points inside %g %s for grid cube at [%g %g %g] Bohr\n",
-            grid_points_inside, r_cut*Ang, _Ang, cube_coords[0], cube_coords[1], cube_coords[2]);
+        if (grid_points_inside && echo > 17) { std::printf("# %ld grid points inside %g %s for grid cube at [%g %g %g] Bohr\n",
+                                        grid_points_inside, r_cut*Ang, _Ang, cube_coords[0], cube_coords[1], cube_coords[2]); }
 #else  // DEVEL
-            if (0) std::printf("%ld", grid_points_inside);
+            if (0) { std::printf("%ld", grid_points_inside); }
 #endif // DEVEL
         return added_charge;
     } // add_r2grid_to_cube
@@ -804,8 +804,8 @@ namespace parallel_potential {
             auto const iatom = ai.atom_id_;
             assert(0 <= iatom); assert(iatom < natoms);
 #ifdef    DEVEL
-            if (echo > 12) std::printf("# rank#%i adds to %s for atom#%i at position %g %g %g %s\n", 
-                    me, quantity_name, iatom, ai.pos_[0]*Ang, ai.pos_[1]*Ang, ai.pos_[2]*Ang, _Ang);
+            if (echo > 12) { std::printf("# rank#%i adds to %s for atom#%i at position %g %g %g %s\n", 
+                    me, quantity_name, iatom, ai.pos_[0]*Ang, ai.pos_[1]*Ang, ai.pos_[2]*Ang, _Ang); }
 #endif // DEVEL
             assert(nullptr != atom_r2coeff.at(iatom));
             double added_charge{0};
@@ -815,8 +815,8 @@ namespace parallel_potential {
                                           ai.pos_, atom_r2coeff[iatom], r_cut, factor, echo, nr2, ar2);
             } // ilb
 #ifdef    DEVEL
-            if (echo > 13) std::printf("# rank#%i atom#%i %g electrons added for periodic image %i %i %i\n",
-                                me, iatom, added_charge*g.dV(), ai.shifts_[0], ai.shifts_[1], ai.shifts_[2]);
+            if (echo > 13) { std::printf("# rank#%i atom#%i %g electrons added for periodic image %i %i %i\n",
+                                me, iatom, added_charge*g.dV(), ai.shifts_[0], ai.shifts_[1], ai.shifts_[2]); }
             added_charge_per_atom[iatom] += added_charge;
 #endif // DEVEL
             rho_total += added_charge;
@@ -832,7 +832,7 @@ namespace parallel_potential {
             std::printf("# rank#%i added %g electrons to %s\n", me, rho_total_checksum*g.dV(), quantity_name);
         } // echo
 #endif // DEVEL
-        if (echo > 3) std::printf("# added %g electrons to %s\n", rho_total, quantity_name);
+        if (echo > 3) { std::printf("# added %g electrons to %s\n", rho_total, quantity_name); }
         return rho_total;
     } // add_r2grid_quantity
 
@@ -887,8 +887,8 @@ namespace parallel_potential {
                 assert(0 == (gc[d] & 0x3) && "all grid numbers must be a multiple of 4");
             } // d
             auto const max_grid_spacing = std::max(std::max(std::max(1e-9, gc.h[0]), gc.h[1]), gc.h[2]);
-            if (echo > 1) std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
-                      gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
+            if (echo > 1) { std::printf("# use  %g %g %g  %s coarse grid spacing, corresponds to %.1f Ry\n",
+                        gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing)); }
             // modify dense grid BCs: map | from         to
             //                            | vacuum   --> isolated
             //                            | repeat   --> periodic
@@ -930,9 +930,9 @@ namespace parallel_potential {
         //     could be enriched by a workload model as function of Z
         //     would create some MPI closeness for systems with homogeneously distributed atoms
 
-        if (echo > 0) std::printf("# distribute %.3f k atoms as %g atoms per rank on %d ranks\n", n_all_atoms*1e-3, n_all_atoms/double(nprocs), nprocs);
+        if (echo > 0) { std::printf("# distribute %.3f k atoms as %g atoms per rank on %d ranks\n", n_all_atoms*1e-3, n_all_atoms/double(nprocs), nprocs); }
         int32_t const na = (n_all_atoms + nprocs - 1 - me)/nprocs; // simple model: owner_rank = global_atom_id % nprocs
-        if (echo > 4) std::printf("# rank#%i has %d owned atoms\n", me, na);
+        if (echo > 4) { std::printf("# rank#%i has %d owned atoms\n", me, na); }
 
 
         auto const n_cubes = pg.n_local();
@@ -950,7 +950,7 @@ namespace parallel_potential {
 
 
         uint32_t const natoms = global_atom_ids.size(); // number of locally contributing atoms
-        if (echo > 4) std::printf("# rank#%i has %d locally contributing atoms\n", me, natoms);
+        if (echo > 4) { std::printf("# rank#%i has %d locally contributing atoms\n", me, natoms); }
 
         atom_communication::AtomCommList_t const atom_comm_list(n_all_atoms, global_atom_ids, comm, echo);
 
@@ -967,7 +967,7 @@ namespace parallel_potential {
         std::vector<double> sigmas_cmp(natoms, 1.); // spread of the Gaussian used in the compensation charges on contributing atoms
 
         float take_atomic_valence_densities{1}; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
-        if (echo > 2) std::printf("# take atomic valence densities with %g %%\n", take_atomic_valence_densities*100);
+        if (echo > 2) { std::printf("# take atomic valence densities with %g %%\n", take_atomic_valence_densities*100); }
 
         // initialize and get sigma, lmax for each atom
         data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat, atom_qzyx, atom_vzyx; // for owned atoms
@@ -976,7 +976,7 @@ namespace parallel_potential {
 
             char const *const pawdata_from = control::get("pawdata.from", "auto"); // 'a': auto --> generate, 'g': generate, 'f': pawxml_import from file
             auto const pawdata_from_file = ('f' == (pawdata_from[0] | 32));
-            if (echo > 2) std::printf("# use pawdata.from=%s  options {file, generate} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate");
+            if (echo > 2) { std::printf("# use pawdata.from=%s  options {file, generate} --> %s\n", pawdata_from, pawdata_from_file?"read from files":"generate"); }
 
             std::vector<double> Z_owned_atoms(na, 0.);
             #pragma omp parallel for
@@ -1073,7 +1073,7 @@ namespace parallel_potential {
 
         energy_contour::Integrator *integrator{nullptr};
         if (needs_integrator) {
-            if (echo > 0) std::printf("\n# Initialize energy contour integrator\n");
+            if (echo > 0) { std::printf("\n# Initialize energy contour integrator\n"); }
 
             // Mind: currently the Green function method requires all atoms
             //     as it has to tell apart atomic images from atomic copies
@@ -1126,6 +1126,7 @@ namespace parallel_potential {
             integrator->plan_->matrices_requests = green_parallel::RequestList_t(integrator->plan_->global_atom_ids,
                 owned_global_atom_ids, atom_owner_rank.data(), nb, comm, echo, "atom matrices");
 
+            if (echo > 0) { std::printf("\n# energy contour integrator initialized\n"); }
             if (echo > 1) { std::printf("\n"); }
         } // needs_integrator
 

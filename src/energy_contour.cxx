@@ -99,6 +99,7 @@ namespace energy_contour {
         pg_ = new parallel_poisson::parallel_grid_t(gc, lb, echo, "Interpolation");
 
         int const nsub = plan_->plans.size();
+        if (echo > 3) { std::printf("# %s: construct green_solver_t for %d instances\n\n", __func__, nsub); }
 
         solver_ = std::vector<green_solver_t>(nsub);
         #pragma omp parallel for
@@ -106,7 +107,7 @@ namespace energy_contour {
             int const ech0 = echo*(0 == isub);
             solver_.at(isub) = green_solver_t(& plan_->plans[isub], ech0, check); // move assignment operator
         } // isub
-        if (echo > 7) std::printf("# constructed %s\n\n", __func__);
+        if (echo > 7) { std::printf("# constructed %s\n\n", __func__); }
     } // constructor
 
     Integrator::~Integrator() {

@@ -33,32 +33,32 @@ typedef green_action::action_t<double,2,2> Act822;
 
     green_solver_t::green_solver_t(action_plan_t* p, int const echo, int const check) { // custom constructor
         if (nullptr != p) {
-            if (echo > 0) std::printf("# construct %s +check=%d\n", __func__, check);
+            if (echo > 0) { std::printf("# construct %s +check=%d\n", __func__, check); }
             int const fp_input = control::get("green_solver.floating.point.bits", 32.);
             int const fp = (32 == fp_input) ? 32 : 64;
             if (echo > 0) std::printf("# +green_solver.floating.point.bits=%i --> %i\n", fp_input, fp);
             int constexpr r1c2 = 2; // 1:real, 2:complex (always complex since tfQMRgpu does not support real)
             int const noco_input = control::get("green_solver.noco", 0.);
             int const noco = (2 == noco_input) ? 2 : 1;
-            if (echo > 0) std::printf("# +green_solver.noco=%i --> Noco=%i\n", noco_input, noco);
+            if (echo > 0) { std::printf("# +green_solver.noco=%i --> Noco=%i\n", noco_input, noco); }
             action_key_ = 1000*fp + 10*r1c2 + noco;
 
-            if (echo > 0) std::printf("# green_solver_t::action_key= %i\n", int(action_key_));
+            if (echo > 0) { std::printf("# green_solver_t::action_key= %i\n", int(action_key_)); }
             // initialize
             switch (action_key_) {
-            case 32021: action_ = (void*)new Act421(p, echo, check); break; // complex
-            case 32022: action_ = (void*)new Act422(p, echo, check); break; // complex non-collinear
-            case 64021: action_ = (void*)new Act821(p, echo, check); break; // double complex
-            case 64022: action_ = (void*)new Act822(p, echo, check); break; // double complex non-collinear
-            default: error("No such action_key= %i", int(action_key_));
+                case 32021: action_ = (void*)new Act421(p, echo, check); break; // complex
+                case 32022: action_ = (void*)new Act422(p, echo, check); break; // complex non-collinear
+                case 64021: action_ = (void*)new Act821(p, echo, check); break; // double complex
+                case 64022: action_ = (void*)new Act822(p, echo, check); break; // double complex non-collinear
+                default: error("No such action_key= %i", int(action_key_));
             } // switch action_key_
             assert(action_ && "action pointer must be valid");
 #ifdef    DEBUGGPU
-            if (echo > 0) std::printf("# %s.action= %p\n", __func__, action_);
+            if (echo > 0) { std::printf("# %s.action= %p\n", __func__, action_); }
 #endif // DEBUGGPU
-            if (echo > 0) std::printf("# construct %s --> needs %.6f GByte GPU memory\n", __func__, p->gpu_mem*1e-9);
+            if (echo > 0) { std::printf("# construct %s --> needs %.6f GByte GPU memory\n", __func__, p->gpu_mem*1e-9); }
         } else {
-            if (echo > 0) std::printf("# cannot construct %s with p=nullptr\n", __func__);
+            if (echo > 0) { std::printf("# cannot construct %s with p=nullptr\n", __func__); }
         }
     } // constructor
 
@@ -78,11 +78,11 @@ typedef green_action::action_t<double,2,2> Act822;
         if (action_) {
             green_debug_printf("# destruct %s, action_key= %i\n", __func__, int(action_key_));
             switch (action_key_) {
-            case 32021: { ((Act421*)action_)->~action_t(); } break; // complex
-            case 32022: { ((Act422*)action_)->~action_t(); } break; // complex non-collinear
-            case 64021: { ((Act821*)action_)->~action_t(); } break; // double complex
-            case 64022: { ((Act822*)action_)->~action_t(); } break; // double complex non-collinear
-            default: error("action=%p but action_key=%d", action_, action_key_);
+                case 32021: { ((Act421*)action_)->~action_t(); } break; // complex
+                case 32022: { ((Act422*)action_)->~action_t(); } break; // complex non-collinear
+                case 64021: { ((Act821*)action_)->~action_t(); } break; // double complex
+                case 64022: { ((Act822*)action_)->~action_t(); } break; // double complex non-collinear
+                default: error("action=%p but action_key=%d", action_, action_key_);
             } // switch action_key_
         } // action_
     } // destructor
@@ -94,36 +94,36 @@ typedef green_action::action_t<double,2,2> Act822;
         , int const max_iterations
         , int const echo // =0 // verbosity
     ) {
-        if (echo > 7) std::printf("# green_solver_t::solve with action_key= %i, echo= %d\n", int(action_key_), echo);
+        if (echo > 7) { std::printf("# green_solver_t::solve with action_key= %i, echo= %d\n", int(action_key_), echo); }
 #ifdef    DEBUGGPU
-        if (echo > 3) std::printf("# %s.action= %p\n", __func__, action_);
+        if (echo > 3) { std::printf("# %s.action= %p\n", __func__, action_); }
 #endif // DEBUGGPU
         assert(action_ && "action pointer must be valid for call to solve");
         switch (action_key_) {
-        case 32021: { return ((Act421*)action_)->solve(rho, nblocks, max_iterations, echo); } // complex
-        case 32022: { return ((Act422*)action_)->solve(rho, nblocks, max_iterations, echo); } // complex non-collinear
-        case 64021: { return ((Act821*)action_)->solve(rho, nblocks, max_iterations, echo); } // double complex
-        case 64022: { return ((Act822*)action_)->solve(rho, nblocks, max_iterations, echo); } // double complex non-collinear
-        default:    { error("No solve with such action_key= %i", int(action_key_)); return action_key_; }
+            case 32021: { return ((Act421*)action_)->solve(rho, nblocks, max_iterations, echo); } // complex
+            case 32022: { return ((Act422*)action_)->solve(rho, nblocks, max_iterations, echo); } // complex non-collinear
+            case 64021: { return ((Act821*)action_)->solve(rho, nblocks, max_iterations, echo); } // double complex
+            case 64022: { return ((Act822*)action_)->solve(rho, nblocks, max_iterations, echo); } // double complex non-collinear
+            default:    { error("No solve with such action_key= %i", int(action_key_)); return action_key_; }
         } // switch action_key_
     } // solve
 
 
     status_t green_solver_t::verify(int const echo) {
         switch (action_key_) {
-        case 32021: {
-            auto const *const a = (Act421*)action_;
-            auto const *const p = a->get_plan();
-            return verify_benchmark::verify_Green_function((float  const*)a->get_memory_buffer(),
-                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->target_minus_source, p->grid_spacing_trunc); }
-        case 64021: {
-            auto const *const a = (Act821*)action_;
-            auto const *const p = a->get_plan();
-            return verify_benchmark::verify_Green_function((double const*)a->get_memory_buffer(),
-                    p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->target_minus_source, p->grid_spacing_trunc); }
-        case 64022:
-        case 32022: { error("non-collinear not implemented, found action_key=%d", action_key_); return -1; }
-        default:    { warn("action key=%d has not been set", action_key_); return 0; }
+            case 32021: {
+                auto const *const a = (Act421*)action_;
+                auto const *const p = a->get_plan();
+                return verify_benchmark::verify_Green_function((float  const*)a->get_memory_buffer(),
+                        p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->target_minus_source, p->grid_spacing_trunc); }
+            case 64021: {
+                auto const *const a = (Act821*)action_;
+                auto const *const p = a->get_plan();
+                return verify_benchmark::verify_Green_function((double const*)a->get_memory_buffer(),
+                        p->nRows, p->nCols, p->RowStart, p->colindx.data(), p->target_minus_source, p->grid_spacing_trunc); }
+            case 64022:
+            case 32022: { error("non-collinear not yet implemented, found action_key=%d", action_key_); return -1; }
+            default:    { warn("action key=%d has not been set to any of {32021, 64021, 32022, 64022}", action_key_); return 0; }
         } // action_key_
         return 0;
     } // verify
