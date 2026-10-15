@@ -609,6 +609,7 @@ namespace green_parallel {
         } // ireq
 
         mpi_parallel::barrier(comm); // synchronize processes
+        if (echo > 6) { std::printf("# exchange done using MPI two-sided communication, packages of %d numbers, what=\'%s\'\n", count, what); }
         return status;
     } // RequestList_t::exchange
 
