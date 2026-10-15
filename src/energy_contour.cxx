@@ -102,7 +102,7 @@ namespace energy_contour {
         if (echo > 3) { std::printf("# %s: construct green_solver_t for %d instances\n\n", __func__, nsub); std::fflush(stdout); }
 
         solver_ = std::vector<green_solver_t>(nsub);
-        // #pragma omp parallel for
+        #pragma omp parallel for
         for (int isub = 0; isub < nsub; ++isub) {
             int const ech0 = echo*(0 == isub);
             solver_.at(isub) = green_solver_t(& plan_->plans[isub], ech0, check); // move assignment operator
