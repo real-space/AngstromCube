@@ -114,9 +114,12 @@ namespace green_action {
                 if (echo > 0) { std::printf("\n# call tfqmrgpu::mem_count\n"); }
                 // try to instanciate tfqmrgpu::solve<T> with this T=action_t<real_t,R1C2,Noco,64>
                 tfqmrgpu::solve(*this); // compute GPU memory requirements
+
+                // ToDo: remodel: we have to move the GPU memory stats somewhere else. In case the domains are uneven
+                //                the number of allreduce calls differs between the ranks --> MPI deadlock
                 auto const me = mpi_parallel::rank(comm);                                      // uses MPI_COMM_WORLD
-                {
-                    simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m,comm); // uses MPI_COMM_WORLD
+                if (0) {
+                    simple_stats::Stats<> m; m.add(p.gpu_mem); mpi_parallel::allreduce(m, comm); // uses MPI_COMM_WORLD
                     if (echo + check > 3) { std::printf("# tfQMRgpu needs [%.3f, %.3f +/- %.3f, %.3f] %s GPU memory, %.3f %s total\n",
                                 m.min()*GByte, m.mean()*GByte, m.dev()*GByte, m.max()*GByte, _GByte, m.sum()*GByte, _GByte); }
                     if (echo > 7) { std::printf("# rank#%i tries to allocate %.9f %s green_memory\n", me, p.gpu_mem*GByte, _GByte); }
